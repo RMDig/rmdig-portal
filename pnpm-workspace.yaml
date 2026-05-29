@@ -1,8 +1,13 @@
-allowBuilds:
-  '@sentry/cli': set this to true or false
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+# Packages whose install scripts are allowed to run. pnpm 11 refuses to silently
+# skip postinstalls — we have to explicitly trust each one. Why each is allowed:
+#   esbuild       bundler used by drizzle-kit and others; postinstall fetches
+#                 the platform-native binary
+#   @sentry/cli   used by withSentryConfig at build time for source-map upload;
+#                 postinstall fetches the platform binary
+#   sharp         Next.js Image optimization native binary
+#   unrs-resolver Rust-based module resolver pulled in transitively; native
 onlyBuiltDependencies:
+  - "@sentry/cli"
+  - esbuild
   - sharp
   - unrs-resolver
