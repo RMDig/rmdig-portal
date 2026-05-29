@@ -1,0 +1,87 @@
+import { z } from "zod";
+
+// Single source of truth for env access across the app. Imported by lib/db,
+// lib/logger, lib/auth, sentry.*.config — anywhere else that touches env, route
+// it through here instead of reading process.env directly. That way the schema
+// catches typos and missing values at server boot, not at first user request.
+//
+// Strict at runtime, lenient during builds (CI typecheck/lint/build and Next's
+// static analysis don't have the full secret set). Production deploys validate
+// because Vercel injects the full env before the server starts.
+
+const Env = z.object({
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+
+  // Postgres (Neon, pooled). lib/db/index.ts is tuned for the -pooler suffix.
+  DATABASE_URL: z.string().url(),
+
+  // Auth.js v5. NEXTAUTH_URL is optional on Vercel (Auth.js auto-detects via
+  // VERCEL_URL). NEXTAUTH_SECRET must be at least 32 hex chars.
+  NEXTAUTH_URL: z.string().url().optional(),
+  NEXTAUTH_SECRET: z.string().min(32),
+
+  // Google OAuth
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+
+  // Apple Sign-In. APPLE_PRIVATE_KEY arrives PEM-formatted with \n escapes
+  // (Option A from the Apple walkthrough); Auth.js's Apple provider parses
+  // either PEM or base64.
+  APPLE_ID: z.string().min(1),
+  APPLE_TEAM_ID: z.string().length(10),
+  APPLE_KEY_ID: z.string().length(10),
+  APPLE_PRIVATE_KEY: z.string().min(1),
+
+  // Resend transactional email
+  RESEND_API_KEY: z.string().startsWith("re_"),
+  RESEND_FROM_EMAIL: z.string().email().default("noreply@rmdig.ai"),
+
+  // Sentry. DSN is optional locally (errors then just log); ORG/PROJECT/AUTH
+  // are build-time only for source-map upload.
+  SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ORG: z.string().optional(),
+  SENTRY_PROJECT: z.string().optional(),
+  SENTRY_AUTH_TOKEN: z.string().optional(),
+
+  // Phase-1.4+ — optional until those milestones land.
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
+
+  // Phase-1.3+ — AvServ S2S. Optional until AvServ ships the endpoint.
+  AVSERV_BASE_URL: z.string().optional(),
+  AVSERV_PEER_JWT_SIGNING_KEY: z.string().optional(),
+  AVSERV_DEVICE_JWT_PUBLIC_KEY: z.string().optional(),
+
+  // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
+  MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),
+
+  // Commit SHA surfaced by /healthz. Vercel sets VERCEL_GIT_COMMIT_SHA;
+  // GIT_COMMIT_SHA is the local-dev fallback.
+  VERCEL_GIT_COMMIT_SHA: z.string().optional(),
+  GIT_COMMIT_SHA: z.string().optional(),
+});
+
+export type Env = z.infer<typeof Env>;
+
+const parsed = Env.safeParse(process.env);
+
+// Skip strict validation during Next.js build phase and in CI. Next's static
+// analysis imports all module-level code without the full env, and CI runs
+// `pnpm build` without secrets. Production deploys hit the strict path because
+// Vercel injects env before the server boots.
+const isBuildOrCI =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  process.env.CI === "true" ||
+  process.env.NODE_ENV === "test";
+
+if (!parsed.success && !isBuildOrCI) {
+  const flat = parsed.error.flatten().fieldErrors;
+  const summary = Object.entries(flat)
+    .map(([k, v]) => `  ${k}: ${v?.join(", ")}`)
+    .join("\n");
+  throw new Error(`Invalid environment variables:\n${summary}\n\nCheck .env.local against .env.example.`);
+}
+
+// At build/CI, expose process.env as-is (typed) so static analysis doesn't
+// trip on missing values. At runtime, expose the validated and defaulted set.
+export const env = (parsed.success ? parsed.data : (process.env as unknown)) as Env;
