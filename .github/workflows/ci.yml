@@ -27,10 +27,13 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
+      # Node 22 LTS — pnpm 11 requires Node 22+. The CLAUDE_BOOTSTRAP.md
+      # spec of "Node 20 LTS" predates Node 20's EOL; treat 22 as the new
+      # baseline. Local dev tested on 25.x as well.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
