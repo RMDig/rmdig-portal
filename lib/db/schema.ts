@@ -1,7 +1,84 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+// The first four tables (users, accounts, sessions, verificationTokens) match
+// the shape Auth.js's Drizzle adapter expects. Column names within these tables
+// use camelCase in BOTH TS and Postgres — this matches the adapter's default
+// schema exactly so future @auth/drizzle-adapter upgrades land without surgery.
+// Our additions (passwordHash, displayName, createdAt) and our own tables
+// (rateLimits) use snake_case DB columns as is conventional Postgres style.
 
 export const users = pgTable("users", {
+  // Auth.js standard
   id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name"),
   email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  emailVerified: timestamp("emailVerified", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  image: text("image"),
+  // Custom — null passwordHash means OAuth-only account (no credentials login)
+  passwordHash: text("password_hash"),
+  displayName: text("display_name"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const accounts = pgTable(
+  "accounts",
+  {
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("providerAccountId").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (account) => [
+    primaryKey({ columns: [account.provider, account.providerAccountId] }),
+  ],
+);
+
+export const sessions = pgTable("sessions", {
+  sessionToken: text("sessionToken").primaryKey(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
+});
+
+export const verificationTokens = pgTable(
+  "verification_tokens",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
+  },
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })],
+);
+
+// Sign-in rate limiting. Key is typically "signin:<email>". Window starts at
+// the first failed attempt; each subsequent failure increments attempts. After
+// 15 minutes the window resets. Bootstrap section §P1.1: 5 fails / 15 min / email.
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  attempts: integer("attempts").notNull().default(0),
+  windowStart: timestamp("window_start", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
