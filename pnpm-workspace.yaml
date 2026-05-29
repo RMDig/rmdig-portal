@@ -1,8 +1,12 @@
+# pnpm 11+ requires explicit approval for every package with install scripts.
+# Each entry is the package name → true (allow) or false (skip). All four
+# packages here download platform-native binaries we need at build time:
+#   @sentry/cli   source-map upload during next build (withSentryConfig)
+#   esbuild       bundler binary used by drizzle-kit and other transitive deps
+#   sharp         Next.js Image optimization native binary
+#   unrs-resolver Rust-based module resolver pulled in transitively
 allowBuilds:
-  '@sentry/cli': set this to true or false
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
-onlyBuiltDependencies:
-  - sharp
-  - unrs-resolver
+  "@sentry/cli": true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
