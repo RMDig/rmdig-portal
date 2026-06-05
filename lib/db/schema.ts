@@ -1,5 +1,6 @@
 import {
   integer,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
@@ -88,6 +89,27 @@ export const rateLimits = pgTable("rate_limits", {
     .defaultNow()
     .notNull(),
 });
+
+// Platform-level roles, distinct from per-SAR-org roles (those come in P1.4 via
+// org_memberships). A user has zero or more platform roles; most users have
+// none (they're SAR-org members, not rmdig staff). rmdig_admin = full operator;
+// rmdig_reviewer = SAR-org approval queue only. Modeled as a join table rather
+// than a column so the set grows without a migration and a user can hold both.
+export const platformRole = pgEnum("platform_role", ["rmdig_admin", "rmdig_reviewer"]);
+
+export const userPlatformRoles = pgTable(
+  "user_platform_roles",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: platformRole("role").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.role] })],
+);
 
 // Password-reset tokens. Distinct from verification_tokens on purpose: a
 // different lifecycle (single-use, 1-hour TTL) and a different threat model —

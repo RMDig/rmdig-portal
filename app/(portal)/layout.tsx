@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { isPlatformStaff } from "@/lib/auth/roles";
 import { SignOutButton } from "./SignOutButton";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -9,6 +10,10 @@ export default async function PortalLayout({ children }: { children: React.React
   if (!session?.user) {
     redirect("/sign-in");
   }
+
+  // Admin nav appears only for rmdig staff (any platform role). Fetched here
+  // rather than from the session so the session stays lean.
+  const showAdmin = await isPlatformStaff(session.user.id);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -18,6 +23,11 @@ export default async function PortalLayout({ children }: { children: React.React
             rmdig
           </Link>
           <div className="flex items-center gap-3 text-sm">
+            {showAdmin ? (
+              <Link href="/admin" className="text-muted-foreground hover:text-foreground">
+                Admin
+              </Link>
+            ) : null}
             <Link href="/settings" className="text-muted-foreground hover:text-foreground">
               Settings
             </Link>
