@@ -26,6 +26,17 @@ export interface AvServAccount {
   created: boolean;
 }
 
+export interface DeviceLinkCode {
+  /** Short, human-enterable code the user types into AvApp to link a device. */
+  code: string;
+  /** ISO-8601 timestamp after which the code is no longer valid. */
+  expiresAt: string;
+}
+
+// AvServ issues single-use link-codes on a short TTL (10 min per the contract).
+// The mock mirrors that window so the UI's "expires at" copy is realistic.
+const LINK_CODE_TTL_MS = 10 * 60 * 1000;
+
 /** Thrown when AvServ is unreachable, misconfigured, or returns an unexpected
  *  status. Callers on the login path treat this as transient: log and retry on
  *  the next sign-in, never block the user. */
@@ -56,6 +67,20 @@ function mockAccountId(email: string): string {
   const variant = ((parseInt(hex.charAt(16), 16) & 0x3) | 0x8).toString(16);
   const id = hex.slice(0, 12) + "5" + hex.slice(13, 16) + variant + hex.slice(17, 32);
   return `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20, 32)}`;
+}
+
+// Deterministic mock link-code derived from the account id. A real code is
+// fresh and single-use each mint; the mock trades that for determinism so the
+// mint-code flow is testable without AvServ. Crockford-ish alphabet (no
+// ambiguous 0/O/1/I), grouped XXXX-XXXX for easy hand-entry into AvApp.
+function mockLinkCode(accountId: string): string {
+  const h = createHash("sha256").update(`avserv-mock-linkcode:${accountId}`).digest("hex");
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 8; i++) {
+    out += alphabet[parseInt(h.slice(i * 2, i * 2 + 2), 16) % alphabet.length];
+  }
+  return `${out.slice(0, 4)}-${out.slice(4, 8)}`;
 }
 
 // Tracks emails the mock has "seen" this process so it can report `created`
@@ -128,6 +153,67 @@ export async function findOrCreateAccount(email: string): Promise<AvServAccount>
     throw new AvServError("AvServ response missing accountId");
   }
   return { accountId: body.accountId, created: body.created === true };
+}
+
+/**
+ * Mint a single-use device link-code for an AvServ account (P-B2, portal mints
+ * / app consumes). The user types the returned code into AvApp to bind a device
+ * to this account. Throws {@link AvServError} on any failure; the caller surfaces
+ * a retry-friendly message. Unlike the login map, this is user-initiated, so a
+ * failure is shown rather than silently retried.
+ */
+export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
+  if (!accountId) {
+    throw new AvServError("mintLinkCode called with an empty accountId");
+  }
+
+  const baseUrl = env.AVSERV_BASE_URL;
+  if (!baseUrl) {
+    throw new AvServError(
+      "AVSERV_BASE_URL is not set — cannot mint a device link-code. " +
+        "Set it to mock://localhost for local dev or the real AvServ base URL.",
+    );
+  }
+
+  if (isMock(baseUrl)) {
+    return {
+      code: mockLinkCode(accountId),
+      expiresAt: new Date(Date.now() + LINK_CODE_TTL_MS).toISOString(),
+    };
+  }
+
+  let res: Response;
+  try {
+    const token = await signServiceJwt();
+    res = await fetch(
+      `${baseUrl.replace(/\/$/, "")}/v1/internal/accounts/${encodeURIComponent(accountId)}/link-codes`,
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      },
+    );
+  } catch (err) {
+    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
+  }
+
+  if (res.status === 401) {
+    throw new AvServError("AvServ rejected the service JWT (401)", 401);
+  }
+  if (res.status === 404) {
+    // The account id we hold doesn't exist on AvServ — a mapping drift, not a
+    // user error. Distinct status so it's diagnosable.
+    throw new AvServError("AvServ does not know this account (404)", 404);
+  }
+  if (!res.ok) {
+    throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);
+  }
+
+  const body = (await res.json().catch(() => null)) as Partial<DeviceLinkCode> | null;
+  if (!body || typeof body.code !== "string" || typeof body.expiresAt !== "string") {
+    throw new AvServError("AvServ response missing code/expiresAt");
+  }
+  return { code: body.code, expiresAt: body.expiresAt };
 }
 
 /** True when AvServ integration is configured at all. Callers skip the map
