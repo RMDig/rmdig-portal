@@ -3,16 +3,18 @@
 import { randomBytes } from "node:crypto";
 
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { AuthError } from "next-auth";
 import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
+import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
 import { db } from "@/lib/db";
-import { users, verificationTokens } from "@/lib/db/schema";
-import { sendVerificationEmail } from "@/lib/email/send";
+import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { incrementRateLimit } from "@/lib/rate-limit";
 
 // ----- Schemas -----
 
@@ -154,4 +156,136 @@ export async function signInGoogleAction(): Promise<void> {
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/sign-in" });
+}
+
+// ----- Password reset: request -----
+
+const requestResetSchema = z.object({
+  email: z.string().email().toLowerCase(),
+});
+
+// Throttle reset requests per email so this can't be used to flood someone's
+// inbox or as an oracle. 5 / 15 min mirrors the sign-in limit.
+const RESET_REQUEST_RATE_LIMIT = { limit: 5, windowSec: 15 * 60 };
+
+export async function requestPasswordResetAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = requestResetSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Please enter a valid email address.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  const { email } = parsed.data;
+
+  // Everything past validation returns the SAME neutral success — whether the
+  // email exists, is OAuth-only, or is rate-limited — so this never reveals
+  // whether an account exists.
+  const neutral: ActionResult = { ok: true };
+
+  const rl = await incrementRateLimit(`pwreset:${email}`, RESET_REQUEST_RATE_LIMIT);
+  if (!rl.allowed) {
+    logger.warn({ event: "pwreset.request.rate_limited", email, attempts: rl.attempts });
+    return neutral;
+  }
+
+  const [user] = await db
+    .select({ id: users.id, passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  // Only credentials users (those with a password) can reset one. OAuth-only
+  // accounts have a null hash and nothing to reset — silently no-op, neutrally.
+  if (!user || !user.passwordHash) {
+    logger.info({ event: "pwreset.request.no_eligible_user", email });
+    return neutral;
+  }
+
+  const { token, tokenHash, expires } = generateResetToken();
+
+  // One live token per user: drop any prior ones before issuing a new one.
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
+  await db.insert(passwordResetTokens).values({ userId: user.id, tokenHash, expires });
+
+  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+  try {
+    await sendPasswordResetEmail(email, resetUrl);
+    logger.info({ event: "pwreset.request.sent", userId: user.id });
+  } catch (err) {
+    // Don't leak the failure through the response (that would expose existence);
+    // log it so we can see delivery problems. The user can request again.
+    logger.error({ event: "pwreset.request.email_failed", userId: user.id, err });
+  }
+
+  return neutral;
+}
+
+// ----- Password reset: complete -----
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(200, "Password is too long"),
+});
+
+export async function resetPasswordAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  const { token, password } = parsed.data;
+
+  const tokenHash = hashResetToken(token);
+  const [row] = await db
+    .select({ id: passwordResetTokens.id, userId: passwordResetTokens.userId })
+    .from(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.tokenHash, tokenHash),
+        gt(passwordResetTokens.expires, new Date()),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    logger.info({ event: "pwreset.complete.invalid_or_expired" });
+    return {
+      ok: false,
+      error: "This reset link is invalid or has expired. Request a new one.",
+    };
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  // Set the new password and mark the email verified — completing a reset proves
+  // control of the inbox, so an unverified credentials user becomes verified.
+  await db
+    .update(users)
+    .set({ passwordHash, emailVerified: new Date() })
+    .where(eq(users.id, row.userId));
+
+  // Burn every reset token for this user (single-use + clears any siblings)...
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, row.userId));
+  // ...and invalidate all existing sessions so a stolen session can't outlive
+  // the password it was opened under. The user re-authenticates with the new one.
+  await db.delete(sessions).where(eq(sessions.userId, row.userId));
+
+  logger.info({ event: "pwreset.complete.success", userId: row.userId });
+  return { ok: true };
 }

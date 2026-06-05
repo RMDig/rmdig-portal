@@ -18,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function SignInForm() {
   const params = useSearchParams();
   const verified = params.get("verified") === "true";
+  const reset = params.get("reset") === "true";
   const urlError = params.get("error");
   const urlErrorMessage = urlError ? ERROR_MESSAGES[urlError] : null;
 
@@ -29,6 +30,11 @@ export function SignInForm() {
       {verified ? (
         <div className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-900 dark:bg-green-900/20 dark:text-green-200">
           Email verified. You can sign in now.
+        </div>
+      ) : null}
+      {reset ? (
+        <div className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-900 dark:bg-green-900/20 dark:text-green-200">
+          Password updated. Sign in with your new password.
         </div>
       ) : null}
       {urlErrorMessage ? (
@@ -65,7 +71,15 @@ export function SignInForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link
+              href="/forgot-password"
+              className="text-muted-foreground hover:text-foreground text-xs underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             name="password"

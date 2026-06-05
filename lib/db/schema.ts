@@ -88,3 +88,21 @@ export const rateLimits = pgTable("rate_limits", {
     .defaultNow()
     .notNull(),
 });
+
+// Password-reset tokens. Distinct from verification_tokens on purpose: a
+// different lifecycle (single-use, 1-hour TTL) and a different threat model —
+// we store only a SHA-256 hash of the token, never the plaintext, so a DB read
+// can't be turned into an account takeover. The plaintext lives only in the
+// emailed link. Keyed by user_id (FK, cascade) so a deleted user drops their
+// tokens; token_hash is unique so a hash collision can't shadow another row.
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
