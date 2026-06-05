@@ -1,25 +1,40 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import NextAuth, { type DefaultSession } from "next-auth";
+import NextAuth, { CredentialsSignin, type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
 
 import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
+import { decryptSecret } from "./auth/mfa";
+import { verifySecondFactor } from "./auth/mfa-verify";
 import { db } from "./db";
 import { accounts, sessions, users, verificationTokens } from "./db/schema";
 import { env } from "./env";
 import { logger } from "./logger";
-import { incrementRateLimit } from "./rate-limit";
+import { incrementRateLimit, resetRateLimit } from "./rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email().toLowerCase(),
   password: z.string().min(1),
+  // Optional second factor. Absent on the first submit (password only); present
+  // on the resubmit after we signal MFA_REQUIRED. A 6-digit TOTP or a recovery code.
+  totp: z.string().optional(),
 });
 
 // 5 fails / 15 min window per email — bootstrap section P1.1.
 const SIGNIN_RATE_LIMIT = { limit: 5, windowSec: 15 * 60 };
+
+// CredentialsSignin subclasses carry a `code` that propagates intact to the
+// sign-in server action (unlike plain Errors, which get wrapped). The action
+// reads the code to drive the two-phase MFA challenge in the UI.
+class MfaRequiredError extends CredentialsSignin {
+  code = "mfa_required";
+}
+class MfaInvalidError extends CredentialsSignin {
+  code = "mfa_invalid";
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -58,11 +73,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           logger.warn({ event: "auth.credentials.invalid_input" });
           return null;
         }
-        const { email, password } = parsed.data;
+        const { email, password, totp } = parsed.data;
 
         // Throttle BEFORE the user lookup so we don't leak account existence
         // through timing. Key is per-email regardless of whether the user
-        // exists. 5 fails / 15 min per bootstrap section P1.1.
+        // exists. 5 fails / 15 min per bootstrap section P1.1. The same window
+        // also caps TOTP guessing, since the second factor runs under this key.
         const rl = await incrementRateLimit(`signin:${email}`, SIGNIN_RATE_LIMIT);
         if (!rl.allowed) {
           logger.warn({ event: "auth.credentials.rate_limited", email, attempts: rl.attempts });
@@ -90,6 +106,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           logger.info({ event: "auth.credentials.unverified", userId: user.id });
           throw new Error("Please verify your email before signing in. Check your inbox.");
         }
+
+        // Second factor (phase two). The password is correct; if MFA is on, the
+        // user must also present a current TOTP or an unused recovery code.
+        if (user.mfaEnabledAt) {
+          const code = totp?.trim();
+          if (!code) {
+            // Password ok, code not yet supplied — tell the UI to ask for it.
+            logger.info({ event: "auth.credentials.mfa_required", userId: user.id });
+            throw new MfaRequiredError();
+          }
+          if (!user.totpSecretEncrypted) {
+            // Enabled but no secret is an inconsistent state; force re-enrollment
+            // rather than silently letting the user past the second factor.
+            logger.error({ event: "auth.credentials.mfa_missing_secret", userId: user.id });
+            throw new MfaRequiredError();
+          }
+          const second = await verifySecondFactor(
+            user.id,
+            decryptSecret(user.totpSecretEncrypted),
+            code,
+          );
+          if (!second) {
+            logger.info({ event: "auth.credentials.mfa_invalid", userId: user.id });
+            throw new MfaInvalidError();
+          }
+        }
+
+        // Success — clear the throttle window so this login's attempts (and the
+        // MFA handshake) don't count against the next one.
+        await resetRateLimit(`signin:${email}`);
 
         return {
           id: user.id,

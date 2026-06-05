@@ -1,19 +1,48 @@
+import { eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
-import { isPlatformStaff } from "@/lib/auth/roles";
+import { evaluateMfaGate } from "@/lib/auth/mfa-enforcement";
+import { getPlatformRoles } from "@/lib/auth/roles";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { env } from "@/lib/env";
 import { SignOutButton } from "./SignOutButton";
+
+const ENROLL_PATH = "/settings/mfa/enroll";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/sign-in");
   }
+  const userId = session.user.id;
 
-  // Admin nav appears only for rmdig staff (any platform role). Fetched here
-  // rather than from the session so the session stays lean.
-  const showAdmin = await isPlatformStaff(session.user.id);
+  // One roles read serves both the Admin nav and the MFA policy (admin_only).
+  const roles = await getPlatformRoles(userId);
+  const isStaff = roles.length > 0;
+
+  const [row] = await db
+    .select({ mfaEnabledAt: users.mfaEnabledAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  const gate = evaluateMfaGate({
+    enforcement: env.MFA_ENFORCEMENT,
+    mfaEnabled: !!row?.mfaEnabledAt,
+    isStaff,
+  });
+
+  // Authoritative enforcement (see middleware.ts for why this lives here, not in
+  // Edge middleware). The pathname comes from middleware so we don't loop the
+  // user on the enrollment page itself.
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  if (gate === "required" && pathname !== ENROLL_PATH) {
+    redirect(ENROLL_PATH);
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -23,7 +52,7 @@ export default async function PortalLayout({ children }: { children: React.React
             rmdig
           </Link>
           <div className="flex items-center gap-3 text-sm">
-            {showAdmin ? (
+            {isStaff ? (
               <Link href="/admin" className="text-muted-foreground hover:text-foreground">
                 Admin
               </Link>
@@ -36,6 +65,18 @@ export default async function PortalLayout({ children }: { children: React.React
           </div>
         </div>
       </header>
+
+      {gate === "nag" ? (
+        <div className="border-b bg-amber-50 dark:bg-amber-900/20">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+            <span>Secure your account with two-factor authentication.</span>
+            <Link href={ENROLL_PATH} className="font-medium whitespace-nowrap underline">
+              Set up now
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
     </div>
   );

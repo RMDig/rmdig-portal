@@ -24,6 +24,7 @@ export function SignInForm() {
 
   const [state, formAction, pending] = useActionState(signInCredentialsAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  const mfaRequired = !!(state && !state.ok && state.mfaRequired);
 
   return (
     <div className="space-y-6">
@@ -89,11 +90,27 @@ export function SignInForm() {
             aria-invalid={!!fieldErrors?.password}
           />
         </div>
+        {mfaRequired ? (
+          <div className="space-y-2">
+            <Label htmlFor="totp">Authenticator code</Label>
+            <Input
+              id="totp"
+              name="totp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              autoFocus
+            />
+            <p className="text-muted-foreground text-xs">
+              Enter the 6-digit code from your app, or one of your recovery codes.
+            </p>
+          </div>
+        ) : null}
         {state && !state.ok ? (
           <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
         ) : null}
         <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "Signing in…" : "Sign in"}
+          {pending ? "Signing in…" : mfaRequired ? "Verify and sign in" : "Sign in"}
         </Button>
       </form>
 
