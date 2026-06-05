@@ -61,6 +61,11 @@ const Env = z.object({
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),
 
+  // AES-256 key (32 bytes, hex) encrypting stored TOTP secrets. Optional in the
+  // schema so builds/CI without MFA configured still boot; lib/auth/mfa fails
+  // loud if MFA is exercised without it. Generate with: openssl rand -hex 32
+  MFA_ENCRYPTION_KEY: z.string().optional(),
+
   // Commit SHA surfaced by /healthz. Vercel sets VERCEL_GIT_COMMIT_SHA;
   // GIT_COMMIT_SHA is the local-dev fallback.
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),

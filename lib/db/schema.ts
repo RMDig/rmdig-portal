@@ -34,10 +34,37 @@ export const users = pgTable("users", {
   // from users.id ON PURPOSE — users.id is referenced by Auth.js accounts/
   // sessions, so it must stay the portal's own identifier.
   avservAccountId: uuid("avserv_account_id").unique(),
+  // MFA (TOTP). The secret is stored AES-256-GCM-encrypted (see lib/auth/mfa),
+  // never plaintext — a DB read alone can't reconstruct anyone's second factor.
+  // A non-null secret with a null mfaEnabledAt is a *pending* enrollment (QR
+  // shown, code not yet verified); mfaEnabledAt being set means MFA is active.
+  totpSecretEncrypted: text("totp_secret_encrypted"),
+  mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
 });
+
+// One-time MFA recovery codes. Stored as SHA-256 hashes (high-entropy random,
+// so a fast hash is right — same reasoning as reset tokens); the plaintext is
+// shown to the user exactly once at generation. usedAt marks a code as spent so
+// each works only once.
+export const mfaRecoveryCodes = pgTable(
+  "mfa_recovery_codes",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  // Composite natural key: a user can't hold the same code hash twice, and we
+  // look codes up by (user_id, code_hash) — no surrogate id needed.
+  (t) => [primaryKey({ columns: [t.userId, t.codeHash] })],
+);
 
 export const accounts = pgTable(
   "accounts",
