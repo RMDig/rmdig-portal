@@ -36,6 +36,13 @@
       "when": 1780634835312,
       "tag": "0004_add_user_platform_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780636574946,
+      "tag": "0005_add_mfa",
+      "breakpoints": true
     }
   ]
 }

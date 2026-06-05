@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { DisplayNameCard, PasswordCard } from "./AccountCards";
 import { LinkDeviceCard } from "./LinkDeviceCard";
+import { MfaCard } from "./MfaCard";
 
 export const metadata = {
   title: "Settings — rmdig",
@@ -23,6 +24,7 @@ export default async function SettingsPage() {
       displayName: users.displayName,
       name: users.name,
       passwordHash: users.passwordHash,
+      mfaEnabledAt: users.mfaEnabledAt,
     })
     .from(users)
     .where(eq(users.id, session.user.id))
@@ -33,6 +35,7 @@ export default async function SettingsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       <DisplayNameCard displayName={user?.displayName ?? user?.name ?? ""} />
       <PasswordCard hasPassword={!!user?.passwordHash} />
+      <MfaCard enabled={!!user?.mfaEnabledAt} />
       <LinkDeviceCard />
     </div>
   );
