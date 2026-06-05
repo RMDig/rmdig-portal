@@ -47,10 +47,16 @@ const Env = z.object({
   // Phase-1.4+ — optional until those milestones land.
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
 
-  // Phase-1.3+ — AvServ S2S. Optional until AvServ ships the endpoint.
+  // AvServ S2S identity integration (direction B — see rmdig-ai docs/plans/
+  // 05_portal_identity_integration.md). Optional until AvServ ships the
+  // /v1/internal/accounts endpoints; `mock://localhost` exercises the portal
+  // half without a live AvServ.
   AVSERV_BASE_URL: z.string().optional(),
-  AVSERV_PEER_JWT_SIGNING_KEY: z.string().optional(),
-  AVSERV_DEVICE_JWT_PUBLIC_KEY: z.string().optional(),
+  // PKCS#8 PEM Ed25519 private key (kid svc-key-portal-1) that signs the
+  // short-lived service JWT for /v1/internal/*. Held only in Vercel env, never
+  // committed. The portal signs; AvServ verifies the public half — so no
+  // device/public key is needed on this side.
+  AVSERV_SERVICE_JWT_SIGNING_KEY: z.string().optional(),
 
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),
