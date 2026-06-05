@@ -6,6 +6,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
 
+import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
 import { db } from "./db";
 import { accounts, sessions, users, verificationTokens } from "./db/schema";
 import { env } from "./env";
@@ -130,6 +131,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   events: {
     async signIn({ user, account }) {
       logger.info({ event: "auth.signin", userId: user.id, provider: account?.provider });
+      // Map this user to their canonical AvServ account (P-B1). Runs here, in an
+      // event (not a callback), so it fires after the user row is persisted and
+      // cannot gate the session. mapUser…OnLogin is itself failure-safe and
+      // idempotent — a transient AvServ outage just retries on the next login.
+      if (user.id) {
+        await mapUserToAvServAccountOnLogin(user.id);
+      }
     },
     async signOut() {
       logger.info({ event: "auth.signout" });

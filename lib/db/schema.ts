@@ -27,6 +27,12 @@ export const users = pgTable("users", {
   // Custom — null passwordHash means OAuth-only account (no credentials login)
   passwordHash: text("password_hash"),
   displayName: text("display_name"),
+  // Direction-B identity link: the canonical AvServ account this portal user
+  // maps to (rmdig-ai docs/plans/05). Nullable until the post-login map runs;
+  // unique so two portal users can't claim the same AvServ account. Distinct
+  // from users.id ON PURPOSE — users.id is referenced by Auth.js accounts/
+  // sessions, so it must stay the portal's own identifier.
+  avservAccountId: uuid("avserv_account_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

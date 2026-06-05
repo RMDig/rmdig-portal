@@ -15,6 +15,13 @@
       "when": 1780068768660,
       "tag": "0001_unusual_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780621248464,
+      "tag": "0002_add_avserv_account_id",
+      "breakpoints": true
     }
   ]
 }
