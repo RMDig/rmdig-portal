@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 
 import bcrypt from "bcryptjs";
 import { and, eq, gt } from "drizzle-orm";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
@@ -29,13 +29,21 @@ const signUpSchema = z.object({
 const signInSchema = z.object({
   email: z.string().email().toLowerCase(),
   password: z.string().min(1),
+  totp: z.string().optional(),
 });
 
 // ----- Action result type -----
 
 export type ActionResult =
   | { ok: true }
-  | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
+  | {
+      ok: false;
+      error: string;
+      fieldErrors?: Record<string, string[] | undefined>;
+      // Set when the password was correct but a second factor is needed (or was
+      // wrong). The sign-in form reveals the TOTP field and resubmits.
+      mfaRequired?: boolean;
+    };
 
 // ----- Sign up -----
 
@@ -126,15 +134,34 @@ export async function signInCredentialsAction(
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
+      totp: parsed.data.totp,
       redirectTo: "/dashboard",
     });
     return { ok: true };
   } catch (err) {
-    // Auth.js v5 throws AuthError subclasses on credentials failures. Surface
-    // a clean message; never leak internals.
+    // MFA signals come through as CredentialsSignin subclasses with a `code`
+    // (these propagate intact, unlike plain Errors). Check them first.
+    if (err instanceof CredentialsSignin) {
+      if (err.code === "mfa_required") {
+        return {
+          ok: false,
+          mfaRequired: true,
+          error: "Enter the 6-digit code from your authenticator app.",
+        };
+      }
+      if (err.code === "mfa_invalid") {
+        return {
+          ok: false,
+          mfaRequired: true,
+          error: "That code didn't match. Try again, or use a recovery code.",
+        };
+      }
+      // code "credentials" — authorize returned null (bad email/password).
+      return { ok: false, error: "Invalid email or password." };
+    }
+    // Other AuthErrors: our plain-Error throws (verify-email, too-many-attempts)
+    // arrive wrapped; surface those messages, else a generic one.
     if (err instanceof AuthError) {
-      // Specific messages our authorize() throws come through as the .message
-      // of CredentialsSignin / CallbackRouteError.
       const friendly =
         err.message.includes("verify your email") || err.message.includes("Too many")
           ? err.message
