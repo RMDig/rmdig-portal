@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
+
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import NextAuth, { CredentialsSignin, type DefaultSession } from "next-auth";
+import { encode as defaultJwtEncode } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { z } from "zod";
@@ -36,17 +39,62 @@ class MfaInvalidError extends CredentialsSignin {
   code = "mfa_invalid";
 }
 
+// Database-session lifetime (30d). Shared between the session config and the
+// credentials encode override below so the manually-created session row and the
+// adapter's own sessions expire on the same clock.
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
+
+// Hoisted so the credentials encode override (below) can call createSession on
+// the same adapter instance NextAuth uses for everything else.
+const adapter = DrizzleAdapter(db, {
+  usersTable: users,
+  accountsTable: accounts,
+  sessionsTable: sessions,
+  verificationTokensTable: verificationTokens,
+});
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
+  adapter,
   session: {
     strategy: "database",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: SESSION_MAX_AGE,
     updateAge: 24 * 60 * 60,
+  },
+  // Why this exists: the Credentials provider never goes through the adapter's
+  // createSession, so under `strategy: "database"` a credentials login would set
+  // a session cookie pointing at NO sessions row — every request after the first
+  // then fails auth(). The fix (canonical for Auth.js v5): intercept jwt.encode,
+  // which credentials login DOES call to produce the cookie value, and instead
+  // mint a real database session, returning its token as the cookie. NextAuth
+  // still owns the cookie itself (name, Secure prefix, flags), so we avoid the
+  // cookie-handling pitfalls of setting it by hand. OAuth never hits this branch
+  // — under database strategy it creates adapter sessions directly, so encode is
+  // only invoked for the credentials flow (flagged via the jwt callback below).
+  jwt: {
+    async encode(params) {
+      if (params.token?.credentials) {
+        const userId = params.token.sub;
+        if (!userId) {
+          throw new Error("credentials session encode: token.sub (user id) is missing");
+        }
+        if (!adapter.createSession) {
+          throw new Error("credentials session encode: adapter has no createSession");
+        }
+        const sessionToken = randomUUID();
+        const session = await adapter.createSession({
+          sessionToken,
+          userId,
+          expires: new Date(Date.now() + SESSION_MAX_AGE * 1000),
+        });
+        if (!session) {
+          throw new Error("credentials session encode: createSession returned nothing");
+        }
+        // This token becomes the cookie value; database-strategy auth() resolves
+        // it via adapter.getSessionAndUser on subsequent requests.
+        return sessionToken;
+      }
+      return defaultJwtEncode(params);
+    },
   },
   pages: {
     signIn: "/sign-in",
@@ -147,6 +195,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async jwt({ token, account, user }) {
+      // Mark the credentials flow so the encode override mints a DB session for
+      // it. Also pin token.sub to the user id (encode reads it as the owner of
+      // the session row). OAuth doesn't reach encode, so this flag is harmless
+      // there. See the jwt.encode comment above for the full rationale.
+      if (account?.provider === "credentials") {
+        token.credentials = true;
+        if (user?.id) token.sub = user.id;
+      }
+      return token;
+    },
     async session({ session, user }) {
       // Database session strategy: user is the full DB row. Surface the id on
       // session.user so server-side `auth()` calls can use it directly.
@@ -200,5 +259,13 @@ declare module "next-auth" {
     user: {
       id: string;
     } & DefaultSession["user"];
+  }
+}
+
+// `credentials` flag set by the jwt callback and read by the encode override to
+// route the credentials login through database-session creation.
+declare module "next-auth/jwt" {
+  interface JWT {
+    credentials?: boolean;
   }
 }
