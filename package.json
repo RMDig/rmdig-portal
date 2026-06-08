@@ -17,7 +17,8 @@
     "db:seed-admin": "tsx scripts/seed-admin.ts",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:live": "playwright test device-link.live.spec.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",

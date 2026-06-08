@@ -1,12 +1,19 @@
 import { eq } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { DisplayNameCard, PasswordCard } from "./AccountCards";
-import { LinkDeviceCard } from "./LinkDeviceCard";
 import { MfaCard } from "./MfaCard";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export const metadata = {
   title: "Settings — rmdig",
@@ -36,7 +43,19 @@ export default async function SettingsPage() {
       <DisplayNameCard displayName={user?.displayName ?? user?.name ?? ""} />
       <PasswordCard hasPassword={!!user?.passwordHash} />
       <MfaCard enabled={!!user?.mfaEnabledAt} />
-      <LinkDeviceCard />
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle>Devices</CardTitle>
+            <CardDescription>
+              View the devices linked to your account and generate a code to link a new one.
+            </CardDescription>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/settings/devices">Manage devices</Link>
+          </Button>
+        </CardHeader>
+      </Card>
     </div>
   );
 }
