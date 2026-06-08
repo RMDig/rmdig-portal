@@ -52,3 +52,87 @@ jobs:
       # routes that import the db client.
       - name: Build
         run: pnpm build
+
+  e2e-gate:
+    name: Device-link E2E (mock)
+    # The bootstrap §6 gate for P1.3: drives a real browser through credentials
+    # login → AvServ account map (P-B1) → linked-devices view (P-B3) → mint a
+    # link-code (P-B2), against the hermetic mock AvServ. PRs only — a merge to
+    # main has already passed this on its PR, so we don't re-run (or spin up a
+    # Neon branch) on every push to main.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright (chromium)
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Ephemeral DB: branch off the dev branch (NOT production — so CI never
+      # clones real user data). Created here, torn down in the final step
+      # regardless of outcome. db_url_with_pooler is the pooled connection string.
+      - name: Create Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          parent: ${{ vars.NEON_PARENT_BRANCH || 'vercel-dev' }}
+          branch_name: e2e-ci-pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      # Idempotent catch-up in case the dev parent lagged behind main's migrations.
+      - name: Apply migrations
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_with_pooler }}
+
+      - name: Run device-link mock gate
+        run: pnpm test:e2e
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_with_pooler }}
+          # Explicit acknowledgement that this DB is disposable (global-setup
+          # writes to the users table and refuses to run without it).
+          E2E_ALLOW_DB: "1"
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          # Unused by the credentials flow the gate exercises, but constructed
+          # eagerly at module load, so they must be present (non-empty) or the
+          # login request 500s: the Google provider (lib/auth) and the Resend
+          # client (lib/email/send.ts, imported by the sign-in action). lib/env
+          # skips validation under CI=1 (set automatically by GitHub Actions), so
+          # placeholders suffice. AVSERV_BASE_URL is left unset → harness mock.
+          GOOGLE_CLIENT_ID: ci-unused
+          GOOGLE_CLIENT_SECRET: ci-unused
+          RESEND_API_KEY: re_ci_unused
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      # Always delete the ephemeral branch — even if the gate failed — so we
+      # don't accumulate per-PR branches in the Neon project.
+      - name: Delete Neon branch
+        if: always()
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: e2e-ci-pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
