@@ -109,12 +109,15 @@ jobs:
           # writes to the users table and refuses to run without it).
           E2E_ALLOW_DB: "1"
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          # Unused by the credentials flow the gate exercises; placeholders keep
-          # the Google provider constructible when lib/env skips validation (CI=1,
-          # set automatically by GitHub Actions). AVSERV_BASE_URL is left unset so
-          # the harness defaults to mock://localhost.
+          # Unused by the credentials flow the gate exercises, but constructed
+          # eagerly at module load, so they must be present (non-empty) or the
+          # login request 500s: the Google provider (lib/auth) and the Resend
+          # client (lib/email/send.ts, imported by the sign-in action). lib/env
+          # skips validation under CI=1 (set automatically by GitHub Actions), so
+          # placeholders suffice. AVSERV_BASE_URL is left unset → harness mock.
           GOOGLE_CLIENT_ID: ci-unused
           GOOGLE_CLIENT_SECRET: ci-unused
+          RESEND_API_KEY: re_ci_unused
 
       - name: Upload Playwright report on failure
         if: failure()
