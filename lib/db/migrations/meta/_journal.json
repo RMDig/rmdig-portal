@@ -43,6 +43,13 @@
       "when": 1780636574946,
       "tag": "0005_add_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781394990243,
+      "tag": "0006_sar_onboarding",
+      "breakpoints": true
     }
   ]
 }
