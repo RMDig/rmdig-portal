@@ -5,6 +5,7 @@ import { RESET_TOKEN_TTL_MINUTES } from "../auth/reset-tokens";
 import { env } from "../env";
 import { logger } from "../logger";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
+import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
 import VerifyEmail from "./templates/VerifyEmail";
@@ -90,4 +91,31 @@ export async function sendSarOrgPendingReviewEmail(
   }
 
   logger.info({ event: "email.sar_pending_review.sent", to, resendId: data?.id });
+}
+
+const DECISION_SUBJECT: Record<SarOrgDecision, string> = {
+  approved: "Your SAR organization is approved",
+  rejected: "An update on your SAR organization application",
+  changes_requested: "Your SAR organization application needs changes",
+};
+
+export async function sendSarOrgDecisionEmail(
+  to: string,
+  params: { orgName: string; decision: SarOrgDecision; note?: string },
+): Promise<void> {
+  const html = await render(SarOrgDecisionEmail(params));
+
+  const { data, error } = await resend.emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: DECISION_SUBJECT[params.decision],
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.sar_decision.failed", to, decision: params.decision, error });
+    throw new Error(`Resend rejected SAR-decision email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.sar_decision.sent", to, decision: params.decision, resendId: data?.id });
 }
