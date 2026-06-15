@@ -17,6 +17,7 @@
     "db:seed-admin": "tsx scripts/seed-admin.ts",
     "db:reset-mfa": "tsx scripts/reset-mfa.ts",
     "db:studio": "drizzle-kit studio",
+    "email:preview": "tsx scripts/email-preview.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test device-link.live.spec.ts"
