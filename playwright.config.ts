@@ -52,6 +52,12 @@ export default defineConfig({
       // operator's exported env before invoking Playwright. `||` (not `??`) so an
       // empty AVSERV_BASE_URL inherited from .env.local also falls back to mock.
       AVSERV_BASE_URL: process.env.AVSERV_BASE_URL || "mock://localhost",
+      // SAR create gate (P1.4): keep proof-doc upload hermetic (no Blob token,
+      // no junk objects) and let the form accept region GeoJSON via a textarea
+      // since the headless browser can't reliably draw on the map canvas. Both
+      // flags are E2E-only seams; production never sets them.
+      E2E_FAKE_BLOB: "1",
+      NEXT_PUBLIC_E2E: "1",
     },
   },
 });

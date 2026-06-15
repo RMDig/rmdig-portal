@@ -5,6 +5,8 @@ import { RESET_TOKEN_TTL_MINUTES } from "../auth/reset-tokens";
 import { env } from "../env";
 import { logger } from "../logger";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
+import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
+import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
 import VerifyEmail from "./templates/VerifyEmail";
 
 const resend = new Resend(env.RESEND_API_KEY);
@@ -49,4 +51,43 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   }
 
   logger.info({ event: "email.password_reset.sent", to, resendId: data?.id });
+}
+
+export async function sendSarOrgSubmittedEmail(to: string, orgName: string): Promise<void> {
+  const html = await render(SarOrgSubmittedEmail({ orgName }));
+
+  const { data, error } = await resend.emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: "We received your SAR organization application",
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.sar_submitted.failed", to, error });
+    throw new Error(`Resend rejected SAR-submitted email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.sar_submitted.sent", to, resendId: data?.id });
+}
+
+export async function sendSarOrgPendingReviewEmail(
+  to: string,
+  params: { orgName: string; submitterEmail: string; reviewUrl: string },
+): Promise<void> {
+  const html = await render(SarOrgPendingReviewEmail(params));
+
+  const { data, error } = await resend.emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: `SAR org awaiting review: ${params.orgName}`,
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.sar_pending_review.failed", to, error });
+    throw new Error(`Resend rejected SAR-pending-review email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.sar_pending_review.sent", to, resendId: data?.id });
 }
