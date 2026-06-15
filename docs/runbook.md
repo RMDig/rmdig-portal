@@ -73,43 +73,29 @@ When a user has lost their authenticator **and** their recovery codes. (If they
 still have recovery codes, have them sign in with one and re-enroll themselves —
 no operator action needed.)
 
-**Verify identity out-of-band first** (this clears their second factor):
+**Verify identity out-of-band first** — this clears their second factor:
 
-```sql
--- Read first to confirm you have the right account:
-SELECT id, email, mfa_enabled_at FROM users WHERE email = 'user@example.com';
-
--- Clear the TOTP secret + enrollment, then drop their recovery codes:
-UPDATE users SET totp_secret_encrypted = NULL, mfa_enabled_at = NULL
-WHERE email = 'user@example.com';
-DELETE FROM mfa_recovery_codes
-WHERE user_id = (SELECT id FROM users WHERE email = 'user@example.com');
+```bash
+DATABASE_URL=<prod-url> pnpm db:reset-mfa user@example.com
 ```
 
-This mirrors the self-service "disable MFA" path exactly. The user re-enrolls at
+The script clears the TOTP secret + enrollment and drops their recovery codes
+(exactly the self-service "disable MFA" path). The user re-enrolls at
 `/settings/mfa/enroll` on next sign-in (and is nagged/required to per
-`MFA_ENFORCEMENT`). *Future hardening: wrap this in a guarded `db:reset-mfa <email>`
-script like `db:seed-admin`.*
+`MFA_ENFORCEMENT`).
 
 ## Suspend / reactivate a SAR org
 
-There is **no UI action for this yet** (the approvals queue handles
-approve/reject/request-changes only). Do it manually, and **mirror the audit
-pattern** the UI uses so history stays complete:
+Use the approvals queue (`/admin/sar-approvals`) — it lists approved and
+suspended orgs alongside pending ones:
 
-```sql
--- Suspend an approved org:
-UPDATE sar_orgs SET status = 'suspended' WHERE id = '<org-uuid>';
-INSERT INTO sar_org_status_log (org_id, action, from_status, to_status, actor_user_id)
-VALUES ('<org-uuid>', 'suspended', 'approved', 'suspended', (SELECT id FROM users WHERE email = '<your-email>'));
+- **Suspend** an approved org (optional reason) → status `suspended`; it stops
+  appearing as an active org.
+- **Reactivate** a suspended org → status `pending`, back into the review queue.
 
--- Reactivate (back to pending for re-review, per the state machine):
-UPDATE sar_orgs SET status = 'pending' WHERE id = '<org-uuid>';
-INSERT INTO sar_org_status_log (org_id, action, from_status, to_status, actor_user_id)
-VALUES ('<org-uuid>', 'reactivated', 'suspended', 'pending', (SELECT id FROM users WHERE email = '<your-email>'));
-```
-
-*Future hardening: add suspend/reactivate to the admin UI so this isn't hand-SQL.*
+Both append to `sar_org_status_log` and are attributed to you, same as the review
+decisions. (Suspend / reactivate don't email the org — communicate out of band
+if needed.)
 
 ## Run a production migration
 

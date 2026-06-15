@@ -17,9 +17,16 @@ const OPERATING_STATUS_LABEL: Record<string, string> = {
   other: "Other",
 };
 
+const STATUS_BADGE: Record<string, string> = {
+  pending: "Pending review",
+  approved: "Approved",
+  suspended: "Suspended",
+};
+
 export interface PendingOrg {
   id: string;
   name: string;
+  status: string;
   submitterEmail: string;
   submittedAt: string; // ISO
   operatingStatus: string;
@@ -40,7 +47,8 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-medium">{org.name}</h3>
         <span className="text-muted-foreground text-sm">
-          Submitted {Number.isNaN(submitted.getTime()) ? "" : submitted.toLocaleDateString()}
+          {STATUS_BADGE[org.status] ?? org.status} · submitted{" "}
+          {Number.isNaN(submitted.getTime()) ? "" : submitted.toLocaleDateString()}
         </span>
       </div>
 
@@ -83,46 +91,73 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
 
       {error ? <p className="text-sm text-red-700 dark:text-red-400">{error}</p> : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        {/* Approve — no note required. */}
+      {org.status === "pending" ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          {/* Approve — no note required. */}
+          <form action={formAction}>
+            <input type="hidden" name="orgId" value={org.id} />
+            <input type="hidden" name="decision" value="approve" />
+            <Button type="submit" disabled={pending}>
+              Approve
+            </Button>
+          </form>
+
+          {/* Reject — reason required. */}
+          <form action={formAction} className="flex-1 space-y-2">
+            <input type="hidden" name="orgId" value={org.id} />
+            <input type="hidden" name="decision" value="reject" />
+            <textarea
+              name="note"
+              rows={2}
+              placeholder="Reason for rejecting (sent to the submitter)"
+              className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
+            />
+            <Button type="submit" variant="outline" disabled={pending}>
+              Reject
+            </Button>
+          </form>
+
+          {/* Request changes — note required; org stays pending. */}
+          <form action={formAction} className="flex-1 space-y-2">
+            <input type="hidden" name="orgId" value={org.id} />
+            <input type="hidden" name="decision" value="request_changes" />
+            <textarea
+              name="note"
+              rows={2}
+              placeholder="What needs to change (sent to the submitter)"
+              className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
+            />
+            <Button type="submit" variant="outline" disabled={pending}>
+              Request changes
+            </Button>
+          </form>
+        </div>
+      ) : org.status === "approved" ? (
+        // Suspend an approved org — optional reason, recorded in the audit log.
+        <form action={formAction} className="max-w-md space-y-2">
+          <input type="hidden" name="orgId" value={org.id} />
+          <input type="hidden" name="decision" value="suspend" />
+          <textarea
+            name="note"
+            rows={2}
+            placeholder="Reason for suspending (optional, recorded in the audit log)"
+            className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
+          />
+          <Button type="submit" variant="outline" disabled={pending}>
+            Suspend
+          </Button>
+        </form>
+      ) : org.status === "suspended" ? (
+        // Reactivate a suspended org — returns it to pending for re-review.
         <form action={formAction}>
           <input type="hidden" name="orgId" value={org.id} />
-          <input type="hidden" name="decision" value="approve" />
-          <Button type="submit" disabled={pending}>
-            Approve
-          </Button>
-        </form>
-
-        {/* Reject — reason required. */}
-        <form action={formAction} className="flex-1 space-y-2">
-          <input type="hidden" name="orgId" value={org.id} />
-          <input type="hidden" name="decision" value="reject" />
-          <textarea
-            name="note"
-            rows={2}
-            placeholder="Reason for rejecting (sent to the submitter)"
-            className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
-          />
+          <input type="hidden" name="decision" value="reactivate" />
           <Button type="submit" variant="outline" disabled={pending}>
-            Reject
+            Reactivate (re-review)
           </Button>
         </form>
+      ) : null}
 
-        {/* Request changes — note required; org stays pending. */}
-        <form action={formAction} className="flex-1 space-y-2">
-          <input type="hidden" name="orgId" value={org.id} />
-          <input type="hidden" name="decision" value="request_changes" />
-          <textarea
-            name="note"
-            rows={2}
-            placeholder="What needs to change (sent to the submitter)"
-            className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
-          />
-          <Button type="submit" variant="outline" disabled={pending}>
-            Request changes
-          </Button>
-        </form>
-      </div>
       {fieldErrors?.note ? (
         <p className="text-xs text-red-700 dark:text-red-400">{fieldErrors.note.join(", ")}</p>
       ) : null}
