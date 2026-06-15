@@ -1,25 +1,69 @@
 import { expect, type Page } from "@playwright/test";
 import postgres from "postgres";
 
-// Shared E2E fixtures: the seeded test user and small helpers used by both the
-// mock and live device-link suites.
+// Shared E2E fixtures: a small roster of role personas and the helpers used
+// across the suites. Personas are STABLE IDENTITIES — seeded once by
+// global-setup with a fixed role/auth state, and read by tests ("sign in as the
+// staff user"). Per-test mutable workflow data (orgs, invitations) is created
+// fresh inside each test (uniquely named) so tests never collide on it. Seed new
+// personas only as a spec needs them — don't accumulate unused fixtures.
 
-export const E2E_USER = {
+export interface E2eUser {
+  email: string;
+  password: string;
+  displayName: string;
+}
+
+/** Verified, no platform role, no MFA — the default user. Device-link + SAR
+ *  create sign in as this one; it lands straight on /dashboard. */
+export const E2E_USER: E2eUser = {
   email: "e2e-device-link@rmdig.test",
-  // High-entropy local-only credential; this user exists solely in the dev/test
-  // branch global-setup seeds. Never a real account.
+  // High-entropy local-only credential; these users exist solely in the dev/test
+  // branch global-setup seeds. Never real accounts.
   password: "E2e-device-link-9f3a!Q",
   displayName: "E2E Device Link",
 } as const;
 
-/** Sign in via the real credentials form (single-factor; the seeded user has no
- *  MFA), exercising the signIn event that performs the AvServ account map. */
-export async function signIn(page: Page): Promise<void> {
+/** rmdig_admin platform staff — for the SAR approvals queue. */
+export const STAFF_USER: E2eUser = {
+  email: "e2e-staff@rmdig.test",
+  password: "E2e-staff-7k2p!Z",
+  displayName: "E2E Staff",
+} as const;
+
+/** A second plain user, for the invitation-accept flow (PR-D). */
+export const INVITEE_USER: E2eUser = {
+  email: "e2e-invitee@rmdig.test",
+  password: "E2e-invitee-4m9x!Q",
+  displayName: "E2E Invitee",
+} as const;
+
+/** The roster global-setup seeds, with the platform role (if any) to grant. */
+export const E2E_PERSONAS: { user: E2eUser; platformRole: "rmdig_admin" | null }[] = [
+  { user: E2E_USER, platformRole: null },
+  { user: STAFF_USER, platformRole: "rmdig_admin" },
+  { user: INVITEE_USER, platformRole: null },
+];
+
+/** Sign in via the real credentials form (single-factor; seeded users have no
+ *  MFA and the E2E server runs MFA_ENFORCEMENT=optional). */
+export async function signInAs(page: Page, user: E2eUser): Promise<void> {
   await page.goto("/sign-in");
-  await page.getByLabel("Email").fill(E2E_USER.email);
-  await page.getByLabel("Password", { exact: true }).fill(E2E_USER.password);
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/dashboard");
+}
+
+/** Sign in as the default user — exercises the signIn event that maps the AvServ
+ *  account. Back-compat wrapper used by the device-link + SAR-create specs. */
+export async function signIn(page: Page): Promise<void> {
+  await signInAs(page, E2E_USER);
+}
+
+/** Drop the session so a test can switch personas (clears the auth cookie). */
+export async function signOut(page: Page): Promise<void> {
+  await page.context().clearCookies();
 }
 
 /** Read the user's mapped AvServ account id straight from the DB, so a test can
