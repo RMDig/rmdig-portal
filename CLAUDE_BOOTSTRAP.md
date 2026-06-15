@@ -7,7 +7,7 @@
 `rmdig-portal` is the user-facing Next.js application served at `app.rmdig.ai`. It is one of four services in the rmdig platform:
 
 - **rmdig-portal** (this repo) — user accounts, SAR org management, dashboards, eventually capture review and payouts
-- **AvServ** (`github.com/dennys246/AvServ`) — Go safety watchdog, alert dispatch, check-ins
+- **AvServ** (`github.com/dennys246/AvServ`) — Go safety watchdog, alert dispatch, the check-out/check-in safety lifecycle
 - **SnowDB** (does not exist yet) — capture storage, novelty scoring, review queue backend, DataLedger source of truth
 - **AvAI / snowGAN** — offline ML training pipelines, publish models to HuggingFace Hub
 
@@ -192,6 +192,7 @@ For dev work before AvServ is ready: implement a mock AvServ client behind `AVSE
 - **Migrations:** one Drizzle Kit migration per logical schema change. Never edit a migration after it has merged to main. Name them descriptively.
 - **Commits:** small, focused, present-tense imperative ("Add device link claim endpoint"). Conventional Commits not required but welcome.
 - **PRs:** every merge to main goes through a PR. Even solo. Vercel preview deploys give you a real environment to QA against.
+- **Trip-safety vocabulary (forward-looking).** The platform's safety lifecycle is *check out* (head into the field, arming a watched outing with an `expected_return_at`) → *check in* (confirm safe, closing it); AvServ owns the canonical glossary. The portal has none of this today. When portal surfaces for it land (check-out / check-in history, alert history), name the table and routes `checkouts` with `checked_out_at` / `checked_in_at` — **never reuse `session`** (reserved for Auth.js here) or introduce a `trip` entity. "Heartbeat" (device telemetry) and "ping" (SAR-responder GPS) are reserved and are not check-ins.
 
 ## 6 — Testing
 
