@@ -1,15 +1,16 @@
 import { loadEnvConfig } from "@next/env";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { E2E_USER } from "./helpers";
-import { users } from "../../lib/db/schema";
+import { E2E_PERSONAS } from "./helpers";
+import { userPlatformRoles, users } from "../../lib/db/schema";
 
-// Seed the verified, non-staff credentials user the device-link suites log in
-// as. Resets avserv_account_id to NULL each run so the test can assert the
-// signIn-event map populates it from scratch.
+// Seed the E2E role personas (helpers.E2E_PERSONAS): the default member the
+// device-link/SAR-create suites log in as, plus a staff (rmdig_admin) reviewer
+// and a second invitee user. Each is upserted verified with avserv_account_id
+// reset to NULL, so the device-link map-on-login assertion starts from scratch;
+// the staff persona also gets its platform-role row.
 //
 // Loads env like drizzle.config.ts (loadEnvConfig — drizzle-kit/scripts don't
 // auto-read .env.local). DATABASE_URL must be a disposable dev/test branch.
@@ -42,31 +43,38 @@ export default async function globalSetup(): Promise<void> {
   }
 
   const client = postgres(url, { prepare: false, max: 1 });
-  const db = drizzle(client, { schema: { users } });
+  const db = drizzle(client, { schema: { users, userPlatformRoles } });
   try {
-    const passwordHash = await bcrypt.hash(E2E_USER.password, 10);
     const now = new Date();
-    await db
-      .insert(users)
-      .values({
-        email: E2E_USER.email,
-        passwordHash,
-        emailVerified: now,
-        displayName: E2E_USER.displayName,
-      })
-      .onConflictDoUpdate({
-        target: users.email,
-        // Re-seed deterministically: refresh the credential, keep the email
-        // verified, and clear any prior mapping so the map assertion is honest.
-        set: { passwordHash, emailVerified: now, avservAccountId: null },
-      });
+    for (const { user, platformRole } of E2E_PERSONAS) {
+      const passwordHash = await bcrypt.hash(user.password, 10);
+      const [row] = await db
+        .insert(users)
+        .values({
+          email: user.email,
+          passwordHash,
+          emailVerified: now,
+          displayName: user.displayName,
+        })
+        .onConflictDoUpdate({
+          target: users.email,
+          // Re-seed deterministically: refresh the credential, keep the email
+          // verified, and clear any prior AvServ mapping so the map-on-login
+          // assertion is honest. returning() gives the id either way (insert or
+          // update) for the role grant below.
+          set: { passwordHash, emailVerified: now, avservAccountId: null },
+        })
+        .returning({ id: users.id });
 
-    // Belt-and-suspenders: ensure the mapping really is null even if the row
-    // pre-existed via a path that skipped the conflict set above.
-    await db
-      .update(users)
-      .set({ avservAccountId: null })
-      .where(eq(users.email, E2E_USER.email));
+      // Grant the platform role for staff personas. Idempotent on the
+      // (user_id, role) PK so re-runs don't duplicate.
+      if (platformRole && row) {
+        await db
+          .insert(userPlatformRoles)
+          .values({ userId: row.id, role: platformRole })
+          .onConflictDoNothing();
+      }
+    }
   } finally {
     await client.end();
   }
