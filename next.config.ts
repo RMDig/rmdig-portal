@@ -46,4 +46,7 @@ export default withSentryConfig(nextConfig, {
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
+  // Upload source maps for the wider client bundle too, so minified client-side
+  // stack traces resolve to original source in Sentry (P1.5 source-maps goal).
+  widenClientFileUpload: true,
 });
