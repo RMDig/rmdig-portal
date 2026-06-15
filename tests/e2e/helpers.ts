@@ -103,3 +103,55 @@ export async function clearAvservAccountId(email: string): Promise<void> {
 export async function expectMintedCodeVisible(page: Page): Promise<void> {
   await expect(page.getByText(/Enter this code in AvApp before/i)).toBeVisible();
 }
+
+/** Seed an APPROVED SAR org owned (admin) by `ownerEmail`, returning its id —
+ *  setup for the invitation flow, which requires an approved org. Inserts the
+ *  org + the owner's admin membership directly (region_geom is nullable and not
+ *  needed here), so the test doesn't have to drive create → approve first. */
+export async function seedApprovedOrg(ownerEmail: string, orgName: string): Promise<string> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("seedApprovedOrg: DATABASE_URL is not set");
+  const sql = postgres(url, { prepare: false, max: 1 });
+  try {
+    const [owner] = await sql<{ id: string }[]>`
+      SELECT id FROM users WHERE email = ${ownerEmail} LIMIT 1
+    `;
+    if (!owner) throw new Error(`seedApprovedOrg: no seeded user ${ownerEmail}`);
+    const [org] = await sql<{ id: string }[]>`
+      INSERT INTO sar_orgs
+        (name, contact_name, contact_email, operating_status, proof_doc_url,
+         status, created_by_user_id, approved_at, approved_by_user_id)
+      VALUES
+        (${orgName}, 'E2E Owner', 'owner@sar.test', 'county_sar',
+         'https://blob.local/e2e.pdf', 'approved', ${owner.id}, now(), ${owner.id})
+      RETURNING id
+    `;
+    await sql`
+      INSERT INTO org_memberships (org_id, user_id, role)
+      VALUES (${org!.id}, ${owner.id}, 'admin')
+      ON CONFLICT DO NOTHING
+    `;
+    return org!.id;
+  } finally {
+    await sql.end();
+  }
+}
+
+/** The org role a user holds (by email) in an org, or null — lets a test assert
+ *  an invitation was actually accepted into a membership row. */
+export async function orgRoleFor(email: string, orgId: string): Promise<string | null> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("orgRoleFor: DATABASE_URL is not set");
+  const sql = postgres(url, { prepare: false, max: 1 });
+  try {
+    const rows = await sql<{ role: string }[]>`
+      SELECT m.role FROM org_memberships m
+      JOIN users u ON u.id = m.user_id
+      WHERE u.email = ${email} AND m.org_id = ${orgId}
+      LIMIT 1
+    `;
+    return rows[0]?.role ?? null;
+  } finally {
+    await sql.end();
+  }
+}
