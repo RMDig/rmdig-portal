@@ -76,11 +76,32 @@ describe("reviewSarOrgAction", () => {
     expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
   });
 
-  it("refuses to act on an org that isn't pending", async () => {
+  it("refuses a transition from the wrong status (approve a non-pending org)", async () => {
     h.org = [{ status: "approved", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
     const res = await reviewSarOrgAction(null, fd("approve"));
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/already approved/i);
+    if (!res.ok) expect(res.error).toMatch(/can't approve|approved/i);
+  });
+
+  it("suspends an approved org without emailing", async () => {
+    h.org = [{ status: "approved", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
+    const res = await reviewSarOrgAction(null, fd("suspend"));
+    expect(res.ok).toBe(true);
+    expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+  });
+
+  it("reactivates a suspended org without emailing", async () => {
+    h.org = [{ status: "suspended", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
+    const res = await reviewSarOrgAction(null, fd("reactivate"));
+    expect(res.ok).toBe(true);
+    expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+  });
+
+  it("won't suspend an org that isn't approved", async () => {
+    // org defaults to pending
+    const res = await reviewSarOrgAction(null, fd("suspend"));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/can't suspend|pending/i);
   });
 
   it("approves and emails the submitter", async () => {
