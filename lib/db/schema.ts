@@ -121,8 +121,10 @@ export const rateLimits = pgTable("rate_limits", {
 // Platform-level roles, distinct from per-SAR-org roles (those come in P1.4 via
 // org_memberships). A user has zero or more platform roles; most users have
 // none (they're SAR-org members, not rmdig staff). rmdig_admin = full operator;
-// rmdig_reviewer = SAR-org approval queue only. Modeled as a join table rather
-// than a column so the set grows without a migration and a user can hold both.
+// rmdig_reviewer = approval-queue access — the SAR-org queue and (P2, operator
+// decision 2026-06-16) the advertiser creative-approval queue (docs/plans/30 §3).
+// Modeled as a join table rather than a column so the set grows without a
+// migration and a user can hold both.
 export const platformRole = pgEnum("platform_role", ["rmdig_admin", "rmdig_reviewer"]);
 
 export const userPlatformRoles = pgTable(
@@ -324,4 +326,213 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
 },
   // History is always read per-org, newest first; index org_id for that lookup.
   (t) => [index("sar_org_status_log_org_id_idx").on(t.orgId)],
+);
+
+// ── Advertiser portal (P2 / v2+, docs/plans/30_advertiser_portal.md) ─────────
+// Self-served sponsor ads that fund AvServ. The advertiser surface is the SAR-
+// onboarding module with the nouns changed: a new principal (advertiser_accounts)
+// reached through membership (advertiser_memberships), creatives that move through
+// a manual operator-approval state machine (ad_creatives + ad_creative_status_log),
+// grouped under campaigns. v2+ scope, off the v1/v1.5 critical path.
+//
+// Safety/privacy invariants baked into these types (AvApp doc 30 §0, doc 31 §0):
+//   - `slot` is a CLOSED enum — there is no value that expresses a pre-safety-action
+//     placement, so the schema cannot represent an ad in front of a safety tap.
+//   - the region tuple is the ADVERTISER's chosen target zone, never user location.
+//   - no per-user impression data lives here; impressions are aggregate-only and
+//     owned by AvServ (the portal only ever displays them).
+
+// An advertiser account's lifecycle. Far simpler than sar_orgs' submit→approve
+// machine: an advertiser is vetted by the operator out of band before it transacts,
+// so the account itself is just active/suspended — the *approval* gate that matters
+// for a safety app lives on each creative (ad_creatives.status), not the account.
+export const advertiserStatus = pgEnum("advertiser_status", ["active", "suspended"]);
+
+// Per-advertiser membership roles, distinct from platform roles (userPlatformRoles)
+// and from SAR org roles (orgRole). `admin` manages billing + members; `editor`
+// authors creatives. Least-privilege at invite, mirroring orgRole.
+export const advertiserRole = pgEnum("advertiser_role", ["admin", "editor"]);
+
+// The closed set of ad placements (AvApp doc 30 §4 / doc 31 §1). post_checkin and
+// post_checkout are independently buyable post-resolution slots; loading_idle is
+// reserved (the client isn't wired for it yet, doc 31 §1) but modeled now so it
+// needs no migration later. Every value is post-resolution or idle by construction
+// — the §0 bright-line ("an ad may appear after a safety action resolves, never
+// before one") holds for anything this enum can express.
+export const adSlot = pgEnum("ad_slot", ["post_checkin", "post_checkout", "loading_idle"]);
+
+// Creative approval state machine (docs/plans/30 §5):
+//   draft → pending → approved → (suspended) → (reactivate) → pending
+//              └─ rejected → (resubmit) → pending
+// request_changes leaves status at `pending` (the note carries the ask), mirroring
+// sarOrgStatus' changes_requested. Only `approved` creatives are eligible for the
+// signed ad manifest (AvApp doc 30 §6) — manual approval is non-negotiable for a
+// safety app.
+export const adCreativeStatus = pgEnum("ad_creative_status", [
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "suspended",
+]);
+
+// Audit actions recorded in ad_creative_status_log. Mirrors sarOrgAction: a
+// transition keyed on action (not just a status delta) so `changes_requested`
+// (which leaves status at pending) is still logged.
+export const adCreativeAction = pgEnum("ad_creative_action", [
+  "submitted",
+  "approved",
+  "rejected",
+  "changes_requested",
+  "suspended",
+  "reactivated",
+]);
+
+// The billable advertiser entity (a gear shop, guide service, regional safety org).
+// Mirrors sar_orgs in shape but without the proof-doc / region_geom apparatus — an
+// advertiser's service area is per-creative targeting (the forecast_zone_* tuple on
+// ad_creatives), not an org-level polygon. Stripe/billing columns are Phase 3 and
+// intentionally excluded (no scope creep). PII (contact_*) lives here and never
+// leaves the portal (doc 31 §7).
+export const advertiserAccounts = pgTable("advertiser_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  contactName: text("contact_name").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone"),
+  websiteUrl: text("website_url"),
+  status: advertiserStatus("status").default("active").notNull(),
+  createdByUserId: uuid("created_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// Advertiser membership with role. Composite PK (advertiser_id, user_id): a user
+// holds at most one role row per advertiser; promotion updates in place. Both FKs
+// cascade. Mirrors org_memberships exactly (including the user_id index for "which
+// advertisers does this user belong to?").
+export const advertiserMemberships = pgTable(
+  "advertiser_memberships",
+  {
+    advertiserId: uuid("advertiser_id")
+      .notNull()
+      .references(() => advertiserAccounts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: advertiserRole("role").notNull(),
+    joinedAt: timestamp("joined_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.advertiserId, t.userId] }),
+    index("advertiser_memberships_user_id_idx").on(t.userId),
+  ],
+);
+
+// A campaign groups creatives under an advertiser and (Phase 3) carries the buy /
+// schedule. starts_on/ends_on are nullable until a buy is scheduled.
+export const adCampaigns = pgTable(
+  "ad_campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    advertiserId: uuid("advertiser_id")
+      .notNull()
+      .references(() => advertiserAccounts.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    startsOn: timestamp("starts_on", { withTimezone: true }),
+    endsOn: timestamp("ends_on", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  // The advertiser dashboard lists a campaign's creatives; campaigns list per
+  // advertiser. Index advertiser_id for that lookup.
+  (t) => [index("ad_campaigns_advertiser_id_idx").on(t.advertiserId)],
+);
+
+// One creative = one display bound to one slot — the unit the operator approves and
+// the unit that lands in the signed manifest. v1 manifest is TEXT-ONLY (AvApp doc 31
+// §2 `display`): headline + body. The image path (imageRef → R2 object key, doc 19
+// §3) is RESERVED for a later manifest rev; the column exists now so adding image
+// creatives needs no migration. The forecast_zone_* tuple is the advertiser's chosen
+// target region (NOT user location) and matches the versioned ForecastZone hierarchy
+// (AvApp doc 18 §8.0) + the manifest `region` shape (doc 31 §2): null = app-wide.
+export const adCreatives = pgTable(
+  "ad_creatives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => adCampaigns.id, { onDelete: "cascade" }),
+    slot: adSlot("slot").notNull(),
+    // The manifest `display` shape (doc 31 §2).
+    headline: text("headline").notNull(),
+    body: text("body").notNull(),
+    altText: text("alt_text").notNull(),
+    // Optional tap-through; validated https-only at the form/action layer.
+    clickUrl: text("click_url"),
+    // RESERVED (later manifest rev): R2 object key for an image creative.
+    imageRef: text("image_ref"),
+    // Advertiser's chosen target zone (provider, zone, effective-dated set version).
+    // All three null = app-wide. Not a geometry — resolution happens on-device
+    // against the signed zone snapshot in the manifest (doc 31 §3), never here.
+    forecastZoneProvider: text("forecast_zone_provider"),
+    forecastZoneId: text("forecast_zone_id"),
+    forecastZoneSetVersion: integer("forecast_zone_set_version"),
+    status: adCreativeStatus("status").default("draft").notNull(),
+    // Latest reject/changes note shown to the advertiser; full history in the log.
+    reviewNote: text("review_note"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedByUserId: uuid("approved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    // Set once the portal has pushed an approved creative to AvServ (doc 31 §6).
+    // approved but published_at null = "approved, not yet live" (never a false live).
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    avservCreativeRef: text("avserv_creative_ref"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  // The operator approval queue filters on status; the advertiser dashboard lists a
+  // campaign's creatives. Index both.
+  (t) => [
+    index("ad_creatives_status_idx").on(t.status),
+    index("ad_creatives_campaign_id_idx").on(t.campaignId),
+  ],
+);
+
+// Append-only audit of every creative status transition. Mirrors
+// sar_org_status_log: rows are never updated or deleted; fromStatus is null for the
+// initial submit; note carries the operator's reject reason / change request;
+// actorUserId set null on deletion so history outlives the operator account.
+export const adCreativeStatusLog = pgTable(
+  "ad_creative_status_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    creativeId: uuid("creative_id")
+      .notNull()
+      .references(() => adCreatives.id, { onDelete: "cascade" }),
+    action: adCreativeAction("action").notNull(),
+    fromStatus: adCreativeStatus("from_status"),
+    toStatus: adCreativeStatus("to_status").notNull(),
+    note: text("note"),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  // History is always read per-creative, newest first; index creative_id.
+  (t) => [index("ad_creative_status_log_creative_id_idx").on(t.creativeId)],
 );
