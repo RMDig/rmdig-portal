@@ -1,0 +1,133 @@
+"use client";
+
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BUYABLE_SLOTS, SLOT_LABEL } from "@/lib/advertiser/creative-schema";
+import { createCreativeAction } from "./actions";
+
+function FieldError({ errors }: { errors?: string[] }) {
+  if (!errors?.length) return null;
+  return <p className="text-xs text-red-700 dark:text-red-400">{errors.join(", ")}</p>;
+}
+
+export function CreativeForm({ advertiserId }: { advertiserId: string }) {
+  const router = useRouter();
+  const action = createCreativeAction.bind(null, advertiserId);
+  const [state, formAction, pending] = useActionState(action, null);
+  const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+
+  // Local mirror of the text fields so AD-P4's in-slot preview can render live.
+  const [headline, setHeadline] = useState("");
+  const [body, setBody] = useState("");
+
+  useEffect(() => {
+    if (state?.ok) router.push(`/advertiser/${advertiserId}/creatives`);
+  }, [state, advertiserId, router]);
+
+  return (
+    <form action={formAction} className="space-y-8">
+      <section className="space-y-4">
+        <h2 className="text-lg font-medium">Placement</h2>
+        <div className="space-y-2">
+          <Label htmlFor="campaignName">Campaign</Label>
+          <Input
+            id="campaignName"
+            name="campaignName"
+            placeholder="e.g. Spring 2026 awareness"
+            required
+            aria-invalid={!!fieldErrors?.campaignName}
+          />
+          <p className="text-muted-foreground text-xs">
+            Groups your creatives. Reuse a name to add to an existing campaign.
+          </p>
+          <FieldError errors={fieldErrors?.campaignName} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="slot">Where it appears</Label>
+          <select
+            id="slot"
+            name="slot"
+            defaultValue="post_checkin"
+            className="border-input bg-transparent flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
+          >
+            {BUYABLE_SLOTS.map((s) => (
+              <option key={s} value={s}>
+                {SLOT_LABEL[s]}
+              </option>
+            ))}
+          </select>
+          <p className="text-muted-foreground text-xs">
+            Ads only ever appear <strong>after</strong> a safety action resolves — never before one.
+          </p>
+          <FieldError errors={fieldErrors?.slot} />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-medium">Content</h2>
+        <div className="space-y-2">
+          <Label htmlFor="headline">Headline</Label>
+          <Input
+            id="headline"
+            name="headline"
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+            maxLength={80}
+            required
+            aria-invalid={!!fieldErrors?.headline}
+          />
+          <FieldError errors={fieldErrors?.headline} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="body">Body</Label>
+          <textarea
+            id="body"
+            name="body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            maxLength={200}
+            rows={3}
+            required
+            className="border-input bg-transparent flex w-full rounded-md border px-3 py-2 text-sm shadow-xs"
+            aria-invalid={!!fieldErrors?.body}
+          />
+          <FieldError errors={fieldErrors?.body} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="altText">Alt text (for screen readers)</Label>
+          <Input
+            id="altText"
+            name="altText"
+            maxLength={200}
+            required
+            aria-invalid={!!fieldErrors?.altText}
+          />
+          <FieldError errors={fieldErrors?.altText} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="clickUrl">Tap-through link (optional)</Label>
+          <Input
+            id="clickUrl"
+            name="clickUrl"
+            type="url"
+            placeholder="https://example.com"
+            aria-invalid={!!fieldErrors?.clickUrl}
+          />
+          <FieldError errors={fieldErrors?.clickUrl} />
+        </div>
+      </section>
+
+      {state && !state.ok && !fieldErrors ? (
+        <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
+      ) : null}
+
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save draft"}
+      </Button>
+    </form>
+  );
+}

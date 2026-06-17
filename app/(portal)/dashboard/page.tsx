@@ -114,11 +114,16 @@ export default async function DashboardPage() {
                     {ADVERTISER_STATUS_LABEL[a.status] ?? a.status}
                   </p>
                 </div>
-                {a.role === "admin" ? (
+                <div className="flex shrink-0 gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/advertiser/${a.advertiserId}/members`}>Manage team</Link>
+                    <Link href={`/advertiser/${a.advertiserId}/creatives`}>Creatives</Link>
                   </Button>
-                ) : null}
+                  {a.role === "admin" ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/advertiser/${a.advertiserId}/members`}>Manage team</Link>
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
