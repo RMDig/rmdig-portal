@@ -354,6 +354,148 @@ export async function listDevices(accountId: string): Promise<LinkedDevice[]> {
   return parsed.data.devices;
 }
 
+// ── Ad creative publish / unpublish (P2 / v2+, docs/plans/30 §6) ─────────────
+// The portal hands AvServ an APPROVED creative; AvServ stores it and rebuilds +
+// re-signs the ad manifest (AvApp doc 30 §6, doc 31 §2/§6). Unpublish drops a
+// suspended creative from the next manifest. Mock-first like every call above:
+// against mock:// these resolve to a deterministic ref / no-op, so the whole
+// approve→publish / suspend→unpublish loop is testable before AvServ ships the
+// real endpoints. The wire shape follows the proposed contract (docs/plans/30
+// §6.2); the byte-level publish endpoint is the one residual not yet pinned in
+// doc 31, so treat this as provisional and keep it behind mock:// in dev/CI.
+
+/** The advertiser's chosen target region, or null for app-wide. Matches the
+ *  manifest `region` shape (AvApp doc 31 §2). Phase 2 is always app-wide. */
+export interface CreativeRegion {
+  provider: string;
+  zoneId: string;
+  zoneSetVersion: number;
+}
+
+export interface PublishCreativeInput {
+  /** The portal's ad_creatives.id — AvServ echoes it back for reconciliation. */
+  portalCreativeId: string;
+  slot: string;
+  headline: string;
+  body: string;
+  altText: string;
+  clickUrl?: string | null;
+  region?: CreativeRegion | null;
+}
+
+export interface PublishedCreative {
+  /** AvServ's identifier for the published record; stored as avserv_creative_ref. */
+  avservCreativeRef: string;
+}
+
+// Deterministic mock ref derived from the portal creative id, so approve→publish
+// writes a stable, assertable ref without a live AvServ.
+function mockCreativeRef(portalCreativeId: string): string {
+  const h = createHash("sha256")
+    .update(`avserv-mock-ad-creative:${portalCreativeId}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `crv_${h}`;
+}
+
+/**
+ * Publish an approved creative to AvServ (docs/plans/30 §6). Returns the AvServ
+ * ref to store on the creative. Throws {@link AvServError} on any failure — the
+ * caller leaves the creative approved-but-unpublished ("approved, not yet live"),
+ * never a false "live", and surfaces a retry (no silent failure).
+ */
+export async function publishCreative(input: PublishCreativeInput): Promise<PublishedCreative> {
+  if (!input.portalCreativeId) {
+    throw new AvServError("publishCreative called without a portalCreativeId");
+  }
+
+  const baseUrl = env.AVSERV_BASE_URL;
+  if (!baseUrl) {
+    throw new AvServError(
+      "AVSERV_BASE_URL is not set — cannot publish an ad creative. " +
+        "Set it to mock://localhost for local dev or the real AvServ base URL.",
+    );
+  }
+
+  if (isMock(baseUrl)) {
+    return { avservCreativeRef: mockCreativeRef(input.portalCreativeId) };
+  }
+
+  let res: Response;
+  try {
+    const token = await signServiceJwt();
+    res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/internal/ad-creatives`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
+  }
+
+  const shared = commonStatusError(res.status);
+  if (shared) throw shared;
+  if (!res.ok) {
+    throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);
+  }
+
+  const body = (await res.json().catch(() => null)) as Partial<PublishedCreative> | null;
+  if (!body || typeof body.avservCreativeRef !== "string") {
+    throw new AvServError("AvServ response missing avservCreativeRef");
+  }
+  return { avservCreativeRef: body.avservCreativeRef };
+}
+
+/**
+ * Unpublish a creative from AvServ (docs/plans/30 §6) — used when an approved
+ * creative is suspended, so it drops from the next signed manifest. Throws
+ * {@link AvServError} on failure; the caller logs loudly (a suspended creative
+ * staying live is a real problem, never silently ignored).
+ */
+export async function unpublishCreative(avservCreativeRef: string): Promise<void> {
+  if (!avservCreativeRef) {
+    throw new AvServError("unpublishCreative called without a ref");
+  }
+
+  const baseUrl = env.AVSERV_BASE_URL;
+  if (!baseUrl) {
+    throw new AvServError(
+      "AVSERV_BASE_URL is not set — cannot unpublish an ad creative. " +
+        "Set it to mock://localhost for local dev or the real AvServ base URL.",
+    );
+  }
+
+  if (isMock(baseUrl)) {
+    return;
+  }
+
+  let res: Response;
+  try {
+    const token = await signServiceJwt();
+    res = await fetch(
+      `${baseUrl.replace(/\/$/, "")}/v1/internal/ad-creatives/${encodeURIComponent(avservCreativeRef)}`,
+      {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      },
+    );
+  } catch (err) {
+    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
+  }
+
+  const shared = commonStatusError(res.status);
+  if (shared) throw shared;
+  // 404 = AvServ already doesn't have it; treat as success (idempotent unpublish).
+  if (res.status === 404) {
+    return;
+  }
+  if (!res.ok) {
+    throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);
+  }
+}
+
 /** True when AvServ integration is configured at all. Callers skip the map
  *  silently when this is false (e.g. very early local setup with no base URL). */
 export function isAvServConfigured(): boolean {
