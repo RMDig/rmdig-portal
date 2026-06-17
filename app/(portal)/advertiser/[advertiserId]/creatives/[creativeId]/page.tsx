@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
+import { AdSlotPreview } from "@/components/advertiser/AdSlotPreview";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives } from "@/lib/db/schema";
 import { CREATIVE_STATUS_LABEL } from "@/lib/advertiser/creative-status";
-import { SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
+import { BUYABLE_SLOTS, SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
 
 export const metadata = {
   title: "Creative — rmdig",
@@ -106,6 +107,19 @@ export default async function CreativeDetailPage({
           </div>
         </dl>
       </section>
+
+      {(BUYABLE_SLOTS as readonly string[]).includes(creative.slot) ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">In-slot preview</h2>
+          <AdSlotPreview
+            slot={creative.slot as BuyableSlot}
+            headline={creative.headline}
+            body={creative.body}
+            clickUrl={creative.clickUrl}
+            altText={creative.altText}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
