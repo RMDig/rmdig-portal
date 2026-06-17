@@ -5,6 +5,7 @@ import { RESET_TOKEN_TTL_MINUTES } from "../auth/reset-tokens";
 import { env } from "../env";
 import { logger } from "../logger";
 import { INVITE_TOKEN_TTL_DAYS } from "../sar/invitations";
+import AdvertiserInviteEmail from "./templates/AdvertiserInviteEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
@@ -143,4 +144,27 @@ export async function sendOrgInviteEmail(
   }
 
   logger.info({ event: "email.org_invite.sent", to, resendId: data?.id });
+}
+
+export async function sendAdvertiserInviteEmail(
+  to: string,
+  params: { advertiserName: string; inviteUrl: string; role: string },
+): Promise<void> {
+  const html = await render(
+    AdvertiserInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
+  );
+
+  const { data, error } = await resend.emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: `You're invited to join ${params.advertiserName} on rmdig`,
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.advertiser_invite.failed", to, error });
+    throw new Error(`Resend rejected advertiser-invite email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.advertiser_invite.sent", to, resendId: data?.id });
 }
