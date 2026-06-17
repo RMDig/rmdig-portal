@@ -41,6 +41,7 @@ export default async function CreativeDetailPage({
       clickUrl: adCreatives.clickUrl,
       slot: adCreatives.slot,
       status: adCreatives.status,
+      publishedAt: adCreatives.publishedAt,
       reviewNote: adCreatives.reviewNote,
       campaignName: adCampaigns.name,
       advertiserId: adCampaigns.advertiserId,
@@ -89,6 +90,16 @@ export default async function CreativeDetailPage({
       ) : creative.status === "pending" ? (
         <p className="rounded-md border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-200">
           Under review. We&apos;ll email you when the operator makes a decision.
+        </p>
+      ) : creative.status === "approved" ? (
+        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200">
+          {creative.publishedAt
+            ? "Approved and live in the app."
+            : "Approved — going live shortly."}
+        </p>
+      ) : creative.status === "suspended" ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+          This creative is suspended and isn&apos;t showing in the app.
         </p>
       ) : null}
 

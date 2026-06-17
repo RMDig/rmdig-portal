@@ -36,6 +36,7 @@ export default async function AdApprovalsPage() {
       clickUrl: adCreatives.clickUrl,
       slot: adCreatives.slot,
       status: adCreatives.status,
+      publishedAt: adCreatives.publishedAt,
       submittedAt: adCreatives.submittedAt,
       campaignName: adCampaigns.name,
       advertiserName: advertiserAccounts.name,
@@ -46,8 +47,9 @@ export default async function AdApprovalsPage() {
     .where(inArray(adCreatives.status, ["pending", "approved", "suspended"]))
     .orderBy(asc(adCreatives.submittedAt));
 
-  const rows: PendingCreative[] = reviewable.map((c) => ({
+  const rows: PendingCreative[] = reviewable.map(({ publishedAt, ...c }) => ({
     ...c,
+    published: publishedAt != null,
     submittedAt: c.submittedAt ? c.submittedAt.toISOString() : null,
   }));
   // Pending first (they need action), then approved, then suspended.

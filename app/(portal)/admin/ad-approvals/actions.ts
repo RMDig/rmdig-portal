@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { isPlatformStaff } from "@/lib/auth/roles";
+import { publishCreative, unpublishCreative, type CreativeRegion } from "@/lib/avserv/client";
 import { db } from "@/lib/db";
 import {
   adCampaigns,
@@ -16,6 +17,77 @@ import {
 import { type AdCreativeDecision } from "@/lib/email/templates/AdCreativeDecisionEmail";
 import { sendAdCreativeDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
+
+// Build the manifest `region` tuple from a creative's forecast_zone_* columns, or
+// null for an app-wide creative (Phase 2 is always app-wide). All-or-nothing: a
+// partial tuple is treated as app-wide rather than shipping a malformed region.
+function creativeRegion(c: {
+  forecastZoneProvider: string | null;
+  forecastZoneId: string | null;
+  forecastZoneSetVersion: number | null;
+}): CreativeRegion | null {
+  if (c.forecastZoneProvider && c.forecastZoneId && c.forecastZoneSetVersion != null) {
+    return {
+      provider: c.forecastZoneProvider,
+      zoneId: c.forecastZoneId,
+      zoneSetVersion: c.forecastZoneSetVersion,
+    };
+  }
+  return null;
+}
+
+// Publish an approved creative to AvServ and record the returned ref + publishedAt.
+// Best-effort by contract (docs/plans/30 §9 invariant 5): on failure the creative
+// stays approved with published_at = null ("approved, not yet live") — never a
+// false "live" — and the failure is logged loudly (no silent failure). Returns
+// whether it went live so callers can surface a retry.
+async function publishAndRecord(creative: {
+  id: string;
+  slot: string;
+  headline: string;
+  body: string;
+  altText: string;
+  clickUrl: string | null;
+  forecastZoneProvider: string | null;
+  forecastZoneId: string | null;
+  forecastZoneSetVersion: number | null;
+}): Promise<boolean> {
+  try {
+    const { avservCreativeRef } = await publishCreative({
+      portalCreativeId: creative.id,
+      slot: creative.slot,
+      headline: creative.headline,
+      body: creative.body,
+      altText: creative.altText,
+      clickUrl: creative.clickUrl,
+      region: creativeRegion(creative),
+    });
+    await db
+      .update(adCreatives)
+      .set({ publishedAt: new Date(), avservCreativeRef })
+      .where(eq(adCreatives.id, creative.id));
+    return true;
+  } catch (err) {
+    logger.error({ event: "ad.publish.failed", creativeId: creative.id, err });
+    return false;
+  }
+}
+
+// Unpublish a creative from AvServ and clear its publish stamps. Best-effort: on
+// failure we log loudly (a suspended creative still live is a real problem) but
+// don't undo the status change.
+async function unpublishAndClear(creativeId: string, ref: string | null): Promise<void> {
+  if (!ref) return; // never published — nothing to pull
+  try {
+    await unpublishCreative(ref);
+    await db
+      .update(adCreatives)
+      .set({ publishedAt: null, avservCreativeRef: null })
+      .where(eq(adCreatives.id, creativeId));
+  } catch (err) {
+    logger.error({ event: "ad.unpublish.failed", creativeId, err });
+  }
+}
 
 // Operator decisions on an ad creative (AD-P5, docs/plans/30 §5/§6). Manual
 // approval is non-negotiable for a safety app — only `approved` creatives become
@@ -92,6 +164,14 @@ export async function reviewCreativeAction(
     .select({
       status: adCreatives.status,
       headline: adCreatives.headline,
+      body: adCreatives.body,
+      altText: adCreatives.altText,
+      clickUrl: adCreatives.clickUrl,
+      slot: adCreatives.slot,
+      avservCreativeRef: adCreatives.avservCreativeRef,
+      forecastZoneProvider: adCreatives.forecastZoneProvider,
+      forecastZoneId: adCreatives.forecastZoneId,
+      forecastZoneSetVersion: adCreatives.forecastZoneSetVersion,
       advertiserName: advertiserAccounts.name,
       advertiserEmail: advertiserAccounts.contactEmail,
     })
@@ -161,6 +241,28 @@ export async function reviewCreativeAction(
 
   logger.info({ event: "ad.review.success", userId, creativeId, decision });
 
+  // Sync publication with AvServ outside the transaction (an S2S call must never
+  // hold a DB tx open, and a publish hiccup must not undo a recorded decision):
+  //  - approve  → publish (writes avserv_creative_ref + publishedAt on success)
+  //  - suspend  → unpublish (drops it from the next manifest; clears the stamps)
+  // reject / request_changes / reactivate move out of a live state without ever
+  // having an active ref to pull (reactivate comes from suspended, already pulled).
+  if (decision === "approve") {
+    await publishAndRecord({
+      id: creativeId,
+      slot: creative.slot,
+      headline: creative.headline,
+      body: creative.body,
+      altText: creative.altText,
+      clickUrl: creative.clickUrl,
+      forecastZoneProvider: creative.forecastZoneProvider,
+      forecastZoneId: creative.forecastZoneId,
+      forecastZoneSetVersion: creative.forecastZoneSetVersion,
+    });
+  } else if (decision === "suspend") {
+    await unpublishAndClear(creativeId, creative.avservCreativeRef);
+  }
+
   // Notify the advertiser for the three review decisions, outside the transaction
   // (a mail hiccup must not undo a recorded decision). Failures logged, not fatal.
   if (transition.emailDecision) {
@@ -176,6 +278,62 @@ export async function reviewCreativeAction(
     }
   }
 
+  revalidatePath("/admin/ad-approvals");
+  return { ok: true };
+}
+
+export type PublishResult = { ok: true } | { ok: false; error: string };
+
+// Retry publishing an already-approved creative that isn't live yet (publish
+// failed at approve time). Staff-gated. This is the no-silent-failure recovery
+// path for invariant 5 (docs/plans/30 §9): an "approved, not yet live" creative
+// always has a way back to live. `creativeId` is bound by the form.
+export async function publishApprovedCreativeAction(
+  creativeId: string,
+  _prev: PublishResult | null,
+  _formData: FormData,
+): Promise<PublishResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: "You must be signed in." };
+  }
+  if (!(await isPlatformStaff(session.user.id))) {
+    return { ok: false, error: "You don't have access to the approvals queue." };
+  }
+
+  const [creative] = await db
+    .select({
+      id: adCreatives.id,
+      status: adCreatives.status,
+      publishedAt: adCreatives.publishedAt,
+      slot: adCreatives.slot,
+      headline: adCreatives.headline,
+      body: adCreatives.body,
+      altText: adCreatives.altText,
+      clickUrl: adCreatives.clickUrl,
+      forecastZoneProvider: adCreatives.forecastZoneProvider,
+      forecastZoneId: adCreatives.forecastZoneId,
+      forecastZoneSetVersion: adCreatives.forecastZoneSetVersion,
+    })
+    .from(adCreatives)
+    .where(eq(adCreatives.id, creativeId))
+    .limit(1);
+  if (!creative) {
+    return { ok: false, error: "That creative no longer exists." };
+  }
+  if (creative.status !== "approved") {
+    return { ok: false, error: `Only an approved creative can be published (this one is ${creative.status}).` };
+  }
+  if (creative.publishedAt) {
+    return { ok: false, error: "This creative is already live." };
+  }
+
+  const published = await publishAndRecord(creative);
+  if (!published) {
+    return { ok: false, error: "AvServ didn't accept the creative. Try again in a moment." };
+  }
+
+  logger.info({ event: "ad.publish.retry_success", userId: session.user.id, creativeId });
   revalidatePath("/admin/ad-approvals");
   return { ok: true };
 }
