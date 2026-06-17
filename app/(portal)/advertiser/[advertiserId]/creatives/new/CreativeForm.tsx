@@ -3,10 +3,15 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { AdSlotPreview } from "@/components/advertiser/AdSlotPreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BUYABLE_SLOTS, SLOT_LABEL } from "@/lib/advertiser/creative-schema";
+import {
+  BUYABLE_SLOTS,
+  SLOT_LABEL,
+  type BuyableSlot,
+} from "@/lib/advertiser/creative-schema";
 import { createCreativeAction } from "./actions";
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -20,15 +25,19 @@ export function CreativeForm({ advertiserId }: { advertiserId: string }) {
   const [state, formAction, pending] = useActionState(action, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
-  // Local mirror of the text fields so AD-P4's in-slot preview can render live.
+  // Local mirror of the fields so the in-slot preview renders live as you type.
+  const [slot, setSlot] = useState<BuyableSlot>("post_checkin");
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
+  const [clickUrl, setClickUrl] = useState("");
+  const [altText, setAltText] = useState("");
 
   useEffect(() => {
     if (state?.ok) router.push(`/advertiser/${advertiserId}/creatives`);
   }, [state, advertiserId, router]);
 
   return (
+    <div className="grid gap-10 lg:grid-cols-[1fr_auto]">
     <form action={formAction} className="space-y-8">
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Placement</h2>
@@ -51,7 +60,8 @@ export function CreativeForm({ advertiserId }: { advertiserId: string }) {
           <select
             id="slot"
             name="slot"
-            defaultValue="post_checkin"
+            value={slot}
+            onChange={(e) => setSlot(e.target.value as BuyableSlot)}
             className="border-input bg-transparent flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
           >
             {BUYABLE_SLOTS.map((s) => (
@@ -102,6 +112,8 @@ export function CreativeForm({ advertiserId }: { advertiserId: string }) {
           <Input
             id="altText"
             name="altText"
+            value={altText}
+            onChange={(e) => setAltText(e.target.value)}
             maxLength={200}
             required
             aria-invalid={!!fieldErrors?.altText}
@@ -114,6 +126,8 @@ export function CreativeForm({ advertiserId }: { advertiserId: string }) {
             id="clickUrl"
             name="clickUrl"
             type="url"
+            value={clickUrl}
+            onChange={(e) => setClickUrl(e.target.value)}
             placeholder="https://example.com"
             aria-invalid={!!fieldErrors?.clickUrl}
           />
@@ -129,5 +143,16 @@ export function CreativeForm({ advertiserId }: { advertiserId: string }) {
         {pending ? "Saving…" : "Save draft"}
       </Button>
     </form>
+
+      <aside className="lg:sticky lg:top-6 lg:self-start">
+        <AdSlotPreview
+          slot={slot}
+          headline={headline}
+          body={body}
+          clickUrl={clickUrl || null}
+          altText={altText}
+        />
+      </aside>
+    </div>
   );
 }
