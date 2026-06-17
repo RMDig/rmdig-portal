@@ -50,6 +50,21 @@ export default async function AdminPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ad approvals</CardTitle>
+          <CardDescription>
+            Review submitted ad creatives and approve, reject, or request changes. No creative
+            reaches the app until you approve it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/admin/ad-approvals">Open the ad-approvals queue</Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

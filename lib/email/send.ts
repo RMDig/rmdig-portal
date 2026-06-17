@@ -5,6 +5,10 @@ import { RESET_TOKEN_TTL_MINUTES } from "../auth/reset-tokens";
 import { env } from "../env";
 import { logger } from "../logger";
 import { INVITE_TOKEN_TTL_DAYS } from "../sar/invitations";
+import AdCreativeDecisionEmail, {
+  type AdCreativeDecision,
+} from "./templates/AdCreativeDecisionEmail";
+import AdCreativePendingReviewEmail from "./templates/AdCreativePendingReviewEmail";
 import AdvertiserInviteEmail from "./templates/AdvertiserInviteEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
@@ -167,4 +171,52 @@ export async function sendAdvertiserInviteEmail(
   }
 
   logger.info({ event: "email.advertiser_invite.sent", to, resendId: data?.id });
+}
+
+export async function sendAdCreativePendingReviewEmail(
+  to: string,
+  params: { advertiserName: string; headline: string; reviewUrl: string },
+): Promise<void> {
+  const html = await render(AdCreativePendingReviewEmail(params));
+
+  const { data, error } = await resend.emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: `Ad creative awaiting review: ${params.headline}`,
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.ad_pending_review.failed", to, error });
+    throw new Error(`Resend rejected ad-pending-review email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.ad_pending_review.sent", to, resendId: data?.id });
+}
+
+const AD_DECISION_SUBJECT: Record<AdCreativeDecision, string> = {
+  approved: "Your ad creative is approved",
+  rejected: "An update on your ad creative",
+  changes_requested: "Your ad creative needs changes",
+};
+
+export async function sendAdCreativeDecisionEmail(
+  to: string,
+  params: { advertiserName: string; headline: string; decision: AdCreativeDecision; note?: string },
+): Promise<void> {
+  const html = await render(AdCreativeDecisionEmail(params));
+
+  const { data, error } = await resend.emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: AD_DECISION_SUBJECT[params.decision],
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.ad_decision.failed", to, decision: params.decision, error });
+    throw new Error(`Resend rejected ad-decision email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.ad_decision.sent", to, decision: params.decision, resendId: data?.id });
 }

@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { adCampaigns, adCreatives } from "@/lib/db/schema";
 import { CREATIVE_STATUS_LABEL } from "@/lib/advertiser/creative-status";
 import { BUYABLE_SLOTS, SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
+import { SubmitCreativeButton } from "./SubmitCreativeButton";
 
 export const metadata = {
   title: "Creative — rmdig",
@@ -67,10 +68,28 @@ export default async function CreativeDetailPage({
         </Button>
       </div>
 
-      {creative.status === "rejected" && creative.reviewNote ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
+      {(creative.status === "rejected" || creative.status === "draft") && creative.reviewNote ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
           <strong>Reviewer note:</strong> {creative.reviewNote}
         </div>
+      ) : null}
+
+      {creative.status === "draft" || creative.status === "rejected" ? (
+        <div className="space-y-2 rounded-md border p-4">
+          <p className="text-sm">
+            This creative is a {CREATIVE_STATUS_LABEL[creative.status]?.toLowerCase()}. Submit it for
+            review — the operator approves every creative before it appears in the app.
+          </p>
+          <SubmitCreativeButton
+            advertiserId={advertiserId}
+            creativeId={creative.id}
+            label={creative.status === "rejected" ? "Resubmit for review" : "Submit for review"}
+          />
+        </div>
+      ) : creative.status === "pending" ? (
+        <p className="rounded-md border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-200">
+          Under review. We&apos;ll email you when the operator makes a decision.
+        </p>
       ) : null}
 
       <section className="space-y-3">
