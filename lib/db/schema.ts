@@ -536,3 +536,33 @@ export const adCreativeStatusLog = pgTable(
   // History is always read per-creative, newest first; index creative_id.
   (t) => [index("ad_creative_status_log_creative_id_idx").on(t.creativeId)],
 );
+
+// Pending advertiser-team invitations. Mirrors org_invitations exactly: we store
+// only a SHA-256 hash of the token (plaintext lives solely in the emailed link),
+// TTL 14 days, acceptedAt marks it spent. A DB read can't be replayed into an
+// advertiser-team membership.
+export const advertiserInvitations = pgTable(
+  "advertiser_invitations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    advertiserId: uuid("advertiser_id")
+      .notNull()
+      .references(() => advertiserAccounts.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: advertiserRole("role").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  // The members page lists an advertiser's invitations; index advertiser_id.
+  (t) => [index("advertiser_invitations_advertiser_id_idx").on(t.advertiserId)],
+);

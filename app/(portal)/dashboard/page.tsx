@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { db } from "@/lib/db";
-import { orgMemberships, sarOrgs } from "@/lib/db/schema";
+import { advertiserAccounts, advertiserMemberships, orgMemberships, sarOrgs } from "@/lib/db/schema";
 
 export const metadata = {
   title: "Dashboard — rmdig",
@@ -26,6 +26,14 @@ const STATUS_LABEL: Record<string, string> = {
   pending: "Under review",
   approved: "Approved",
   rejected: "Not approved",
+  suspended: "Suspended",
+};
+const ADVERTISER_ROLE_LABEL: Record<string, string> = {
+  admin: "Admin",
+  editor: "Editor",
+};
+const ADVERTISER_STATUS_LABEL: Record<string, string> = {
+  active: "Active",
   suspended: "Suspended",
 };
 
@@ -46,6 +54,20 @@ export default async function DashboardPage() {
         .innerJoin(sarOrgs, eq(sarOrgs.id, orgMemberships.orgId))
         .where(eq(orgMemberships.userId, userId))
         .orderBy(asc(sarOrgs.name))
+    : [];
+
+  const advertisers = userId
+    ? await db
+        .select({
+          advertiserId: advertiserMemberships.advertiserId,
+          name: advertiserAccounts.name,
+          status: advertiserAccounts.status,
+          role: advertiserMemberships.role,
+        })
+        .from(advertiserMemberships)
+        .innerJoin(advertiserAccounts, eq(advertiserAccounts.id, advertiserMemberships.advertiserId))
+        .where(eq(advertiserMemberships.userId, userId))
+        .orderBy(asc(advertiserAccounts.name))
     : [];
 
   return (
@@ -76,6 +98,33 @@ export default async function DashboardPage() {
         </section>
       ) : null}
 
+      {advertisers.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Your advertiser accounts</h2>
+          <ul className="divide-y rounded-md border">
+            {advertisers.map((a) => (
+              <li
+                key={a.advertiserId}
+                className="flex items-center justify-between gap-4 px-4 py-3"
+              >
+                <div>
+                  <p className="font-medium">{a.name}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {ADVERTISER_ROLE_LABEL[a.role] ?? a.role} ·{" "}
+                    {ADVERTISER_STATUS_LABEL[a.status] ?? a.status}
+                  </p>
+                </div>
+                {a.role === "admin" ? (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/advertiser/${a.advertiserId}/members`}>Manage team</Link>
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Search &amp; rescue organizations</CardTitle>
@@ -87,6 +136,22 @@ export default async function DashboardPage() {
         <CardContent>
           <Button asChild>
             <Link href="/sar/new">Register a SAR organization</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Advertise on rmdig</CardTitle>
+          <CardDescription>
+            Sponsor ads help fund the platform while keeping the app free. Create an advertiser
+            account to author creatives and submit them for review. Every creative is manually
+            reviewed before it appears in the app.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/advertiser/new">Create an advertiser account</Link>
           </Button>
         </CardContent>
       </Card>
