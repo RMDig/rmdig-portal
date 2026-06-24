@@ -7,6 +7,8 @@ import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives, advertiserAccounts } from "@/lib/db/schema";
 import { createCreativeSchema } from "@/lib/advertiser/creative-schema";
+import { adTargetToColumns, parseTargetFromFormData } from "@/lib/advertiser/target";
+import { allFipsExist } from "@/lib/geo/lookup";
 import { logger } from "@/lib/logger";
 
 // Author a text creative under an advertiser (AD-P3, docs/plans/30 §5). Any team
@@ -55,6 +57,26 @@ export async function createCreativeAction(
   }
   const data = parsed.data;
 
+  // Parse + validate the targeting (doc 31 §3). national is the default; radius/admin
+  // are validated against the same Zod model the DB CHECK mirrors. For admin we also
+  // confirm every FIPS exists in the bundled Census data — never trust the client.
+  const target = parseTargetFromFormData(formData);
+  if (!target.success) {
+    return {
+      ok: false,
+      error: "Please fix the targeting.",
+      fieldErrors: { target: [target.error.issues[0]?.message ?? "Invalid targeting."] },
+    };
+  }
+  if (target.data.kind === "admin" && !allFipsExist(target.data.level, target.data.fips)) {
+    return {
+      ok: false,
+      error: "Please fix the targeting.",
+      fieldErrors: { target: ["Some selected areas weren't recognized — re-pick them."] },
+    };
+  }
+  const targetColumns = adTargetToColumns(target.data);
+
   // Find-or-create the campaign by name under this advertiser, then insert the
   // draft creative — atomically, so a creative never lands without its campaign.
   let creativeId: string;
@@ -89,8 +111,9 @@ export async function createCreativeAction(
           body: data.body,
           altText: data.altText,
           clickUrl: data.clickUrl,
-          // status defaults to 'draft'; target_kind defaults to 'national' (app-wide).
-          // The targeting fields (radius/admin) arrive with the AD-P7b authoring UI.
+          // status defaults to 'draft'. Targeting columns come from the picker (doc 31
+          // §3); national leaves the radius/admin columns null, satisfying the CHECK.
+          ...targetColumns,
         })
         .returning({ id: adCreatives.id });
       if (!creative) {

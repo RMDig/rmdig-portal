@@ -6,7 +6,8 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { isPlatformStaff } from "@/lib/auth/roles";
-import { publishCreative, unpublishCreative, type CreativeTarget } from "@/lib/avserv/client";
+import { publishCreative, unpublishCreative } from "@/lib/avserv/client";
+import { columnsToAdTarget } from "@/lib/advertiser/target";
 import { db } from "@/lib/db";
 import {
   adCampaigns,
@@ -17,33 +18,6 @@ import {
 import { type AdCreativeDecision } from "@/lib/email/templates/AdCreativeDecisionEmail";
 import { sendAdCreativeDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
-
-// Build the manifest `creative.target` from a creative's target_* columns (doc 31 §3).
-// The DB CHECK already guarantees the columns are consistent with target_kind, so this
-// is a straight read; we still fall back to national if a radius/admin payload is
-// somehow incomplete, never shipping a malformed target. numeric lat/lon arrive as
-// strings from Drizzle and are coerced back to numbers for the wire shape.
-function creativeTarget(c: {
-  targetKind: "national" | "radius" | "admin";
-  targetLat: string | null;
-  targetLon: string | null;
-  targetRadiusMi: number | null;
-  targetAdminLevel: "state" | "county" | "place" | null;
-  targetAdminFips: string[] | null;
-}): CreativeTarget {
-  if (
-    c.targetKind === "radius" &&
-    c.targetLat != null &&
-    c.targetLon != null &&
-    c.targetRadiusMi != null
-  ) {
-    return { kind: "radius", lat: Number(c.targetLat), lon: Number(c.targetLon), mi: c.targetRadiusMi };
-  }
-  if (c.targetKind === "admin" && c.targetAdminLevel && c.targetAdminFips?.length) {
-    return { kind: "admin", level: c.targetAdminLevel, fips: c.targetAdminFips };
-  }
-  return { kind: "national" };
-}
 
 // Publish an approved creative to AvServ and record the returned ref + publishedAt.
 // Best-effort by contract (docs/plans/30 §9 invariant 5): on failure the creative
@@ -72,7 +46,7 @@ async function publishAndRecord(creative: {
       body: creative.body,
       altText: creative.altText,
       clickUrl: creative.clickUrl,
-      target: creativeTarget(creative),
+      target: columnsToAdTarget(creative),
     });
     await db
       .update(adCreatives)

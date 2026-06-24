@@ -20,6 +20,7 @@ export interface PendingCreative {
   advertiserName: string;
   campaignName: string;
   submittedAt: string | null; // ISO
+  targetLabel: string; // human-readable target (resolved server-side)
 }
 
 export function AdApprovalRow({ creative }: { creative: PendingCreative }) {
@@ -52,6 +53,10 @@ export function AdApprovalRow({ creative }: { creative: PendingCreative }) {
         <div>
           <dt className="inline font-medium text-foreground">Slot: </dt>
           <dd className="inline">{SLOT_LABEL[creative.slot as BuyableSlot] ?? creative.slot}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-foreground">Targeting: </dt>
+          <dd className="inline">{creative.targetLabel}</dd>
         </div>
         {creative.clickUrl ? (
           <div className="sm:col-span-2">
