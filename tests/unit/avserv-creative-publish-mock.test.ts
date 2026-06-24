@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { CreativeTarget } from "@/lib/avserv/client";
+
 const CREATIVE = "33333333-3333-5333-8333-333333333333";
 
 const input = {
@@ -45,6 +47,31 @@ describe("publishCreative (mock path)", () => {
     vi.resetModules();
     const { publishCreative } = await import("@/lib/avserv/client");
     await expect(publishCreative(input)).rejects.toThrow(/AVSERV_BASE_URL/);
+  });
+});
+
+describe("publishCreative target lens (doc 31 §3)", () => {
+  // The mock ref derives from the creative id only, so the target never changes the
+  // ref — these assert the new `target` field is accepted for each kind and that the
+  // wire shape stays stable, guarding the forecast-zone → radius/admin migration.
+  const targets: CreativeTarget[] = [
+    { kind: "national" },
+    { kind: "radius", lat: 39.74, lon: -105.0, mi: 30 },
+    { kind: "admin", level: "state", fips: ["08"] },
+    { kind: "admin", level: "county", fips: ["08013", "08049"] },
+  ];
+
+  it.each(targets)("accepts a %o target and returns a stable ref", async (target) => {
+    const { publishCreative } = await import("@/lib/avserv/client");
+    const { avservCreativeRef } = await publishCreative({ ...input, target });
+    expect(avservCreativeRef).toMatch(/^crv_[0-9a-f]{16}$/);
+  });
+
+  it("omitting target (defaults to national) still publishes", async () => {
+    const { publishCreative } = await import("@/lib/avserv/client");
+    await expect(publishCreative(input)).resolves.toMatchObject({
+      avservCreativeRef: expect.stringMatching(/^crv_[0-9a-f]{16}$/),
+    });
   });
 });
 

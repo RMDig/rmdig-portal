@@ -6,8 +6,9 @@ import { z } from "zod";
 //
 // v1 creatives are TEXT-ONLY — the manifest `display` shape is { headline, body }
 // (AvApp doc 31 §2). Image creatives are a later manifest rev and are not authored
-// here. Region targeting (forecast_zone_*) is Phase 3 (AD-P7); Phase 2 ships
-// app-wide creatives, so there is no region field here.
+// here. Target selection (the radius/admin lens, AvApp doc 31 §3) is AD-P7b; until
+// that UI lands creatives default to national/app-wide, so there is no target field
+// in this schema yet.
 
 // The buyable slots an advertiser may author for. The ad_slot DB enum also carries
 // `loading_idle`, but that slot is RESERVED — the client isn't wired for it yet

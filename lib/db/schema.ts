@@ -1,6 +1,9 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -361,6 +364,18 @@ export const advertiserRole = pgEnum("advertiser_role", ["admin", "editor"]);
 // before one") holds for anything this enum can express.
 export const adSlot = pgEnum("ad_slot", ["post_checkin", "post_checkout", "loading_idle"]);
 
+// The advertiser's chosen ad-targeting lens (AvApp doc 31 §3). Deliberately SEPARATE
+// from avalanche prediction's ForecastZone lens (T23, decided 2026-06-17): ads target
+// where commerce happens (towns/counties/radii from off-the-shelf US Census data), not
+// snowpack-shaped forecast polygons. `national` = app-wide (today's only authored mode);
+// `radius` = a point + mileage; `admin` = one or more Census admin units at one level.
+// Tier 3 (curated recreation presets) is deferred and would add a value here later.
+export const adTargetKind = pgEnum("ad_target_kind", ["national", "radius", "admin"]);
+
+// The Census administrative granularity for an `admin` target (doc 31 §3). FIPS codes
+// in ad_creatives.target_admin_fips are all at this single level (state | county | place).
+export const adAdminLevel = pgEnum("ad_admin_level", ["state", "county", "place"]);
+
 // Creative approval state machine (docs/plans/30 §5):
 //   draft → pending → approved → (suspended) → (reactivate) → pending
 //              └─ rejected → (resubmit) → pending
@@ -390,7 +405,7 @@ export const adCreativeAction = pgEnum("ad_creative_action", [
 
 // The billable advertiser entity (a gear shop, guide service, regional safety org).
 // Mirrors sar_orgs in shape but without the proof-doc / region_geom apparatus — an
-// advertiser's service area is per-creative targeting (the forecast_zone_* tuple on
+// advertiser's audience is per-creative targeting (the target_* columns on
 // ad_creatives), not an org-level polygon. Stripe/billing columns are Phase 3 and
 // intentionally excluded (no scope creep). PII (contact_*) lives here and never
 // leaves the portal (doc 31 §7).
@@ -462,9 +477,16 @@ export const adCampaigns = pgTable(
 // the unit that lands in the signed manifest. v1 manifest is TEXT-ONLY (AvApp doc 31
 // §2 `display`): headline + body. The image path (imageRef → R2 object key, doc 19
 // §3) is RESERVED for a later manifest rev; the column exists now so adding image
-// creatives needs no migration. The forecast_zone_* tuple is the advertiser's chosen
-// target region (NOT user location) and matches the versioned ForecastZone hierarchy
-// (AvApp doc 18 §8.0) + the manifest `region` shape (doc 31 §2): null = app-wide.
+// creatives needs no migration.
+//
+// The target_* columns are the advertiser's chosen ad-targeting lens (AvApp doc 31 §3,
+// T23): `target_kind` discriminates national | radius | admin, and the remaining columns
+// carry the kind-specific payload. This is the ADVERTISER'S chosen audience geometry,
+// NEVER a user location — resolution happens on-device against the signed manifest
+// (doc 31 §0.1/§3), never here. A CHECK enforces the per-kind shape structurally so a
+// malformed target (e.g. a radius without a center, or an out-of-range mileage) can't
+// persist. radius targets store lat/lon (the advertiser's pin) + a 5–250 mi radius;
+// admin targets store one Census level + a non-empty array of FIPS codes at that level.
 export const adCreatives = pgTable(
   "ad_creatives",
   {
@@ -481,12 +503,16 @@ export const adCreatives = pgTable(
     clickUrl: text("click_url"),
     // RESERVED (later manifest rev): R2 object key for an image creative.
     imageRef: text("image_ref"),
-    // Advertiser's chosen target zone (provider, zone, effective-dated set version).
-    // All three null = app-wide. Not a geometry — resolution happens on-device
-    // against the signed zone snapshot in the manifest (doc 31 §3), never here.
-    forecastZoneProvider: text("forecast_zone_provider"),
-    forecastZoneId: text("forecast_zone_id"),
-    forecastZoneSetVersion: integer("forecast_zone_set_version"),
+    // Ad-targeting lens (doc 31 §3). `national` (the default) = app-wide; the other
+    // columns are NULL. `radius` = target_lat/lon (advertiser's pin) + target_radius_mi.
+    // `admin` = target_admin_level + a non-empty target_admin_fips[]. The CHECK below
+    // binds each kind to exactly its columns.
+    targetKind: adTargetKind("target_kind").default("national").notNull(),
+    targetLat: numeric("target_lat"),
+    targetLon: numeric("target_lon"),
+    targetRadiusMi: integer("target_radius_mi"),
+    targetAdminLevel: adAdminLevel("target_admin_level"),
+    targetAdminFips: text("target_admin_fips").array(),
     status: adCreativeStatus("status").default("draft").notNull(),
     // Latest reject/changes note shown to the advertiser; full history in the log.
     reviewNote: text("review_note"),
@@ -508,6 +534,30 @@ export const adCreatives = pgTable(
   (t) => [
     index("ad_creatives_status_idx").on(t.status),
     index("ad_creatives_campaign_id_idx").on(t.campaignId),
+    // Structurally bind each target_kind to exactly its columns (doc 31 §3) so a
+    // malformed target can't persist: national → all target payload NULL; radius →
+    // lat/lon/radius_mi present, mileage in [5,250], admin columns NULL; admin →
+    // level + a non-empty fips[] present, radius columns NULL.
+    check(
+      "ad_creatives_target_shape",
+      sql`
+        (
+          ${t.targetKind} = 'national'
+          AND ${t.targetLat} IS NULL AND ${t.targetLon} IS NULL AND ${t.targetRadiusMi} IS NULL
+          AND ${t.targetAdminLevel} IS NULL AND ${t.targetAdminFips} IS NULL
+        ) OR (
+          ${t.targetKind} = 'radius'
+          AND ${t.targetLat} IS NOT NULL AND ${t.targetLon} IS NOT NULL
+          AND ${t.targetRadiusMi} IS NOT NULL AND ${t.targetRadiusMi} BETWEEN 5 AND 250
+          AND ${t.targetAdminLevel} IS NULL AND ${t.targetAdminFips} IS NULL
+        ) OR (
+          ${t.targetKind} = 'admin'
+          AND ${t.targetAdminLevel} IS NOT NULL
+          AND ${t.targetAdminFips} IS NOT NULL AND array_length(${t.targetAdminFips}, 1) >= 1
+          AND ${t.targetLat} IS NULL AND ${t.targetLon} IS NULL AND ${t.targetRadiusMi} IS NULL
+        )
+      `,
+    ),
   ],
 );
 

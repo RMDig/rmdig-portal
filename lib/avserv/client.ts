@@ -364,13 +364,16 @@ export async function listDevices(accountId: string): Promise<LinkedDevice[]> {
 // §6.2); the byte-level publish endpoint is the one residual not yet pinned in
 // doc 31, so treat this as provisional and keep it behind mock:// in dev/CI.
 
-/** The advertiser's chosen target region, or null for app-wide. Matches the
- *  manifest `region` shape (AvApp doc 31 §2). Phase 2 is always app-wide. */
-export interface CreativeRegion {
-  provider: string;
-  zoneId: string;
-  zoneSetVersion: number;
-}
+/** The advertiser's chosen ad-targeting lens — the manifest `creative.target` shape
+ *  (AvApp doc 31 §3, T23). A discriminated union over `kind`; `national` is the
+ *  explicit app-wide value (no `null` — the wire shape is total). `radius` carries the
+ *  advertiser's pin + a 5–250 mi radius; `admin` carries one Census level + the FIPS
+ *  codes at that level. This is the advertiser's chosen audience, NEVER a user location
+ *  (doc 31 §0.1) — the device matches against the signed manifest on its own. */
+export type CreativeTarget =
+  | { kind: "national" }
+  | { kind: "radius"; lat: number; lon: number; mi: number }
+  | { kind: "admin"; level: "state" | "county" | "place"; fips: string[] };
 
 export interface PublishCreativeInput {
   /** The portal's ad_creatives.id — AvServ echoes it back for reconciliation. */
@@ -380,7 +383,8 @@ export interface PublishCreativeInput {
   body: string;
   altText: string;
   clickUrl?: string | null;
-  region?: CreativeRegion | null;
+  /** Defaults to national/app-wide when omitted. */
+  target?: CreativeTarget;
 }
 
 export interface PublishedCreative {

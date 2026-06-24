@@ -89,7 +89,8 @@ export async function createCreativeAction(
           body: data.body,
           altText: data.altText,
           clickUrl: data.clickUrl,
-          // status defaults to 'draft'; region (forecast_zone_*) left null = app-wide.
+          // status defaults to 'draft'; target_kind defaults to 'national' (app-wide).
+          // The targeting fields (radius/admin) arrive with the AD-P7b authoring UI.
         })
         .returning({ id: adCreatives.id });
       if (!creative) {
