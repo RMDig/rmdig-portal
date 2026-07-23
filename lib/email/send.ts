@@ -10,6 +10,9 @@ import AdCreativeDecisionEmail, {
 } from "./templates/AdCreativeDecisionEmail";
 import AdCreativePendingReviewEmail from "./templates/AdCreativePendingReviewEmail";
 import AdvertiserInviteEmail from "./templates/AdvertiserInviteEmail";
+import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
+import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
+import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
@@ -231,4 +234,67 @@ export async function sendAdCreativeDecisionEmail(
   }
 
   logger.info({ event: "email.ad_decision.sent", to, decision: params.decision, resendId: data?.id });
+}
+
+export async function sendDataDeletionConfirmEmail(
+  to: string,
+  params: { confirmUrl: string; expiresInHours: number },
+): Promise<void> {
+  const html = await render(DataDeletionConfirmEmail(params));
+
+  const { data, error } = await getResend().emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: "Confirm your data-deletion request",
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.deletion_confirm.failed", to, error });
+    throw new Error(`Resend rejected deletion-confirm email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.deletion_confirm.sent", to, resendId: data?.id });
+}
+
+export async function sendDataDeletionReceivedEmail(
+  to: string,
+  params: { requestId: string },
+): Promise<void> {
+  const html = await render(DataDeletionReceivedEmail(params));
+
+  const { data, error } = await getResend().emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: "Your data-deletion request is confirmed",
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.deletion_received.failed", to, error });
+    throw new Error(`Resend rejected deletion-received email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.deletion_received.sent", to, resendId: data?.id });
+}
+
+export async function sendDataDeletionAdminEmail(
+  to: string,
+  params: { requesterEmail: string; requestId: string; confirmedAtIso: string },
+): Promise<void> {
+  const html = await render(DataDeletionAdminEmail(params));
+
+  const { data, error } = await getResend().emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: "Data-deletion request awaiting fulfillment",
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.deletion_admin.failed", to, error });
+    throw new Error(`Resend rejected deletion-admin email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.deletion_admin.sent", to, resendId: data?.id });
 }
