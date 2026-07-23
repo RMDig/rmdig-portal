@@ -17,7 +17,19 @@ import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
 import VerifyEmail from "./templates/VerifyEmail";
 
-const resend = new Resend(env.RESEND_API_KEY);
+// Lazy so importing this module never depends on the key being present —
+// RESEND_API_KEY is optional in the env schema (a deploy without it must still
+// serve pages). Actually sending without the key fails loud, per house rules.
+let resendClient: Resend | null = null;
+function getResend(): Resend {
+  if (!env.RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY is not set — transactional email is unconfigured in this environment",
+    );
+  }
+  resendClient ??= new Resend(env.RESEND_API_KEY);
+  return resendClient;
+}
 
 const VERIFY_EMAIL_EXPIRES_HOURS = 24;
 
@@ -26,7 +38,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
     VerifyEmail({ verifyUrl, expiresInHours: VERIFY_EMAIL_EXPIRES_HOURS }),
   );
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: "Verify your email",
@@ -46,7 +58,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     ResetPasswordEmail({ resetUrl, expiresInMinutes: RESET_TOKEN_TTL_MINUTES }),
   );
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: "Reset your password",
@@ -64,7 +76,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
 export async function sendSarOrgSubmittedEmail(to: string, orgName: string): Promise<void> {
   const html = await render(SarOrgSubmittedEmail({ orgName }));
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: "We received your SAR organization application",
@@ -85,7 +97,7 @@ export async function sendSarOrgPendingReviewEmail(
 ): Promise<void> {
   const html = await render(SarOrgPendingReviewEmail(params));
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: `SAR org awaiting review: ${params.orgName}`,
@@ -112,7 +124,7 @@ export async function sendSarOrgDecisionEmail(
 ): Promise<void> {
   const html = await render(SarOrgDecisionEmail(params));
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: DECISION_SUBJECT[params.decision],
@@ -135,7 +147,7 @@ export async function sendOrgInviteEmail(
     OrgInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: `You're invited to join ${params.orgName} on rmdig`,
@@ -158,7 +170,7 @@ export async function sendAdvertiserInviteEmail(
     AdvertiserInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: `You're invited to join ${params.advertiserName} on rmdig`,
@@ -179,7 +191,7 @@ export async function sendAdCreativePendingReviewEmail(
 ): Promise<void> {
   const html = await render(AdCreativePendingReviewEmail(params));
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: `Ad creative awaiting review: ${params.headline}`,
@@ -206,7 +218,7 @@ export async function sendAdCreativeDecisionEmail(
 ): Promise<void> {
   const html = await render(AdCreativeDecisionEmail(params));
 
-  const { data, error } = await resend.emails.send({
+  const { data, error } = await getResend().emails.send({
     from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
     to,
     subject: AD_DECISION_SUBJECT[params.decision],

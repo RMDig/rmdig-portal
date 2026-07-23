@@ -26,14 +26,19 @@ const Env = z.object({
 
   // Apple Sign-In. APPLE_PRIVATE_KEY arrives PEM-formatted with \n escapes
   // (Option A from the Apple walkthrough); Auth.js's Apple provider parses
-  // either PEM or base64.
-  APPLE_ID: z.string().min(1),
-  APPLE_TEAM_ID: z.string().length(10),
-  APPLE_KEY_ID: z.string().length(10),
-  APPLE_PRIVATE_KEY: z.string().min(1),
+  // either PEM or base64. Optional: the Apple provider is not wired into
+  // lib/auth yet, and requiring operator-held creds the deploy doesn't use
+  // took down every route in prod (2026-07-22). Make them required again in
+  // the same PR that actually adds the provider.
+  APPLE_ID: z.string().min(1).optional(),
+  APPLE_TEAM_ID: z.string().length(10).optional(),
+  APPLE_KEY_ID: z.string().length(10).optional(),
+  APPLE_PRIVATE_KEY: z.string().min(1).optional(),
 
-  // Resend transactional email
-  RESEND_API_KEY: z.string().startsWith("re_"),
+  // Resend transactional email. Optional in the schema so a deploy without the
+  // key still serves pages (same pattern as MFA_ENCRYPTION_KEY below);
+  // lib/email/send fails loud at send time if it's actually exercised unset.
+  RESEND_API_KEY: z.string().startsWith("re_").optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@rmdig.ai"),
 
   // Sentry. DSN is optional locally (errors then just log); ORG/PROJECT/AUTH
