@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  rlAllowed: true,
+  // Per-key allow/deny so the IP and email limits can be exercised
+  // independently; keys the action consulted are recorded in order.
+  rlDeniedKeys: [] as string[],
+  rlSeenKeys: [] as string[],
   inserted: [] as Array<{ table: string; vals: Record<string, unknown> }>,
   insertFails: false,
   sendConfirm: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  requestHeaders: {} as Record<string, string>,
 }));
 
 vi.mock("@/lib/db/schema", () => ({
@@ -28,10 +32,19 @@ vi.mock("@/lib/email/send", () => ({
   sendDataDeletionConfirmEmail: h.sendConfirm,
 }));
 vi.mock("@/lib/rate-limit", () => ({
-  incrementRateLimit: () =>
-    Promise.resolve({ allowed: h.rlAllowed, attempts: 1, resetAt: new Date() }),
+  incrementRateLimit: (key: string) => {
+    h.rlSeenKeys.push(key);
+    return Promise.resolve({
+      allowed: !h.rlDeniedKeys.some((denied) => key.startsWith(denied)),
+      attempts: 1,
+      resetAt: new Date(),
+    });
+  },
 }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("next/headers", () => ({
+  headers: () => Promise.resolve(new Headers(h.requestHeaders)),
+}));
 
 import { requestDataDeletionAction } from "@/app/(public)/account/delete/actions";
 
@@ -43,9 +56,11 @@ function form(fields: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.rlAllowed = true;
+  h.rlDeniedKeys = [];
+  h.rlSeenKeys = [];
   h.inserted = [];
   h.insertFails = false;
+  h.requestHeaders = { "x-forwarded-for": "203.0.113.7, 172.16.0.1" };
 });
 
 describe("requestDataDeletionAction", () => {
@@ -77,12 +92,33 @@ describe("requestDataDeletionAction", () => {
     expect(h.sendConfirm).not.toHaveBeenCalled();
   });
 
-  it("stops at the rate limit without writing or emailing", async () => {
-    h.rlAllowed = false;
+  it("consults the IP limit (first x-forwarded-for hop) before the email limit", async () => {
+    await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
+    expect(h.rlSeenKeys).toEqual(["deletion-ip:203.0.113.7", "deletion:user@rmdig.ai"]);
+  });
+
+  it("stops at the per-email limit without writing or emailing", async () => {
+    h.rlDeniedKeys = ["deletion:"];
     const res = await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
     expect(res?.ok).toBe(false);
     expect(h.inserted).toHaveLength(0);
     expect(h.sendConfirm).not.toHaveBeenCalled();
+  });
+
+  it("stops at the per-IP limit even for a fresh address", async () => {
+    h.rlDeniedKeys = ["deletion-ip:"];
+    const res = await requestDataDeletionAction(null, form({ email: "fresh@rmdig.ai" }));
+    expect(res?.ok).toBe(false);
+    // The email bucket is never consumed when the IP gate rejects.
+    expect(h.rlSeenKeys).toEqual(["deletion-ip:203.0.113.7"]);
+    expect(h.inserted).toHaveLength(0);
+    expect(h.sendConfirm).not.toHaveBeenCalled();
+  });
+
+  it("headerless requests share the fail-closed 'unknown' IP bucket", async () => {
+    h.requestHeaders = {};
+    await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
+    expect(h.rlSeenKeys[0]).toBe("deletion-ip:unknown");
   });
 
   it("surfaces a DB failure instead of pretending success", async () => {
