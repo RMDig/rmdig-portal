@@ -13,18 +13,28 @@ to [infrastructure.md](infrastructure.md) (what's provisioned) and
 
 ## Connecting to production
 
-The app reads `DATABASE_URL` from Vercel env (injected by the Neon integration).
-To run a script/migration against production from your machine, pull the prod
-env into a throwaway file and use it for that one command:
+Production is the **`production` branch (the default) of Neon project
+`lingering-waterfall-99928244`** (org: Rocky Mountain Digerati). As of
+2026-07-22 the Vercel Production `DATABASE_URL` is a **manually-set env var
+pinned to that branch's pooled endpoint** — it overrides the Neon integration,
+whose injected mapping had production traffic pointed at the `vercel-dev`
+branch while the Vercel *Development* env held the production-branch URL
+(discovered when migration 0009 "succeeded" but prod couldn't see the table).
+If you re-connect or reconfigure the Neon integration, re-verify which branch
+each Vercel environment actually reaches before trusting it.
+
+`vercel env pull --environment production` does NOT work for secrets anymore —
+integration vars are marked sensitive and pull as empty strings. Get the URL
+from the Neon CLI instead:
 
 ```bash
-vercel env pull .env.production.local --environment production
-# then run with that env, e.g.:
-DATABASE_URL="$(grep '^DATABASE_URL=' .env.production.local | cut -d= -f2-)" pnpm db:migrate
+pnpm dlx neonctl connection-string production \
+  --project-id lingering-waterfall-99928244 --pooled
+# then run one command against it, e.g.:
+DATABASE_URL="<that url>" pnpm db:migrate
 ```
 
-`.env.production.local` is gitignored by Next.js by default — delete it when
-you're done. **Never** point `pnpm test:e2e` or the E2E `global-setup` at this URL;
+**Never** point `pnpm test:e2e` or the E2E `global-setup` at this URL;
 those seed/mutate the `users` table (they refuse to run without `E2E_ALLOW_DB=1`
 precisely so this can't happen by accident).
 
