@@ -56,6 +56,20 @@ export default async function SettingsPage() {
           </Button>
         </CardHeader>
       </Card>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle>Delete account &amp; data</CardTitle>
+            <CardDescription>
+              Request deletion of your account and the personal data we hold, under the
+              Colorado Privacy Act. Confirmed by email; completed within 45 days.
+            </CardDescription>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/account/delete">Request deletion</Link>
+          </Button>
+        </CardHeader>
+      </Card>
     </div>
   );
 }

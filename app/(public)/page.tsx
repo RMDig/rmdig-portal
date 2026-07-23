@@ -1,0 +1,87 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import {
+  BETA_DISCLOSURE,
+  OPERATOR_CONTINUITY_DISCLOSURE,
+} from "@/lib/legal/compliance-copy";
+
+export const metadata: Metadata = {
+  title: "rmdig — AvAI backcountry safety companion",
+  description:
+    "Rocky Mountain Digerati builds AvAI, a beta safety companion app for backcountry travel: check out before a trip, check in when you're back safe.",
+};
+
+// The public landing page. Copy here is a PUBLIC-FACING SURFACE under AvApp
+// doc 16 §6.2 — the forbidden-phrase scan in tests/unit/legal-copy.test.ts
+// covers this file. Claim only what the current beta rung delivers.
+export default function LandingPage() {
+  return (
+    <div className="mx-auto max-w-4xl px-4">
+      <section className="py-16 sm:py-24">
+        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+          Rocky Mountain Digerati
+        </p>
+        <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
+          AvAI — a safety companion for backcountry travel
+        </h1>
+        <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-600">
+          Check out before you head into the field. Check in when you&apos;re back safe. If
+          you don&apos;t check in on time, AvAI&apos;s servers alert your emergency contact
+          with your last-known location. Requires cell or internet signal to check out.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-4">
+          <Link
+            href="/sign-in"
+            className="rounded-md bg-neutral-900 px-5 py-2.5 font-medium text-white hover:bg-neutral-700"
+          >
+            Open the portal
+          </Link>
+          <Link
+            href="/support"
+            className="rounded-md border border-neutral-300 px-5 py-2.5 font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Support
+          </Link>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-amber-300 bg-amber-50 p-5">
+        <h2 className="font-semibold text-amber-900">AvAI is in beta</h2>
+        <p className="mt-2 text-amber-900">{BETA_DISCLOSURE}</p>
+      </section>
+
+      <section className="grid gap-8 py-16 sm:grid-cols-3">
+        <div>
+          <h2 className="font-semibold">Check out / check in</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            Schedule a check-in before a trip. A server-side watchdog watches the clock —
+            if the check-in time passes without word from you, your emergency contact gets
+            an alert with your last-known location.
+          </p>
+        </div>
+        <div>
+          <h2 className="font-semibold">Field observations</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            Capture snowpack profile and core photos in the field. At this stage of the
+            beta, photos stay on your device.
+          </p>
+        </div>
+        <div>
+          <h2 className="font-semibold">Search &amp; rescue orgs</h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            SAR organizations onboard through this portal to manage their teams and service
+            regions.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-t border-neutral-200 py-12">
+        <h2 className="font-semibold">Who runs AvAI?</h2>
+        <p className="mt-3 max-w-3xl leading-7 text-neutral-600">
+          {OPERATOR_CONTINUITY_DISCLOSURE}
+        </p>
+      </section>
+    </div>
+  );
+}

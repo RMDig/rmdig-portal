@@ -64,6 +64,13 @@
       "when": 1781668641024,
       "tag": "0008_sticky_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784764180005,
+      "tag": "0009_deletion_requests",
+      "breakpoints": true
     }
   ]
 }

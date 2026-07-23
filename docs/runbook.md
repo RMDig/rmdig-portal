@@ -110,6 +110,42 @@ DATABASE_URL=<prod-url> pnpm db:migrate
 `db:migrate` is idempotent (it skips already-applied migrations), so running it
 again is safe. Confirm with `SELECT * FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 5;` if unsure what's applied.
 
+## Data-deletion requests (Colorado Privacy Act)
+
+Confirmed requests arrive by email to every `rmdig_admin` (the requester proved
+control of the address via the `/account/delete` confirmation link). The CPA
+clock is **45 days from `confirmed_at`**. Precise geolocation is sensitive data
+under the CPA — treat every request as covering it.
+
+1. **Find the request** (queue = everything confirmed but not completed):
+
+   ```sql
+   SELECT id, email, confirmed_at FROM deletion_requests
+   WHERE status = 'confirmed' ORDER BY confirmed_at;
+   ```
+
+2. **Portal data.** If a `users` row matches the email, delete it — sessions,
+   accounts, MFA rows, memberships, tokens cascade. Caveat: rows the user
+   *created* for org-shaped entities (`sar_orgs.created_by_user_id`,
+   `advertiser_accounts.created_by_user_id`, invitation `created_by_user_id`)
+   have plain FKs and will block the delete. If they own such rows, decide per
+   entity (transfer or delete the org) before deleting the user.
+3. **AvServ data.** Delete the account's checkout history, heartbeat rows, and
+   emergency-contact details on AvServ (operator process; no S2S deletion
+   endpoint yet — track as an AvServ work item).
+4. **Record completion** so the queue stays truthful:
+
+   ```sql
+   UPDATE deletion_requests
+   SET status = 'completed', completed_at = now(),
+       note = '<what was erased, where>'
+   WHERE id = '<request-id>';
+   ```
+
+5. **Reply to the requester** from the support mailbox confirming completion.
+   The reply must go out within the 45-day window even if the answer is "we
+   held no data for this address."
+
 ## Flip MFA enforcement at public launch
 
 `MFA_ENFORCEMENT` (`optional` | `admin_only` | `all`) is a Vercel env var, not
