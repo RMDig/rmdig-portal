@@ -20,18 +20,18 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500">Last updated: July 22, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 22, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
       </div>
 
-      <div className="space-y-10 leading-7 text-neutral-700 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 [&_h3]:font-semibold [&_h3]:text-neutral-900">
+      <div className="space-y-10 leading-7 text-neutral-700 dark:text-neutral-200 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 dark:[&_h2]:text-neutral-50 [&_h3]:font-semibold [&_h3]:text-neutral-900 dark:[&_h3]:text-neutral-50">
         <section>
           <h2>Who we are</h2>
           <p className="mt-3">
             {LEGAL_ENTITY} (&quot;rmdig&quot;, &quot;we&quot;) is a Colorado company. We
-            operate the AvAI mobile app (a beta safety companion for backcountry travel),
+            operate the AvAI™ mobile app (a beta safety companion for backcountry travel),
             this website and web portal at rmdig.ai, and the self-hosted server
             infrastructure (&quot;AvServ&quot;) that powers AvAI&apos;s check-out/check-in
             safety feature. This policy covers all of them.
@@ -114,23 +114,23 @@ export default function PrivacyPolicyPage() {
           <h2>Who your data is shared with</h2>
           <ul className="mt-3 list-disc space-y-2 pl-6">
             <li>
-              <span className="font-medium text-neutral-900">Your emergency contact</span> —
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">Your emergency contact</span> —
               if an overdue alert fires, they receive your name, the alert, and your
               last-known location. That is the product working as described.
             </li>
             <li>
-              <span className="font-medium text-neutral-900">AvServ</span> — our own
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">AvServ</span> — our own
               self-hosted servers. First-party infrastructure, not a third party.
             </li>
             <li>
-              <span className="font-medium text-neutral-900">Service providers</span> — we
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">Service providers</span> — we
               use Vercel (web hosting), Neon (database), Resend (transactional email),
               Twilio (SMS alert delivery), Sentry (error reporting), and Cloudflare
               (DNS/network) to run the service. They process data on our behalf and are not
               permitted to use it for their own purposes.
             </li>
             <li>
-              <span className="font-medium text-neutral-900">Legal requirements</span> — we
+              <span className="font-medium text-neutral-900 dark:text-neutral-50">Legal requirements</span> — we
               may disclose data if required by law.{" "}
             </li>
           </ul>
@@ -142,12 +142,12 @@ export default function PrivacyPolicyPage() {
           <div className="mt-3 overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-neutral-300 text-left text-neutral-900">
+                <tr className="border-b border-neutral-300 dark:border-neutral-700 text-left text-neutral-900 dark:text-neutral-50">
                   <th className="py-2 pr-4 font-semibold">Data</th>
                   <th className="py-2 font-semibold">Retention</th>
                 </tr>
               </thead>
-              <tbody className="[&_td]:py-2 [&_td]:pr-4 [&_tr]:border-b [&_tr]:border-neutral-200">
+              <tbody className="[&_td]:py-2 [&_td]:pr-4 [&_tr]:border-b [&_tr]:border-neutral-200 dark:[&_tr]:border-neutral-800">
                 <tr>
                   <td>Photos you capture</td>
                   <td>On your device only — you control them; deleting the app removes them</td>
@@ -175,7 +175,7 @@ export default function PrivacyPolicyPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-sm text-neutral-500">
+          <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
             These windows are our operating practice while the service is in beta; final
             retention terms are part of the legal review noted at the top of this page.
           </p>

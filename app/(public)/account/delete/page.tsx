@@ -18,7 +18,7 @@ export default function DeleteDataPage() {
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Delete my data</h1>
 
-      <div className="mt-6 space-y-4 leading-7 text-neutral-700">
+      <div className="mt-6 space-y-4 leading-7 text-neutral-700 dark:text-neutral-200">
         <p>
           Use this form to request deletion of the personal data associated with your email
           address — your portal account (if you have one), check-out/check-in history,
@@ -30,7 +30,7 @@ export default function DeleteDataPage() {
           comes from you. Once you confirm, we&apos;ll complete the deletion and reply to
           you within 45 days, as the Colorado Privacy Act requires.
         </p>
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
           Photos you captured with AvAI live on your device, not on our servers — delete
           the app or its data to remove them. See the{" "}
           <Link href="/privacy" className="font-medium underline">

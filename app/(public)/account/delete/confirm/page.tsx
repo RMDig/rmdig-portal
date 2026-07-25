@@ -123,13 +123,13 @@ function Confirmed({ requestId }: { requestId: string }) {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Deletion request confirmed</h1>
-      <div className="mt-6 space-y-4 leading-7 text-neutral-700">
+      <div className="mt-6 space-y-4 leading-7 text-neutral-700 dark:text-neutral-200">
         <p>
           Your data-deletion request is confirmed and in our fulfillment queue. We&apos;ll
           complete it and reply to your email within 45 days, as the Colorado Privacy Act
           requires. You&apos;ll also find a confirmation in your inbox.
         </p>
-        <p className="text-sm text-neutral-500">Request reference: {requestId}</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">Request reference: {requestId}</p>
       </div>
     </article>
   );
@@ -139,7 +139,7 @@ function Expired() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">This link has expired</h1>
-      <p className="mt-6 leading-7 text-neutral-700">
+      <p className="mt-6 leading-7 text-neutral-700 dark:text-neutral-200">
         Confirmation links are valid for 24 hours.{" "}
         <Link href="/account/delete" className="font-medium underline">
           Submit a new deletion request
@@ -154,7 +154,7 @@ function Invalid() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Invalid confirmation link</h1>
-      <p className="mt-6 leading-7 text-neutral-700">
+      <p className="mt-6 leading-7 text-neutral-700 dark:text-neutral-200">
         This link isn&apos;t valid — it may have been truncated by your email client.{" "}
         <Link href="/account/delete" className="font-medium underline">
           Submit a new deletion request

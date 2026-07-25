@@ -23,17 +23,17 @@ export default function TermsPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-neutral-500">Last updated: July 22, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 22, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
       </div>
 
-      <div className="space-y-10 leading-7 text-neutral-700 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900">
+      <div className="space-y-10 leading-7 text-neutral-700 dark:text-neutral-200 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 dark:[&_h2]:text-neutral-50">
         <section>
           <h2>1. Agreement</h2>
           <p className="mt-3">
-            These terms govern your use of the AvAI mobile app and the rmdig web portal,
+            These terms govern your use of the AvAI™ mobile app and the rmdig web portal,
             operated by {LEGAL_ENTITY} (&quot;rmdig&quot;, &quot;we&quot;).
           </p>
           <LawyerPlaceholder>
@@ -50,7 +50,7 @@ export default function TermsPage() {
             contact with your last-known location. Checking out requires cell or internet
             signal.
           </p>
-          <p className="mt-3 font-medium text-neutral-900">{BETA_DISCLOSURE}</p>
+          <p className="mt-3 font-medium text-neutral-900 dark:text-neutral-50">{BETA_DISCLOSURE}</p>
           <p className="mt-3">
             AvAI is operated by a small team and may have outages of hours or days. It is
             not an emergency service, does not contact 911 or rescue services on your

@@ -3,7 +3,7 @@
 // review' banner"). Remove only when counsel approves the page it sits on.
 export default function DraftBanner() {
   return (
-    <div className="mb-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+    <div className="mb-8 rounded-lg border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-900 dark:text-amber-200">
       <p className="font-semibold">DRAFT — pending legal review</p>
       <p className="mt-1">
         This document is under review by our counsel. The factual descriptions of what data

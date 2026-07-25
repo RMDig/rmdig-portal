@@ -43,7 +43,7 @@ export default function LandingPage() {
         <h1 className="mt-6 text-3xl font-semibold tracking-tight sm:text-4xl">
           A safety companion for backcountry travel
         </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-600">
+        <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-600 dark:text-neutral-300">
           Check out before you head into the field. Check in when you&apos;re back safe. If
           you don&apos;t check in on time, AvAI&apos;s servers alert your emergency contact
           with your last-known location. Requires cell or internet signal to check out.
@@ -51,28 +51,28 @@ export default function LandingPage() {
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link
             href="/sign-in"
-            className="rounded-md bg-neutral-900 px-5 py-2.5 font-medium text-white hover:bg-neutral-700"
+            className="rounded-md bg-neutral-900 dark:bg-white px-5 py-2.5 font-medium text-white dark:text-neutral-900 hover:bg-neutral-700 dark:hover:bg-neutral-200"
           >
             Open the portal
           </Link>
           <Link
             href="/support"
-            className="rounded-md border border-neutral-300 px-5 py-2.5 font-medium text-neutral-700 hover:bg-neutral-50"
+            className="rounded-md border border-neutral-300 dark:border-neutral-700 px-5 py-2.5 font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-900"
           >
             Support
           </Link>
         </div>
       </section>
 
-      <section className="rounded-lg border border-amber-300 bg-amber-50 p-5">
-        <h2 className="font-semibold text-amber-900">AvAI is in beta</h2>
-        <p className="mt-2 text-amber-900">{BETA_DISCLOSURE}</p>
+      <section className="rounded-lg border border-amber-300 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/20 p-5">
+        <h2 className="font-semibold text-amber-900 dark:text-amber-200">AvAI™ is in beta</h2>
+        <p className="mt-2 text-amber-900 dark:text-amber-200">{BETA_DISCLOSURE}</p>
       </section>
 
       <section className="grid gap-8 py-16 sm:grid-cols-3">
         <div>
           <h2 className="font-semibold">Check out / check in</h2>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">
+          <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
             Schedule a check-in before a trip. A server-side watchdog watches the clock —
             if the check-in time passes without word from you, your emergency contact gets
             an alert with your last-known location.
@@ -80,23 +80,23 @@ export default function LandingPage() {
         </div>
         <div>
           <h2 className="font-semibold">Field observations</h2>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">
+          <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
             Capture snowpack profile and core photos in the field. At this stage of the
             beta, photos stay on your device.
           </p>
         </div>
         <div>
           <h2 className="font-semibold">Search &amp; rescue orgs</h2>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">
+          <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
             SAR organizations onboard through this portal to manage their teams and service
             regions.
           </p>
         </div>
       </section>
 
-      <section className="border-t border-neutral-200 py-12">
+      <section className="border-t border-neutral-200 dark:border-neutral-800 py-12">
         <h2 className="font-semibold">Who runs AvAI?</h2>
-        <p className="mt-3 max-w-3xl leading-7 text-neutral-600">
+        <p className="mt-3 max-w-3xl leading-7 text-neutral-600 dark:text-neutral-300">
           {OPERATOR_CONTINUITY_DISCLOSURE}
         </p>
       </section>

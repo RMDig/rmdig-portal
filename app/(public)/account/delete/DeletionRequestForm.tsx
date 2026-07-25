@@ -13,7 +13,7 @@ export function DeletionRequestForm() {
 
   if (state?.ok) {
     return (
-      <div className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-900">
+      <div className="rounded-md bg-green-50 dark:bg-green-900/20 px-4 py-3 text-sm text-green-900 dark:text-green-200">
         Check your inbox — we&apos;ve sent a confirmation link to that address. Your
         deletion request starts once you click it. The link expires in 24 hours.
       </div>
