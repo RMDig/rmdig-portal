@@ -4,7 +4,7 @@
 // one of these with model-drafted binding language.
 export default function LawyerPlaceholder({ children }: { children: React.ReactNode }) {
   return (
-    <div className="my-4 rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500">
+    <div className="my-4 rounded-md border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-4 text-sm text-neutral-500 dark:text-neutral-400">
       <p className="font-mono text-xs font-semibold text-neutral-400">[LAWYER]</p>
       <p className="mt-1">{children}</p>
     </div>

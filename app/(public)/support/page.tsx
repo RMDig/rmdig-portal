@@ -21,9 +21,9 @@ export default function SupportPage() {
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Support</h1>
 
-      <p className="mt-6 leading-7 text-neutral-700">{OPERATOR_CONTINUITY_DISCLOSURE}</p>
+      <p className="mt-6 leading-7 text-neutral-700 dark:text-neutral-200">{OPERATOR_CONTINUITY_DISCLOSURE}</p>
 
-      <div className="mt-10 space-y-10 leading-7 text-neutral-700 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900">
+      <div className="mt-10 space-y-10 leading-7 text-neutral-700 dark:text-neutral-200 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 dark:[&_h2]:text-neutral-50">
         <section>
           <h2>Contact us</h2>
           <p className="mt-3">
