@@ -13,6 +13,11 @@ later.
 
 ## The registry
 
+**Status (2026-07-25):** every URL below is live, public, and carries its
+required content (including the A2P SMS disclosures on `/privacy`) — the
+portal side is filing-ready. The registrations themselves are operator
+actions still to be entered in each console.
+
 | Consumer | Field | URL |
 |---|---|---|
 | Apple App Store Connect | Privacy Policy URL (App Information) | `https://app.rmdig.ai/privacy` |
