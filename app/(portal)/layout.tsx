@@ -57,18 +57,19 @@ export default async function PortalLayout({ children }: { children: React.React
               sides can't skew it); hidden on small screens where it would
               collide with the nav. Theme pair per the landing hero. */}
           <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block">
+            {/* 600×384 asset — 56×36 keeps the exact 1.5625 aspect (no squish). */}
             <Image
               src="/avai-logo.png"
               alt="AvAI"
-              width={44}
-              height={28}
+              width={56}
+              height={36}
               className="dark:hidden"
             />
             <Image
               src="/avai-logo-white.png"
               alt="AvAI"
-              width={44}
-              height={28}
+              width={56}
+              height={36}
               className="hidden dark:block"
             />
           </div>
