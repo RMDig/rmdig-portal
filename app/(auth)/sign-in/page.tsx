@@ -23,7 +23,7 @@ export default function SignInPage() {
           priority
           className="mb-2"
         />
-        <CardTitle>Sign in to rmdig</CardTitle>
+        <CardTitle>Sign in</CardTitle>
       </CardHeader>
       <CardContent>
         <Suspense fallback={null}>
