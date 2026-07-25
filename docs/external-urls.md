@@ -38,21 +38,16 @@ later.
   prominent mention per page). Swap ™ → ® only when the USPTO registration
   formally issues.
 
-## Open item — A2P SMS disclosures (blocking the Twilio campaign)
+## A2P SMS disclosures — DONE (2026-07-25)
 
-Carrier vetting (CTIA guidelines) expects the privacy policy to carry
-SMS-specific disclosures, which `/privacy` does not yet have:
+`/privacy` carries a "Text messages (SMS)" section with the disclosures
+carrier vetting (CTIA guidelines) expects: the consent model (the **user**
+supplies their **emergency contact's** number; the contact is the SMS
+recipient, alerts dispatched by AvServ via Twilio), message types +
+event-driven frequency, "Message and data rates may apply," STOP/HELP
+instructions with the honest safety consequence of opting out, and the
+"No mobile information will be shared with third parties or affiliates for
+marketing or promotional purposes" line reviewers scan for.
 
-- How phone numbers are collected/consented — note the unusual model here:
-  the **user** supplies their **emergency contact's** number, and the contact
-  is the SMS recipient (safety alerts + all-clears, dispatched by AvServ via
-  Twilio).
-- Message types + expected frequency; "Message and data rates may apply."
-- STOP / HELP opt-out instructions — including the honest safety consequence:
-  a contact who texts STOP stops receiving safety alerts. (Surfacing a
-  contact's opt-out back to the AvApp user is an AvServ-side follow-up.)
-- The line reviewers scan for near-verbatim: "No mobile information will be
-  shared with third parties or affiliates for marketing or promotional
-  purposes."
-
-Add this section to `/privacy` before filing the A2P campaign registration.
+Remaining AvServ-side follow-up (not portal): surface a contact's STOP
+opt-out back to the AvApp user so they can pick a different contact.
