@@ -61,17 +61,20 @@ describe("signInCredentialsAction MFA handling", () => {
     expect(res.ok).toBe(false);
   });
 
-  it("signals mfaRequired when the password is right but a code is needed", async () => {
+  it("signals mfaRequired with a neutral prompt (not an error) when a code is needed", async () => {
     h.signInError = credError("mfa_required");
     const res = await signInCredentialsAction(null, form({ email: "a@b.co", password: "pw" }));
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.mfaRequired).toBe(true);
-      expect(res.error).toMatch(/authenticator/i);
+      // The first challenge is a prompt, never a failure — the form styles
+      // mfaInvalid as red and everything else as informational.
+      expect(res.mfaInvalid).toBeFalsy();
+      expect(res.error).toMatch(/enter your MFA code/i);
     }
   });
 
-  it("signals mfaRequired with a retry message on a bad code", async () => {
+  it("signals mfaRequired + mfaInvalid with a retry message on a bad code", async () => {
     h.signInError = credError("mfa_invalid");
     const res = await signInCredentialsAction(
       null,
@@ -80,6 +83,7 @@ describe("signInCredentialsAction MFA handling", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.mfaRequired).toBe(true);
+      expect(res.mfaInvalid).toBe(true);
       expect(res.error).toMatch(/didn't match/i);
     }
   });

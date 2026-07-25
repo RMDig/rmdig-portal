@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { signInCredentialsAction, signInGoogleAction } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,15 @@ export function SignInForm() {
   const [state, formAction, pending] = useActionState(signInCredentialsAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
   const mfaRequired = !!(state && !state.ok && state.mfaRequired);
+  const mfaInvalid = !!(state && !state.ok && state.mfaInvalid);
+
+  // Controlled ON PURPOSE: React 19 resets uncontrolled fields after every
+  // form-action round-trip, which blanked email + password on the transition
+  // to the MFA challenge and forced the user to retype them. Controlled state
+  // carries them across; the TOTP field stays uncontrolled so a wrong code
+  // clears itself for the retry.
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   return (
     <div className="space-y-6">
@@ -69,6 +78,8 @@ export function SignInForm() {
             type="email"
             autoComplete="email"
             required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             aria-invalid={!!fieldErrors?.email}
           />
         </div>
@@ -87,11 +98,18 @@ export function SignInForm() {
             name="password"
             autoComplete="current-password"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             aria-invalid={!!fieldErrors?.password}
           />
         </div>
         {mfaRequired ? (
           <div className="space-y-2">
+            {!mfaInvalid ? (
+              <div className="rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:bg-blue-900/20 dark:text-blue-200">
+                {state && !state.ok ? state.error : null}
+              </div>
+            ) : null}
             <Label htmlFor="totp">Authenticator code</Label>
             <Input
               id="totp"
@@ -106,7 +124,7 @@ export function SignInForm() {
             </p>
           </div>
         ) : null}
-        {state && !state.ok ? (
+        {state && !state.ok && (!mfaRequired || mfaInvalid) ? (
           <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
         ) : null}
         <Button type="submit" className="w-full" disabled={pending}>
