@@ -30,7 +30,11 @@ vi.mock("@/lib/db", () => ({
     insert: (table: { __t: string }) => ({
       values: (vals: Record<string, unknown>) => {
         h.inserted.push({ table: table.__t, vals });
-        return Promise.resolve();
+        // Awaitable directly AND chainable with .returning() — covers both
+        // `await db.insert().values()` and `await ....values().returning()`.
+        return Object.assign(Promise.resolve(), {
+          returning: () => Promise.resolve([{ id: "user-1" }]),
+        });
       },
     }),
     delete: (table: { __t: string }) => ({
@@ -59,7 +63,11 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
-import { requestPasswordResetAction, resetPasswordAction } from "@/app/(auth)/actions";
+import {
+  requestPasswordResetAction,
+  resetPasswordAction,
+  signUpAction,
+} from "@/app/(auth)/actions";
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -119,8 +127,21 @@ describe("requestPasswordResetAction", () => {
 
 describe("resetPasswordAction", () => {
   it("rejects a too-short password with field errors", async () => {
-    const res = await resetPasswordAction(null, form({ token: "t", password: "short" }));
+    const res = await resetPasswordAction(
+      null,
+      form({ token: "t", password: "short", confirmPassword: "short" }),
+    );
     expect(res.ok).toBe(false);
+    expect(h.updates).toHaveLength(0);
+  });
+
+  it("rejects mismatched passwords with a confirmPassword field error", async () => {
+    const res = await resetPasswordAction(
+      null,
+      form({ token: "t", password: "abcdefghijkl", confirmPassword: "abcdefghijkX" }),
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors?.confirmPassword).toBeTruthy();
     expect(h.updates).toHaveLength(0);
   });
 
@@ -128,7 +149,7 @@ describe("resetPasswordAction", () => {
     h.selectResult = [];
     const res = await resetPasswordAction(
       null,
-      form({ token: "deadbeef", password: "abcdefghijkl" }),
+      form({ token: "deadbeef", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
     );
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/invalid or has expired/i);
@@ -139,7 +160,7 @@ describe("resetPasswordAction", () => {
     h.selectResult = [{ id: "t1", userId: "u1" }];
     const res = await resetPasswordAction(
       null,
-      form({ token: "validtoken", password: "abcdefghijkl" }),
+      form({ token: "validtoken", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
     );
     expect(res).toEqual({ ok: true });
 
@@ -150,5 +171,37 @@ describe("resetPasswordAction", () => {
     // Single-use + session invalidation.
     expect(h.deletes).toContain("prt");
     expect(h.deletes).toContain("sessions");
+  });
+});
+
+describe("signUpAction", () => {
+  it("rejects mismatched passwords with a confirmPassword field error", async () => {
+    const res = await signUpAction(
+      null,
+      form({
+        email: "new@rmdig.ai",
+        password: "abcdefghijkl",
+        confirmPassword: "abcdefghijkX",
+      }),
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors?.confirmPassword).toBeTruthy();
+    expect(h.inserted).toHaveLength(0);
+    expect(h.sendVerify).not.toHaveBeenCalled();
+  });
+
+  it("creates the account and sends verification when passwords match", async () => {
+    h.selectResult = []; // no existing user
+    const res = await signUpAction(
+      null,
+      form({
+        email: "new@rmdig.ai",
+        password: "abcdefghijkl",
+        confirmPassword: "abcdefghijkl",
+      }),
+    );
+    expect(res).toEqual({ ok: true });
+    expect(h.inserted.some((i) => i.table === "users")).toBe(true);
+    expect(h.sendVerify).toHaveBeenCalledTimes(1);
   });
 });

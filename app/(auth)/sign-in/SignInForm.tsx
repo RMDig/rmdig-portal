@@ -7,6 +7,7 @@ import { useActionState } from "react";
 import { signInCredentialsAction, signInGoogleAction } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -81,10 +82,9 @@ export function SignInForm() {
               Forgot password?
             </Link>
           </div>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             aria-invalid={!!fieldErrors?.password}

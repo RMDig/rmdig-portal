@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { LEGAL_ENTITY } from "@/lib/legal/compliance-copy";
@@ -11,8 +12,15 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <>
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
-            rmdig<span className="text-neutral-400"> / AvAI</span>
+          <Link href="/" className="flex items-center">
+            {/* 363×96 source rendered at 32px tall — 3x for retina crispness. */}
+            <Image
+              src="/rmdig-logo.png"
+              alt="RMDig"
+              width={121}
+              height={32}
+              priority
+            />
           </Link>
           <nav className="flex items-center gap-5 text-sm text-neutral-600">
             <Link href="/support" className="hover:text-neutral-900">

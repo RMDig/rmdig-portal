@@ -18,13 +18,22 @@ import { incrementRateLimit } from "@/lib/rate-limit";
 
 // ----- Schemas -----
 
-const signUpSchema = z.object({
-  email: z.string().email().toLowerCase(),
-  password: z
-    .string()
-    .min(12, "Password must be at least 12 characters")
-    .max(200, "Password is too long"),
-});
+const signUpSchema = z
+  .object({
+    email: z.string().email().toLowerCase(),
+    password: z
+      .string()
+      .min(12, "Password must be at least 12 characters")
+      .max(200, "Password is too long"),
+    confirmPassword: z.string(),
+  })
+  // Server-side twin of the retype-to-confirm UX — the client can't be trusted
+  // to enforce the match, and a typo'd password locks the user out of a brand
+  // new account until they discover password reset.
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 const signInSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -256,13 +265,20 @@ export async function requestPasswordResetAction(
 
 // ----- Password reset: complete -----
 
-const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  password: z
-    .string()
-    .min(12, "Password must be at least 12 characters")
-    .max(200, "Password is too long"),
-});
+const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    password: z
+      .string()
+      .min(12, "Password must be at least 12 characters")
+      .max(200, "Password is too long"),
+    confirmPassword: z.string(),
+  })
+  // Same retype-to-confirm contract as sign-up (see signUpSchema).
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 export async function resetPasswordAction(
   _prev: ActionResult | null,
