@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -18,19 +19,25 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <div className="mx-auto max-w-4xl px-4">
-      <section className="py-16 sm:py-24">
-        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Rocky Mountain Digerati
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
-          AvAI — a safety companion for backcountry travel
+      <section className="flex flex-col items-center py-16 text-center sm:py-24">
+        {/* 600×384 source at 128px tall — 3x for retina crispness. The white
+            variant lives in public/brand/ for future dark surfaces. */}
+        <Image
+          src="/avai-logo.png"
+          alt="AvAI"
+          width={200}
+          height={128}
+          priority
+        />
+        <h1 className="mt-6 text-3xl font-semibold tracking-tight sm:text-4xl">
+          A safety companion for backcountry travel
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-600">
           Check out before you head into the field. Check in when you&apos;re back safe. If
           you don&apos;t check in on time, AvAI&apos;s servers alert your emergency contact
           with your last-known location. Requires cell or internet signal to check out.
         </p>
-        <div className="mt-8 flex flex-wrap gap-4">
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link
             href="/sign-in"
             className="rounded-md bg-neutral-900 px-5 py-2.5 font-medium text-white hover:bg-neutral-700"

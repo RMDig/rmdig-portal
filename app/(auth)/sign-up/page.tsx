@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignUpForm } from "./SignUpForm";
 
@@ -8,7 +10,17 @@ export const metadata = {
 export default function SignUpPage() {
   return (
     <Card>
-      <CardHeader>
+      {/* Mirrors the sign-in card: grid header, so justify-items-center does
+          the horizontal centering. */}
+      <CardHeader className="justify-items-center text-center">
+        <Image
+          src="/rmdig-logo.png"
+          alt="RMDig"
+          width={136}
+          height={40}
+          priority
+          className="mb-2"
+        />
         <CardTitle>Create your rmdig account</CardTitle>
       </CardHeader>
       <CardContent>
