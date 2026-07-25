@@ -6,10 +6,13 @@ route change never silently breaks a store listing or carrier registration.
 without updating every registration in its row** (and CLAUDE.md §3.7 keeps
 them public/no-auth).
 
-Canonical host: `https://app.rmdig.ai`. After the rmdig.ai DNS cutover the
-same pages also answer on `https://rmdig.ai`; registrations made against
-`app.` stay valid regardless, so prefer `app.` for anything hard to edit
-later.
+Canonical host for registrations: `https://app.rmdig.ai`. The rmdig.ai DNS
+cutover is **complete (2026-07-25)** — the same pages also answer on
+`https://rmdig.ai` and `https://www.rmdig.ai` — but registrations made
+against `app.` stay valid regardless, so prefer `app.` for anything hard to
+edit later. Auth flows and emailed links stay on `app.` (`NEXTAUTH_URL`);
+switching them to the apex is optional and requires adding the apex callback
+to the Google OAuth client first.
 
 ## The registry
 
@@ -26,7 +29,7 @@ actions still to be entered in each console.
 | Google Play Console | Store listing → Privacy policy | `https://app.rmdig.ai/privacy` |
 | Google Play Console | Account deletion URL | `https://app.rmdig.ai/account/delete` |
 | Google Play Console | Support email / website | `support@rmdig.ai` / `https://app.rmdig.ai/support` |
-| Twilio A2P 10DLC (campaign vetting) | Business website | `https://app.rmdig.ai/` (→ `https://rmdig.ai` post-cutover) |
+| Twilio A2P 10DLC (campaign vetting) | Business website | `https://rmdig.ai/` (live; brand ↔ domain match) |
 | Twilio A2P 10DLC | Privacy policy / Terms | `https://app.rmdig.ai/privacy` / `https://app.rmdig.ai/terms` |
 | AvApp `lib/copy/compliance_copy.dart` | `kPrivacyPolicyUrl` | `https://app.rmdig.ai/privacy` |
 | AvApp `lib/copy/compliance_copy.dart` | `kTermsOfServiceUrl` | `https://app.rmdig.ai/terms` |
