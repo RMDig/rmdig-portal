@@ -177,7 +177,7 @@ export function SarOrgForm() {
 
       <section className="space-y-3">
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
-          <strong>DRAFT — pending legal review.</strong> By submitting, you confirm you&apos;re
+          <strong>Terms under review by counsel.</strong> By submitting, you confirm you&apos;re
           authorized to represent this organization and that the information is accurate. Final terms
           of service will be provided before approval.
         </div>
