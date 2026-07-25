@@ -13,11 +13,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <header className="border-b border-neutral-200">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center">
-            {/* 363×96 source rendered at 32px tall — 3x for retina crispness. */}
+            {/* 326×96 source rendered at 32px tall — 3x for retina crispness. */}
             <Image
               src="/rmdig-logo.png"
               alt="RMDig"
-              width={121}
+              width={109}
               height={32}
               priority
             />
