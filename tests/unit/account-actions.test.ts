@@ -80,9 +80,19 @@ describe("changePasswordAction", () => {
   it("rejects a too-short new password", async () => {
     const res = await changePasswordAction(
       null,
-      form({ currentPassword: "whatever", newPassword: "short" }),
+      form({ currentPassword: "whatever", newPassword: "short", confirmPassword: "short" }),
     );
     expect(res.ok).toBe(false);
+    expect(h.updates).toHaveLength(0);
+  });
+
+  it("rejects mismatched passwords with a confirmPassword field error", async () => {
+    const res = await changePasswordAction(
+      null,
+      form({ currentPassword: "whatever", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkX" }),
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors?.confirmPassword).toBeTruthy();
     expect(h.updates).toHaveLength(0);
   });
 
@@ -90,7 +100,7 @@ describe("changePasswordAction", () => {
     h.selectResult = [{ passwordHash: null }];
     const res = await changePasswordAction(
       null,
-      form({ currentPassword: "whatever", newPassword: "abcdefghijkl" }),
+      form({ currentPassword: "whatever", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
     );
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/Google/);
@@ -101,7 +111,7 @@ describe("changePasswordAction", () => {
     h.selectResult = [{ passwordHash: await bcrypt.hash("realpassword", 4) }];
     const res = await changePasswordAction(
       null,
-      form({ currentPassword: "wrongpassword", newPassword: "abcdefghijkl" }),
+      form({ currentPassword: "wrongpassword", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
     );
     expect(res.ok).toBe(false);
     expect(h.updates).toHaveLength(0);
@@ -111,7 +121,7 @@ describe("changePasswordAction", () => {
     h.selectResult = [{ passwordHash: await bcrypt.hash("realpassword", 4) }];
     const res = await changePasswordAction(
       null,
-      form({ currentPassword: "realpassword", newPassword: "abcdefghijkl" }),
+      form({ currentPassword: "realpassword", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
     );
     expect(res).toEqual({ ok: true });
     expect(h.updates[0]?.passwordHash).toBeTruthy();
@@ -123,7 +133,7 @@ describe("changePasswordAction", () => {
     h.selectResult = [{ passwordHash: await bcrypt.hash("realpassword", 4) }];
     const res = await changePasswordAction(
       null,
-      form({ currentPassword: "realpassword", newPassword: "abcdefghijkl" }),
+      form({ currentPassword: "realpassword", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
     );
     expect(res.ok).toBe(false);
     expect(h.updates).toHaveLength(0);
