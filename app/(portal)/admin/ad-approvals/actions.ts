@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { isPlatformStaff } from "@/lib/auth/roles";
-import { publishCreative, unpublishCreative, type CreativeRegion } from "@/lib/avserv/client";
+import { publishCreative, unpublishCreative, type CreativeTarget } from "@/lib/avserv/client";
 import { db } from "@/lib/db";
 import {
   adCampaigns,
@@ -18,22 +18,31 @@ import { type AdCreativeDecision } from "@/lib/email/templates/AdCreativeDecisio
 import { sendAdCreativeDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 
-// Build the manifest `region` tuple from a creative's forecast_zone_* columns, or
-// null for an app-wide creative (Phase 2 is always app-wide). All-or-nothing: a
-// partial tuple is treated as app-wide rather than shipping a malformed region.
-function creativeRegion(c: {
-  forecastZoneProvider: string | null;
-  forecastZoneId: string | null;
-  forecastZoneSetVersion: number | null;
-}): CreativeRegion | null {
-  if (c.forecastZoneProvider && c.forecastZoneId && c.forecastZoneSetVersion != null) {
-    return {
-      provider: c.forecastZoneProvider,
-      zoneId: c.forecastZoneId,
-      zoneSetVersion: c.forecastZoneSetVersion,
-    };
+// Build the manifest `creative.target` from a creative's target_* columns (doc 31 §3).
+// The DB CHECK already guarantees the columns are consistent with target_kind, so this
+// is a straight read; we still fall back to national if a radius/admin payload is
+// somehow incomplete, never shipping a malformed target. numeric lat/lon arrive as
+// strings from Drizzle and are coerced back to numbers for the wire shape.
+function creativeTarget(c: {
+  targetKind: "national" | "radius" | "admin";
+  targetLat: string | null;
+  targetLon: string | null;
+  targetRadiusMi: number | null;
+  targetAdminLevel: "state" | "county" | "place" | null;
+  targetAdminFips: string[] | null;
+}): CreativeTarget {
+  if (
+    c.targetKind === "radius" &&
+    c.targetLat != null &&
+    c.targetLon != null &&
+    c.targetRadiusMi != null
+  ) {
+    return { kind: "radius", lat: Number(c.targetLat), lon: Number(c.targetLon), mi: c.targetRadiusMi };
   }
-  return null;
+  if (c.targetKind === "admin" && c.targetAdminLevel && c.targetAdminFips?.length) {
+    return { kind: "admin", level: c.targetAdminLevel, fips: c.targetAdminFips };
+  }
+  return { kind: "national" };
 }
 
 // Publish an approved creative to AvServ and record the returned ref + publishedAt.
@@ -48,9 +57,12 @@ async function publishAndRecord(creative: {
   body: string;
   altText: string;
   clickUrl: string | null;
-  forecastZoneProvider: string | null;
-  forecastZoneId: string | null;
-  forecastZoneSetVersion: number | null;
+  targetKind: "national" | "radius" | "admin";
+  targetLat: string | null;
+  targetLon: string | null;
+  targetRadiusMi: number | null;
+  targetAdminLevel: "state" | "county" | "place" | null;
+  targetAdminFips: string[] | null;
 }): Promise<boolean> {
   try {
     const { avservCreativeRef } = await publishCreative({
@@ -60,7 +72,7 @@ async function publishAndRecord(creative: {
       body: creative.body,
       altText: creative.altText,
       clickUrl: creative.clickUrl,
-      region: creativeRegion(creative),
+      target: creativeTarget(creative),
     });
     await db
       .update(adCreatives)
@@ -169,9 +181,12 @@ export async function reviewCreativeAction(
       clickUrl: adCreatives.clickUrl,
       slot: adCreatives.slot,
       avservCreativeRef: adCreatives.avservCreativeRef,
-      forecastZoneProvider: adCreatives.forecastZoneProvider,
-      forecastZoneId: adCreatives.forecastZoneId,
-      forecastZoneSetVersion: adCreatives.forecastZoneSetVersion,
+      targetKind: adCreatives.targetKind,
+      targetLat: adCreatives.targetLat,
+      targetLon: adCreatives.targetLon,
+      targetRadiusMi: adCreatives.targetRadiusMi,
+      targetAdminLevel: adCreatives.targetAdminLevel,
+      targetAdminFips: adCreatives.targetAdminFips,
       advertiserName: advertiserAccounts.name,
       advertiserEmail: advertiserAccounts.contactEmail,
     })
@@ -255,9 +270,12 @@ export async function reviewCreativeAction(
       body: creative.body,
       altText: creative.altText,
       clickUrl: creative.clickUrl,
-      forecastZoneProvider: creative.forecastZoneProvider,
-      forecastZoneId: creative.forecastZoneId,
-      forecastZoneSetVersion: creative.forecastZoneSetVersion,
+      targetKind: creative.targetKind,
+      targetLat: creative.targetLat,
+      targetLon: creative.targetLon,
+      targetRadiusMi: creative.targetRadiusMi,
+      targetAdminLevel: creative.targetAdminLevel,
+      targetAdminFips: creative.targetAdminFips,
     });
   } else if (decision === "suspend") {
     await unpublishAndClear(creativeId, creative.avservCreativeRef);
@@ -311,9 +329,12 @@ export async function publishApprovedCreativeAction(
       body: adCreatives.body,
       altText: adCreatives.altText,
       clickUrl: adCreatives.clickUrl,
-      forecastZoneProvider: adCreatives.forecastZoneProvider,
-      forecastZoneId: adCreatives.forecastZoneId,
-      forecastZoneSetVersion: adCreatives.forecastZoneSetVersion,
+      targetKind: adCreatives.targetKind,
+      targetLat: adCreatives.targetLat,
+      targetLon: adCreatives.targetLon,
+      targetRadiusMi: adCreatives.targetRadiusMi,
+      targetAdminLevel: adCreatives.targetAdminLevel,
+      targetAdminFips: adCreatives.targetAdminFips,
     })
     .from(adCreatives)
     .where(eq(adCreatives.id, creativeId))
