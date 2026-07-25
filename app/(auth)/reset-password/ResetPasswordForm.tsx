@@ -6,8 +6,8 @@ import { useActionState, useEffect } from "react";
 
 import { resetPasswordAction } from "../actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
@@ -26,10 +26,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
       <div className="space-y-2">
         <Label htmlFor="password">New password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={12}
@@ -39,6 +38,23 @@ export function ResetPasswordForm({ token }: { token: string }) {
         {fieldErrors?.password ? (
           <p className="text-xs text-red-700 dark:text-red-400">
             {fieldErrors.password.join(", ")}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="confirmPassword">Confirm new password</Label>
+        <PasswordInput
+          id="confirmPassword"
+          name="confirmPassword"
+          autoComplete="new-password"
+          required
+          minLength={12}
+          aria-invalid={!!fieldErrors?.confirmPassword}
+        />
+        {fieldErrors?.confirmPassword ? (
+          <p className="text-xs text-red-700 dark:text-red-400">
+            {fieldErrors.confirmPassword.join(", ")}
           </p>
         ) : null}
       </div>

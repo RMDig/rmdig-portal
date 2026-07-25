@@ -331,6 +331,54 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
   (t) => [index("sar_org_status_log_org_id_idx").on(t.orgId)],
 );
 
+// ── Data / account-deletion requests (Colorado Privacy Act) ──────────────────
+// The portal owns the user account, so the CPA deletion-on-request path lives
+// here (AvApp doc 24 §1.4; doc 12 T20 — precise geolocation is SENSITIVE data
+// under the CPA, so this path is a store-submission gate, not a nicety).
+//
+// Deliberately keyed by EMAIL with NO users FK: a request may come from an
+// AvAI app user or an emergency contact who has no portal account at all, and
+// the row must survive the very account deletion it asks for (it's the audit
+// trail that the request was received and honored). Lifecycle:
+//   pending_confirmation → confirmed → completed
+// pending_confirmation = form submitted, confirmation email sent (unverified
+// requests are never surfaced to the operator — anyone can type any address).
+// confirmed = the emailed link was clicked, proving control of the address;
+// operator + requester both notified; the CPA 45-day response clock is running.
+// completed = operator finished erasure per docs/runbook.md and recorded it.
+export const deletionRequestStatus = pgEnum("deletion_request_status", [
+  "pending_confirmation",
+  "confirmed",
+  "completed",
+]);
+
+export const deletionRequests = pgTable(
+  "deletion_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    // SHA-256 of the confirmation token (plaintext lives only in the emailed
+    // link), mirroring password_reset_tokens — a DB read can't forge a
+    // confirmed CPA request.
+    tokenHash: text("token_hash").notNull().unique(),
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }).notNull(),
+    status: deletionRequestStatus("status").default("pending_confirmation").notNull(),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    // Operator's fulfillment note (what was erased, where). Audit, not user-facing.
+    note: text("note"),
+  },
+  // The operator works the queue by status; requests are looked up per email
+  // when fulfilling. Index both.
+  (t) => [
+    index("deletion_requests_status_idx").on(t.status),
+    index("deletion_requests_email_idx").on(t.email),
+  ],
+);
+
 // ── Advertiser portal (P2 / v2+, docs/plans/30_advertiser_portal.md) ─────────
 // Self-served sponsor ads that fund AvServ. The advertiser surface is the SAR-
 // onboarding module with the nouns changed: a new principal (advertiser_accounts)

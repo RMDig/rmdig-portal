@@ -12,6 +12,7 @@ const h = vi.hoisted(() => {
     FakeAuthError,
     FakeCredentialsSignin,
     signInError: null as Error | null,
+    signInCalls: [] as Array<Record<string, unknown>>,
   };
 });
 
@@ -20,7 +21,8 @@ vi.mock("next-auth", () => ({
   CredentialsSignin: h.FakeCredentialsSignin,
 }));
 vi.mock("@/lib/auth", () => ({
-  signIn: () => {
+  signIn: (_provider: string, options: Record<string, unknown>) => {
+    h.signInCalls.push(options);
     if (h.signInError) throw h.signInError;
     return Promise.resolve();
   },
@@ -53,6 +55,7 @@ function credError(code: string): Error {
 
 beforeEach(() => {
   h.signInError = null;
+  h.signInCalls = [];
 });
 
 describe("signInCredentialsAction MFA handling", () => {
@@ -61,17 +64,38 @@ describe("signInCredentialsAction MFA handling", () => {
     expect(res.ok).toBe(false);
   });
 
-  it("signals mfaRequired when the password is right but a code is needed", async () => {
+  it("omits the totp key entirely when no code was submitted", async () => {
+    await signInCredentialsAction(null, form({ email: "a@b.co", password: "pw" }));
+    // next-auth serializes signIn options through URLSearchParams, which turns
+    // an undefined value into the literal string "undefined" — authorize then
+    // treats it as a real (wrong) code and every first-phase MFA sign-in fails
+    // with "that code didn't match". The key must be ABSENT, not undefined.
+    expect(h.signInCalls).toHaveLength(1);
+    expect("totp" in h.signInCalls[0]!).toBe(false);
+  });
+
+  it("passes the totp through when one was submitted", async () => {
+    await signInCredentialsAction(
+      null,
+      form({ email: "a@b.co", password: "pw", totp: "123456" }),
+    );
+    expect(h.signInCalls[0]?.totp).toBe("123456");
+  });
+
+  it("signals mfaRequired with a neutral prompt (not an error) when a code is needed", async () => {
     h.signInError = credError("mfa_required");
     const res = await signInCredentialsAction(null, form({ email: "a@b.co", password: "pw" }));
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.mfaRequired).toBe(true);
-      expect(res.error).toMatch(/authenticator/i);
+      // The first challenge is a prompt, never a failure — the form styles
+      // mfaInvalid as red and everything else as informational.
+      expect(res.mfaInvalid).toBeFalsy();
+      expect(res.error).toMatch(/enter your MFA code/i);
     }
   });
 
-  it("signals mfaRequired with a retry message on a bad code", async () => {
+  it("signals mfaRequired + mfaInvalid with a retry message on a bad code", async () => {
     h.signInError = credError("mfa_invalid");
     const res = await signInCredentialsAction(
       null,
@@ -80,6 +104,7 @@ describe("signInCredentialsAction MFA handling", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.mfaRequired).toBe(true);
+      expect(res.mfaInvalid).toBe(true);
       expect(res.error).toMatch(/didn't match/i);
     }
   });

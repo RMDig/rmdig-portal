@@ -18,13 +18,22 @@ import { incrementRateLimit } from "@/lib/rate-limit";
 
 // ----- Schemas -----
 
-const signUpSchema = z.object({
-  email: z.string().email().toLowerCase(),
-  password: z
-    .string()
-    .min(12, "Password must be at least 12 characters")
-    .max(200, "Password is too long"),
-});
+const signUpSchema = z
+  .object({
+    email: z.string().email().toLowerCase(),
+    password: z
+      .string()
+      .min(12, "Password must be at least 12 characters")
+      .max(200, "Password is too long"),
+    confirmPassword: z.string(),
+  })
+  // Server-side twin of the retype-to-confirm UX — the client can't be trusted
+  // to enforce the match, and a typo'd password locks the user out of a brand
+  // new account until they discover password reset.
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 const signInSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -43,6 +52,10 @@ export type ActionResult =
       // Set when the password was correct but a second factor is needed (or was
       // wrong). The sign-in form reveals the TOTP field and resubmits.
       mfaRequired?: boolean;
+      // Distinguishes "we're asking for the code" (neutral prompt) from "the
+      // code you typed was wrong" (error styling). Only meaningful alongside
+      // mfaRequired.
+      mfaInvalid?: boolean;
     };
 
 // ----- Sign up -----
@@ -131,10 +144,15 @@ export async function signInCredentialsAction(
   }
 
   try {
+    // The totp key is OMITTED (not passed as undefined) when no code was
+    // submitted: next-auth serializes these options through URLSearchParams,
+    // which stringifies undefined into the literal "undefined" — authorize
+    // then saw a truthy "code", verified it, and every first-phase MFA
+    // sign-in surfaced as "that code didn't match" instead of the challenge.
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
-      totp: parsed.data.totp,
+      ...(parsed.data.totp ? { totp: parsed.data.totp } : {}),
       redirectTo: "/dashboard",
     });
     return { ok: true };
@@ -146,13 +164,14 @@ export async function signInCredentialsAction(
         return {
           ok: false,
           mfaRequired: true,
-          error: "Enter the 6-digit code from your authenticator app.",
+          error: "Please enter your MFA code from your authenticator app.",
         };
       }
       if (err.code === "mfa_invalid") {
         return {
           ok: false,
           mfaRequired: true,
+          mfaInvalid: true,
           error: "That code didn't match. Try again, or use a recovery code.",
         };
       }
@@ -256,13 +275,20 @@ export async function requestPasswordResetAction(
 
 // ----- Password reset: complete -----
 
-const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  password: z
-    .string()
-    .min(12, "Password must be at least 12 characters")
-    .max(200, "Password is too long"),
-});
+const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    password: z
+      .string()
+      .min(12, "Password must be at least 12 characters")
+      .max(200, "Password is too long"),
+    confirmPassword: z.string(),
+  })
+  // Same retype-to-confirm contract as sign-up (see signUpSchema).
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 export async function resetPasswordAction(
   _prev: ActionResult | null,

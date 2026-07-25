@@ -1,5 +1,5 @@
 {
-  "id": "c17ef847-5ba3-4ded-a4d2-013b018b06ce",
+  "id": "05d4385a-b853-47bd-80d2-09156cc04caa",
   "prevId": "ce2b5e4f-2ad8-45b6-8d57-d8feb0e335dc",
   "version": "7",
   "dialect": "postgresql",
@@ -349,45 +349,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "target_kind": {
-          "name": "target_kind",
-          "type": "ad_target_kind",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'national'"
-        },
-        "target_lat": {
-          "name": "target_lat",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_lon": {
-          "name": "target_lon",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_radius_mi": {
-          "name": "target_radius_mi",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_admin_level": {
-          "name": "target_admin_level",
-          "type": "ad_admin_level",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_admin_fips": {
-          "name": "target_admin_fips",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": false
-        },
         "forecast_zone_provider": {
           "name": "forecast_zone_provider",
           "type": "text",
@@ -521,12 +482,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "ad_creatives_target_shape": {
-          "name": "ad_creatives_target_shape",
-          "value": "\n        (\n          \"ad_creatives\".\"target_kind\" = 'national'\n          AND \"ad_creatives\".\"target_lat\" IS NULL AND \"ad_creatives\".\"target_lon\" IS NULL AND \"ad_creatives\".\"target_radius_mi\" IS NULL\n          AND \"ad_creatives\".\"target_admin_level\" IS NULL AND \"ad_creatives\".\"target_admin_fips\" IS NULL\n        ) OR (\n          \"ad_creatives\".\"target_kind\" = 'radius'\n          AND \"ad_creatives\".\"target_lat\" IS NOT NULL AND \"ad_creatives\".\"target_lon\" IS NOT NULL\n          AND \"ad_creatives\".\"target_radius_mi\" IS NOT NULL AND \"ad_creatives\".\"target_radius_mi\" BETWEEN 5 AND 250\n          AND \"ad_creatives\".\"target_admin_level\" IS NULL AND \"ad_creatives\".\"target_admin_fips\" IS NULL\n        ) OR (\n          \"ad_creatives\".\"target_kind\" = 'admin'\n          AND \"ad_creatives\".\"target_admin_level\" IS NOT NULL\n          AND \"ad_creatives\".\"target_admin_fips\" IS NOT NULL AND array_length(\"ad_creatives\".\"target_admin_fips\", 1) >= 1\n          AND \"ad_creatives\".\"target_lat\" IS NULL AND \"ad_creatives\".\"target_lon\" IS NULL AND \"ad_creatives\".\"target_radius_mi\" IS NULL\n        )\n      "
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.advertiser_accounts": {
@@ -859,6 +815,116 @@
         }
       },
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.deletion_requests": {
+      "name": "deletion_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_expires_at": {
+          "name": "token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "deletion_request_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending_confirmation'"
+        },
+        "requested_at": {
+          "name": "requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "deletion_requests_status_idx": {
+          "name": "deletion_requests_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "deletion_requests_email_idx": {
+          "name": "deletion_requests_email_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "deletion_requests_token_hash_unique": {
+          "name": "deletion_requests_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1775,15 +1841,6 @@
     }
   },
   "enums": {
-    "public.ad_admin_level": {
-      "name": "ad_admin_level",
-      "schema": "public",
-      "values": [
-        "state",
-        "county",
-        "place"
-      ]
-    },
     "public.ad_creative_action": {
       "name": "ad_creative_action",
       "schema": "public",
@@ -1816,15 +1873,6 @@
         "loading_idle"
       ]
     },
-    "public.ad_target_kind": {
-      "name": "ad_target_kind",
-      "schema": "public",
-      "values": [
-        "national",
-        "radius",
-        "admin"
-      ]
-    },
     "public.advertiser_role": {
       "name": "advertiser_role",
       "schema": "public",
@@ -1839,6 +1887,15 @@
       "values": [
         "active",
         "suspended"
+      ]
+    },
+    "public.deletion_request_status": {
+      "name": "deletion_request_status",
+      "schema": "public",
+      "values": [
+        "pending_confirmation",
+        "confirmed",
+        "completed"
       ]
     },
     "public.operating_status": {

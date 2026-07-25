@@ -6,6 +6,9 @@ ALTER TABLE "ad_creatives" ADD COLUMN "target_lon" numeric;--> statement-breakpo
 ALTER TABLE "ad_creatives" ADD COLUMN "target_radius_mi" integer;--> statement-breakpoint
 ALTER TABLE "ad_creatives" ADD COLUMN "target_admin_level" "ad_admin_level";--> statement-breakpoint
 ALTER TABLE "ad_creatives" ADD COLUMN "target_admin_fips" text[];--> statement-breakpoint
+ALTER TABLE "ad_creatives" DROP COLUMN "forecast_zone_provider";--> statement-breakpoint
+ALTER TABLE "ad_creatives" DROP COLUMN "forecast_zone_id";--> statement-breakpoint
+ALTER TABLE "ad_creatives" DROP COLUMN "forecast_zone_set_version";--> statement-breakpoint
 ALTER TABLE "ad_creatives" ADD CONSTRAINT "ad_creatives_target_shape" CHECK (
         (
           "ad_creatives"."target_kind" = 'national'
