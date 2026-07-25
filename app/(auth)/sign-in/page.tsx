@@ -11,7 +11,9 @@ export const metadata = {
 export default function SignInPage() {
   return (
     <Card>
-      <CardHeader className="items-center text-center">
+      {/* CardHeader is a grid — justify-items-center is what centers children
+          horizontally (items-center only affects row alignment). */}
+      <CardHeader className="justify-items-center text-center">
         {/* 326×96 source at 40px tall — matches the (public) header asset. */}
         <Image
           src="/rmdig-logo.png"
@@ -21,7 +23,7 @@ export default function SignInPage() {
           priority
           className="mb-2"
         />
-        <CardTitle>Sign in to rmdig</CardTitle>
+        <CardTitle>Sign in</CardTitle>
       </CardHeader>
       <CardContent>
         <Suspense fallback={null}>
