@@ -8,6 +8,7 @@ import { AdSlotPreview } from "@/components/advertiser/AdSlotPreview";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives } from "@/lib/db/schema";
+import { describeTarget } from "@/lib/geo/lookup";
 import { CREATIVE_STATUS_LABEL } from "@/lib/advertiser/creative-status";
 import { BUYABLE_SLOTS, SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
 import { SubmitCreativeButton } from "./SubmitCreativeButton";
@@ -43,6 +44,12 @@ export default async function CreativeDetailPage({
       status: adCreatives.status,
       publishedAt: adCreatives.publishedAt,
       reviewNote: adCreatives.reviewNote,
+      targetKind: adCreatives.targetKind,
+      targetLat: adCreatives.targetLat,
+      targetLon: adCreatives.targetLon,
+      targetRadiusMi: adCreatives.targetRadiusMi,
+      targetAdminLevel: adCreatives.targetAdminLevel,
+      targetAdminFips: adCreatives.targetAdminFips,
       campaignName: adCampaigns.name,
       advertiserId: adCampaigns.advertiserId,
     })
@@ -117,6 +124,10 @@ export default async function CreativeDetailPage({
           <div className="flex gap-4 px-4 py-3">
             <dt className="text-muted-foreground w-32 shrink-0">Alt text</dt>
             <dd className="min-w-0 break-words">{creative.altText}</dd>
+          </div>
+          <div className="flex gap-4 px-4 py-3">
+            <dt className="text-muted-foreground w-32 shrink-0">Targeting</dt>
+            <dd className="min-w-0 break-words">{describeTarget(creative)}</dd>
           </div>
           <div className="flex gap-4 px-4 py-3">
             <dt className="text-muted-foreground w-32 shrink-0">Tap-through</dt>

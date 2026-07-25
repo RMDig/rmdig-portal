@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { getPlatformRoles } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives, advertiserAccounts } from "@/lib/db/schema";
+import { describeTarget } from "@/lib/geo/lookup";
 import { AdApprovalRow, type PendingCreative } from "./AdApprovalRow";
 
 export const metadata = {
@@ -38,6 +39,12 @@ export default async function AdApprovalsPage() {
       status: adCreatives.status,
       publishedAt: adCreatives.publishedAt,
       submittedAt: adCreatives.submittedAt,
+      targetKind: adCreatives.targetKind,
+      targetLat: adCreatives.targetLat,
+      targetLon: adCreatives.targetLon,
+      targetRadiusMi: adCreatives.targetRadiusMi,
+      targetAdminLevel: adCreatives.targetAdminLevel,
+      targetAdminFips: adCreatives.targetAdminFips,
       campaignName: adCampaigns.name,
       advertiserName: advertiserAccounts.name,
     })
@@ -47,11 +54,32 @@ export default async function AdApprovalsPage() {
     .where(inArray(adCreatives.status, ["pending", "approved", "suspended"]))
     .orderBy(asc(adCreatives.submittedAt));
 
-  const rows: PendingCreative[] = reviewable.map(({ publishedAt, ...c }) => ({
-    ...c,
-    published: publishedAt != null,
-    submittedAt: c.submittedAt ? c.submittedAt.toISOString() : null,
-  }));
+  const rows: PendingCreative[] = reviewable.map(
+    ({
+      publishedAt,
+      targetKind,
+      targetLat,
+      targetLon,
+      targetRadiusMi,
+      targetAdminLevel,
+      targetAdminFips,
+      ...c
+    }) => ({
+      ...c,
+      published: publishedAt != null,
+      submittedAt: c.submittedAt ? c.submittedAt.toISOString() : null,
+      // Resolve the stored target to a readable label so the operator approves what
+      // they see (FIPS → names happens server-side here, never on the client).
+      targetLabel: describeTarget({
+        targetKind,
+        targetLat,
+        targetLon,
+        targetRadiusMi,
+        targetAdminLevel,
+        targetAdminFips,
+      }),
+    }),
+  );
   // Pending first (they need action), then approved, then suspended.
   rows.sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 

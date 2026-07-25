@@ -31,6 +31,15 @@ const productionOnlyHeaders =
     : [];
 
 const nextConfig: NextConfig = {
+  // The ad target picker's admin selector + readable-target labels read the bundled
+  // Census reference data (lib/geo/data/*.json) at runtime via node:fs (AD-P7b). Force
+  // those files into the deployment for the routes that touch them, so Vercel's file
+  // tracing doesn't omit a fs.readFileSync it can't statically follow.
+  outputFileTracingIncludes: {
+    "/api/geo/**": ["./lib/geo/data/**"],
+    "/advertiser/**": ["./lib/geo/data/**"],
+    "/admin/**": ["./lib/geo/data/**"],
+  },
   async headers() {
     return [
       {

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AdSlotPreview } from "@/components/advertiser/AdSlotPreview";
+import { TargetPicker } from "@/components/advertiser/TargetPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import {
   SLOT_LABEL,
   type BuyableSlot,
 } from "@/lib/advertiser/creative-schema";
+import type { GeoUnit } from "@/lib/geo/types";
 import { createCreativeAction } from "./actions";
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -19,7 +21,13 @@ function FieldError({ errors }: { errors?: string[] }) {
   return <p className="text-xs text-red-700 dark:text-red-400">{errors.join(", ")}</p>;
 }
 
-export function CreativeForm({ advertiserId }: { advertiserId: string }) {
+export function CreativeForm({
+  advertiserId,
+  states,
+}: {
+  advertiserId: string;
+  states: GeoUnit[];
+}) {
   const router = useRouter();
   const action = createCreativeAction.bind(null, advertiserId);
   const [state, formAction, pending] = useActionState(action, null);
@@ -134,6 +142,9 @@ export function CreativeForm({ advertiserId }: { advertiserId: string }) {
           <FieldError errors={fieldErrors?.clickUrl} />
         </div>
       </section>
+
+      <TargetPicker states={states} />
+      <FieldError errors={fieldErrors?.target} />
 
       {state && !state.ok && !fieldErrors ? (
         <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>

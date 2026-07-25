@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import { advertiserAccounts } from "@/lib/db/schema";
+import { listStates } from "@/lib/geo/lookup";
 import { CreativeForm } from "./CreativeForm";
 
 export const metadata = {
@@ -44,7 +45,7 @@ export default async function NewCreativePage({
           appears in the app after the operator approves it.
         </p>
       </div>
-      <CreativeForm advertiserId={advertiserId} />
+      <CreativeForm advertiserId={advertiserId} states={listStates()} />
     </div>
   );
 }
