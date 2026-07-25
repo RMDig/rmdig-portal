@@ -52,6 +52,10 @@ export type ActionResult =
       // Set when the password was correct but a second factor is needed (or was
       // wrong). The sign-in form reveals the TOTP field and resubmits.
       mfaRequired?: boolean;
+      // Distinguishes "we're asking for the code" (neutral prompt) from "the
+      // code you typed was wrong" (error styling). Only meaningful alongside
+      // mfaRequired.
+      mfaInvalid?: boolean;
     };
 
 // ----- Sign up -----
@@ -155,13 +159,14 @@ export async function signInCredentialsAction(
         return {
           ok: false,
           mfaRequired: true,
-          error: "Enter the 6-digit code from your authenticator app.",
+          error: "Please enter your MFA code from your authenticator app.",
         };
       }
       if (err.code === "mfa_invalid") {
         return {
           ok: false,
           mfaRequired: true,
+          mfaInvalid: true,
           error: "That code didn't match. Try again, or use a recovery code.",
         };
       }
