@@ -144,10 +144,15 @@ export async function signInCredentialsAction(
   }
 
   try {
+    // The totp key is OMITTED (not passed as undefined) when no code was
+    // submitted: next-auth serializes these options through URLSearchParams,
+    // which stringifies undefined into the literal "undefined" — authorize
+    // then saw a truthy "code", verified it, and every first-phase MFA
+    // sign-in surfaced as "that code didn't match" instead of the challenge.
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
-      totp: parsed.data.totp,
+      ...(parsed.data.totp ? { totp: parsed.data.totp } : {}),
       redirectTo: "/dashboard",
     });
     return { ok: true };
