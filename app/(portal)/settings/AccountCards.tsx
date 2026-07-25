@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { changePasswordAction, updateDisplayNameAction } from "./account-actions";
@@ -91,6 +92,13 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
                   {fieldErrors.currentPassword.join(", ")}
                 </p>
               ) : null}
+              <p className="text-muted-foreground text-xs">
+                Forgot your current password?{" "}
+                <Link href="/forgot-password" className="text-foreground underline">
+                  Email yourself a reset link
+                </Link>
+                .
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">New password</Label>
