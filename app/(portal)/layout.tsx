@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -47,10 +48,30 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="font-semibold tracking-tight">
-            rmdig
+        <div className="relative mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <Link href="/dashboard" className="flex items-center">
+            {/* 326×96 source at 28px tall — same asset as the public header. */}
+            <Image src="/rmdig-logo.png" alt="RMDig" width={95} height={28} priority />
           </Link>
+          {/* AvAI mark, truly centered (absolute, so the flex row's uneven
+              sides can't skew it); hidden on small screens where it would
+              collide with the nav. Theme pair per the landing hero. */}
+          <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block">
+            <Image
+              src="/avai-logo.png"
+              alt="AvAI"
+              width={44}
+              height={28}
+              className="dark:hidden"
+            />
+            <Image
+              src="/avai-logo-white.png"
+              alt="AvAI"
+              width={44}
+              height={28}
+              className="hidden dark:block"
+            />
+          </div>
           <div className="flex items-center gap-3 text-sm">
             {isStaff ? (
               <Link href="/admin" className="text-muted-foreground hover:text-foreground">
