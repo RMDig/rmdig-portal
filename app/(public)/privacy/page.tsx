@@ -20,7 +20,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 22, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 25, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -135,6 +135,35 @@ export default function PrivacyPolicyPage() {
             </li>
           </ul>
           <p className="mt-3">No one else. There is no advertising or analytics sharing.</p>
+        </section>
+
+        <section>
+          <h2>Text messages (SMS)</h2>
+          <p className="mt-3">
+            AvAI&apos;s safety alerts are delivered by SMS and email to the emergency
+            contact an AvAI user designates. Messages are sent by our own servers through
+            Twilio, our SMS delivery provider, and are strictly event-driven: an overdue
+            alert, a Send&nbsp;Help alert, or the all-clear that follows. We send no
+            marketing or promotional texts, and message frequency depends entirely on the
+            user&apos;s safety activity. Message and data rates may apply.
+          </p>
+          <p className="mt-3">
+            If you receive these messages, it is because an AvAI user listed your phone
+            number as their emergency contact; alerts identify the user who named you. We
+            ask users to get their contact&apos;s permission first. Reply{" "}
+            <span className="font-medium text-neutral-900 dark:text-neutral-50">STOP</span>{" "}
+            to opt out of further messages or{" "}
+            <span className="font-medium text-neutral-900 dark:text-neutral-50">HELP</span>{" "}
+            (or email {SUPPORT_EMAIL}) for assistance. Be aware of what opting out means
+            here: if you text STOP, you will not receive that person&apos;s safety alerts,
+            including a real overdue or Send&nbsp;Help alert — tell them so they can choose
+            a different emergency contact.
+          </p>
+          <p className="mt-3">
+            No mobile information will be shared with third parties or affiliates for
+            marketing or promotional purposes. Phone numbers and message-consent
+            information are used only to deliver the safety messages described above.
+          </p>
         </section>
 
         <section>
