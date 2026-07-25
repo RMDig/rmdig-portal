@@ -28,13 +28,17 @@ export function SignInForm() {
   const mfaRequired = !!(state && !state.ok && state.mfaRequired);
   const mfaInvalid = !!(state && !state.ok && state.mfaInvalid);
 
-  // Controlled ON PURPOSE: React 19 resets uncontrolled fields after every
-  // form-action round-trip, which blanked email + password on the transition
-  // to the MFA challenge and forced the user to retype them. Controlled state
-  // carries them across; the TOTP field stays uncontrolled so a wrong code
+  // React 19 resets uncontrolled fields after every form-action round-trip,
+  // which blanked email + password on the transition to the MFA challenge.
+  // Fully controlled inputs fixed that but broke password-manager autofill
+  // (autofill writes the DOM without reliably firing input events, so React
+  // state stayed empty and re-renders wiped the field — "my password isn't
+  // recognized"). Instead: keep the inputs UNCONTROLLED so autofill works,
+  // capture the submitted values in onSubmit (reads the real DOM via
+  // FormData), and let React's post-action reset restore them as
+  // defaultValue. The TOTP field stays out of the capture so a wrong code
   // clears itself for the retry.
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [submitted, setSubmitted] = useState({ email: "", password: "" });
 
   return (
     <div className="space-y-6">
@@ -69,7 +73,17 @@ export function SignInForm() {
         </div>
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form
+        action={formAction}
+        onSubmit={(e) => {
+          const fd = new FormData(e.currentTarget);
+          setSubmitted({
+            email: String(fd.get("email") ?? ""),
+            password: String(fd.get("password") ?? ""),
+          });
+        }}
+        className="space-y-4"
+      >
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -78,8 +92,7 @@ export function SignInForm() {
             type="email"
             autoComplete="email"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            defaultValue={submitted.email}
             aria-invalid={!!fieldErrors?.email}
           />
         </div>
@@ -98,8 +111,7 @@ export function SignInForm() {
             name="password"
             autoComplete="current-password"
             required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            defaultValue={submitted.password}
             aria-invalid={!!fieldErrors?.password}
           />
         </div>
