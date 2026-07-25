@@ -20,14 +20,25 @@ export default function LandingPage() {
   return (
     <div className="mx-auto max-w-4xl px-4">
       <section className="flex flex-col items-center py-16 text-center sm:py-24">
-        {/* 600×384 source at 128px tall — 3x for retina crispness. The white
-            variant lives in public/brand/ for future dark surfaces. */}
+        {/* 600×384 sources at 128px tall — 3x for retina crispness. Theme
+            pair: the black mark disappears on a dark background, so each
+            variant renders only in its matching color scheme (dark: follows
+            prefers-color-scheme). */}
         <Image
           src="/avai-logo.png"
           alt="AvAI"
           width={200}
           height={128}
           priority
+          className="dark:hidden"
+        />
+        <Image
+          src="/avai-logo-white.png"
+          alt="AvAI"
+          width={200}
+          height={128}
+          priority
+          className="hidden dark:block"
         />
         <h1 className="mt-6 text-3xl font-semibold tracking-tight sm:text-4xl">
           A safety companion for backcountry travel
