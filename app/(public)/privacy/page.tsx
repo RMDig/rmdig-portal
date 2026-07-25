@@ -1,0 +1,273 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import DraftBanner from "@/components/legal/DraftBanner";
+import LawyerPlaceholder from "@/components/legal/LawyerPlaceholder";
+import { LEGAL_ENTITY, SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy — rmdig / AvAI",
+  description:
+    "How Rocky Mountain Digerati LLC collects, uses, and deletes personal data in the AvAI app and the rmdig portal.",
+};
+
+// The App Store Connect / Play Console privacy-policy URL points here, so this
+// page must stay public (no auth) at a stable path, and its factual claims
+// must MIRROR the app's declarations — ios/Runner/PrivacyInfo.xcprivacy and
+// the Play Data Safety form (AvApp doc 02 P0-10/P0-11, doc 22 §3.5). If a
+// data practice changes in the app, change it here in the same release.
+export default function PrivacyPolicyPage() {
+  return (
+    <article className="mx-auto max-w-3xl px-4 py-12">
+      <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
+      <p className="mt-2 text-sm text-neutral-500">Last updated: July 22, 2026</p>
+
+      <div className="mt-8">
+        <DraftBanner />
+      </div>
+
+      <div className="space-y-10 leading-7 text-neutral-700 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 [&_h3]:font-semibold [&_h3]:text-neutral-900">
+        <section>
+          <h2>Who we are</h2>
+          <p className="mt-3">
+            {LEGAL_ENTITY} (&quot;rmdig&quot;, &quot;we&quot;) is a Colorado company. We
+            operate the AvAI mobile app (a beta safety companion for backcountry travel),
+            this website and web portal at rmdig.ai, and the self-hosted server
+            infrastructure (&quot;AvServ&quot;) that powers AvAI&apos;s check-out/check-in
+            safety feature. This policy covers all of them.
+          </p>
+        </section>
+
+        <section>
+          <h2>What we collect and why</h2>
+
+          <h3 className="mt-5">Location (precise and coarse)</h3>
+          <p className="mt-2">
+            When you use AvAI&apos;s check-out/check-in feature, the app collects your
+            device&apos;s precise and coarse location, linked to your account, and sends it
+            to AvServ — servers we run ourselves. It is used for one purpose: app
+            functionality. Concretely, that means keeping your last-known location current
+            while a check-out is armed, sending that location to your emergency contact if
+            you don&apos;t check in on time, and periodic device heartbeat reports. Photos
+            you capture may also embed the capture location in their metadata; at this
+            stage of the beta those stay on your device (see below).
+          </p>
+          <p className="mt-2">
+            We do not use your location for advertising, profiling, or tracking, and we do
+            not sell it. Precise geolocation is sensitive data under the Colorado Privacy
+            Act; AvAI collects it only after you grant the operating-system location
+            permission, and the app explains the safety purpose at the point of the
+            permission prompt.
+          </p>
+
+          <h3 className="mt-5">Photos</h3>
+          <p className="mt-2">
+            AvAI lets you capture snowpack profile and core photos in the field. At this
+            stage of the beta, these photos are collected on and stay on your device — they
+            are not uploaded to our servers or shared with anyone. A future, separately
+            announced version will offer an opt-in way to contribute captures to a public
+            research dataset; if that launches, it will require your explicit per-session
+            consent in the app and this policy will be updated first.
+          </p>
+
+          <h3 className="mt-5">Emergency contact details</h3>
+          <p className="mt-2">
+            To run the check-out/check-in feature you give AvAI the name and contact
+            details (email address and, where provided, phone number) of the emergency
+            contact you choose. We store these on AvServ and use them for exactly one
+            thing: delivering your overdue and all-clear alerts. If you name someone as
+            your emergency contact, please tell them — we hold their contact details on
+            your instruction.
+          </p>
+
+          <h3 className="mt-5">Account data</h3>
+          <p className="mt-2">
+            A portal account includes your email address, a display name, and — for
+            password sign-in — a salted hash of your password (never the password itself).
+            If you sign in with Google, we receive your name, email, and profile image from
+            Google. If you enable two-factor authentication, the TOTP secret is stored
+            encrypted. Devices you link to your account are recorded so the safety features
+            know which device is yours.
+          </p>
+
+          <h3 className="mt-5">Safety and telemetry records</h3>
+          <p className="mt-2">
+            AvServ keeps your check-out/check-in history (times, statuses, and the alerts
+            it dispatched) and device heartbeat telemetry (periodic &quot;the device is
+            reachable&quot; reports). These exist so the watchdog can work and so we can
+            audit that an alert really fired.
+          </p>
+        </section>
+
+        <section>
+          <h2>No tracking, no ads, no sale of data</h2>
+          <p className="mt-3">
+            AvAI does not track you across other companies&apos; apps or websites and sends
+            no data to advertising or data-broker networks. The iOS privacy manifest
+            declares tracking: none, with an empty tracking-domain list, and every data
+            type it declares (precise location, coarse location, photos) is marked
+            &quot;not used for tracking.&quot; We do not sell personal data.
+          </p>
+        </section>
+
+        <section>
+          <h2>Who your data is shared with</h2>
+          <ul className="mt-3 list-disc space-y-2 pl-6">
+            <li>
+              <span className="font-medium text-neutral-900">Your emergency contact</span> —
+              if an overdue alert fires, they receive your name, the alert, and your
+              last-known location. That is the product working as described.
+            </li>
+            <li>
+              <span className="font-medium text-neutral-900">AvServ</span> — our own
+              self-hosted servers. First-party infrastructure, not a third party.
+            </li>
+            <li>
+              <span className="font-medium text-neutral-900">Service providers</span> — we
+              use Vercel (web hosting), Neon (database), Resend (transactional email),
+              Twilio (SMS alert delivery), Sentry (error reporting), and Cloudflare
+              (DNS/network) to run the service. They process data on our behalf and are not
+              permitted to use it for their own purposes.
+            </li>
+            <li>
+              <span className="font-medium text-neutral-900">Legal requirements</span> — we
+              may disclose data if required by law.{" "}
+            </li>
+          </ul>
+          <p className="mt-3">No one else. There is no advertising or analytics sharing.</p>
+        </section>
+
+        <section>
+          <h2>How long we keep data</h2>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-neutral-300 text-left text-neutral-900">
+                  <th className="py-2 pr-4 font-semibold">Data</th>
+                  <th className="py-2 font-semibold">Retention</th>
+                </tr>
+              </thead>
+              <tbody className="[&_td]:py-2 [&_td]:pr-4 [&_tr]:border-b [&_tr]:border-neutral-200">
+                <tr>
+                  <td>Photos you capture</td>
+                  <td>On your device only — you control them; deleting the app removes them</td>
+                </tr>
+                <tr>
+                  <td>Check-out/check-in history</td>
+                  <td>About 90 days, then deleted; deletable earlier on request</td>
+                </tr>
+                <tr>
+                  <td>Device heartbeat telemetry</td>
+                  <td>7 days, then reduced to aggregate statistics</td>
+                </tr>
+                <tr>
+                  <td>Capture metadata (time, location, notes)</td>
+                  <td>Until you delete your account</td>
+                </tr>
+                <tr>
+                  <td>Emergency contact details</td>
+                  <td>Until you change them or delete your account</td>
+                </tr>
+                <tr>
+                  <td>Account data</td>
+                  <td>While your account is active, plus up to 30 days after deletion completes</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-sm text-neutral-500">
+            These windows are our operating practice while the service is in beta; final
+            retention terms are part of the legal review noted at the top of this page.
+          </p>
+        </section>
+
+        <section>
+          <h2>Your rights (Colorado Privacy Act)</h2>
+          <p className="mt-3">
+            If you are a Colorado resident, you have the right to access, correct, and
+            delete the personal data we hold about you, to obtain a portable copy, and to
+            opt out of targeted advertising, sale, and certain profiling — none of which we
+            do in the first place. Precise geolocation is sensitive data under the CPA, and
+            we collect it only with the consent described above.
+          </p>
+          <p className="mt-3">
+            To delete your data,{" "}
+            <Link href="/account/delete" className="font-medium underline">
+              submit a deletion request
+            </Link>{" "}
+            — it works whether or not you have a portal account. For access or correction
+            requests, email{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium underline">
+              {SUPPORT_EMAIL}
+            </a>
+            . We respond within 45 days.
+          </p>
+          <LawyerPlaceholder>
+            CPA appeal-process language: how a user appeals a refused request, and the
+            Colorado Attorney General contact reference. Counsel to supply.
+          </LawyerPlaceholder>
+        </section>
+
+        <section>
+          <h2>Apple privacy-manifest disclosures</h2>
+          <p className="mt-3">
+            For transparency, the iOS app&apos;s privacy manifest declares exactly the
+            collection described above: precise location, coarse location, and photos —
+            each linked to your account, used for app functionality only, and not used for
+            tracking. The manifest also declares the app&apos;s use of four
+            &quot;required-reason&quot; system APIs, in each case for ordinary app
+            operation rather than fingerprinting: user preferences storage (CA92.1), file
+            timestamps (C617.1), free disk space (E174.1), and system boot time (35F9.1).
+          </p>
+        </section>
+
+        <section>
+          <h2>Security</h2>
+          <p className="mt-3">
+            Data moves between the app, this site, and our servers over encrypted
+            connections (TLS). Passwords are stored only as salted hashes, two-factor
+            secrets are stored encrypted, and recovery and reset tokens are stored only as
+            one-way hashes. No system is immune to compromise; if a breach affects your
+            data, we will notify you as the law requires.
+          </p>
+        </section>
+
+        <section>
+          <h2>Children</h2>
+          <p className="mt-3">
+            AvAI and the rmdig portal are not directed to children under 13, and we do not
+            knowingly collect their data.
+          </p>
+          <LawyerPlaceholder>
+            Final children&apos;s-privacy clause (COPPA scope, minimum-age term consistent
+            with the Terms of Service). Counsel to supply.
+          </LawyerPlaceholder>
+        </section>
+
+        <section>
+          <h2>Changes to this policy</h2>
+          <p className="mt-3">
+            We will post any changes on this page and update the date at the top. For
+            material changes — like the future dataset-contribution feature — we will also
+            notify you in the app before the change takes effect.
+          </p>
+        </section>
+
+        <section>
+          <h2>Contact</h2>
+          <p className="mt-3">
+            {LEGAL_ENTITY}
+            <br />
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium underline">
+              {SUPPORT_EMAIL}
+            </a>
+          </p>
+          <LawyerPlaceholder>
+            Registered mailing address for privacy correspondence. Operator/counsel to
+            supply.
+          </LawyerPlaceholder>
+        </section>
+      </div>
+    </article>
+  );
+}

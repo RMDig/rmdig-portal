@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { changePasswordAction, updateDisplayNameAction } from "./account-actions";
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function DisplayNameCard({ displayName }: { displayName: string }) {
   const [state, formAction, pending] = useActionState(updateDisplayNameAction, null);
@@ -78,10 +80,9 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
           <form action={formAction} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="currentPassword">Current password</Label>
-              <Input
+              <PasswordInput
                 id="currentPassword"
                 name="currentPassword"
-                type="password"
                 autoComplete="current-password"
                 required
                 aria-invalid={!!fieldErrors?.currentPassword}
@@ -91,13 +92,19 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
                   {fieldErrors.currentPassword.join(", ")}
                 </p>
               ) : null}
+              <p className="text-muted-foreground text-xs">
+                Forgot your current password?{" "}
+                <Link href="/forgot-password" className="text-foreground underline">
+                  Email yourself a reset link
+                </Link>
+                .
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="newPassword">New password</Label>
-              <Input
+              <PasswordInput
                 id="newPassword"
                 name="newPassword"
-                type="password"
                 autoComplete="new-password"
                 required
                 minLength={12}
@@ -107,6 +114,22 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
               {fieldErrors?.newPassword ? (
                 <p className="text-xs text-red-700 dark:text-red-400">
                   {fieldErrors.newPassword.join(", ")}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm new password</Label>
+              <PasswordInput
+                id="confirmPassword"
+                name="confirmPassword"
+                autoComplete="new-password"
+                required
+                minLength={12}
+                aria-invalid={!!fieldErrors?.confirmPassword}
+              />
+              {fieldErrors?.confirmPassword ? (
+                <p className="text-xs text-red-700 dark:text-red-400">
+                  {fieldErrors.confirmPassword.join(", ")}
                 </p>
               ) : null}
             </div>

@@ -49,13 +49,20 @@ export async function updateDisplayNameAction(
 
 // ----- Password change -----
 
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Enter your current password"),
-  newPassword: z
-    .string()
-    .min(12, "Password must be at least 12 characters")
-    .max(200, "Password is too long"),
-});
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newPassword: z
+      .string()
+      .min(12, "Password must be at least 12 characters")
+      .max(200, "Password is too long"),
+    confirmPassword: z.string(),
+  })
+  // Same retype-to-confirm contract as sign-up (see (auth)/actions.ts).
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 // Authenticated, but still a credential operation — throttle per user to blunt
 // online guessing of the current password.
