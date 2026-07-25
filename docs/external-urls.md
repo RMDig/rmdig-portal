@@ -6,13 +6,15 @@ route change never silently breaks a store listing or carrier registration.
 without updating every registration in its row** (and CLAUDE.md §3.7 keeps
 them public/no-auth).
 
-Canonical host for registrations: `https://app.rmdig.ai`. The rmdig.ai DNS
-cutover is **complete (2026-07-25)** — the same pages also answer on
-`https://rmdig.ai` and `https://www.rmdig.ai` — but registrations made
-against `app.` stay valid regardless, so prefer `app.` for anything hard to
-edit later. Auth flows and emailed links stay on `app.` (`NEXTAUTH_URL`);
-switching them to the apex is optional and requires adding the apex callback
-to the Google OAuth client first.
+Canonical host: **`https://rmdig.ai`** (since 2026-07-25). `NEXTAUTH_URL`
+points at the apex and the Edge middleware 308-redirects `app.rmdig.ai` and
+`www.rmdig.ai` onto it — session cookies are host-scoped, so exactly one
+browsing host may exist (two browsable hosts stranded sign-in sessions;
+see middleware.ts). Registrations against `app.` URLs keep working through
+the method-preserving 308, so nothing already filed needs re-filing; use the
+apex for anything new. **Operator prerequisite:** the Google OAuth client
+must list `https://rmdig.ai/api/auth/callback/google` as an authorized
+redirect URI, or Google sign-in fails with redirect_uri_mismatch.
 
 ## The registry
 
@@ -23,17 +25,17 @@ actions still to be entered in each console.
 
 | Consumer | Field | URL |
 |---|---|---|
-| Apple App Store Connect | Privacy Policy URL (App Information) | `https://app.rmdig.ai/privacy` |
-| Apple App Store Connect | Support URL | `https://app.rmdig.ai/support` |
-| Apple App Store Connect | Marketing URL (optional) | `https://app.rmdig.ai/` |
-| Google Play Console | Store listing → Privacy policy | `https://app.rmdig.ai/privacy` |
-| Google Play Console | Account deletion URL | `https://app.rmdig.ai/account/delete` |
-| Google Play Console | Support email / website | `support@rmdig.ai` / `https://app.rmdig.ai/support` |
+| Apple App Store Connect | Privacy Policy URL (App Information) | `https://rmdig.ai/privacy` |
+| Apple App Store Connect | Support URL | `https://rmdig.ai/support` |
+| Apple App Store Connect | Marketing URL (optional) | `https://rmdig.ai/` |
+| Google Play Console | Store listing → Privacy policy | `https://rmdig.ai/privacy` |
+| Google Play Console | Account deletion URL | `https://rmdig.ai/account/delete` |
+| Google Play Console | Support email / website | `support@rmdig.ai` / `https://rmdig.ai/support` |
 | Twilio A2P 10DLC (campaign vetting) | Business website | `https://rmdig.ai/` (live; brand ↔ domain match) |
-| Twilio A2P 10DLC | Privacy policy / Terms | `https://app.rmdig.ai/privacy` / `https://app.rmdig.ai/terms` |
-| AvApp `lib/copy/compliance_copy.dart` | `kPrivacyPolicyUrl` | `https://app.rmdig.ai/privacy` |
-| AvApp `lib/copy/compliance_copy.dart` | `kTermsOfServiceUrl` | `https://app.rmdig.ai/terms` |
-| AvApp Settings rows | support / delete account | `https://app.rmdig.ai/support` / `https://app.rmdig.ai/account/delete` |
+| Twilio A2P 10DLC | Privacy policy / Terms | `https://rmdig.ai/privacy` / `https://rmdig.ai/terms` |
+| AvApp `lib/copy/compliance_copy.dart` | `kPrivacyPolicyUrl` | `https://rmdig.ai/privacy` |
+| AvApp `lib/copy/compliance_copy.dart` | `kTermsOfServiceUrl` | `https://rmdig.ai/terms` |
+| AvApp Settings rows | support / delete account | `https://rmdig.ai/support` / `https://rmdig.ai/account/delete` |
 
 ## Consistency obligations
 
