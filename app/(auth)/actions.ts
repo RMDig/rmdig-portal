@@ -26,6 +26,9 @@ const signUpSchema = z
       .min(12, "Password must be at least 12 characters")
       .max(200, "Password is too long"),
     confirmPassword: z.string(),
+    // Sign-up dropdown ("What brings you to AvAI?"). A pure routing hint —
+    // grants nothing (SAR approval stays manual per CLAUDE.md §0).
+    intent: z.enum(["explorer", "sar", "advertiser"]).default("explorer"),
   })
   // Server-side twin of the retype-to-confirm UX — the client can't be trusted
   // to enforce the match, and a typo'd password locks the user out of a brand
@@ -73,7 +76,7 @@ export async function signUpAction(
     };
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, intent } = parsed.data;
 
   // Don't leak existence — same response whether the email is new or duplicate.
   // The legitimate-owner case gets a real verification email; the attacker
@@ -92,7 +95,7 @@ export async function signUpAction(
   const passwordHash = await bcrypt.hash(password, 12);
   const [user] = await db
     .insert(users)
-    .values({ email, passwordHash })
+    .values({ email, passwordHash, signupIntent: intent })
     .returning({ id: users.id });
 
   if (!user) {

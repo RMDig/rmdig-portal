@@ -11,7 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { db } from "@/lib/db";
-import { advertiserAccounts, advertiserMemberships, orgMemberships, sarOrgs } from "@/lib/db/schema";
+import {
+  advertiserAccounts,
+  advertiserMemberships,
+  orgMemberships,
+  sarOrgs,
+  users,
+} from "@/lib/db/schema";
 
 export const metadata = {
   title: "Dashboard — rmdig",
@@ -70,9 +76,48 @@ export default async function DashboardPage() {
         .orderBy(asc(advertiserAccounts.name))
     : [];
 
+  // Sign-up intent routing: nudge SAR/advertiser signers toward their
+  // onboarding form until the matching entity exists. Pure UX — grants nothing.
+  const [me] = userId
+    ? await db
+        .select({ signupIntent: users.signupIntent })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1)
+    : [];
+  const nudge =
+    me?.signupIntent === "sar" && orgs.length === 0
+      ? {
+          title: "Set up your Search & Rescue organization",
+          body: "Register your team — service region, contact info, and proof of operating status. Your application goes to our review queue, and you can invite teammates while it's reviewed.",
+          href: "/sar/new",
+          cta: "Register your SAR organization",
+        }
+      : me?.signupIntent === "advertiser" && advertisers.length === 0
+        ? {
+            title: "Set up your advertiser account",
+            body: "Create your advertiser account, then author campaigns and creatives. Every creative is manually reviewed before it appears in the app.",
+            href: "/advertiser/new",
+            cta: "Create advertiser account",
+          }
+        : null;
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      {nudge ? (
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-900/10">
+          <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle>{nudge.title}</CardTitle>
+              <CardDescription>{nudge.body}</CardDescription>
+            </div>
+            <Button asChild>
+              <Link href={nudge.href}>{nudge.cta}</Link>
+            </Button>
+          </CardHeader>
+        </Card>
+      ) : null}
       <p className="text-muted-foreground">Signed in as {session?.user?.email}.</p>
 
       {orgs.length > 0 ? (

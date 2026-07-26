@@ -24,6 +24,23 @@ export function SignUpForm() {
   return (
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
+        <Label htmlFor="intent">What brings you to AvAI?</Label>
+        {/* Routing hint only — after email verification, SAR/advertiser picks
+            land on their onboarding form. Native select styled like Input (the
+            repo has no shadcn Select primitive; not worth adding for one field). */}
+        <select
+          id="intent"
+          name="intent"
+          defaultValue="explorer"
+          className="border-input bg-transparent dark:bg-input/30 flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring md:text-sm"
+        >
+          <option value="explorer">Explorer — I use the AvAI app</option>
+          <option value="sar">Search &amp; Rescue — I represent a SAR team</option>
+          <option value="advertiser">Advertiser — I want to advertise on AvAI</option>
+        </select>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
           id="email"
