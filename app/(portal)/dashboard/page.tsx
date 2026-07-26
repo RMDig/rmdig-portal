@@ -147,7 +147,7 @@ export default async function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Advertise on rmdig</CardTitle>
+          <CardTitle>Advertise on AvAI</CardTitle>
           <CardDescription>
             Sponsor ads help fund the platform while keeping the app free. Create an advertiser
             account to author creatives and submit them for review. Every creative is manually
