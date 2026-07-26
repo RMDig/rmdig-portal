@@ -203,5 +203,36 @@ describe("signUpAction", () => {
     expect(res).toEqual({ ok: true });
     expect(h.inserted.some((i) => i.table === "users")).toBe(true);
     expect(h.sendVerify).toHaveBeenCalledTimes(1);
+    // No dropdown value (or a legacy form) defaults the routing hint.
+    expect(h.inserted.find((i) => i.table === "users")?.vals.signupIntent).toBe("explorer");
+  });
+
+  it("stores the selected signup intent", async () => {
+    h.selectResult = [];
+    const res = await signUpAction(
+      null,
+      form({
+        email: "sar-team@rmdig.ai",
+        password: "abcdefghijkl",
+        confirmPassword: "abcdefghijkl",
+        intent: "sar",
+      }),
+    );
+    expect(res).toEqual({ ok: true });
+    expect(h.inserted.find((i) => i.table === "users")?.vals.signupIntent).toBe("sar");
+  });
+
+  it("rejects an unknown intent value", async () => {
+    const res = await signUpAction(
+      null,
+      form({
+        email: "new@rmdig.ai",
+        password: "abcdefghijkl",
+        confirmPassword: "abcdefghijkl",
+        intent: "superuser",
+      }),
+    );
+    expect(res.ok).toBe(false);
+    expect(h.inserted).toHaveLength(0);
   });
 });

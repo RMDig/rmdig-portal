@@ -19,6 +19,12 @@ import {
 // Our additions (passwordHash, displayName, createdAt) and our own tables
 // (rateLimits) use snake_case DB columns as is conventional Postgres style.
 
+// Why the signer said they're here (sign-up dropdown): routes SAR teams and
+// advertisers to their onboarding forms after first sign-in. Purely a UX
+// routing hint — it grants nothing; org/advertiser capability still comes only
+// from the entities themselves (and SAR approval stays manual per §0).
+export const signupIntent = pgEnum("signup_intent", ["explorer", "sar", "advertiser"]);
+
 export const users = pgTable("users", {
   // Auth.js standard
   id: uuid("id").primaryKey().defaultRandom(),
@@ -44,6 +50,9 @@ export const users = pgTable("users", {
   // shown, code not yet verified); mfaEnabledAt being set means MFA is active.
   totpSecretEncrypted: text("totp_secret_encrypted"),
   mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
+  // Nullable: pre-dropdown accounts (and OAuth sign-ups, which skip the form)
+  // have no recorded intent and get the default explorer experience.
+  signupIntent: signupIntent("signup_intent"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
