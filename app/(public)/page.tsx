@@ -8,9 +8,23 @@ import {
 } from "@/lib/legal/compliance-copy";
 
 export const metadata: Metadata = {
-  title: "rmdig — AvAI backcountry safety companion",
+  title: "AvAI (Avalanche AI) — backcountry safety companion | RMDig",
   description:
-    "Rocky Mountain Digerati builds AvAI, a beta safety companion app for backcountry travel: check out before a trip, check in when you're back safe.",
+    "AvAI by Rocky Mountain Digerati: a beta safety companion app for backcountry travel — check out before a trip, check in when you're back safe — plus open snowpack research and the Rocky Mountain Snowpack dataset.",
+  alternates: { canonical: "/" },
+};
+
+// Search-engine identity card (Organization schema): ties the brand, the
+// legal entity, and the public research profile together for crawlers.
+const ORG_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Rocky Mountain Digerati LLC",
+  alternateName: ["RMDig", "AvAI", "Avalanche AI"],
+  url: "https://rmdig.ai",
+  logo: "https://rmdig.ai/rmdig-logo.png",
+  email: "support@rmdig.ai",
+  sameAs: ["https://huggingface.co/datasets/rmdig/rocky_mountain_snowpack"],
 };
 
 // The public landing page. Copy here is a PUBLIC-FACING SURFACE under AvApp
@@ -95,11 +109,29 @@ export default function LandingPage() {
       </section>
 
       <section className="border-t border-neutral-200 dark:border-neutral-800 py-12">
+        <h2 className="font-semibold">Open snowpack research</h2>
+        <p className="mt-3 max-w-3xl leading-7 text-neutral-600 dark:text-neutral-300">
+          AvAI is short for <strong>Avalanche AI</strong>: alongside the app, we publish
+          the open{" "}
+          <Link href="/snowpack_dataset" className="font-medium underline">
+            Rocky Mountain Snowpack dataset
+          </Link>{" "}
+          (CC-BY-4.0) and research avalanche-risk modeling on snowpack imagery. The
+          research is in development and is not part of the app today.
+        </p>
+      </section>
+
+      <section className="border-t border-neutral-200 dark:border-neutral-800 py-12">
         <h2 className="font-semibold">Who runs AvAI?</h2>
         <p className="mt-3 max-w-3xl leading-7 text-neutral-600 dark:text-neutral-300">
           {OPERATOR_CONTINUITY_DISCLOSURE}
         </p>
       </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSONLD) }}
+      />
     </div>
   );
 }
