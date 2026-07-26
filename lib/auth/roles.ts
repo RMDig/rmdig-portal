@@ -10,6 +10,13 @@ import { userPlatformRoles } from "../db/schema";
 
 export type PlatformRole = (typeof userPlatformRoles.role.enumValues)[number];
 
+// Human-readable names for UI display. The enum values (rmdig_admin, …) are
+// storage identifiers, not copy — never render them raw.
+export const PLATFORM_ROLE_LABEL: Record<PlatformRole, string> = {
+  rmdig_admin: "Platform Administrator",
+  rmdig_reviewer: "Reviewer",
+};
+
 export async function getPlatformRoles(userId: string): Promise<PlatformRole[]> {
   const rows = await db
     .select({ role: userPlatformRoles.role })
