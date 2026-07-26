@@ -31,7 +31,7 @@ export default function DataDeletionReceivedEmail({
             Under the Colorado Privacy Act we will complete your request and reply to this
             address within 45 days. Deletion covers your portal account (if one exists),
             check-out/check-in history, device heartbeat telemetry, capture metadata, and
-            emergency-contact details held on our servers. Photos you captured with AvAI are
+            emergency-contact details held on our servers (SMS opt-out records are retained as a suppression list so we never re-contact anyone who opted out). Photos you captured with AvAI are
             stored on your device, not our servers — deleting the app or its data removes
             them.
           </Text>

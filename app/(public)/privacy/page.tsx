@@ -20,7 +20,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 25, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 26, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -138,6 +138,35 @@ export default function PrivacyPolicyPage() {
         </section>
 
         <section>
+          <h2>Were you added as someone&apos;s emergency contact?</h2>
+          <p className="mt-3">
+            If an AvAI user designated you as their emergency contact, we hold personal
+            data about you even though you never signed up: your name and the contact
+            details the user provided (phone number and/or email address), plus the state
+            of our messaging relationship with you — whether your introductory notice was
+            sent and whether you have opted out. We use this data for exactly two things:
+            a one-time notice message telling you that you were designated, and the safety
+            alerts themselves (overdue, Send&nbsp;Help, and all-clear messages).
+          </p>
+          <p className="mt-3">
+            You have the same rights as any data subject: reply{" "}
+            <span className="font-medium text-neutral-900 dark:text-neutral-50">STOP</span>{" "}
+            to end messages or{" "}
+            <span className="font-medium text-neutral-900 dark:text-neutral-50">HELP</span>{" "}
+            for assistance, and you can{" "}
+            <Link href="/account/delete" className="font-medium underline">
+              request deletion of your data
+            </Link>{" "}
+            or email {SUPPORT_EMAIL} — no account needed. See{" "}
+            <Link href="/alerts" className="font-medium underline">
+              what an AvAI alert means
+            </Link>{" "}
+            for what to do when one arrives, including the safety consequence of opting
+            out.
+          </p>
+        </section>
+
+        <section>
           <h2>Text messages (SMS)</h2>
           <p className="mt-3">
             AvAI&apos;s safety alerts are delivered by SMS and email to the emergency
@@ -200,6 +229,15 @@ export default function PrivacyPolicyPage() {
                 <tr>
                   <td>Account data</td>
                   <td>While your account is active, plus up to 30 days after deletion completes</td>
+                </tr>
+                <tr>
+                  <td>SMS opt-out records</td>
+                  <td>
+                    Retained indefinitely as a suppression list — deleting an opt-out
+                    record would cause us to contact someone who told us to stop. This
+                    compliance-basis retention survives other deletion requests; it holds
+                    only the phone number and the opt-out fact.
+                  </td>
                 </tr>
               </tbody>
             </table>
