@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -44,12 +45,31 @@ export default function SnowpackDatasetPage() {
 
       <div className="mt-6 space-y-10 leading-7 text-neutral-700 dark:text-neutral-200 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 dark:[&_h2]:text-neutral-50">
         <section className="space-y-4">
-          <p>
-            Rocky Mountain Digerati publishes an open dataset of snowpack imagery collected
-            in the Colorado backcountry: cross-sectional photos of extracted snow cores and
-            snowpack profile images from pit walls, captured in chronological series so
-            samples can be related to weather, geographic, and site conditions.
-          </p>
+          <div className="grid gap-6 sm:grid-cols-[1fr_240px] sm:items-start">
+            <p>
+              Rocky Mountain Digerati publishes an open dataset of snowpack imagery
+              collected in the Colorado backcountry: cross-sectional photos of extracted
+              snow cores and magnified snowpack profile images, captured in chronological
+              series so samples can be related to weather, geographic, and site
+              conditions. Collection uses a novel mini-coring protocol —{" "}
+              <Link href="/methods" className="font-medium underline">
+                read about the field methods
+              </Link>
+              .
+            </p>
+            <figure>
+              <Image
+                src="/research/fieldwork-snowpit.jpg"
+                alt="Snowpit excavated for dataset collection, with skis and sampling kit"
+                width={900}
+                height={1200}
+                className="rounded-lg border border-neutral-200 dark:border-neutral-800"
+              />
+              <figcaption className="text-muted-foreground mt-1 text-xs">
+                A collection snowpit in the Colorado backcountry.
+              </figcaption>
+            </figure>
+          </div>
           <p>
             The dataset is public under a <strong>CC-BY-4.0</strong> license and hosted on
             Hugging Face as{" "}

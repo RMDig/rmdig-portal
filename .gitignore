@@ -49,3 +49,6 @@ next-env.d.ts
 
 # generated email previews (pnpm email:preview)
 /.email-preview/
+
+# Raw field photos (carry GPS EXIF — only stripped copies in public/research ship)
+new_pics/
