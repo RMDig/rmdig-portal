@@ -23,7 +23,7 @@ export default function TermsPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 22, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 26, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -57,6 +57,15 @@ export default function TermsPage() {
             behalf, and must not be your only safety system. Carry a second safety plan —
             partner check-ins, a satellite messenger, a filed trip plan, formal training.
           </p>
+          <p className="mt-3">
+            Alert delivery is designed for safety, not tidiness: once you designate an
+            emergency contact, alerts flow to them by default — no confirmation from the
+            contact is required first — and the delivery design favors sending an alert
+            twice over risking not sending it at all, so your contact may occasionally
+            receive duplicate messages. A contact who opts out (for example by replying
+            STOP to a text) stops receiving your alerts, and you are told so you can
+            designate someone else.
+          </p>
           <LawyerPlaceholder>
             Assumption-of-risk and no-reliance clause for backcountry activity, consistent
             with the beta disclosure above. Counsel to supply.
@@ -67,13 +76,20 @@ export default function TermsPage() {
           <h2>3. Your account and responsibilities</h2>
           <p className="mt-3">
             Keep your credentials secure and your emergency-contact details accurate — the
-            alert path is only as good as the contact information you give it. You are
-            responsible for having your emergency contact&apos;s permission to share their
-            details with us, and for telling them what an AvAI alert means.
+            alert path is only as good as the contact information you give it. By
+            designating an emergency contact you confirm that you have that person&apos;s
+            permission to share their name and contact details with us and to have them
+            receive messages about you (this mirrors the disclosure shown in the app when
+            you designate them). Tell your contact what an AvAI alert means —{" "}
+            <Link href="/alerts" className="font-medium underline">
+              this page explains it
+            </Link>
+            .
           </p>
           <LawyerPlaceholder>
             Account terms: acceptable use, prohibited conduct, suspension and termination
-            rights. Counsel to supply.
+            rights; formalization of the contact-permission attestation above as a
+            warranty. Counsel to supply.
           </LawyerPlaceholder>
         </section>
 
