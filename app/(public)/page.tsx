@@ -66,9 +66,10 @@ export default function LandingPage() {
           <span className="block text-4xl font-semibold sm:text-5xl">Peace of Mind</span>
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-600 dark:text-neutral-300">
-          Check out before you head into the field. Check in when you&apos;re back safe. If
-          you don&apos;t check in on time, AvAI&apos;s servers alert your emergency contact
-          with your last-known location.
+          A safety companion for backcountry travel: check out before you head into the
+          field, and check in when you&apos;re back safe. If you don&apos;t check in on
+          time, AvAI&apos;s servers alert your emergency contact with your last-known
+          location.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link
