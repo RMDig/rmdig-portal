@@ -24,7 +24,11 @@ const ORG_JSONLD = {
   url: "https://rmdig.ai",
   logo: "https://rmdig.ai/rmdig-logo.png",
   email: "support@rmdig.ai",
-  sameAs: ["https://huggingface.co/datasets/rmdig/rocky_mountain_snowpack"],
+  sameAs: [
+    "https://huggingface.co/RMDig",
+    "https://huggingface.co/datasets/RMDig/rocky_mountain_snowpack",
+    "https://github.com/dennys246",
+  ],
 };
 
 // The public landing page. Copy here is a PUBLIC-FACING SURFACE under AvApp
@@ -116,8 +120,12 @@ export default function LandingPage() {
           <Link href="/snowpack_dataset" className="font-medium underline">
             Rocky Mountain Snowpack dataset
           </Link>{" "}
-          (CC-BY-4.0) and research avalanche-risk modeling on snowpack imagery. The
-          research is in development and is not part of the app today.
+          (CC-BY-4.0) and{" "}
+          <Link href="/models" className="font-medium underline">
+            open-source snowpack models
+          </Link>
+          , and research avalanche-risk modeling on snowpack imagery. The research is in
+          development and is not part of the app today.
         </p>
       </section>
 

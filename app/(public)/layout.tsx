@@ -23,6 +23,15 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             />
           </Link>
           <nav className="flex items-center gap-5 text-sm text-neutral-600 dark:text-neutral-300">
+            <Link href="/models" className="hover:text-neutral-900 dark:hover:text-neutral-100">
+              Models
+            </Link>
+            <Link
+              href="/snowpack_dataset"
+              className="hover:text-neutral-900 dark:hover:text-neutral-100"
+            >
+              Data
+            </Link>
             <Link href="/support" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               Support
             </Link>

@@ -56,11 +56,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/avai", destination: "/", permanent: true },
-      { source: "/snowgan", destination: "/snowpack_dataset", permanent: true },
-      { source: "/corediff", destination: "/snowpack_dataset", permanent: true },
-      { source: "/corediffusion", destination: "/snowpack_dataset", permanent: true },
+      { source: "/snowgan", destination: "/models", permanent: true },
+      { source: "/corediff", destination: "/models", permanent: true },
+      { source: "/corediffusion", destination: "/models", permanent: true },
       { source: "/about", destination: "/", permanent: true },
-      { source: "/projects", destination: "/snowpack_dataset", permanent: true },
+      { source: "/projects", destination: "/models", permanent: true },
     ];
   },
 };

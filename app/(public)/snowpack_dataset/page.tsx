@@ -8,6 +8,27 @@ export const metadata: Metadata = {
   alternates: { canonical: "/snowpack_dataset" },
 };
 
+// schema.org/Dataset markup — what makes the corpus eligible for Google
+// Dataset Search (name + description required; license/creator/sameAs
+// recommended). Kept in step with the Hugging Face dataset card.
+const DATASET_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: "Rocky Mountain Snowpack",
+  description:
+    "Open dataset of Rocky Mountain snowpack imagery: cross-sectional photos of extracted snow cores and magnified snowpack profile images from pit walls, captured in chronological series with site metadata for snow-science and machine-learning research.",
+  url: "https://rmdig.ai/snowpack_dataset",
+  sameAs: "https://huggingface.co/datasets/RMDig/rocky_mountain_snowpack",
+  license: "https://creativecommons.org/licenses/by/4.0/",
+  isAccessibleForFree: true,
+  keywords: ["snowpack", "avalanche", "snow science", "machine learning", "Colorado"],
+  creator: {
+    "@type": "Organization",
+    name: "Rocky Mountain Digerati LLC",
+    url: "https://rmdig.ai",
+  },
+};
+
 // Lives at the EXACT path the pre-cutover marketing site used — this URL is
 // Google's strongest-ranking page for the brand ("Rocky Mountain Digerati |
 // Avalanche Risk AI") and appears in press coverage, so it must keep
@@ -48,9 +69,12 @@ export default function SnowpackDatasetPage() {
         <section>
           <h2>The research it feeds</h2>
           <p className="mt-3">
-            This corpus is the foundation for our avalanche-safety research line:
-            exploratory generative models over the two imaging modalities (snowGAN for
-            profile imagery, coreDiffusion for core samples) and, building on those,{" "}
+            This corpus is the foundation for our avalanche-safety research line: the{" "}
+            <Link href="/models" className="font-medium underline">
+              open-source snowGAN models
+            </Link>{" "}
+            over the two imaging modalities (magnified profile imagery and core samples)
+            and, building on those,{" "}
             <strong>AvAI — Avalanche AI</strong> — a model in development that studies
             avalanche-risk signals in snowpack imagery alongside weather timeseries. This
             work is research in progress: it is not part of the AvAI app today, and when it
@@ -84,6 +108,11 @@ export default function SnowpackDatasetPage() {
           </p>
         </section>
       </div>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(DATASET_JSONLD) }}
+      />
     </article>
   );
 }
