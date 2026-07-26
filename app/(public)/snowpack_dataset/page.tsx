@@ -48,9 +48,12 @@ export default function SnowpackDatasetPage() {
         <section>
           <h2>The research it feeds</h2>
           <p className="mt-3">
-            This corpus is the foundation for our avalanche-safety research line:
-            exploratory generative models over the two imaging modalities (snowGAN for
-            profile imagery, coreDiffusion for core samples) and, building on those,{" "}
+            This corpus is the foundation for our avalanche-safety research line: the{" "}
+            <Link href="/models" className="font-medium underline">
+              open-source snowGAN models
+            </Link>{" "}
+            over the two imaging modalities (magnified profile imagery and core samples)
+            and, building on those,{" "}
             <strong>AvAI — Avalanche AI</strong> — a model in development that studies
             avalanche-risk signals in snowpack imagery alongside weather timeseries. This
             work is research in progress: it is not part of the AvAI app today, and when it

@@ -116,8 +116,12 @@ export default function LandingPage() {
           <Link href="/snowpack_dataset" className="font-medium underline">
             Rocky Mountain Snowpack dataset
           </Link>{" "}
-          (CC-BY-4.0) and research avalanche-risk modeling on snowpack imagery. The
-          research is in development and is not part of the app today.
+          (CC-BY-4.0) and{" "}
+          <Link href="/models" className="font-medium underline">
+            open-source snowpack models
+          </Link>
+          , and research avalanche-risk modeling on snowpack imagery. The research is in
+          development and is not part of the app today.
         </p>
       </section>
 
