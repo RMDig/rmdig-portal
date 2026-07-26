@@ -63,11 +63,19 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
         <p className="text-muted-foreground mt-1">Members and invitations.</p>
       </div>
 
-      {org.status === "approved" ? (
-        <InviteForm orgId={orgId} />
+      {org.status === "approved" || org.status === "pending" ? (
+        <>
+          {org.status === "pending" ? (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+              Your organization is under review. You can invite teammates and finish setting
+              up now — alert routing turns on once it&apos;s approved.
+            </p>
+          ) : null}
+          <InviteForm orgId={orgId} />
+        </>
       ) : (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
-          Your organization is {org.status}. You can invite members once it&apos;s approved.
+          Your organization is {org.status}, so inviting members is unavailable.
         </p>
       )}
 

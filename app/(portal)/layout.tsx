@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { evaluateMfaGate } from "@/lib/auth/mfa-enforcement";
 import { getPlatformRoles } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { orgMemberships, sarOrgs, users } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { SignOutButton } from "./SignOutButton";
 
@@ -44,6 +44,17 @@ export default async function PortalLayout({ children }: { children: React.React
   if (gate === "required" && pathname !== ENROLL_PATH) {
     redirect(ENROLL_PATH);
   }
+
+  // Under-review banner: members of pending SAR orgs see their status on every
+  // portal page while they finish setup (operator decision 2026-07-26 —
+  // pending orgs can assemble their team; approval alone turns on routing).
+  const pendingNames = (
+    await db
+      .select({ name: sarOrgs.name })
+      .from(orgMemberships)
+      .innerJoin(sarOrgs, eq(sarOrgs.id, orgMemberships.orgId))
+      .where(and(eq(orgMemberships.userId, userId), eq(sarOrgs.status, "pending")))
+  ).map((o) => o.name);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -87,6 +98,21 @@ export default async function PortalLayout({ children }: { children: React.React
           </div>
         </div>
       </header>
+
+      {pendingNames.length > 0 ? (
+        <div className="border-b bg-blue-50 dark:bg-blue-900/20">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-2 text-sm text-blue-900 dark:text-blue-200">
+            <span>
+              {pendingNames.join(", ")} is under review. You can keep setting up your
+              organization and inviting teammates — alert routing turns on once it&apos;s
+              approved.
+            </span>
+            <Link href="/sar/pending" className="font-medium whitespace-nowrap underline">
+              Review status
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {gate === "nag" ? (
         <div className="border-b bg-amber-50 dark:bg-amber-900/20">

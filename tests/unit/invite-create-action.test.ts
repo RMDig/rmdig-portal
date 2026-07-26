@@ -59,11 +59,17 @@ describe("createInvitationAction", () => {
     if (!res.ok) expect(res.error).toMatch(/admin/i);
   });
 
-  it("refuses to invite into an org that isn't approved", async () => {
+  it("allows invites while the org is pending review (operator decision 2026-07-26)", async () => {
     h.org = [{ name: "San Juan SAR", status: "pending" }];
+    const res = await createInvitationAction("org-1", null, fd("teammate@rmdig.ai"));
+    expect(res.ok).toBe(true);
+  });
+
+  it("refuses to invite into a suspended org", async () => {
+    h.org = [{ name: "San Juan SAR", status: "suspended" }];
     const res = await createInvitationAction("org-1", null, fd("a@b.test"));
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/approved/i);
+    if (!res.ok) expect(res.error).toMatch(/suspended/i);
   });
 
   it("returns field errors for an invalid email", async () => {
