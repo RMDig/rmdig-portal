@@ -59,32 +59,32 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b">
-        <div className="relative mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="flex items-center">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+          <Link href="/dashboard" className="flex shrink-0 items-center">
             {/* 326×96 source at 28px tall — same asset as the public header. */}
             <Image src="/rmdig-logo.png" alt="RMDig" width={95} height={28} priority />
           </Link>
-          {/* AvAI mark, truly centered (absolute, so the flex row's uneven
-              sides can't skew it); hidden on small screens where it would
-              collide with the nav. Theme pair per the landing hero. */}
-          <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block">
-            {/* 600×384 asset — 56×36 keeps the exact 1.5625 aspect (no squish). */}
-            <Image
-              src="/avai-logo.png"
-              alt="AvAI"
-              width={56}
-              height={36}
-              className="dark:hidden"
-            />
-            <Image
-              src="/avai-logo-white.png"
-              alt="AvAI"
-              width={56}
-              height={36}
-              className="hidden dark:block"
-            />
-          </div>
-          <div className="flex items-center gap-3 text-sm">
+          {/* Unified nav (operator decision 2026-07-26): everything visible to
+              the public stays reachable while signed in, with role tabs added.
+              The centered AvAI mark was dropped to make room. */}
+          <div className="flex items-center gap-4 text-sm">
+            <nav className="hidden items-center gap-4 sm:flex">
+              <Link href="/models" className="text-muted-foreground hover:text-foreground">
+                Models
+              </Link>
+              <Link
+                href="/snowpack_dataset"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Data
+              </Link>
+              <Link href="/methods" className="text-muted-foreground hover:text-foreground">
+                Methods
+              </Link>
+              <Link href="/support" className="text-muted-foreground hover:text-foreground">
+                Support
+              </Link>
+            </nav>
             {isStaff ? (
               <Link href="/admin" className="text-muted-foreground hover:text-foreground">
                 Admin
@@ -93,8 +93,30 @@ export default async function PortalLayout({ children }: { children: React.React
             <Link href="/settings" className="text-muted-foreground hover:text-foreground">
               Settings
             </Link>
-            <span className="text-muted-foreground">{session.user.email}</span>
+            <span className="text-muted-foreground hidden lg:inline">
+              {session.user.email}
+            </span>
             <SignOutButton />
+            {/* Code & model hosting, pinned to the very far right (mirrors the
+                public header). */}
+            <a
+              href="https://github.com/RMDig"
+              aria-label="RMDig on GitHub"
+              rel="noopener"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden>
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+              </svg>
+            </a>
+            <a
+              href="https://huggingface.co/RMDig"
+              aria-label="RMDig on Hugging Face"
+              rel="noopener"
+              className="text-base leading-none"
+            >
+              <span aria-hidden>🤗</span>
+            </a>
           </div>
         </div>
       </header>
