@@ -45,8 +45,15 @@ export async function createInvitationAction(
   if (!org) {
     return { ok: false, error: "That organization no longer exists." };
   }
-  if (org.status !== "approved") {
-    return { ok: false, error: "Your organization must be approved before you can invite members." };
+  // Pending orgs CAN invite (operator decision 2026-07-26): membership grants
+  // nothing until approval — alert routing is gated exclusively on the org
+  // reaching `approved` (§0) — and letting a team assemble during review is
+  // the point of self-serve onboarding. Rejected/suspended orgs stay blocked.
+  if (org.status !== "approved" && org.status !== "pending") {
+    return {
+      ok: false,
+      error: "Your organization can't invite members while it is " + org.status + ".",
+    };
   }
 
   const parsed = inviteMemberSchema.safeParse(Object.fromEntries(formData));
