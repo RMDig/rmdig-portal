@@ -8,6 +8,27 @@ export const metadata: Metadata = {
   alternates: { canonical: "/snowpack_dataset" },
 };
 
+// schema.org/Dataset markup — what makes the corpus eligible for Google
+// Dataset Search (name + description required; license/creator/sameAs
+// recommended). Kept in step with the Hugging Face dataset card.
+const DATASET_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: "Rocky Mountain Snowpack",
+  description:
+    "Open dataset of Rocky Mountain snowpack imagery: cross-sectional photos of extracted snow cores and magnified snowpack profile images from pit walls, captured in chronological series with site metadata for snow-science and machine-learning research.",
+  url: "https://rmdig.ai/snowpack_dataset",
+  sameAs: "https://huggingface.co/datasets/RMDig/rocky_mountain_snowpack",
+  license: "https://creativecommons.org/licenses/by/4.0/",
+  isAccessibleForFree: true,
+  keywords: ["snowpack", "avalanche", "snow science", "machine learning", "Colorado"],
+  creator: {
+    "@type": "Organization",
+    name: "Rocky Mountain Digerati LLC",
+    url: "https://rmdig.ai",
+  },
+};
+
 // Lives at the EXACT path the pre-cutover marketing site used — this URL is
 // Google's strongest-ranking page for the brand ("Rocky Mountain Digerati |
 // Avalanche Risk AI") and appears in press coverage, so it must keep
@@ -87,6 +108,11 @@ export default function SnowpackDatasetPage() {
           </p>
         </section>
       </div>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(DATASET_JSONLD) }}
+      />
     </article>
   );
 }

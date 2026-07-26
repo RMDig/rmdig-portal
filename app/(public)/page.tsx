@@ -24,7 +24,11 @@ const ORG_JSONLD = {
   url: "https://rmdig.ai",
   logo: "https://rmdig.ai/rmdig-logo.png",
   email: "support@rmdig.ai",
-  sameAs: ["https://huggingface.co/datasets/rmdig/rocky_mountain_snowpack"],
+  sameAs: [
+    "https://huggingface.co/RMDig",
+    "https://huggingface.co/datasets/RMDig/rocky_mountain_snowpack",
+    "https://github.com/dennys246",
+  ],
 };
 
 // The public landing page. Copy here is a PUBLIC-FACING SURFACE under AvApp
