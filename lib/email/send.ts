@@ -14,6 +14,7 @@ import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
 import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
+import PlatformInviteEmail from "./templates/PlatformInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
@@ -297,4 +298,27 @@ export async function sendDataDeletionAdminEmail(
   }
 
   logger.info({ event: "email.deletion_admin.sent", to, resendId: data?.id });
+}
+
+export async function sendPlatformInviteEmail(
+  to: string,
+  params: { inviteUrl: string; roleLabel: string },
+): Promise<void> {
+  const html = await render(
+    PlatformInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
+  );
+
+  const { data, error } = await getResend().emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: "You're invited to the rmdig staff team",
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.platform_invite.failed", to, error });
+    throw new Error(`Resend rejected platform-invite email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.platform_invite.sent", to, resendId: data?.id });
 }
