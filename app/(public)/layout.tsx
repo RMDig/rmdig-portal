@@ -44,11 +44,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             >
               Sign in
             </Link>
-            {/* Code & model hosting, pinned to the far right. GitHub points at
-                the founder's account until the RMDig org transfer lands —
-                one-line swap then. */}
+            {/* Code & model hosting, pinned to the far right. */}
             <a
-              href="https://github.com/dennys246"
+              href="https://github.com/RMDig"
               aria-label="RMDig on GitHub"
               rel="noopener"
               className="hover:text-neutral-900 dark:hover:text-neutral-100"
