@@ -37,6 +37,21 @@ const ORG_JSONLD = {
 export default function LandingPage() {
   return (
     <div className="mx-auto max-w-4xl px-4">
+      {/* Above-the-fold path for emergency contacts: AvServ's SMS copy points
+          recipients at the bare domain (no deep links in SMS), so the
+          homepage must route a worried contact to the explainer + privacy
+          without scrolling (doc 32 review, 2026-07-26). */}
+      <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-200">
+        Received a text or email from AvAI about someone?{" "}
+        <Link href="/alerts" className="font-semibold underline">
+          What it means &amp; what to do
+        </Link>
+        {" · "}
+        <Link href="/privacy" className="font-medium underline">
+          Privacy policy
+        </Link>
+      </div>
+
       <section className="flex flex-col items-center py-16 text-center sm:py-24">
         {/* 600×384 sources at 128px tall — 3x for retina crispness. Theme
             pair: the black mark disappears on a dark background, so each

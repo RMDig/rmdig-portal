@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { SessionButton } from "@/components/public/SessionButton";
 import { LEGAL_ENTITY } from "@/lib/legal/compliance-copy";
 
 // Shared chrome for every no-auth public surface (landing, privacy, terms,
@@ -38,12 +39,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/support" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               Support
             </Link>
-            <Link
-              href="/sign-in"
-              className="rounded-md bg-neutral-900 dark:bg-white px-3 py-1.5 font-medium text-white dark:text-neutral-900 hover:bg-neutral-700 dark:hover:bg-neutral-200"
-            >
-              Sign in
-            </Link>
+            <SessionButton className="rounded-md bg-neutral-900 dark:bg-white px-3 py-1.5 font-medium text-white dark:text-neutral-900 hover:bg-neutral-700 dark:hover:bg-neutral-200" />
             {/* Code & model hosting, pinned to the far right. */}
             <a
               href="https://github.com/RMDig"
