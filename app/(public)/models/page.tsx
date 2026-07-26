@@ -130,7 +130,7 @@ export default function ModelsPage() {
           <p className="mt-3">
             Current model experiments live in the open{" "}
             <a
-              href="https://github.com/dennys246/snowGradient"
+              href="https://github.com/RMDig/snowGradient"
               className="font-medium underline"
               rel="noopener"
             >

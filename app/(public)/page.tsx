@@ -27,7 +27,7 @@ const ORG_JSONLD = {
   sameAs: [
     "https://huggingface.co/RMDig",
     "https://huggingface.co/datasets/RMDig/rocky_mountain_snowpack",
-    "https://github.com/dennys246",
+    "https://github.com/RMDig",
   ],
 };
 
