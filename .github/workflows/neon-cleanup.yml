@@ -1,0 +1,40 @@
+# Deletes a PR's Neon preview branch when the PR closes (merged or not).
+#
+# Why this exists: the Neon↔Vercel integration's "automatically delete
+# obsolete branches" toggle is enabled but has never fired (verified
+# empirically 2026-07-26 — orphaned previews survived 30+ minutes after
+# their git branches were deleted, likely a linkage casualty of the
+# dennys246 → RMDig repo transfer). Orphaned previews filled the project's
+# 10-branch quota and broke the e2e gate four times in two days. This
+# workflow makes cleanup deterministic and self-owned instead of hoping the
+# integration heals. If the integration ever starts working, the two are
+# harmlessly idempotent — whoever deletes first wins.
+name: Neon preview cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  delete-preview-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon branch for this PR
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          npm install -g neonctl >/dev/null 2>&1
+          # The Vercel integration names preview branches preview/<git-branch>;
+          # the e2e job's disposable branch (normally self-deleted, but not if
+          # the job died mid-run) is e2e-ci-pr-<number>. Both may legitimately
+          # not exist — deletion is best-effort and never fails the workflow.
+          for b in "preview/${HEAD_REF}" "e2e-ci-pr-${PR_NUMBER}"; do
+            if neonctl branches delete "$b" --project-id "$NEON_PROJECT_ID" 2>/dev/null; then
+              echo "deleted: $b"
+            else
+              echo "not present (ok): $b"
+            fi
+          done
