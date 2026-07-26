@@ -28,6 +28,7 @@ export default async function AdminPage() {
   if (roles.length === 0) {
     redirect("/dashboard");
   }
+  const isAdmin = roles.includes("rmdig_admin");
 
   return (
     <div className="space-y-6">
@@ -67,6 +68,23 @@ export default async function AdminPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Team</CardTitle>
+            <CardDescription>
+              Invite new administrators or reviewers and manage who holds staff roles.
+              Grants and revocations require your password and are audit-logged.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/admin/team">Manage team</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

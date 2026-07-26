@@ -4,18 +4,24 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 // Password field with a show/hide toggle. Drop-in for <Input type="password">
 // — all other props pass through. The toggle is a real button (keyboard
 // reachable) and never submits the form.
-export function PasswordInput(
-  props: Omit<React.ComponentProps<typeof Input>, "type">,
-) {
+export function PasswordInput({
+  className,
+  ...props
+}: Omit<React.ComponentProps<typeof Input>, "type">) {
   const [visible, setVisible] = useState(false);
 
   return (
     <div className="relative">
-      <Input {...props} type={visible ? "text" : "password"} className="pr-10" />
+      <Input
+        {...props}
+        type={visible ? "text" : "password"}
+        className={cn("pr-10", className)}
+      />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}

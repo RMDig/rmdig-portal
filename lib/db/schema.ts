@@ -153,6 +153,55 @@ export const userPlatformRoles = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.role] })],
 );
 
+// Pending platform-role (staff) invitations — the /admin/team path for seeding
+// new admins/reviewers. Mirrors org_invitations (SHA-256 token hash, 14-day
+// TTL, acceptedAt marks spent) with two deliberate tightenings for the
+// privilege level: the accepter's session email must MATCH the invited email,
+// and creating one requires the inviting admin to re-enter their password.
+export const platformRoleInvitations = pgTable("platform_role_invitations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull(),
+  role: platformRole("role").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdByUserId: uuid("created_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// Append-only audit of platform-role grants/revocations (mirrors the ledger
+// pattern of sar_org_status_log: never updated, never deleted). targetEmail is
+// denormalized so history survives target-account deletion.
+export const platformRoleAction = pgEnum("platform_role_action", [
+  "invite_created",
+  "invite_cancelled",
+  "granted",
+  "revoked",
+]);
+
+export const platformRoleLog = pgTable("platform_role_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  action: platformRoleAction("action").notNull(),
+  role: platformRole("role").notNull(),
+  targetEmail: text("target_email").notNull(),
+  targetUserId: uuid("target_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  actorUserId: uuid("actor_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 // Password-reset tokens. Distinct from verification_tokens on purpose: a
 // different lifecycle (single-use, 1-hour TTL) and a different threat model —
 // we store only a SHA-256 hash of the token, never the plaintext, so a DB read
