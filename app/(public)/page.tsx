@@ -58,13 +58,17 @@ export default function LandingPage() {
           priority
           className="hidden dark:block"
         />
-        <h1 className="mt-6 text-3xl font-semibold tracking-tight sm:text-4xl">
-          A safety companion for backcountry travel
+        <h1 className="mt-6 tracking-tight">
+          <span className="block text-4xl font-semibold sm:text-5xl">Check Out</span>
+          <span className="text-muted-foreground my-1 block text-xl font-normal italic sm:text-2xl">
+            with
+          </span>
+          <span className="block text-4xl font-semibold sm:text-5xl">Peace of Mind</span>
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-600 dark:text-neutral-300">
           Check out before you head into the field. Check in when you&apos;re back safe. If
           you don&apos;t check in on time, AvAI&apos;s servers alert your emergency contact
-          with your last-known location. Requires cell or internet signal to check out.
+          with your last-known location.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Link
@@ -93,7 +97,9 @@ export default function LandingPage() {
           <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
             Schedule a check-in before a trip. A server-side watchdog watches the clock —
             if the check-in time passes without word from you, your emergency contact gets
-            an alert with your last-known location.
+            an alert with your last-known location. Requires cell or internet signal to
+            check out and in — emergency alerts are sent by our servers regardless of your
+            connectivity.
           </p>
         </div>
         <div>
