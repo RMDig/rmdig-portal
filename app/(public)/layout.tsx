@@ -38,8 +38,15 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/support" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               Support
             </Link>
-            {/* Code & model hosting. GitHub points at the founder's account until
-                the company org exists (planned) — one-line swap then. */}
+            <Link
+              href="/sign-in"
+              className="rounded-md bg-neutral-900 dark:bg-white px-3 py-1.5 font-medium text-white dark:text-neutral-900 hover:bg-neutral-700 dark:hover:bg-neutral-200"
+            >
+              Sign in
+            </Link>
+            {/* Code & model hosting, pinned to the far right. GitHub points at
+                the founder's account until the RMDig org transfer lands —
+                one-line swap then. */}
             <a
               href="https://github.com/dennys246"
               aria-label="RMDig on GitHub"
@@ -58,12 +65,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             >
               <span aria-hidden>🤗</span>
             </a>
-            <Link
-              href="/sign-in"
-              className="rounded-md bg-neutral-900 dark:bg-white px-3 py-1.5 font-medium text-white dark:text-neutral-900 hover:bg-neutral-700 dark:hover:bg-neutral-200"
-            >
-              Sign in
-            </Link>
           </nav>
         </div>
       </header>
