@@ -48,6 +48,21 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Legacy URLs from the pre-2026-07-25 marketing site (Render), still in
+  // Google's index and in press coverage. /snowpack_dataset survives as a real
+  // page at its exact old path; the rest map to their nearest successor so no
+  // indexed or press-linked URL 404s. Permanent: search engines should
+  // consolidate onto the targets.
+  async redirects() {
+    return [
+      { source: "/avai", destination: "/", permanent: true },
+      { source: "/snowgan", destination: "/snowpack_dataset", permanent: true },
+      { source: "/corediff", destination: "/snowpack_dataset", permanent: true },
+      { source: "/corediffusion", destination: "/snowpack_dataset", permanent: true },
+      { source: "/about", destination: "/", permanent: true },
+      { source: "/projects", destination: "/snowpack_dataset", permanent: true },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

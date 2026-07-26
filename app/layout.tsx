@@ -13,8 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "rmdig portal",
-  description: "rmdig platform portal — accounts, SAR orgs, dashboards.",
+  // Canonical host for absolute OG/canonical URL resolution (rmdig.ai since
+  // the 2026-07-25 cutover; middleware 308s the legacy hosts onto it).
+  metadataBase: new URL("https://rmdig.ai"),
+  title: {
+    default: "RMDig — AvAI backcountry safety companion",
+    template: "%s",
+  },
+  description:
+    "Rocky Mountain Digerati builds AvAI (Avalanche AI): a beta backcountry safety companion app, open snowpack research, and the Rocky Mountain Snowpack dataset.",
 };
 
 export default function RootLayout({
