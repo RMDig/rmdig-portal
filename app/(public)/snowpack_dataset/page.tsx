@@ -117,6 +117,40 @@ export default function SnowpackDatasetPage() {
         </section>
 
         <section>
+          <h2>Sample data</h2>
+          <p className="mt-3">
+            What the dataset actually contains — one real sample from each imaging
+            modality:
+          </p>
+          <div className="mt-4 grid gap-6 sm:grid-cols-2 sm:items-start">
+            <figure>
+              <Image
+                src="/research/core-real.jpg"
+                alt="Dataset sample: snow core cross-section laid on a centimeter-ruled crystal card"
+                width={500}
+                height={300}
+                className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
+              />
+              <figcaption className="text-muted-foreground mt-1 text-xs">
+                Core modality — an extracted mini-core cross-section on the crystal card.
+              </figcaption>
+            </figure>
+            <figure>
+              <Image
+                src="/research/profile-real.jpg"
+                alt="Dataset sample: magnified snowpack profile showing crystal structure over the crystal card grid"
+                width={900}
+                height={1200}
+                className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
+              />
+              <figcaption className="text-muted-foreground mt-1 text-xs">
+                Magnified-profile modality — crystal structure through the field loupe.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section>
           <h2>Citation &amp; contact</h2>
           <p className="mt-3">
             Cite the dataset via its Hugging Face card, which carries the canonical
