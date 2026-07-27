@@ -123,7 +123,28 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2>6. Disclaimers, liability, disputes</h2>
+          <h2>6. Text messages (SMS)</h2>
+          <p className="mt-3">
+            The &quot;AvAI backcountry safety alerts&quot; SMS program, operated by{" "}
+            {LEGAL_ENTITY}, delivers the safety messages described in these terms.
+            Consent operates by designation: when a user names an emergency contact (and
+            confirms they have that person&apos;s permission — see §3), the contact
+            receives a one-time notice message, and safety alerts flow by default with no
+            further confirmation required. Message frequency varies and is event-driven
+            only; message and data rates may apply. Recipients can reply STOP at any time
+            to end all messages — including safety alerts, in which case the designating
+            user is notified — and HELP for program information. Delivery is designed
+            at-least-once: duplicate alerts are possible by design. Full program details,
+            including the exact message texts:{" "}
+            <Link href="/sms" className="font-medium underline">
+              rmdig.ai/sms
+            </Link>
+            .
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Disclaimers, liability, disputes</h2>
           <LawyerPlaceholder>
             Warranty disclaimer, limitation of liability, indemnification, governing law
             (Colorado) and venue, dispute-resolution terms. Counsel to supply — these are
@@ -133,7 +154,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2>7. Changes</h2>
+          <h2>8. Changes</h2>
           <p className="mt-3">
             We may update these terms; we will post changes here and update the date above,
             and notify you in the app of material changes before they take effect.
@@ -141,7 +162,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2>8. Contact</h2>
+          <h2>9. Contact</h2>
           <p className="mt-3">
             {LEGAL_ENTITY} —{" "}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium underline">
