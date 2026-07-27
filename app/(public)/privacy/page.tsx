@@ -174,7 +174,12 @@ export default function PrivacyPolicyPage() {
             Twilio, our SMS delivery provider, and are strictly event-driven: an overdue
             alert, a Send&nbsp;Help alert, or the all-clear that follows. We send no
             marketing or promotional texts, and message frequency depends entirely on the
-            user&apos;s safety activity. Message and data rates may apply.
+            user&apos;s safety activity. Message and data rates may apply. Full program details, including the exact
+            message texts, are published at{" "}
+            <Link href="/sms" className="font-medium underline">
+              rmdig.ai/sms
+            </Link>
+            .
           </p>
           <p className="mt-3">
             If you receive these messages, it is because an AvAI user listed your phone

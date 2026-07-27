@@ -33,6 +33,7 @@ actions still to be entered in each console.
 | Google Play Console | Support email / website | `support@rmdig.ai` / `https://rmdig.ai/support` |
 | Twilio A2P 10DLC (campaign vetting) | Business website | `https://rmdig.ai/` (live; brand ↔ domain match) |
 | Twilio A2P 10DLC | Privacy policy / Terms | `https://rmdig.ai/privacy` / `https://rmdig.ai/terms` |
+| Twilio A2P 10DLC | Opt-in evidence / program details | `https://rmdig.ai/sms` |
 | AvApp `lib/copy/compliance_copy.dart` | `kPrivacyPolicyUrl` | `https://rmdig.ai/privacy` |
 | AvApp `lib/copy/compliance_copy.dart` | `kTermsOfServiceUrl` | `https://rmdig.ai/terms` |
 | AvApp Settings rows | support / delete account | `https://rmdig.ai/support` / `https://rmdig.ai/account/delete` |
