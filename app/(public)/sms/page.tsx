@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { LEGAL_ENTITY, SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
@@ -42,13 +43,20 @@ export default function SmsProgramPage() {
             user&apos;s deliberate act plus this confirmation — is the consent basis for
             the program.
           </p>
-          <figure className="mt-4 rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 p-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
-            {/* SCREENSHOT SLOT: replace with the AvApp designation-screen
-                capture (permission disclosure visible) once the doc 32 §9.6
-                screen ships — tracked as an urgent AvApp issue. */}
-            [Screenshot of the in-app emergency-contact designation screen, including the
-            permission confirmation, will appear here — the screen is in active
-            development.]
+          <figure className="mt-4 flex flex-col items-center">
+            {/* The doc 32 §9.6 designation screen (fixture data), delivered
+                via RMDig/AvApp#61 — the consent moment this page documents. */}
+            <Image
+              src="/research/designation-attestation.png"
+              alt="AvAI Add contact screen: name and phone fields with a checked confirmation reading 'I confirm I have this person's permission to be added as an emergency contact and alerted if I miss a check-in', above the Save contact button"
+              width={300}
+              height={613}
+              className="rounded-lg border border-neutral-200 dark:border-neutral-800"
+            />
+            <figcaption className="text-muted-foreground mt-2 text-xs">
+              The in-app designation screen — saving a contact requires confirming you
+              have their permission. (Example data shown.)
+            </figcaption>
           </figure>
           <p className="mt-3">
             The contact then receives a <strong>one-time designation notice</strong>{" "}
