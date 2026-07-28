@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { MobileNav } from "@/components/public/MobileNav";
 import { SessionButton } from "@/components/public/SessionButton";
 import { LEGAL_ENTITY } from "@/lib/legal/compliance-copy";
 
@@ -12,7 +13,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <>
       <header className="border-b border-neutral-200 dark:border-neutral-800">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
+        <div className="relative mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center">
             {/* 326×96 source rendered at 32px tall — 3x for retina crispness. */}
             <Image
@@ -23,7 +24,31 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               priority
             />
           </Link>
+          {/* Centered AvAI mark → the in-depth /avai page. Absolute so the
+              unequal flex sides can't skew it; hidden below md where it would
+              collide with the nav. Theme pair per the landing hero. */}
+          <Link
+            href="/avai"
+            aria-label="What is AvAI?"
+            className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block"
+          >
+            <Image
+              src="/avai-logo.png"
+              alt="AvAI"
+              width={50}
+              height={32}
+              className="dark:hidden"
+            />
+            <Image
+              src="/avai-logo-white.png"
+              alt="AvAI"
+              width={50}
+              height={32}
+              className="hidden dark:block"
+            />
+          </Link>
           <nav className="flex items-center gap-5 text-sm text-neutral-600 dark:text-neutral-300">
+            <div className="hidden items-center gap-5 md:flex">
             <Link href="/models" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               Models
             </Link>
@@ -39,8 +64,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/support" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               Support
             </Link>
+            </div>
             <SessionButton className="rounded-md bg-neutral-900 dark:bg-white px-3 py-1.5 font-medium text-white dark:text-neutral-900 hover:bg-neutral-700 dark:hover:bg-neutral-200" />
-            {/* Code & model hosting, pinned to the far right. */}
+            {/* Code & model hosting, pinned to the far right (desktop). */}
+            <div className="hidden items-center gap-5 md:flex">
             <a
               href="https://github.com/RMDig"
               aria-label="RMDig on GitHub"
@@ -59,6 +86,20 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             >
               <span aria-hidden>🤗</span>
             </a>
+            </div>
+            <MobileNav>
+              <Link href="/avai">What is AvAI?</Link>
+              <Link href="/models">Models</Link>
+              <Link href="/snowpack_dataset">Data</Link>
+              <Link href="/methods">Methods</Link>
+              <Link href="/support">Support</Link>
+              <a href="https://github.com/RMDig" rel="noopener">
+                GitHub
+              </a>
+              <a href="https://huggingface.co/RMDig" rel="noopener">
+                Hugging Face 🤗
+              </a>
+            </MobileNav>
           </nav>
         </div>
       </header>

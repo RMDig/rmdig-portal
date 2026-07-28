@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
   // consolidate onto the targets.
   async redirects() {
     return [
-      { source: "/avai", destination: "/", permanent: true },
+      // /avai is a real page again (2026-07-27) — no redirect.
       { source: "/snowgan", destination: "/models", permanent: true },
       { source: "/corediff", destination: "/models", permanent: true },
       { source: "/corediffusion", destination: "/models", permanent: true },

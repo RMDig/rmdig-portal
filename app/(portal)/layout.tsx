@@ -10,6 +10,7 @@ import { getPlatformRoles } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs, users } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { MobileNav } from "@/components/public/MobileNav";
 import { SignOutButton } from "./SignOutButton";
 
 const ENROLL_PATH = "/settings/mfa/enroll";
@@ -59,16 +60,38 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+        <div className="relative mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/dashboard" className="flex shrink-0 items-center">
             {/* 326×96 source at 28px tall — same asset as the public header. */}
             <Image src="/rmdig-logo.png" alt="RMDig" width={95} height={28} priority />
           </Link>
+          {/* Centered AvAI mark → /avai (mirrors the public header); hidden
+              below lg where the portal's denser nav would collide with it. */}
+          <Link
+            href="/avai"
+            aria-label="What is AvAI?"
+            className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 lg:block"
+          >
+            <Image
+              src="/avai-logo.png"
+              alt="AvAI"
+              width={44}
+              height={28}
+              className="dark:hidden"
+            />
+            <Image
+              src="/avai-logo-white.png"
+              alt="AvAI"
+              width={44}
+              height={28}
+              className="hidden dark:block"
+            />
+          </Link>
           {/* Unified nav (operator decision 2026-07-26): everything visible to
               the public stays reachable while signed in, with role tabs added.
-              The centered AvAI mark was dropped to make room. */}
+              Below md the tabs live in the hamburger (MobileNav). */}
           <div className="flex items-center gap-4 text-sm">
-            <nav className="hidden items-center gap-4 sm:flex">
+            <nav className="hidden items-center gap-4 md:flex">
               <Link href="/models" className="text-muted-foreground hover:text-foreground">
                 Models
               </Link>
@@ -85,6 +108,7 @@ export default async function PortalLayout({ children }: { children: React.React
                 Support
               </Link>
             </nav>
+            <div className="hidden items-center gap-4 md:flex">
             {isStaff ? (
               <Link href="/admin" className="text-muted-foreground hover:text-foreground">
                 Admin
@@ -93,12 +117,15 @@ export default async function PortalLayout({ children }: { children: React.React
             <Link href="/settings" className="text-muted-foreground hover:text-foreground">
               Settings
             </Link>
+            </div>
             <span className="text-muted-foreground hidden lg:inline">
               {session.user.email}
             </span>
             <SignOutButton />
             {/* Code & model hosting, pinned to the very far right (mirrors the
-                public header). */}
+                public header; desktop only — the hamburger carries them on
+                phones). */}
+            <div className="hidden items-center gap-3 md:flex">
             <a
               href="https://github.com/RMDig"
               aria-label="RMDig on GitHub"
@@ -117,6 +144,22 @@ export default async function PortalLayout({ children }: { children: React.React
             >
               <span aria-hidden>🤗</span>
             </a>
+            </div>
+            <MobileNav>
+              <Link href="/avai">What is AvAI?</Link>
+              <Link href="/models">Models</Link>
+              <Link href="/snowpack_dataset">Data</Link>
+              <Link href="/methods">Methods</Link>
+              <Link href="/support">Support</Link>
+              {isStaff ? <Link href="/admin">Admin</Link> : null}
+              <Link href="/settings">Settings</Link>
+              <a href="https://github.com/RMDig" rel="noopener">
+                GitHub
+              </a>
+              <a href="https://huggingface.co/RMDig" rel="noopener">
+                Hugging Face 🤗
+              </a>
+            </MobileNav>
           </div>
         </div>
       </header>
