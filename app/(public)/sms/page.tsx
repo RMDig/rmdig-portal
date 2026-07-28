@@ -48,7 +48,7 @@ export default function SmsProgramPage() {
                 via RMDig/AvApp#61 — the consent moment this page documents. */}
             <Image
               src="/research/designation-attestation.png"
-              alt="AvAI Add contact screen: name and phone fields with a checked confirmation reading 'I confirm I have this person's permission to be added as an emergency contact and alerted if I miss a check-in', above the Save contact button"
+              alt="AvAI Add contact screen: name and phone fields with a required confirmation reading 'I confirm I have this person's permission to be added as an emergency contact and alerted if I miss a check-in'; the Save contact button stays disabled until it is checked"
               width={300}
               height={613}
               className="rounded-lg border border-neutral-200 dark:border-neutral-800"
