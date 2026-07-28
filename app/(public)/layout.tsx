@@ -24,14 +24,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               priority
             />
           </Link>
-          {/* Centered AvAI mark → the in-depth /avai page. Absolute so the
-              unequal flex sides can't skew it; hidden below md where it would
-              collide with the nav. Theme pair per the landing hero. */}
-          <Link
-            href="/avai"
-            aria-label="What is AvAI?"
-            className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block"
-          >
+          {/* AvAI mark → the in-depth /avai page, centered in the free space
+              between the wordmark and the nav (flex, not absolute — so the
+              tabs flow around it and overlap is impossible at any width).
+              Hidden below md; the hamburger carries the link there. */}
+          <div className="hidden flex-1 justify-center md:flex">
+          <Link href="/avai" aria-label="What is AvAI?">
             <Image
               src="/avai-logo.png"
               alt="AvAI"
@@ -47,6 +45,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               className="hidden dark:block"
             />
           </Link>
+          </div>
           <nav className="flex items-center gap-5 text-sm text-neutral-600 dark:text-neutral-300">
             <div className="hidden items-center gap-5 md:flex">
             <Link href="/models" className="hover:text-neutral-900 dark:hover:text-neutral-100">

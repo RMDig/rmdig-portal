@@ -65,13 +65,11 @@ export default async function PortalLayout({ children }: { children: React.React
             {/* 326×96 source at 28px tall — same asset as the public header. */}
             <Image src="/rmdig-logo.png" alt="RMDig" width={95} height={28} priority />
           </Link>
-          {/* Centered AvAI mark → /avai (mirrors the public header); hidden
-              below lg where the portal's denser nav would collide with it. */}
-          <Link
-            href="/avai"
-            aria-label="What is AvAI?"
-            className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 lg:block"
-          >
+          {/* AvAI mark → /avai, centered in the free space between wordmark
+              and nav (flex — the tabs flow around it, no overlap possible).
+              Hidden below md; the hamburger carries the link there. */}
+          <div className="hidden flex-1 justify-center md:flex">
+          <Link href="/avai" aria-label="What is AvAI?">
             <Image
               src="/avai-logo.png"
               alt="AvAI"
@@ -87,6 +85,7 @@ export default async function PortalLayout({ children }: { children: React.React
               className="hidden dark:block"
             />
           </Link>
+          </div>
           {/* Unified nav (operator decision 2026-07-26): everything visible to
               the public stays reachable while signed in, with role tabs added.
               Below md the tabs live in the hamburger (MobileNav). */}
