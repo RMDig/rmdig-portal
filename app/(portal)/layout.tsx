@@ -60,16 +60,14 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b">
-        <div className="relative mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <Link href="/dashboard" className="flex shrink-0 items-center">
+        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3">
+          <Link href="/dashboard" className="flex shrink-0 items-center justify-self-start">
             {/* 326×96 source at 28px tall — same asset as the public header. */}
             <Image src="/rmdig-logo.png" alt="RMDig" width={95} height={28} priority />
           </Link>
-          {/* AvAI mark → /avai, centered in the free space between wordmark
-              and nav (flex — the tabs flow around it, no overlap possible).
-              Hidden below md; the hamburger carries the link there. */}
-          <div className="hidden flex-1 justify-center md:flex">
-          <Link href="/avai" aria-label="What is AvAI?">
+          {/* AvAI mark → /avai. Middle grid column — true center when the sides fit; pushes
+              (never overlaps) when the nav is wider than its share. */}
+          <Link href="/avai" aria-label="What is AvAI?" className="hidden md:block">
             <Image
               src="/avai-logo.png"
               alt="AvAI"
@@ -85,11 +83,10 @@ export default async function PortalLayout({ children }: { children: React.React
               className="hidden dark:block"
             />
           </Link>
-          </div>
           {/* Unified nav (operator decision 2026-07-26): everything visible to
               the public stays reachable while signed in, with role tabs added.
               Below md the tabs live in the hamburger (MobileNav). */}
-          <div className="flex items-center gap-4 text-sm">
+          <div className="col-start-3 flex items-center gap-4 justify-self-end text-sm">
             <nav className="hidden items-center gap-4 md:flex">
               <Link href="/models" className="text-muted-foreground hover:text-foreground">
                 Models
