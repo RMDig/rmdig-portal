@@ -243,6 +243,13 @@ export default function PrivacyPolicyPage() {
                   <td>While your account is active, plus up to 30 days after deletion completes</td>
                 </tr>
                 <tr>
+                  <td>Encrypted database backups</td>
+                  <td>
+                    30 days, then deleted. Data removed by a deletion request ages out
+                    of backups on the same schedule.
+                  </td>
+                </tr>
+                <tr>
                   <td>SMS opt-out records</td>
                   <td>
                     Retained indefinitely as a suppression list — deleting an opt-out
