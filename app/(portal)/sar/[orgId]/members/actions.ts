@@ -12,12 +12,19 @@ import { env } from "@/lib/env";
 import { inviteMemberSchema } from "@/lib/sar/invite";
 import { generateInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
+import { incrementRateLimit } from "@/lib/rate-limit";
 
 // Invite a member to a SAR org (rmdig-ai docs/plans/06 §"Member invitation").
 // Org-admin gated (re-checked here, never trusting the page), and only for an
 // APPROVED org — you can't staff a team that isn't verified yet. Returns the
 // invite link so the page can show it for copying; the link is also emailed.
 // `orgId` is bound by the form (createInvitationAction.bind(null, orgId)).
+
+// 50 invites/org/day — a ceiling no legitimate team reaches (the largest SAR
+// rosters are dozens of members total), so the authenticated email-fan-out
+// vector is bounded even when nobody is watching. If a real org ever trips
+// it, that's the trigger for tiered limits (operator decision 2026-08-07).
+const INVITE_RATE_LIMIT = { limit: 50, windowSec: 24 * 60 * 60 };
 
 export type InviteResult =
   | { ok: true; inviteUrl: string; email: string }
@@ -65,6 +72,15 @@ export async function createInvitationAction(
     };
   }
   const { email, role } = parsed.data;
+
+  const rate = await incrementRateLimit(`invite-org:${orgId}`, INVITE_RATE_LIMIT);
+  if (!rate.allowed) {
+    logger.warn({ event: "sar.invite.rate_limited", orgId, userId, attempts: rate.attempts });
+    return {
+      ok: false,
+      error: "This organization reached its daily invite limit. Try again tomorrow.",
+    };
+  }
 
   const { token, tokenHash, expires } = generateInviteToken();
 
