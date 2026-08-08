@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   selectResult: [] as Array<Record<string, unknown>>,
   rlAllowed: true,
   rlAttempts: 1,
+  rlKeys: [] as string[],
   inserted: [] as Array<{ table: string; vals: Record<string, unknown> }>,
   deletes: [] as string[],
   updates: [] as Array<{ table: string; vals: Record<string, unknown> }>,
@@ -58,10 +59,16 @@ vi.mock("@/lib/email/send", () => ({
   sendVerificationEmail: h.sendVerify,
 }));
 vi.mock("@/lib/rate-limit", () => ({
-  incrementRateLimit: () =>
-    Promise.resolve({ allowed: h.rlAllowed, attempts: h.rlAttempts, resetAt: new Date() }),
+  incrementRateLimit: (key: string) => {
+    h.rlKeys.push(key);
+    return Promise.resolve({ allowed: h.rlAllowed, attempts: h.rlAttempts, resetAt: new Date() });
+  },
 }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+// signUpAction reads the client IP (via lib/client-ip) for its per-IP limit.
+vi.mock("next/headers", () => ({
+  headers: () => Promise.resolve(new Headers({ "x-forwarded-for": "203.0.113.9" })),
+}));
 
 import {
   requestPasswordResetAction,
@@ -79,6 +86,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.selectResult = [];
   h.rlAllowed = true;
+  h.rlKeys = [];
   h.inserted = [];
   h.deletes = [];
   h.updates = [];
@@ -234,5 +242,28 @@ describe("signUpAction", () => {
     );
     expect(res.ok).toBe(false);
     expect(h.inserted).toHaveLength(0);
+  });
+
+  it("keys the per-IP limit on the forwarded client IP", async () => {
+    h.selectResult = [];
+    await signUpAction(
+      null,
+      form({ email: "a@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
+    );
+    expect(h.rlKeys).toContain("signup-ip:203.0.113.9");
+  });
+
+  it("fails loud — no insert, no email — when the IP is rate-limited", async () => {
+    h.rlAllowed = false;
+    h.selectResult = [];
+    const res = await signUpAction(
+      null,
+      form({ email: "new@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/too many sign-ups/i);
+    expect(h.inserted).toHaveLength(0);
+    expect(h.sendVerify).not.toHaveBeenCalled();
+    expect(h.log.warn).toHaveBeenCalled();
   });
 });

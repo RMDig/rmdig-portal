@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
 import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
+import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send";
@@ -63,6 +64,12 @@ export type ActionResult =
 
 // ----- Sign up -----
 
+// 5 sign-ups/hour per client IP. Sign-up is an unauthenticated write path
+// (§7) that bcrypt-hashes, inserts a row, and sends a verification email on
+// every call — unthrottled, it's an account-spam and email-fan-out vector.
+// 5/hr still covers a NAT'd household or club signing up the same evening.
+const SIGNUP_IP_RATE_LIMIT = { limit: 5, windowSec: 60 * 60 };
+
 export async function signUpAction(
   _prev: ActionResult | null,
   formData: FormData,
@@ -77,6 +84,13 @@ export async function signUpAction(
   }
 
   const { email, password, intent } = parsed.data;
+
+  const ip = await clientIp();
+  const rl = await incrementRateLimit(`signup-ip:${ip}`, SIGNUP_IP_RATE_LIMIT);
+  if (!rl.allowed) {
+    logger.warn({ event: "signup.ip_rate_limited", ip, attempts: rl.attempts });
+    return { ok: false, error: "Too many sign-ups from this network. Try again later." };
+  }
 
   // Don't leak existence — same response whether the email is new or duplicate.
   // The legitimate-owner case gets a real verification email; the attacker

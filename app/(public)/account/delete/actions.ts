@@ -1,8 +1,8 @@
 "use server";
 
-import { headers } from "next/headers";
 import { z } from "zod";
 
+import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { deletionRequests } from "@/lib/db/schema";
 import { sendDataDeletionConfirmEmail } from "@/lib/email/send";
@@ -35,16 +35,6 @@ const RATE_LIMIT = { limit: 3, windowSec: 60 * 60 };
 // confirmation emails at unlimited distinct third-party inboxes at 3/hr each.
 // 10/hr still covers a NAT'd household of legitimate requesters.
 const IP_RATE_LIMIT = { limit: 10, windowSec: 60 * 60 };
-
-// First hop of x-forwarded-for is the client IP on Vercel (the platform
-// appends, so the leftmost entry is what reached the edge). Headerless
-// requests (local dev, direct invocation) share one "unknown" bucket rather
-// than bypassing the limit — fail closed, not open.
-async function clientIp(): Promise<string> {
-  const h = await headers();
-  const forwarded = h.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
-}
 
 export type DeletionRequestState =
   | { ok: true }

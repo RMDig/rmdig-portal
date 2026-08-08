@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   org: [{ name: "San Juan SAR", status: "approved" }] as Array<{ name: string; status: string }>,
   canManage: true,
+  rlAllowed: true,
+  rlKeys: [] as string[],
 }));
 
 vi.mock("@/lib/db", () => {
@@ -24,6 +26,12 @@ vi.mock("@/lib/auth/org-roles", () => ({ canManageOrg: vi.fn(() => Promise.resol
 vi.mock("@/lib/email/send", () => ({ sendOrgInviteEmail: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({
+  incrementRateLimit: (key: string) => {
+    h.rlKeys.push(key);
+    return Promise.resolve({ allowed: h.rlAllowed, attempts: 1, resetAt: new Date() });
+  },
+}));
 
 import { auth } from "@/lib/auth";
 import { sendOrgInviteEmail } from "@/lib/email/send";
@@ -43,6 +51,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.org = [{ name: "San Juan SAR", status: "approved" }];
   h.canManage = true;
+  h.rlAllowed = true;
+  h.rlKeys = [];
   authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
 });
 
@@ -94,5 +104,18 @@ describe("createInvitationAction", () => {
   it("still succeeds if the invite email fails to send", async () => {
     vi.mocked(sendOrgInviteEmail).mockRejectedValueOnce(new Error("resend down"));
     expect((await createInvitationAction("org-1", null, fd("a@b.test"))).ok).toBe(true);
+  });
+
+  it("keys the daily ceiling on the org", async () => {
+    await createInvitationAction("org-1", null, fd("a@b.test"));
+    expect(h.rlKeys).toContain("invite-org:org-1");
+  });
+
+  it("fails loud — no invite, no email — at the daily ceiling", async () => {
+    h.rlAllowed = false;
+    const res = await createInvitationAction("org-1", null, fd("a@b.test"));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/daily invite limit/i);
+    expect(sendOrgInviteEmail).not.toHaveBeenCalled();
   });
 });
