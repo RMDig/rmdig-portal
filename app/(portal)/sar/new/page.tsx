@@ -1,3 +1,5 @@
+import { phoneVerificationEnabled } from "@/lib/phone/verify";
+
 import { SarOrgForm } from "./SarOrgForm";
 
 export const metadata = {
@@ -16,7 +18,7 @@ export default function SarNewPage() {
           We&apos;ll review your application before approving it.
         </p>
       </div>
-      <SarOrgForm />
+      <SarOrgForm phoneVerifyEnabled={phoneVerificationEnabled()} />
     </div>
   );
 }

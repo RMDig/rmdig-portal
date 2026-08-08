@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "advertiser_accounts_contact_phone_unique" ON "advertiser_accounts" USING btree ("contact_phone") WHERE contact_phone IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "sar_orgs_contact_phone_unique" ON "sar_orgs" USING btree ("contact_phone") WHERE contact_phone IS NOT NULL;

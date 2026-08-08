@@ -9,6 +9,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -304,8 +305,15 @@ export const sarOrgs = pgTable("sar_orgs", {
   // append-only sar_org_status_log keeps the full per-transition history.
   reviewNote: text("review_note"),
 },
-  // The operator approvals queue lists pending orgs; index the status it filters on.
-  (t) => [index("sar_orgs_status_idx").on(t.status)],
+  (t) => [
+    // The operator approvals queue lists pending orgs; index the status it filters on.
+    index("sar_orgs_status_idx").on(t.status),
+    // One verified phone → one SAR org (anti-abuse + a unique callback number
+    // for vetting). Partial: legacy/unverified rows may hold NULL.
+    uniqueIndex("sar_orgs_contact_phone_unique")
+      .on(t.contactPhone)
+      .where(sql`contact_phone IS NOT NULL`),
+  ],
 );
 
 // Org membership with role. Composite PK (org_id, user_id): a user holds at most
@@ -529,7 +537,15 @@ export const advertiserAccounts = pgTable("advertiser_accounts", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+},
+  // One verified phone → one advertiser account (mirrors sar_orgs; a number
+  // may back one org of EACH type, uniqueness is per-table by design).
+  (t) => [
+    uniqueIndex("advertiser_accounts_contact_phone_unique")
+      .on(t.contactPhone)
+      .where(sql`contact_phone IS NOT NULL`),
+  ],
+);
 
 // Advertiser membership with role. Composite PK (advertiser_id, user_id): a user
 // holds at most one role row per advertiser; promotion updates in place. Both FKs

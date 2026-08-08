@@ -33,6 +33,10 @@ export const createAdvertiserAccountSchema = z.object({
     .email("Enter a valid contact email.")
     .max(320),
   contactPhone: optionalText(40),
+  // OTP from the phone-verification step. Optional here — requiredness is
+  // decided by requireVerifiedOrgPhone (only when Twilio Verify is
+  // configured), not by the schema. Mirrors lib/sar/schema.ts.
+  phoneCode: optionalText(12),
   websiteUrl: optionalUrl(500),
   // The terms acknowledgment checkbox. An unchecked box is absent from FormData
   // (→ undefined); "on" is the value of a checked one. Mirrors lib/sar/schema.ts.

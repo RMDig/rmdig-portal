@@ -89,6 +89,13 @@ export default function PrivacyPolicyPage() {
             encrypted. Devices you link to your account are recorded so the safety features
             know which device is yours.
           </p>
+          <p className="mt-2">
+            If you register a search &amp; rescue organization or an advertiser account,
+            we collect a contact name, contact email, and a contact phone number that we
+            verify by one-time code. The phone number is kept as the organization&apos;s
+            operational contact — we use it to reach you during application review and
+            for account matters, never for marketing.
+          </p>
 
           <h3 className="mt-5">Safety and telemetry records</h3>
           <p className="mt-2">
