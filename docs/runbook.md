@@ -164,6 +164,55 @@ public launch, set it to `all` in **Vercel → Production env**, then redeploy
 (re-deploy the latest production build so the new value is picked up). Staff
 already require MFA regardless.
 
+## Database backups
+
+Two independent mechanisms, different failure domains:
+
+1. **Neon point-in-time restore** (managed, always on) — check the history
+   retention window on the `production` branch of project
+   `lingering-waterfall-99928244` and bump it if the plan allows; restore =
+   create a branch from a timestamp in the Neon console.
+2. **Nightly encrypted dump to Cloudflare R2** —
+   [.github/workflows/db-backup.yml](../.github/workflows/db-backup.yml),
+   09:00 UTC. `pg_dump -Fc` → `age`-encrypt → upload to
+   `r2://<bucket>/portal-db/`. Retention 30 days (disclosed in `/privacy`);
+   the bucket lifecycle rule is the primary expiry, the workflow prune step is
+   backup.
+
+**One-time setup** (workflow skips, green, until this is done):
+
+1. Generate an age keypair locally: `age-keygen -o portal-backup.key`. Store
+   the **private key** in the password manager (and nowhere else — not GitHub,
+   not R2). The public key (`age1…`) is not sensitive.
+2. Cloudflare → R2: create bucket `rmdig-portal-backups`; add a lifecycle rule
+   deleting objects under `portal-db/` after 30 days; create an R2 API token
+   scoped to that bucket (Object Read & Write).
+3. GitHub repo → Settings → Secrets and variables → Actions:
+   - Secrets: `PROD_DATABASE_URL` (pinned prod Neon URL via
+     `neonctl connection-string` — see "Connecting to production"),
+     `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`.
+   - Variables: `AGE_PUBLIC_KEY` (the `age1…` string),
+     `R2_BACKUP_BUCKET=rmdig-portal-backups`, and finally
+     `DB_BACKUPS_ENABLED=1` to arm the schedule.
+4. Run the workflow once by hand (Actions → db-backup → Run workflow) and
+   confirm an object lands in the bucket.
+
+**Restore drill** (quarterly — an untested backup is a hope, not a backup):
+
+1. Download the newest `portal-db/*.dump.age` from R2.
+2. `age -d -i portal-backup.key -o portal.dump portal-<stamp>.dump.age`
+3. Create a scratch Neon branch off `production`, then
+   `pg_restore -d "<scratch branch URL>" --clean --if-exists --no-owner portal.dump`
+4. Spot-check row counts (`users`, `sar_orgs`, `deletion_requests`) against
+   prod, then delete the scratch branch.
+
+If a nightly run fails, GitHub emails the repo owner — treat a red `db-backup`
+run as an incident, not noise: the second mechanism existing is the point.
+
+**Password-reset note:** rotating `PROD_DATABASE_URL` (Neon password reset)
+must be mirrored into this GitHub secret in the same sitting, or backups break
+silently at the next 09:00 UTC run.
+
 ## Routine maintenance
 
 See [infrastructure.md](infrastructure.md) §Maintenance for the schedule:

@@ -89,6 +89,13 @@ export default function PrivacyPolicyPage() {
             encrypted. Devices you link to your account are recorded so the safety features
             know which device is yours.
           </p>
+          <p className="mt-2">
+            If you register a search &amp; rescue organization or an advertiser account,
+            we collect a contact name, contact email, and a contact phone number that we
+            verify by one-time code. The phone number is kept as the organization&apos;s
+            operational contact — we use it to reach you during application review and
+            for account matters, never for marketing.
+          </p>
 
           <h3 className="mt-5">Safety and telemetry records</h3>
           <p className="mt-2">
@@ -234,6 +241,13 @@ export default function PrivacyPolicyPage() {
                 <tr>
                   <td>Account data</td>
                   <td>While your account is active, plus up to 30 days after deletion completes</td>
+                </tr>
+                <tr>
+                  <td>Encrypted database backups</td>
+                  <td>
+                    30 days, then deleted. Data removed by a deletion request ages out
+                    of backups on the same schedule.
+                  </td>
                 </tr>
                 <tr>
                   <td>SMS opt-out records</td>

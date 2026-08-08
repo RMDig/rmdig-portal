@@ -41,6 +41,15 @@ const Env = z.object({
   RESEND_API_KEY: z.string().startsWith("re_").optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@rmdig.ai"),
 
+  // Twilio Verify (org-creation phone OTP). All three optional as a set: when
+  // any is missing, phone verification is DISABLED and org creation proceeds
+  // without it (CI/local/preview) — SAR approval (§0) and per-creative ad
+  // approval remain the true gates. Set all three in prod to enforce.
+  // Verify OTPs use Twilio's own numbers, not our A2P campaign.
+  TWILIO_ACCOUNT_SID: z.string().startsWith("AC").optional(),
+  TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+  TWILIO_VERIFY_SERVICE_SID: z.string().startsWith("VA").optional(),
+
   // Sentry. DSN is optional locally (errors then just log); ORG/PROJECT/AUTH
   // are build-time only for source-map upload.
   SENTRY_DSN: z.string().url().optional(),

@@ -43,6 +43,10 @@ export const createSarOrgSchema = z
     contactName: z.string().trim().min(1, "Enter a primary contact name.").max(200),
     contactEmail: z.string().trim().toLowerCase().email("Enter a valid contact email.").max(320),
     contactPhone: optionalText(40),
+    // OTP from the phone-verification step. Optional here — requiredness is
+    // decided by requireVerifiedOrgPhone (only when Twilio Verify is
+    // configured), not by the schema.
+    phoneCode: optionalText(12),
     operatingStatus: z.enum(operatingStatusValues),
     operatingStatusOther: optionalText(200),
     region: regionField,
