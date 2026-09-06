@@ -59,3 +59,36 @@ export const FORBIDDEN_PUBLIC_PHRASES = [
   "professional monitoring center",
   "fully staffed",
 ] as const;
+
+/**
+ * Contribution-page body — AvApp doc 35 §5.1, reproduced VERBATIM from AvApp
+ * lib/copy/contribute_copy.dart `kContributeBody`. Rendered by /contribute
+ * (never /support — doc 35 §4.3). Counsel may tighten; product may not loosen.
+ * It states the doc 35 §3 bright line: 100 % LLC revenue, not tax-deductible,
+ * unlocks nothing, no part to any SAR team. "not tax-deductible" is the one
+ * legitimate use of a CONTRIBUTE_FORBIDDEN_PHRASES word — the scan exempts
+ * this exact string the same way it exempts the continuity disclosure.
+ */
+export const CONTRIBUTE_BODY =
+  "AvAI is free. Contributions go to Rocky Mountain Digerati LLC, the " +
+  "company that runs AvAI, and pay for the servers and the check-in " +
+  "watchdog. They are not tax-deductible, they unlock nothing in the app, " +
+  "and no part of them goes to any search-and-rescue team.";
+
+/**
+ * AvApp doc 35 §3.5 — words banned on the contribution surface, SCOPED to
+ * /contribute (and, later, the SAR partner directory's own copy), not global:
+ * a partner-supplied blurb elsewhere may legitimately say "nonprofit". The
+ * public word is "contribution"; "donation" carries a tax-deductibility
+ * connotation the LLC cannot honour. Enforced by tests/unit/legal-copy.test.ts.
+ */
+export const CONTRIBUTE_FORBIDDEN_PHRASES = [
+  "donation",
+  "donate",
+  "charity",
+  "charitable",
+  "nonprofit",
+  "non-profit",
+  "tax-deductible",
+  "501(c)",
+] as const;

@@ -63,6 +63,15 @@ const Env = z.object({
   // device/public key is needed on this side.
   AVSERV_SERVICE_JWT_SIGNING_KEY: z.string().optional(),
 
+  // Stripe Payment Link behind the /contribute button (AvApp doc 35 §4.3,
+  // phase D1). Config, not code: the operator creates the one-time-only link
+  // in the LLC's Stripe account and sets it here. Optional so the page can
+  // deploy before the LLC Stripe account exists; when unset, /contribute
+  // renders a visible "not open yet" state instead of a button (a public
+  // route must render with no session and no DB — §3.7). https-only: the
+  // href is emitted verbatim into a public page.
+  CONTRIBUTE_PAYMENT_LINK_URL: z.string().url().startsWith("https://").optional(),
+
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),
 
