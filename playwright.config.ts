@@ -58,6 +58,10 @@ export default defineConfig({
       // flags are E2E-only seams; production never sets them.
       E2E_FAKE_BLOB: "1",
       NEXT_PUBLIC_E2E: "1",
+      // AvAI onboarding (docs/plans/31 §4): while no agreement version is
+      // pinned, present the labelled test fixture so the accept flow is
+      // exercisable. Honored only with AVSERV_BASE_URL=mock://* (lib/agreement).
+      E2E_AGREEMENT_FIXTURE: "1",
     },
   },
 });

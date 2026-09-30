@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { DisplayNameCard, PasswordCard } from "./AccountCards";
+import { AvaiAccountCard } from "./AvaiAccountCard";
 import { MfaCard } from "./MfaCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
       name: users.name,
       passwordHash: users.passwordHash,
       mfaEnabledAt: users.mfaEnabledAt,
+      avservAccountId: users.avservAccountId,
     })
     .from(users)
     .where(eq(users.id, session.user.id))
@@ -41,6 +43,11 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       <DisplayNameCard displayName={user?.displayName ?? user?.name ?? ""} />
+      <AvaiAccountCard
+        userId={session.user.id}
+        avservAccountId={user?.avservAccountId ?? null}
+        portalName={user?.displayName ?? user?.name ?? ""}
+      />
       <PasswordCard hasPassword={!!user?.passwordHash} />
       <MfaCard enabled={!!user?.mfaEnabledAt} />
       <Card>

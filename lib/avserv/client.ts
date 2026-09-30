@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { env } from "../env";
-import { signServiceJwt } from "./service-jwt";
+import { AvServError, avservFetch, commonStatusError, isMock } from "./request";
+
+export { AvServError } from "./request";
 
 // Server-to-server client for AvServ's internal tier (rmdig-ai docs/plans/05).
 // The portal links each user to a canonical AvServ account; AvServ owns the
@@ -15,11 +17,6 @@ import { signServiceJwt } from "./service-jwt";
 // lets the login→map and mint-code flows run end-to-end locally and in CI
 // before AvServ ships the real endpoints. Cut to live by pointing
 // AVSERV_BASE_URL at the real base.
-
-const MOCK_SCHEME = "mock://";
-
-// Bound every real call so a stalled AvServ never blocks a login request.
-const REQUEST_TIMEOUT_MS = 4000;
 
 export interface AvServAccount {
   /** Canonical AvServ account UUID this portal user maps to. */
@@ -62,43 +59,6 @@ const ListDevicesResponseSchema = z.object({
 // AvServ issues single-use link-codes on a short TTL (10 min per the contract).
 // The mock mirrors that window so the UI's "expires at" copy is realistic.
 const LINK_CODE_TTL_MS = 10 * 60 * 1000;
-
-/** Thrown when AvServ is unreachable, misconfigured, or returns an unexpected
- *  status. Callers on the login path treat this as transient: log and retry on
- *  the next sign-in, never block the user. */
-export class AvServError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-  ) {
-    super(message);
-    this.name = "AvServError";
-  }
-}
-
-function isMock(baseUrl: string): boolean {
-  return baseUrl.startsWith(MOCK_SCHEME);
-}
-
-// Maps the failure statuses every internal-tier call shares to an AvServError,
-// or null when the status is success or an endpoint-specific code the caller
-// must interpret itself (400/404). Keeps the operator-facing causes — bad
-// service JWT (401) and an unconfigured/disabled service tier (503) — diagnosed
-// identically across calls. AvServ returns 503 ("service tier not configured")
-// when AVSERV_SERVICE_KEYS is absent, so the live cut fails loud and obvious
-// rather than as a generic 5xx.
-function commonStatusError(status: number): AvServError | null {
-  if (status === 401) {
-    return new AvServError("AvServ rejected the service JWT (401)", 401);
-  }
-  if (status === 503) {
-    return new AvServError(
-      "AvServ service tier is not configured (503) — check AVSERV_SERVICE_KEYS on AvServ",
-      503,
-    );
-  }
-  return null;
-}
 
 // Deterministic, namespaced fake UUID derived from the email so the mock is
 // stable across calls and processes (same email → same accountId). Shaped like
@@ -163,10 +123,20 @@ function mockDevices(accountId: string): LinkedDevice[] {
 // honestly (first call true, subsequent false) — mirrors real idempotency and
 // lets tests assert it. Not persistence; just intra-process fidelity.
 const mockSeenEmails = new Set<string>();
+// accountId → login email, so the onboarding mock (agreement-mock.ts) can show
+// the verified email on the account body, as AvServ does for portal accounts.
+const mockAccountEmails = new Map<string, string>();
 
 /** Test-only: reset the mock's seen-email memory between cases. */
 export function __resetAvServMock(): void {
   mockSeenEmails.clear();
+  mockAccountEmails.clear();
+}
+
+/** Mock only: the login email a mock account was mapped from, if this process
+ *  mapped it. */
+export function mockEmailForAccount(accountId: string): string | null {
+  return mockAccountEmails.get(accountId) ?? null;
 }
 
 /**
@@ -191,26 +161,16 @@ export async function findOrCreateAccount(email: string): Promise<AvServAccount>
   if (isMock(baseUrl)) {
     const created = !mockSeenEmails.has(normalized);
     mockSeenEmails.add(normalized);
-    return { accountId: mockAccountId(normalized), created };
+    const accountId = mockAccountId(normalized);
+    mockAccountEmails.set(accountId, normalized);
+    return { accountId, created };
   }
 
-  let res: Response;
-  try {
-    const token = await signServiceJwt();
-    res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/internal/accounts`, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ email: normalized }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch (err) {
-    // Network error, timeout, or a signing failure (missing key on the real
-    // path). All transient or operator-fixable; surface as AvServError.
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
-  }
+  const res = await avservFetch(baseUrl, "/v1/internal/accounts", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: normalized }),
+  });
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;
@@ -255,20 +215,11 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
     };
   }
 
-  let res: Response;
-  try {
-    const token = await signServiceJwt();
-    res = await fetch(
-      `${baseUrl.replace(/\/$/, "")}/v1/internal/accounts/${encodeURIComponent(accountId)}/link-codes`,
-      {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      },
-    );
-  } catch (err) {
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
-  }
+  const res = await avservFetch(
+    baseUrl,
+    `/v1/internal/accounts/${encodeURIComponent(accountId)}/link-codes`,
+    { method: "POST" },
+  );
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;
@@ -317,20 +268,11 @@ export async function listDevices(accountId: string): Promise<LinkedDevice[]> {
     return mockDevices(accountId);
   }
 
-  let res: Response;
-  try {
-    const token = await signServiceJwt();
-    res = await fetch(
-      `${baseUrl.replace(/\/$/, "")}/v1/internal/accounts/${encodeURIComponent(accountId)}/devices`,
-      {
-        method: "GET",
-        headers: { authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      },
-    );
-  } catch (err) {
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
-  }
+  const res = await avservFetch(
+    baseUrl,
+    `/v1/internal/accounts/${encodeURIComponent(accountId)}/devices`,
+    { method: "GET" },
+  );
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;
@@ -425,18 +367,11 @@ export async function publishCreative(input: PublishCreativeInput): Promise<Publ
     return { avservCreativeRef: mockCreativeRef(input.portalCreativeId) };
   }
 
-  let res: Response;
-  try {
-    const token = await signServiceJwt();
-    res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/internal/ad-creatives`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch (err) {
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
-  }
+  const res = await avservFetch(baseUrl, "/v1/internal/ad-creatives", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;
@@ -474,20 +409,11 @@ export async function unpublishCreative(avservCreativeRef: string): Promise<void
     return;
   }
 
-  let res: Response;
-  try {
-    const token = await signServiceJwt();
-    res = await fetch(
-      `${baseUrl.replace(/\/$/, "")}/v1/internal/ad-creatives/${encodeURIComponent(avservCreativeRef)}`,
-      {
-        method: "DELETE",
-        headers: { authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      },
-    );
-  } catch (err) {
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
-  }
+  const res = await avservFetch(
+    baseUrl,
+    `/v1/internal/ad-creatives/${encodeURIComponent(avservCreativeRef)}`,
+    { method: "DELETE" },
+  );
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;

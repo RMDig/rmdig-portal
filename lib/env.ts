@@ -71,6 +71,15 @@ const Env = z.object({
   // committed. The portal signs; AvServ verifies the public half — so no
   // device/public key is needed on this side.
   AVSERV_SERVICE_JWT_SIGNING_KEY: z.string().optional(),
+  // The second AvServ node, used only to retry an agreement acceptance with the
+  // same Idempotency-Key when the primary is unreachable or answers 5xx/503
+  // (AvServ contract account_agreement.md §4, failover). Optional: unset means
+  // acceptances go to AVSERV_BASE_URL alone, and a failure there is shown.
+  AVSERV_FAILOVER_BASE_URL: z.string().optional(),
+  // E2E-only seam (docs/plans/31 §4): with AVSERV_BASE_URL=mock://* it lets the
+  // agreement page present a labelled test fixture while no version is pinned.
+  // Production never sets it, and it is ignored against a real AvServ.
+  E2E_AGREEMENT_FIXTURE: z.string().optional(),
 
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),
