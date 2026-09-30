@@ -15,3 +15,37 @@ export const DESIGNATION_NOTICE =
   "If they miss a safety check-in, you'll get an alert with their last-known location. " +
   "Reply YES to confirm (optional). Msg frequency varies. Msg & data rates apply. " +
   "Reply STOP to opt out, HELP for info.";
+
+/**
+ * The in-app consent disclosure shown next to the Add Contact checkbox, twin of
+ * AvApp lib/copy/compliance_copy.dart kContactSmsDisclosure (AvServ account
+ * contract §3.8). The /sms screenshot shows it; this copy is the screenshot's
+ * alt text, so a wording change there means a new screenshot and this string
+ * in the same release.
+ */
+export const CONTACT_SMS_DISCLOSURE =
+  "They'll get safety texts from AvAI about missed check-ins and emergencies. " +
+  "Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.";
+
+/** The Add Contact checkbox label, twin of AvApp kContactPermissionAttestation. */
+export const CONTACT_PERMISSION_ATTESTATION =
+  "I confirm I have this person's permission to be added as an emergency contact " +
+  "and alerted if I miss a check-in.";
+
+/**
+ * The live HELP auto-reply (Twilio Advanced Opt-Out on the sending number;
+ * AvServ plan 22 §2 pin), confirmed by texting HELP on 2026-09-30. The campaign
+ * record's registered help message is shorter ("Reply STOP to unsubscribe.
+ * Msg&Data Rates May Apply."); the page shows what a contact actually receives.
+ */
+export const HELP_REPLY =
+  "AvAI backcountry safety alerts by Rocky Mountain Digerati. This number messages you only " +
+  "if an AvAI user listed you as their emergency contact, and only about their safety. " +
+  "Msg frequency varies. Msg rates apply. Support: support@rmdig.ai or rmdig.ai. " +
+  "Reply STOP to opt out.";
+
+/** The YES confirmation AvServ's inbound webhook sends (dispatch.ConfirmBody),
+ *  confirmed live on 2026-09-30. */
+export const YES_CONFIRMATION =
+  "AvAI: Confirmed. You are set as an emergency contact and will receive safety alerts " +
+  "if needed. Reply STOP any time to opt out, HELP for help.";
