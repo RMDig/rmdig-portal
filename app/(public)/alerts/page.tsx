@@ -28,7 +28,9 @@ export default function AlertsExplainerPage() {
             You received a text or email from AvAI because someone you know named you as
             their <strong>emergency contact</strong>. AvAI is a backcountry safety app:
             before heading into the field, a user schedules a check-in time — and if they
-            don&apos;t check in, our servers alert the person they chose. That&apos;s you.
+            don&apos;t check in, our servers alert the person they chose. If they also
+            turned on Incident Detection, their phone can alert you automatically when it
+            detects a possible accident. That&apos;s you.
           </p>
         </section>
 
@@ -43,6 +45,27 @@ export default function AlertsExplainerPage() {
             <li>
               <strong>Send Help alert</strong> — the person actively pressed AvAI&apos;s
               Send Help button, requesting assistance at the location in the message.
+            </li>
+            <li>
+              <strong>Automatic alert (possible accident)</strong> — the person turned on
+              Incident Detection for this outing, and their phone reported a hard impact or
+              a period of sustained tumbling, then either stopped responding or the alarm
+              wasn&apos;t cancelled. Phones can mistake a fall, a dropped pack, or a rough
+              ride for an accident, so this may be a false alarm. Treat it as real until you
+              reach them.
+            </li>
+            <li>
+              <strong>Accident reported</strong> — the person told AvAI on their phone that
+              they had an accident, or reported one and then stopped responding.
+            </li>
+            <li>
+              <strong>Follow-up</strong> — the person responded after an accident alert:
+              either it was a false alarm, or they had an accident but don&apos;t need
+              assistance now. In the second case you may still want to check on them.
+            </li>
+            <li>
+              <strong>TEST DRILL</strong> — a message starting &quot;AvAI TEST DRILL - no
+              action needed&quot; is a test. No action needed.
             </li>
             <li>
               <strong>All-clear</strong> — the person has since checked in safe. No action
@@ -68,7 +91,8 @@ export default function AlertsExplainerPage() {
               <strong>If you can&apos;t reach them and are concerned</strong>, contact your
               local emergency services (911 in the US) or the sheriff&apos;s office for the
               county where they were traveling, and share the last-known location from the
-              message.
+              message. If you call about an automatic alert, say it is an automatic phone
+              alert that may be a false alarm.
             </li>
             <li>
               <strong>Keep the message</strong> — the coordinates and timestamp in it are
