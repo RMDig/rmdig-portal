@@ -3,7 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { LEGAL_ENTITY, SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
-import { DESIGNATION_NOTICE } from "@/lib/legal/sms-program-copy";
+import {
+  CONTACT_PERMISSION_ATTESTATION,
+  CONTACT_SMS_DISCLOSURE,
+  DESIGNATION_NOTICE,
+  HELP_REPLY,
+  YES_CONFIRMATION,
+} from "@/lib/legal/sms-program-copy";
 
 export const metadata: Metadata = {
   title: "AvAI SMS program — how alerts and consent work | RMDig",
@@ -43,25 +49,32 @@ export default function SmsProgramPage() {
         <section>
           <h2>How someone ends up receiving our messages</h2>
           <p className="mt-3">
-            Inside the AvAI app, a user adds a person as their emergency contact and, as
-            part of that screen, confirms they have that person&apos;s permission to share
-            their contact details and have them receive safety messages. Designation — the
-            user&apos;s deliberate act plus this confirmation — is the consent basis for
-            the program.
+            Inside the AvAI app, a user adds a person as their emergency contact and, on
+            that screen, must tick an unchecked box confirming they have that person&apos;s
+            permission to be added and alerted. Next to the box, the screen states what
+            the contact will receive: safety texts about missed check-ins and emergencies,
+            that message frequency varies, that message and data rates may apply, and that
+            they can reply STOP to opt out. The contact can&apos;t be saved until the box
+            is ticked. Designation — the user&apos;s deliberate act plus this
+            confirmation — is the consent basis for the program.
           </p>
           <figure className="mt-4 flex flex-col items-center">
-            {/* The doc 32 §9.6 designation screen (fixture data), delivered
-                via RMDig/AvApp#61 — the consent moment this page documents. */}
+            {/* A static screenshot of the AvApp Add Contact screen (fixture
+                data), copied from AvApp main docs/screenshots/
+                add_contact_attestation.png after RMDig/AvApp#144 added the SMS
+                disclosure line (AvServ account contract §3.8). Never an HTML
+                checkbox here: a form-like mock is reviewed as a web opt-in
+                form (Twilio 30925 lesson). */}
             <Image
               src="/research/designation-attestation.png"
-              alt="AvAI Add contact screen: name and phone fields with a required confirmation reading 'I confirm I have this person's permission to be added as an emergency contact and alerted if I miss a check-in'; the Save contact button stays disabled until it is checked"
+              alt={`Screenshot of the AvAI Add contact screen: name and phone fields, an unticked checkbox labelled "${CONTACT_PERMISSION_ATTESTATION}", the disclosure "${CONTACT_SMS_DISCLOSURE}", and a Save contact button that stays disabled until the box is ticked.`}
               width={300}
               height={613}
               className="rounded-lg border border-neutral-200 dark:border-neutral-800"
             />
             <figcaption className="text-muted-foreground mt-2 text-xs">
-              The in-app designation screen — saving a contact requires confirming you
-              have their permission. (Example data shown.)
+              Screenshot of the in-app Add Contact screen, shown with the consent box
+              unticked. Saving a contact requires ticking it. (Example data shown.)
             </figcaption>
           </figure>
           <p className="mt-3">
@@ -96,9 +109,7 @@ export default function SmsProgramPage() {
                   YES
                 </div>
                 <div className="mr-8 rounded-2xl rounded-tl-sm bg-neutral-100 p-3 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
-                  AvAI: Confirmed. You are set as an emergency contact and will receive
-                  safety alerts if needed. Reply STOP any time to opt out, HELP for
-                  help.
+                  {YES_CONFIRMATION}
                 </div>
               </div>
             </div>
@@ -139,9 +150,7 @@ export default function SmsProgramPage() {
             <li>
               <strong>HELP</strong> — returns the program-details reply:
               <blockquote className="mt-2 rounded-md border-l-4 border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 text-sm">
-                AvAI backcountry safety alerts by Rocky Mountain Digerati. You were added
-                as someone&apos;s emergency contact. Msg rates apply. Privacy and details:
-                rmdig.ai — Reply STOP to opt out.
+                {HELP_REPLY}
               </blockquote>
             </li>
           </ul>
