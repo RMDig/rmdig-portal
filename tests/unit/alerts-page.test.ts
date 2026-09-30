@@ -24,4 +24,10 @@ describe("/alerts contact explainer", () => {
     expect(src).toMatch(/It is not a beacon/);
     expect(src).toMatch(/last one their phone sent to us/);
   });
+
+  it("explains automatic alerts honestly: possible accident, may be a false alarm", () => {
+    expect(src).toMatch(/Automatic alert \(possible accident\)/);
+    expect(src).toMatch(/may be a false alarm/);
+    expect(src).toMatch(/automatic phone alert that may be a false alarm/);
+  });
 });
