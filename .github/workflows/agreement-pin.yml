@@ -1,0 +1,40 @@
+name: Agreement pin
+
+# docs/plans/31 §6, daily mode: notice when AvServ publishes a new AvAI user
+# agreement version (or retires the pinned one) even when no PR is open. A
+# superseded version stays accepted for at least 30 days (AvServ contract
+# account_agreement.md §2), so a daily failure leaves ample time to run
+# `pnpm agreement:pin <version>` and ship. Unlike the PR step in ci.yml, an
+# unreachable AvServ fails here too.
+
+on:
+  schedule:
+    - cron: "17 13 * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Pinned agreement matches AvServ
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Agreement pin check (daily)
+        run: pnpm agreement:check --mode daily
+        env:
+          AGREEMENT_CHECK_NODES: https://avserv-2.rmdig.ai,https://avserv-3.rmdig.ai

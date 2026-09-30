@@ -45,6 +45,15 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # docs/plans/31 §6: the pinned AvAI user agreement (text, assent line,
+      # attestations) must match what AvServ publishes. PR mode fails on any
+      # mismatch; an unreachable AvServ or a newly published, not-yet-pinned
+      # version only warns here (the daily agreement-pin.yml run fails on them).
+      - name: Agreement pin check
+        run: pnpm agreement:check --mode pr
+        env:
+          AGREEMENT_CHECK_NODES: https://avserv-2.rmdig.ai,https://avserv-3.rmdig.ai
+
       # Build catches errors typecheck and lint miss (RSC boundary violations,
       # client/server import mistakes, Sentry build hook regressions). No env
       # vars needed yet — lib/db/index.ts isn't imported by any route in P1.0,
