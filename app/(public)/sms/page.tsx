@@ -8,6 +8,7 @@ import {
   CONTACT_SMS_DISCLOSURE,
   DESIGNATION_NOTICE,
   HELP_REPLY,
+  PROGRAM_MESSAGES,
   YES_CONFIRMATION,
 } from "@/lib/legal/sms-program-copy";
 
@@ -41,7 +42,11 @@ export default function SmsProgramPage() {
           <p>
             AvAI sends text messages for exactly one purpose: <strong>safety</strong>. An
             AvAI user designates an emergency contact; if the user misses a safety
-            check-in or requests help, our servers text that contact. We send no
+            check-in, requests help, or reports an accident, our servers text that
+            contact. If the user turns on Incident Detection for an outing and their phone
+            reports a possible accident (a hard impact or sustained tumbling) that they
+            don&apos;t respond to, we text the contact automatically. A user can also
+            choose to send their contact a short notice when heading out. We send no
             marketing or promotional messages — ever.
           </p>
         </section>
@@ -160,10 +165,15 @@ export default function SmsProgramPage() {
           <h2>Message types &amp; frequency</h2>
           <ul className="mt-3 list-disc space-y-2 pl-6">
             <li>The one-time designation notice (above)</li>
-            <li>A per-outing availability request, when a user lists you for a specific trip</li>
-            <li>Overdue alerts — the user missed their check-in; includes last-known location</li>
-            <li>Escalation and follow-up alerts while an overdue situation is unresolved</li>
-            <li>All-clear notices once the user checks in safe</li>
+            <li>An optional heading-out notice, when the user chooses to send one</li>
+            <li>Missed check-in alerts, with the user&apos;s last-known location</li>
+            <li>
+              Automatic accident alerts, during an outing with Incident Detection on; these
+              can be false alarms and say so
+            </li>
+            <li>Accident and Send Help alerts, when the user asks for help</li>
+            <li>Follow-ups: all-clear, false-alarm, and duplicate-alert notices</li>
+            <li>Clearly labelled TEST DRILL messages used to verify the system</li>
           </ul>
           <p className="mt-3">
             <strong>Frequency varies and is entirely event-driven</strong> — messages are
@@ -173,6 +183,25 @@ export default function SmsProgramPage() {
             time. Delivery favors sending an alert twice over not at all, so occasional
             duplicates are possible by design.
           </p>
+        </section>
+
+        <section>
+          <h2>The messages, word for word</h2>
+          <p className="mt-3">
+            Every message in the program, with example data (a user named John Doe). Times
+            and locations vary with each event.
+          </p>
+          <dl className="mt-4 space-y-5">
+            {PROGRAM_MESSAGES.map((m) => (
+              <div key={m.label}>
+                <dt className="font-medium text-neutral-900 dark:text-neutral-50">{m.label}</dt>
+                <dd className="text-sm text-neutral-500 dark:text-neutral-400">{m.when}</dd>
+                <dd className="mt-2 rounded-md border-l-4 border-neutral-300 bg-neutral-50 p-3 text-sm dark:border-neutral-700 dark:bg-neutral-900">
+                  {m.text}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
         <section>

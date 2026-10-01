@@ -7,8 +7,10 @@ import { describe, expect, it } from "vitest";
 import {
   CONTACT_PERMISSION_ATTESTATION,
   CONTACT_SMS_DISCLOSURE,
+  AUTOMATIC_ACCIDENT_ALERT,
   DESIGNATION_NOTICE,
   HELP_REPLY,
+  PROGRAM_MESSAGES,
   YES_CONFIRMATION,
 } from "@/lib/legal/sms-program-copy";
 
@@ -17,18 +19,60 @@ import {
 // (AvServ docs/a2p/approved-campaign-2026-07-28.md). A 411-char never-filed
 // version shipped here once; this pins the filed one.
 
+// Plan 38a §4 sample 1, as submitted in the Incident Detection re-filing.
 const FILED_SAMPLE_1 =
-  "AvAI: John Doe added you as their emergency contact on AvAI, a backcountry safety app. If they miss a safety check-in, you'll get an alert with their last-known location. Reply YES to confirm (optional). Msg frequency varies. Msg & data rates apply. Reply STOP to opt out, HELP for info.";
+  "AvAI: John Doe added you as their emergency contact on AvAI, a backcountry safety app. If they miss a check-in or their phone reports a possible accident, we'll alert you with their last-known location. Reply YES to confirm (optional). Msg frequency varies. Msg & data rates apply. Reply STOP to opt out, HELP for info.";
 
 describe("designation notice (filed sample 1)", () => {
-  it("matches the approved campaign verbatim", () => {
+  it("matches the re-filed campaign verbatim", () => {
     expect(DESIGNATION_NOTICE).toBe(FILED_SAMPLE_1);
   });
 
-  it("is one 287-character GSM-7-safe line", () => {
-    expect(DESIGNATION_NOTICE).toHaveLength(287);
+  it("is one GSM-7-safe line within the 320-character opt-in field", () => {
+    expect(DESIGNATION_NOTICE).toHaveLength(319);
     expect(DESIGNATION_NOTICE).not.toMatch(/[\r\n]/);
     expect(DESIGNATION_NOTICE).toMatch(/^[\x20-\x7e]+$/);
+  });
+});
+
+describe("program messages (plan 38a samples + covered types)", () => {
+  // Character counts computed in plan 38a §4 (and the July record for the
+  // unchanged samples): a mismatch means a transcription error.
+  const EXPECTED_LENGTH: Record<string, number> = {
+    "Heading-out notice (optional)": 146,
+    "Missed check-in": 251,
+    "Automatic accident alert": 417,
+    "Accident reported": 219,
+    "Accident reported, then no response": 250,
+    "Send Help": 272,
+    "Follow-up: false alarm": 108,
+    "Follow-up: accident, no assistance needed": 148,
+    "All-clear": 122,
+    "Duplicate notice (missed check-in)": 199,
+    "Duplicate notice (accident)": 158,
+    "TEST DRILL": 453,
+  };
+
+  it("lists every message type once, at its computed length", () => {
+    expect(PROGRAM_MESSAGES.map((m) => m.label).sort()).toEqual(Object.keys(EXPECTED_LENGTH).sort());
+    for (const m of PROGRAM_MESSAGES) {
+      expect(m.text.length, m.label).toBe(EXPECTED_LENGTH[m.label]);
+    }
+  });
+
+  it("follows the plan 38 / plan 22 copy rules", () => {
+    for (const m of PROGRAM_MESSAGES) {
+      expect(m.text, m.label).toMatch(/^[\x20-\x7e]+$/);
+      expect(m.text, m.label).not.toMatch(/:\/\/|http/i);
+      expect(m.text.toLowerCase(), m.label).not.toContain("avalanche");
+      expect(m.text, m.label).not.toMatch(/\b\d{1,2}:\d{2}\b(?! (AM|PM))/);
+    }
+  });
+
+  it("automatic alerts say they may be a false alarm; drills are labelled", () => {
+    expect(AUTOMATIC_ACCIDENT_ALERT).toMatch(/may be a false alarm/);
+    const drill = PROGRAM_MESSAGES.find((m) => m.label === "TEST DRILL")!.text;
+    expect(drill.startsWith("AvAI TEST DRILL - no action needed. ")).toBe(true);
   });
 });
 
@@ -100,6 +144,11 @@ describe("/sms page", () => {
   it("shows the consent screen only as a captioned screenshot, never a live checkbox", () => {
     expect(src).not.toMatch(/type="checkbox"/);
     expect(src).toMatch(/Screenshot of the in-app Add Contact screen/);
+  });
+
+  it("renders the full message list from the shared constant", () => {
+    expect(src).toMatch(/PROGRAM_MESSAGES\.map/);
+    expect(src).not.toMatch(/availability request/);
   });
 
   it("carries no trace of the never-filed long notice", () => {
