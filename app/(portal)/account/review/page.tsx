@@ -141,8 +141,8 @@ export default async function AccountReviewPage({
                 </div>
                 {open ? (
                   <p className="rounded-md border border-neutral-300 bg-neutral-50 p-3 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                    Your review request from {formatDate(latest.createdAt.toISOString())} is with our
-                    team. We&apos;ll email you when it&apos;s decided.
+                    Your review request from {formatDate(latest.createdAt.toISOString())}{" "}
+                    is with our team. We&apos;ll email you when it&apos;s decided.
                   </p>
                 ) : (
                   <>
