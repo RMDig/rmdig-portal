@@ -144,6 +144,8 @@ to the production Neon branch **before** the merge (runbook "Run a production
 migration" — get the URL via `neonctl`, not `vercel env pull`, which returns
 empty for sensitive vars). Stacked branches keep migration numbering linear
 when multiple migration PRs are in flight; whoever merges second regenerates.
+CI enforces this: the "Migrations applied to production" job fails until prod
+has every migration on the branch (runbook "Migration guard").
 
 ---
 

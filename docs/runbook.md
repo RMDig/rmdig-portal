@@ -120,6 +120,56 @@ DATABASE_URL=<prod-url> pnpm db:migrate
 `db:migrate` is idempotent (it skips already-applied migrations), so running it
 again is safe. Confirm with `SELECT * FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 5;` if unsure what's applied.
 
+Get the URL in its own step and check it before using it — a `$(...)` around a
+command that fails (expired `neonctl auth`, a `pnpm dlx` install prompt) puts
+garbage in `DATABASE_URL`:
+
+```bash
+export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 --pooled)"
+case "$DATABASE_URL" in postgresql://*|postgres://*) echo "URL looks right";; *) echo "NOT a database URL, stop";; esac
+pnpm db:migrate
+unset DATABASE_URL
+```
+
+## Migration guard
+
+The CI job **"Migrations applied to production"** (`pnpm migrations:check-prod`,
+`lib/db/migration-guard.ts`) fails a main-targeted PR when:
+
+- the branch has a migration production hasn't applied yet → apply it (above),
+  then click **Re-run** on the job; or
+- a migration is unapplied but **older** than production's latest, which
+  `db:migrate` would skip forever (crossed migration branches) → regenerate it
+  on top of main.
+
+It warns (doesn't fail) when production has a migration the branch doesn't know:
+usually another PR's, applied first — rebase. A PR that doesn't touch
+`lib/db/migrations/` passes with a notice if the secret is missing; one that does
+fails until the secret exists. An unreachable database fails, never passes.
+
+**One-time setup:**
+
+1. In the Neon SQL editor, on the **production** branch, as the owner role,
+   create a role that can only read Drizzle's migration table (pick a long
+   random password):
+   ```sql
+   CREATE ROLE ci_migration_reader WITH LOGIN PASSWORD '<long random password>';
+   GRANT USAGE ON SCHEMA drizzle TO ci_migration_reader;
+   GRANT SELECT ON drizzle.__drizzle_migrations TO ci_migration_reader;
+   ```
+   It cannot read user tables or write anything (verified: `permission denied`).
+2. Build its connection string from the production one (same host and
+   database, `sslmode=require`), swapping in `ci_migration_reader` and its
+   password.
+3. GitHub → Settings → Secrets and variables → Actions → **New repository
+   secret** `PROD_MIGRATIONS_READ_URL` = that string.
+4. GitHub → Settings → Branches → the `main` rule → **Require status checks**
+   → add **Migrations applied to production**. Without this the job is red but
+   the merge button still works.
+
+This is the only CI job that touches production, and only with that read-only
+role; E2E never does (`E2E_ALLOW_DB`).
+
 ## Data-deletion requests (Colorado Privacy Act)
 
 Confirmed requests arrive by email to every `rmdig_admin` (the requester proved
