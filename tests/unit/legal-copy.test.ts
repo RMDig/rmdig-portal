@@ -56,6 +56,12 @@ function publicSourceFiles(): string[] {
   for (const entry of readdirSync(agreementDir)) {
     if (entry.endsWith(".tsx")) files.push(join(agreementDir, entry));
   }
+  // Restriction review (docs/plans/32): the user-facing page and the email.
+  const review = join(process.cwd(), "app", "(portal)", "account", "review");
+  for (const entry of readdirSync(review)) {
+    if (entry.endsWith(".tsx")) files.push(join(review, entry));
+  }
+  files.push(join(templates, "RestrictionReviewUpheldEmail.tsx"));
   files.push(
     join(settings, "AvaiAccountCard.tsx"),
     join(settings, "AvaiIdentityForm.tsx"),

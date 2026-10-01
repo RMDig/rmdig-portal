@@ -38,11 +38,21 @@ export const INVITEE_USER: E2eUser = {
   displayName: "E2E Invitee",
 } as const;
 
+/** A user whose AvAI account is restricted. The mock AvServ seeds one active
+ *  Incident Detection restriction for any login tagged "+restricted"
+ *  (lib/avserv/restrictions-mock.ts), so this persona drives the review flow. */
+export const RESTRICTED_USER: E2eUser = {
+  email: "e2e-review+restricted@rmdig.test",
+  password: "E2e-review-3q8w!R",
+  displayName: "E2E Review",
+} as const;
+
 /** The roster global-setup seeds, with the platform role (if any) to grant. */
 export const E2E_PERSONAS: { user: E2eUser; platformRole: "rmdig_admin" | null }[] = [
   { user: E2E_USER, platformRole: null },
   { user: STAFF_USER, platformRole: "rmdig_admin" },
   { user: INVITEE_USER, platformRole: null },
+  { user: RESTRICTED_USER, platformRole: null },
 ];
 
 /** Sign in via the real credentials form (single-factor; seeded users have no
@@ -151,6 +161,22 @@ export async function orgRoleFor(email: string, orgId: string): Promise<string |
       LIMIT 1
     `;
     return rows[0]?.role ?? null;
+  } finally {
+    await sql.end();
+  }
+}
+
+/** Delete a user's restriction review requests (and, by cascade, their log),
+ *  so the review flow starts clean on every run and retry. */
+export async function clearReviewRequests(email: string): Promise<void> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("clearReviewRequests: DATABASE_URL is not set");
+  const sql = postgres(url, { prepare: false, max: 1 });
+  try {
+    await sql`
+      DELETE FROM restriction_review_requests
+      WHERE user_id = (SELECT id FROM users WHERE email = ${email})
+    `;
   } finally {
     await sql.end();
   }

@@ -1,3 +1,6 @@
+import { z } from "zod";
+
+import { env } from "../env";
 import { signServiceJwt } from "./service-jwt";
 
 // Shared plumbing for every call on AvServ's internal (S2S) tier: the error
@@ -69,4 +72,110 @@ export async function avservFetch(
   } catch (err) {
     throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
   }
+}
+
+// ── Contract calls (account_agreement.md, restrictions.md) ───────────────────
+// The newer S2S contracts share one error body ({code, error}), one failover
+// rule (retry the same idempotency key on the other node) and Zod-validated
+// responses. These helpers carry that shape for every contract client.
+
+/** A failure from a contract endpoint. `code` is AvServ's machine-readable
+ *  code, `detail` its human-readable `error` text, and `viaFailover` marks an
+ *  answer from the failover node, where a 404 not-found is replication lag. */
+export class AvServContractError extends AvServError {
+  readonly viaFailover: boolean;
+  readonly detail: string | undefined;
+
+  constructor(
+    message: string,
+    opts: { status?: number; code?: string; detail?: string; viaFailover?: boolean } = {},
+  ) {
+    super(message, opts.status, opts.code);
+    this.name = "AvServContractError";
+    this.viaFailover = opts.viaFailover ?? false;
+    this.detail = opts.detail;
+  }
+}
+
+/** AVSERV_BASE_URL, or a loud error naming what could not be reached. */
+export function contractBaseUrl(purpose: string): string {
+  const baseUrl = env.AVSERV_BASE_URL;
+  if (!baseUrl) {
+    throw new AvServContractError(
+      `AVSERV_BASE_URL is not set — cannot reach AvServ for ${purpose}. ` +
+        "Set it to mock://localhost for local dev or the real AvServ base URL.",
+    );
+  }
+  return baseUrl;
+}
+
+const ErrorBodySchema = z.object({ code: z.string().optional(), error: z.string().optional() });
+
+// Every non-2xx carries {code, error}, except the 401 (service JWT) and the 503
+// "service tier not configured", which carry only `error`: callers key on the
+// status for those.
+export async function contractFailure(res: Response, viaFailover: boolean): Promise<AvServContractError> {
+  if (res.status === 401) {
+    return new AvServContractError("AvServ rejected the service JWT (401)", { status: 401, viaFailover });
+  }
+  const parsed = ErrorBodySchema.safeParse(await res.json().catch(() => null));
+  const code = parsed.success ? parsed.data.code : undefined;
+  const detail = parsed.success ? parsed.data.error : undefined;
+  return new AvServContractError(`AvServ answered ${res.status}${code ? ` ${code}` : ""}`, {
+    status: res.status,
+    code,
+    detail,
+    viaFailover,
+  });
+}
+
+export async function parseContractOk<T>(res: Response, schema: z.ZodType<T>, what: string): Promise<T> {
+  const parsed = schema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) {
+    throw new AvServContractError(`AvServ ${what} response failed schema validation`, {
+      status: res.status,
+    });
+  }
+  return parsed.data;
+}
+
+/** A failure worth repeating on the other node: nothing arrived
+ *  (network/timeout), or the node answered 5xx/503. */
+export function retryableOnOtherNode(err: AvServContractError): boolean {
+  return err.status === undefined || err.status >= 500;
+}
+
+/**
+ * One contract call against the primary node and, when it fails in a way
+ * `retryOn` accepts, once more against AVSERV_FAILOVER_BASE_URL with the SAME
+ * request (and so the same idempotency key). One node's success is the answer.
+ */
+export async function callWithFailover<T>(
+  primary: string,
+  path: string,
+  init: { method: string; headers?: Record<string, string>; body?: string },
+  schema: z.ZodType<T>,
+  what: string,
+  retryOn: (err: AvServContractError) => boolean = retryableOnOtherNode,
+): Promise<T> {
+  const nodes = [primary, env.AVSERV_FAILOVER_BASE_URL].filter((u): u is string => !!u);
+  let last: AvServContractError | undefined;
+  for (const [i, node] of nodes.entries()) {
+    const viaFailover = i > 0;
+    try {
+      const res = await avservFetch(node, path, init);
+      if (res.ok) return await parseContractOk(res, schema, what);
+      last = await contractFailure(res, viaFailover);
+    } catch (err) {
+      if (err instanceof AvServContractError) throw err;
+      last = new AvServContractError((err as Error).message, {
+        status: (err as AvServError).status,
+        viaFailover,
+      });
+    }
+    if (!retryOn(last)) break;
+  }
+  // The loop ran at least once and leaves only by returning, throwing, or
+  // recording a failure, so `last` is set.
+  throw last!;
 }

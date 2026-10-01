@@ -16,7 +16,8 @@ vi.mock("@/lib/phone/verify", async (importOriginal) => {
 });
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
-import { isUniqueViolation, requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 
 beforeEach(() => {
   vi.clearAllMocks();
