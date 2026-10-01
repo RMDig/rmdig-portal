@@ -10,7 +10,15 @@ import { Label } from "@/components/ui/label";
 // Uphold or lift (or close, once AvAI already lifted it). The note is required
 // for every decision and lands in the audit log; the user never sees it. The
 // note survives React 19's post-action form reset via capture-on-submit.
-export function DecisionForm({ requestId, inForce }: { requestId: string; inForce: boolean }) {
+export function DecisionForm({
+  requestId,
+  open,
+  inForce,
+}: {
+  requestId: string;
+  open: boolean;
+  inForce: boolean;
+}) {
   const [state, formAction, pending] = useActionState(decideReviewAction, null);
   const [note, setNote] = useState("");
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
@@ -25,6 +33,7 @@ export function DecisionForm({ requestId, inForce }: { requestId: string; inForc
       </p>
     );
   }
+  if (!open) return null;
 
   return (
     <Card>

@@ -97,24 +97,26 @@ export default async function RestrictionReviewDetailPage({
         </CardContent>
       </Card>
 
-      {request.status === "open" ? (
-        history === null ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Can&apos;t decide right now</CardTitle>
-              <CardDescription>
-                AvAI couldn&apos;t be reached to load this account&apos;s restrictions. Refresh in a
-                moment.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <DecisionForm
-            requestId={request.id}
-            inForce={!!current && current.state !== "lifted"}
-          />
-        )
-      ) : null}
+      {request.status === "open" && history === null ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Can&apos;t decide right now</CardTitle>
+            <CardDescription>
+              AvAI couldn&apos;t be reached to load this account&apos;s restrictions. Refresh in a
+              moment.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        // Mounted whether or not the request is still open: deciding revalidates
+        // this page, and the form must survive that to show its outcome (an
+        // uphold whose email failed must reach the staff member, §3.2).
+        <DecisionForm
+          requestId={request.id}
+          open={request.status === "open"}
+          inForce={!!current && current.state !== "lifted"}
+        />
+      )}
 
       <Card>
         <CardHeader>

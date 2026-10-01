@@ -33,7 +33,8 @@ test.describe("restriction review (mock AvServ)", () => {
       .getByLabel("Ask for a review")
       .fill("These were false alarms: my phone was in a pack on a rough road.");
     await page.getByRole("button", { name: "Send review request" }).click();
-    await expect(page.getByText(/Your request is with our team/)).toBeVisible();
+    // The page re-renders with the open request in place of the form.
+    await expect(page.getByText(/Your review request from .* is with our team/)).toBeVisible();
 
     await signOut(page);
     await signInAs(page, STAFF_USER);
@@ -46,6 +47,7 @@ test.describe("restriction review (mock AvServ)", () => {
     await page.getByLabel(/Note \(audit log/).fill("Reviewed: false alarms on a rough road.");
     await page.getByRole("button", { name: "Lift" }).click();
     await expect(page.getByText("Decision recorded.")).toBeVisible();
+    await expect(page.getByText(/status lifted/)).toBeVisible();
 
     await signOut(page);
     await signInAs(page, RESTRICTED_USER);
