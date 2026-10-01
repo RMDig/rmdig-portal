@@ -738,3 +738,76 @@ export const advertiserInvitations = pgTable(
   // The members page lists an advertiser's invitations; index advertiser_id.
   (t) => [index("advertiser_invitations_advertiser_id_idx").on(t.advertiserId)],
 );
+
+// ---------------------------------------------------------------------------
+// Restriction review requests (docs/plans/32; AvServ contract restrictions.md).
+// AvServ is the system of record for the restriction itself; the portal keeps
+// only the user's review request (free text that stays off the safety nodes)
+// and an append-only log of every action on it.
+
+export const restrictionReviewStatus = pgEnum("restriction_review_status", [
+  "open",
+  "upheld",
+  "lifted",
+  // The restriction was already lifted elsewhere (the AvServ CLI) when staff
+  // reached the request.
+  "closed",
+]);
+
+export const restrictionReviewAction = pgEnum("restriction_review_action", [
+  "submitted",
+  "upheld",
+  "lifted",
+  "closed",
+]);
+
+export const restrictionReviewRequests = pgTable(
+  "restriction_review_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // The AvServ account and restriction as they were when the user asked. Not
+    // foreign keys: both live in AvServ (contract §1), never in this DB.
+    avservAccountId: uuid("avserv_account_id").notNull(),
+    restrictionId: uuid("restriction_id").notNull(),
+    // Minted by the page per render, so a double submit is one request.
+    submissionKey: uuid("submission_key").notNull().unique(),
+    message: text("message").notNull(),
+    status: restrictionReviewStatus("status").notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    // Staff-only, like AvServ's liftNote: never shown to the user.
+    decisionNote: text("decision_note"),
+  },
+  (t) => [
+    // One open request per restriction: a second ask while one is pending is
+    // "already under review", not a new row.
+    uniqueIndex("restriction_review_requests_one_open")
+      .on(t.restrictionId)
+      .where(sql`status = 'open'`),
+    // The staff queue lists by status, oldest first.
+    index("restriction_review_requests_status_created_idx").on(t.status, t.createdAt),
+    index("restriction_review_requests_user_id_idx").on(t.userId),
+  ],
+);
+
+export const restrictionReviewLog = pgTable(
+  "restriction_review_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => restrictionReviewRequests.id, { onDelete: "cascade" }),
+    action: restrictionReviewAction("action").notNull(),
+    note: text("note"),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  // History is read per request, newest first.
+  (t) => [index("restriction_review_log_request_id_idx").on(t.requestId)],
+);

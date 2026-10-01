@@ -6,7 +6,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserMemberships, users } from "@/lib/db/schema";
 import { createAdvertiserAccountSchema } from "@/lib/advertiser/schema";
-import { isUniqueViolation, requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { logger } from "@/lib/logger";
 
 // Server action behind /advertiser/new (docs/plans/30 §3). A signed-in,

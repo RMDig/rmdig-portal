@@ -164,7 +164,8 @@ export default async function PortalLayout({ children }: { children: React.React
         <div className="border-b bg-blue-50 dark:bg-blue-900/20">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-2 text-sm text-blue-900 dark:text-blue-200">
             <span>
-              {pendingNames.join(", ")} is under review. You can keep setting up your
+              {pendingNames.join(", ")}{" "}
+              is under review. You can keep setting up your
               organization and inviting teammates — alert routing turns on once it&apos;s
               approved.
             </span>

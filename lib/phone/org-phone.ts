@@ -57,12 +57,3 @@ export async function requireVerifiedOrgPhone(
   }
   return { ok: true, phone };
 }
-
-// True when err is Postgres unique_violation (23505) — surfaced so the create
-// actions can turn a duplicate contact_phone into a friendly field error
-// instead of the generic tx-failed message. The neon driver puts the SQLSTATE
-// on err.code; some wrappers nest it under cause.
-export function isUniqueViolation(err: unknown): boolean {
-  const e = err as { code?: string; cause?: { code?: string } };
-  return e?.code === "23505" || e?.cause?.code === "23505";
-}

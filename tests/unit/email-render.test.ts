@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import OrgInviteEmail from "@/lib/email/templates/OrgInviteEmail";
 import ResetPasswordEmail from "@/lib/email/templates/ResetPasswordEmail";
+import RestrictionReviewUpheldEmail from "@/lib/email/templates/RestrictionReviewUpheldEmail";
 import SarOrgDecisionEmail from "@/lib/email/templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "@/lib/email/templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "@/lib/email/templates/SarOrgSubmittedEmail";
@@ -15,6 +16,20 @@ import VerifyEmail from "@/lib/email/templates/VerifyEmail";
 // `pnpm email:dev` preview.
 
 describe("email templates render to HTML", () => {
+  it("RestrictionReviewUpheldEmail carries the user reason, the review link, and what still works", async () => {
+    const url = "https://rmdig.ai/account/review?restriction=33333333-3333-4333-8333-333333333333";
+    const html = await render(
+      RestrictionReviewUpheldEmail({
+        feature: "Automatic Incident Detection",
+        userReason: "Paused after a review of recent automatic alerts.",
+        reviewUrl: url,
+      }),
+    );
+    expect(html).toContain("Paused after a review of recent automatic alerts.");
+    expect(html).toContain(url);
+    expect(html).toMatch(/Send Help work exactly as before/);
+  });
+
   it("VerifyEmail carries the verify link", async () => {
     const url = "https://app.rmdig.ai/api/verify?token=abc&email=a%40b.test";
     const html = await render(VerifyEmail({ verifyUrl: url, expiresInHours: 24 }));
