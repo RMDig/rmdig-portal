@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { RESET_TOKEN_TTL_MINUTES } from "../auth/reset-tokens";
 import { env } from "../env";
 import { logger } from "../logger";
+import { shouldDeliverEmail } from "../preview-guard";
 import { INVITE_TOKEN_TTL_DAYS } from "../sar/invitations";
 import AdCreativeDecisionEmail, {
   type AdCreativeDecision,
@@ -36,6 +37,39 @@ function getResend(): Resend {
   return resendClient;
 }
 
+// Every send goes through here. On a Vercel preview an email is logged, not
+// sent, unless all its recipients are on PREVIEW_EMAIL_RECIPIENTS: previews
+// exercise the flows without mailing anyone by accident, and a listed tester
+// can still receive a new template end to end (runbook "Preview deployments").
+// The body is never logged; it can carry a sign-in or deletion token.
+async function deliver(m: {
+  kind: string;
+  label: string;
+  to: string;
+  subject: string;
+  html: string;
+  log?: Record<string, unknown>;
+}): Promise<void> {
+  if (!shouldDeliverEmail(env.VERCEL_ENV, env.PREVIEW_EMAIL_RECIPIENTS, m.to)) {
+    logger.info({ event: `email.${m.kind}.preview_logged`, to: m.to, subject: m.subject, ...m.log });
+    return;
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to: m.to,
+    subject: m.subject,
+    html: m.html,
+  });
+
+  if (error) {
+    logger.error({ event: `email.${m.kind}.failed`, to: m.to, ...m.log, error });
+    throw new Error(`Resend rejected ${m.label} email: ${error.message}`);
+  }
+
+  logger.info({ event: `email.${m.kind}.sent`, to: m.to, ...m.log, resendId: data?.id });
+}
+
 const VERIFY_EMAIL_EXPIRES_HOURS = 24;
 
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
@@ -43,19 +77,13 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
     VerifyEmail({ verifyUrl, expiresInHours: VERIFY_EMAIL_EXPIRES_HOURS }),
   );
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "verification",
+    label: "verification",
     to,
     subject: "Verify your email",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.verification.failed", to, error });
-    throw new Error(`Resend rejected verification email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.verification.sent", to, resendId: data?.id });
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
@@ -63,37 +91,25 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     ResetPasswordEmail({ resetUrl, expiresInMinutes: RESET_TOKEN_TTL_MINUTES }),
   );
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "password_reset",
+    label: "password-reset",
     to,
     subject: "Reset your password",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.password_reset.failed", to, error });
-    throw new Error(`Resend rejected password-reset email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.password_reset.sent", to, resendId: data?.id });
 }
 
 export async function sendSarOrgSubmittedEmail(to: string, orgName: string): Promise<void> {
   const html = await render(SarOrgSubmittedEmail({ orgName }));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "sar_submitted",
+    label: "SAR-submitted",
     to,
     subject: "We received your SAR organization application",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.sar_submitted.failed", to, error });
-    throw new Error(`Resend rejected SAR-submitted email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.sar_submitted.sent", to, resendId: data?.id });
 }
 
 export async function sendSarOrgPendingReviewEmail(
@@ -102,19 +118,13 @@ export async function sendSarOrgPendingReviewEmail(
 ): Promise<void> {
   const html = await render(SarOrgPendingReviewEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "sar_pending_review",
+    label: "SAR-pending-review",
     to,
     subject: `SAR org awaiting review: ${params.orgName}`,
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.sar_pending_review.failed", to, error });
-    throw new Error(`Resend rejected SAR-pending-review email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.sar_pending_review.sent", to, resendId: data?.id });
 }
 
 const DECISION_SUBJECT: Record<SarOrgDecision, string> = {
@@ -129,19 +139,14 @@ export async function sendSarOrgDecisionEmail(
 ): Promise<void> {
   const html = await render(SarOrgDecisionEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "sar_decision",
+    label: "SAR-decision",
     to,
     subject: DECISION_SUBJECT[params.decision],
     html,
+    log: { decision: params.decision },
   });
-
-  if (error) {
-    logger.error({ event: "email.sar_decision.failed", to, decision: params.decision, error });
-    throw new Error(`Resend rejected SAR-decision email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.sar_decision.sent", to, decision: params.decision, resendId: data?.id });
 }
 
 export async function sendOrgInviteEmail(
@@ -152,19 +157,13 @@ export async function sendOrgInviteEmail(
     OrgInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "org_invite",
+    label: "org-invite",
     to,
     subject: `You're invited to join ${params.orgName} on rmdig`,
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.org_invite.failed", to, error });
-    throw new Error(`Resend rejected org-invite email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.org_invite.sent", to, resendId: data?.id });
 }
 
 export async function sendAdvertiserInviteEmail(
@@ -175,19 +174,13 @@ export async function sendAdvertiserInviteEmail(
     AdvertiserInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "advertiser_invite",
+    label: "advertiser-invite",
     to,
     subject: `You're invited to join ${params.advertiserName} on rmdig`,
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.advertiser_invite.failed", to, error });
-    throw new Error(`Resend rejected advertiser-invite email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.advertiser_invite.sent", to, resendId: data?.id });
 }
 
 export async function sendAdCreativePendingReviewEmail(
@@ -196,19 +189,13 @@ export async function sendAdCreativePendingReviewEmail(
 ): Promise<void> {
   const html = await render(AdCreativePendingReviewEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "ad_pending_review",
+    label: "ad-pending-review",
     to,
     subject: `Ad creative awaiting review: ${params.headline}`,
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.ad_pending_review.failed", to, error });
-    throw new Error(`Resend rejected ad-pending-review email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.ad_pending_review.sent", to, resendId: data?.id });
 }
 
 const AD_DECISION_SUBJECT: Record<AdCreativeDecision, string> = {
@@ -223,19 +210,14 @@ export async function sendAdCreativeDecisionEmail(
 ): Promise<void> {
   const html = await render(AdCreativeDecisionEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "ad_decision",
+    label: "ad-decision",
     to,
     subject: AD_DECISION_SUBJECT[params.decision],
     html,
+    log: { decision: params.decision },
   });
-
-  if (error) {
-    logger.error({ event: "email.ad_decision.failed", to, decision: params.decision, error });
-    throw new Error(`Resend rejected ad-decision email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.ad_decision.sent", to, decision: params.decision, resendId: data?.id });
 }
 
 export async function sendDataDeletionConfirmEmail(
@@ -244,19 +226,13 @@ export async function sendDataDeletionConfirmEmail(
 ): Promise<void> {
   const html = await render(DataDeletionConfirmEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "deletion_confirm",
+    label: "deletion-confirm",
     to,
     subject: "Confirm your data-deletion request",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.deletion_confirm.failed", to, error });
-    throw new Error(`Resend rejected deletion-confirm email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.deletion_confirm.sent", to, resendId: data?.id });
 }
 
 export async function sendDataDeletionReceivedEmail(
@@ -265,19 +241,13 @@ export async function sendDataDeletionReceivedEmail(
 ): Promise<void> {
   const html = await render(DataDeletionReceivedEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "deletion_received",
+    label: "deletion-received",
     to,
     subject: "Your data-deletion request is confirmed",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.deletion_received.failed", to, error });
-    throw new Error(`Resend rejected deletion-received email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.deletion_received.sent", to, resendId: data?.id });
 }
 
 export async function sendDataDeletionAdminEmail(
@@ -286,19 +256,13 @@ export async function sendDataDeletionAdminEmail(
 ): Promise<void> {
   const html = await render(DataDeletionAdminEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "deletion_admin",
+    label: "deletion-admin",
     to,
     subject: "Data-deletion request awaiting fulfillment",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.deletion_admin.failed", to, error });
-    throw new Error(`Resend rejected deletion-admin email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.deletion_admin.sent", to, resendId: data?.id });
 }
 
 export async function sendPlatformInviteEmail(
@@ -309,19 +273,13 @@ export async function sendPlatformInviteEmail(
     PlatformInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "platform_invite",
+    label: "platform-invite",
     to,
     subject: "You're invited to the rmdig staff team",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.platform_invite.failed", to, error });
-    throw new Error(`Resend rejected platform-invite email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.platform_invite.sent", to, resendId: data?.id });
 }
 
 /** The portal's only restriction email: staff upheld a review request. A lift
@@ -332,17 +290,11 @@ export async function sendRestrictionReviewUpheldEmail(
 ): Promise<void> {
   const html = await render(RestrictionReviewUpheldEmail(params));
 
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+  await deliver({
+    kind: "restriction_review_upheld",
+    label: "restriction-review",
     to,
     subject: "AvAI - we reviewed your request",
     html,
   });
-
-  if (error) {
-    logger.error({ event: "email.restriction_review_upheld.failed", to, error });
-    throw new Error(`Resend rejected restriction-review email: ${error.message}`);
-  }
-
-  logger.info({ event: "email.restriction_review_upheld.sent", to, resendId: data?.id });
 }

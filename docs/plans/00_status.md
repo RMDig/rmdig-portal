@@ -10,9 +10,9 @@
 
 | Gap | Effect today | Fix |
 |---|---|---|
-| `AVSERV_BASE_URL` not set for **Production** in Vercel (only Development) | The portal never calls AvServ in production: the login→account map is skipped, `/settings` AvAI card and `/settings/agreement` show errors | Set it (the primary node's base URL), redeploy. `AVSERV_SERVICE_JWT_SIGNING_KEY` and `AVSERV_FAILOVER_BASE_URL` are already set |
-| Portal service key not configured on AvServ nodes (AvServ plan 36 R3) | Even with the URL set, AvServ answers 503 to every portal call | AvServ operator: `svc-key-portal-1` in `AVSERV_SERVICE_KEYS` on every node |
-| `BLOB_READ_WRITE_TOKEN` not set in Production | SAR applications fail at the proof-document upload (loud, generic error) — SAR onboarding is effectively closed | Connect a Vercel Blob store to the project, redeploy |
+| AvServ link in production: `AVSERV_BASE_URL` (avserv-2) and failover (avserv-3) set; AvServ installed `svc-key-portal-1` | Configured, **not yet verified** | Sign in on production and open Settings → Devices; logs should show `avserv.map.linked` |
+| SAR proof uploads: Blob store connected, OIDC auth (#90) | Configured, **not yet verified** | One test SAR application with a PDF, then reject it |
+| Previews could not sign in (no Preview `NEXTAUTH_SECRET`) and forked production data | Fixed in code by the previews PR; needs the operator setup | runbook "Preview deployments" |
 | `MFA_ENFORCEMENT` unset in Production (defaults to `admin_only`) | Intended until public launch | Flip to `all` at public launch (P1.5) |
 
 **Incident record — 2026-10-01/02:** production server routes returned 500 for ~20 h
