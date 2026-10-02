@@ -11,9 +11,12 @@ const src = readFileSync(join(process.cwd(), "app", "(public)", "alerts", "page.
   .replace(/\s+/g, " ");
 
 describe("/alerts contact explainer", () => {
-  it("tells contacts duplicates happen and to treat any alert as real", () => {
-    expect(src).toMatch(/same alert more than once/);
-    expect(src).toMatch(/Treat any alert as real until you reach the person/);
+  // Verbatim per the AvApp work item (2026-10-02); stays even after AvServ's
+  // one-message work ships.
+  it("tells contacts duplicates happen and to treat every alert as real", () => {
+    expect(src).toContain(
+      "You may occasionally receive the same alert more than once. Treat every alert as real until you reach them.",
+    );
   });
 
   it("says AvAI never calls emergency services itself", () => {
