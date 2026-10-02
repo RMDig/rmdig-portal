@@ -14,7 +14,8 @@ import {
 } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail, sendSarOrgSubmittedEmail } from "@/lib/email/send";
 import { env } from "@/lib/env";
-import { isUniqueViolation, requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { createSarOrgSchema } from "@/lib/sar/schema";
 import { logger } from "@/lib/logger";

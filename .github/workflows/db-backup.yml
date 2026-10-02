@@ -50,7 +50,12 @@ jobs:
         run: |
           set -euo pipefail
           STAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
-          pg_dump "$PROD_DATABASE_URL" -Fc --no-owner -f portal.dump
+          # Call v17 by path: the runner image also ships an older pg_dump, and
+          # the bare name resolves to it, which refuses a newer server (Neon
+          # prod is 17). Keep this in step with the production server version.
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          "$PG_DUMP" --version
+          "$PG_DUMP" "$PROD_DATABASE_URL" -Fc --no-owner -f portal.dump
           age -r "$AGE_PUBLIC_KEY" -o "portal-$STAMP.dump.age" portal.dump
           rm portal.dump
           aws s3 cp "portal-$STAMP.dump.age" "s3://$R2_BUCKET/portal-db/portal-$STAMP.dump.age" \

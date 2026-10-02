@@ -16,6 +16,7 @@ import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
 import PlatformInviteEmail from "./templates/PlatformInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
+import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
@@ -321,4 +322,27 @@ export async function sendPlatformInviteEmail(
   }
 
   logger.info({ event: "email.platform_invite.sent", to, resendId: data?.id });
+}
+
+/** The portal's only restriction email: staff upheld a review request. A lift
+ *  is announced by AvServ (contract restrictions.md §6), never here. */
+export async function sendRestrictionReviewUpheldEmail(
+  to: string,
+  params: { feature: string; userReason: string; reviewUrl: string },
+): Promise<void> {
+  const html = await render(RestrictionReviewUpheldEmail(params));
+
+  const { data, error } = await getResend().emails.send({
+    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+    to,
+    subject: "AvAI - we reviewed your request",
+    html,
+  });
+
+  if (error) {
+    logger.error({ event: "email.restriction_review_upheld.failed", to, error });
+    throw new Error(`Resend rejected restriction-review email: ${error.message}`);
+  }
+
+  logger.info({ event: "email.restriction_review_upheld.sent", to, resendId: data?.id });
 }

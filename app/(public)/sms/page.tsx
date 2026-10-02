@@ -3,6 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { LEGAL_ENTITY, SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
+import {
+  CONTACT_PERMISSION_ATTESTATION,
+  CONTACT_SMS_DISCLOSURE,
+  DESIGNATION_NOTICE,
+  HELP_REPLY,
+  YES_CONFIRMATION,
+} from "@/lib/legal/sms-program-copy";
 
 export const metadata: Metadata = {
   title: "AvAI SMS program — how alerts and consent work | RMDig",
@@ -12,10 +19,11 @@ export const metadata: Metadata = {
 };
 
 // A2P 10DLC opt-in evidence page at a stable URL (carrier vetting + CTIA
-// program-details reference). The quoted message texts are VERBATIM twins of
-// AvServ doc 22 §2's pinned templates — if a template changes there, this
-// page changes in the same release. Public-copy discipline (doc 16 §6.2
-// scan) applies.
+// program-details reference), linked from the approved campaign. Quoted
+// program messages must match the campaign as Twilio holds it (AvServ
+// docs/a2p/approved-campaign-2026-07-28.md); the designation notice renders
+// from lib/legal/sms-program-copy.ts so both places on this page stay
+// verbatim. Public-copy discipline (doc 16 §6.2 scan) applies.
 // The program's sending number (Twilio long code) — shown as the sender label
 // in the conversation figure so carrier reviewers see the real number type.
 const SMS_SENDER_NUMBER = "+1 (720) 780-9044";
@@ -41,25 +49,32 @@ export default function SmsProgramPage() {
         <section>
           <h2>How someone ends up receiving our messages</h2>
           <p className="mt-3">
-            Inside the AvAI app, a user adds a person as their emergency contact and, as
-            part of that screen, confirms they have that person&apos;s permission to share
-            their contact details and have them receive safety messages. Designation — the
-            user&apos;s deliberate act plus this confirmation — is the consent basis for
-            the program.
+            Inside the AvAI app, a user adds a person as their emergency contact and, on
+            that screen, must tick an unchecked box confirming they have that person&apos;s
+            permission to be added and alerted. Next to the box, the screen states what
+            the contact will receive: safety texts about missed check-ins and emergencies,
+            that message frequency varies, that message and data rates may apply, and that
+            they can reply STOP to opt out. The contact can&apos;t be saved until the box
+            is ticked. Designation — the user&apos;s deliberate act plus this
+            confirmation — is the consent basis for the program.
           </p>
           <figure className="mt-4 flex flex-col items-center">
-            {/* The doc 32 §9.6 designation screen (fixture data), delivered
-                via RMDig/AvApp#61 — the consent moment this page documents. */}
+            {/* A static screenshot of the AvApp Add Contact screen (fixture
+                data), copied from AvApp main docs/screenshots/
+                add_contact_attestation.png after RMDig/AvApp#144 added the SMS
+                disclosure line (AvServ account contract §3.8). Never an HTML
+                checkbox here: a form-like mock is reviewed as a web opt-in
+                form (Twilio 30925 lesson). */}
             <Image
               src="/research/designation-attestation.png"
-              alt="AvAI Add contact screen: name and phone fields with a required confirmation reading 'I confirm I have this person's permission to be added as an emergency contact and alerted if I miss a check-in'; the Save contact button stays disabled until it is checked"
+              alt={`Screenshot of the AvAI Add contact screen: name and phone fields, an unticked checkbox labelled "${CONTACT_PERMISSION_ATTESTATION}", the disclosure "${CONTACT_SMS_DISCLOSURE}", and a Save contact button that stays disabled until the box is ticked.`}
               width={300}
               height={613}
               className="rounded-lg border border-neutral-200 dark:border-neutral-800"
             />
             <figcaption className="text-muted-foreground mt-2 text-xs">
-              The in-app designation screen — saving a contact requires confirming you
-              have their permission. (Example data shown.)
+              Screenshot of the in-app Add Contact screen, shown with the consent box
+              unticked. Saving a contact requires ticking it. (Example data shown.)
             </figcaption>
           </figure>
           <p className="mt-3">
@@ -67,12 +82,7 @@ export default function SmsProgramPage() {
             before any alert can reach them:
           </p>
           <blockquote className="mt-3 rounded-md border-l-4 border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-4 text-sm">
-            AvAI: John Doe added you as their emergency contact on AvAI, a backcountry
-            safety app. If they miss a safety check-in, you&apos;ll get an alert with
-            their last-known location. Reply YES to confirm (optional). Msg frequency
-            varies. Message rates apply. Reply STOP any time to opt out. If someone is
-            relying on you when you opt out, we&apos;ll notify them right away so they
-            can arrange other coverage. Reply HELP for info.
+            {DESIGNATION_NOTICE}
           </blockquote>
         </section>
 
@@ -83,9 +93,9 @@ export default function SmsProgramPage() {
             optional; when a contact does reply, they receive a short confirmation.
           </p>
           {/* Static illustration ONLY — never anything resembling a live form
-              (30925 lesson). Bubble texts are verbatim twins of the AvServ
-              doc 22 §2 pins; the YES confirmation is sent by AvServ's inbound
-              webhook (plan 22 §2 rider), not Twilio's auto-responder. */}
+              (30925 lesson). The designation notice is the filed sample 1;
+              the YES confirmation is sent by AvServ's inbound webhook (plan
+              22 §2 rider), not Twilio's auto-responder. */}
           <figure className="mt-4 flex flex-col items-center">
             <div className="w-full max-w-[340px] rounded-[2rem] border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
               <div className="border-b border-neutral-200 pb-2 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
@@ -93,21 +103,13 @@ export default function SmsProgramPage() {
               </div>
               <div className="mt-3 flex flex-col gap-3 text-sm leading-6">
                 <div className="mr-8 rounded-2xl rounded-tl-sm bg-neutral-100 p-3 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
-                  AvAI: John Doe added you as their emergency contact on AvAI, a
-                  backcountry safety app. If they miss a safety check-in, you&apos;ll
-                  get an alert with their last-known location. Reply YES to confirm
-                  (optional). Msg frequency varies. Message rates apply. Reply STOP any
-                  time to opt out. If someone is relying on you when you opt out,
-                  we&apos;ll notify them right away so they can arrange other coverage.
-                  Reply HELP for info.
+                  {DESIGNATION_NOTICE}
                 </div>
                 <div className="self-end rounded-2xl rounded-br-sm bg-blue-600 px-4 py-2 text-white">
                   YES
                 </div>
                 <div className="mr-8 rounded-2xl rounded-tl-sm bg-neutral-100 p-3 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
-                  AvAI: Confirmed. You are set as an emergency contact and will receive
-                  safety alerts if needed. Reply STOP any time to opt out, HELP for
-                  help.
+                  {YES_CONFIRMATION}
                 </div>
               </div>
             </div>
@@ -148,9 +150,7 @@ export default function SmsProgramPage() {
             <li>
               <strong>HELP</strong> — returns the program-details reply:
               <blockquote className="mt-2 rounded-md border-l-4 border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 text-sm">
-                AvAI backcountry safety alerts by Rocky Mountain Digerati. You were added
-                as someone&apos;s emergency contact. Msg rates apply. Privacy and details:
-                rmdig.ai — Reply STOP to opt out.
+                {HELP_REPLY}
               </blockquote>
             </li>
           </ul>

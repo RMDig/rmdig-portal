@@ -62,6 +62,42 @@ jobs:
       - name: Build
         run: pnpm build
 
+  migration-guard:
+    name: Migrations applied to production
+    # CLAUDE.md §3.8, docs/runbook.md "Migration guard": Vercel deploys main on
+    # merge, so a PR must not merge ahead of its schema. Fails while this
+    # branch has a migration production hasn't applied; re-run it after
+    # `pnpm db:migrate` against prod. Read-only: the secret is a role that can
+    # SELECT drizzle.__drizzle_migrations and nothing else.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The guard diffs against the PR base to see whether it touches
+          # lib/db/migrations/.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check production has this branch's migrations
+        run: pnpm migrations:check-prod --base ${{ github.event.pull_request.base.sha }}
+        env:
+          PROD_MIGRATIONS_READ_URL: ${{ secrets.PROD_MIGRATIONS_READ_URL }}
+
   e2e-gate:
     name: Device-link E2E (mock)
     # The bootstrap §6 gate for P1.3: drives a real browser through credentials

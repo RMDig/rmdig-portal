@@ -69,6 +69,21 @@ export default async function AdminPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Restriction reviews</CardTitle>
+          <CardDescription>
+            Users asking us to review a restriction on their AvAI account. Lift or uphold, with
+            a note for the audit log.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/admin/restriction-reviews">Open the review queue</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       {isAdmin ? (
         <Card>
           <CardHeader>

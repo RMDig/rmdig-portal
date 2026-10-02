@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { AvServError } from "./request";
 
 // Wire shapes for AvServ plan 23 web onboarding (contract account_agreement.md
 // rev 2 §3.1, §3.3, §4), shared by the live client (agreement.ts) and the
@@ -62,21 +61,6 @@ export interface AcceptBody {
   client: { ip: string; userAgent: string; locale: string };
 }
 
-/** An AvServ failure on this tier. `code` is AvServ's machine-readable code,
- *  `detail` its human-readable `error` text (shown for field errors), and
- *  `viaFailover` marks an answer from the failover node, where a 404
- *  account_not_found is replication lag (contract §4). */
-export class AgreementError extends AvServError {
-  readonly viaFailover: boolean;
-  readonly detail: string | undefined;
-
-  constructor(
-    message: string,
-    opts: { status?: number; code?: string; detail?: string; viaFailover?: boolean } = {},
-  ) {
-    super(message, opts.status, opts.code);
-    this.name = "AgreementError";
-    this.viaFailover = opts.viaFailover ?? false;
-    this.detail = opts.detail;
-  }
-}
+/** The onboarding client's name for {@link AvServContractError}: AvServ's
+ *  `code`, its `detail` text, and whether the failover node answered. */
+export { AvServContractError as AgreementError } from "./request";
