@@ -30,7 +30,8 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>Who we are</h2>
           <p className="mt-3">
-            {LEGAL_ENTITY} (&quot;rmdig&quot;, &quot;we&quot;) is a Colorado company. We
+            {LEGAL_ENTITY}{" "}
+            (&quot;rmdig&quot;, &quot;we&quot;) is a Colorado company. We
             operate the AvAI™ mobile app (a beta safety companion for backcountry travel),
             this website and web portal at rmdig.ai, and the self-hosted server
             infrastructure (&quot;AvServ&quot;) that powers AvAI&apos;s check-out/check-in
