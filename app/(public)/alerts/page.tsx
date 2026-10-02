@@ -49,10 +49,10 @@ export default function AlertsExplainerPage() {
               needed.
             </li>
             <li>
-              <strong>More than one alert</strong> — you may get the same alert more than
-              once, or a follow-up saying our system may have sent you more than one. It is
-              one situation, not several. Treat any alert as real until you reach the
-              person.
+              <strong>More than one alert</strong> — You may occasionally receive the same
+              alert more than once. Treat every alert as real until you reach them. You may
+              also get a follow-up saying our system may have sent you more than one; it is
+              one situation, not several.
             </li>
           </ul>
         </section>
