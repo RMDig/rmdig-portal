@@ -261,7 +261,28 @@ run as an incident, not noise: the second mechanism existing is the point.
 
 **Password-reset note:** rotating `PROD_DATABASE_URL` (Neon password reset)
 must be mirrored into this GitHub secret in the same sitting, or backups break
-silently at the next 09:00 UTC run.
+silently at the next 09:00 UTC run. This secret takes the **non-pooled** URL
+(host without `-pooler`): `pg_dump` should not go through the pooler.
+
+## Rotating the database password
+
+The `neondb_owner` password lives in several places; a reset breaks every one
+not updated in the same sitting.
+
+1. Neon console → Roles → `neondb_owner` → Reset password. Copy the **connection
+   string** form (not the `psql '…'` form).
+2. Vercel → Settings → Environment Variables → **`DATABASE_URL`** (Production):
+   paste the **pooled** URL (host with `-pooler`), bare — no quotes, no `psql`.
+3. GitHub secret `PROD_DATABASE_URL` (backups): the **non-pooled** URL.
+4. Any `.env.local` that uses it.
+5. Check the key name before redeploying — `vercel env ls production` must list
+   `DATABASE_URL` exactly. **2026-10-01/02:** it was saved as `DATABSE_URL`, every
+   server route returned 500 for ~20 h, and the log said
+   `DATABASE_URL: … received undefined`.
+6. Redeploy, then verify `/healthz`, one public page, and a real sign-in.
+
+`PROD_MIGRATIONS_READ_URL` uses its own role (`ci_migration_reader`) and is not
+affected.
 
 ## Routine maintenance
 

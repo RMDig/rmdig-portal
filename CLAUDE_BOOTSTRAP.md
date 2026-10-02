@@ -129,6 +129,10 @@ After this, configure Vercel to point at the repo, add env vars, and the first d
 
 ## 4 — Phase 1 milestones with acceptance criteria
 
+> **Current status of every milestone below (and the later plans):**
+> [docs/plans/00_status.md](docs/plans/00_status.md). The checkboxes here are the original
+> acceptance criteria and are not ticked; P1.3 shipped as AvServ link codes instead.
+
 Follow [06_phase1_migration.md](https://github.com/dennys246/rmdig-ai/blob/main/docs/plans/06_phase1_migration.md) for the detailed plan. Acceptance criteria for each milestone:
 
 ### P1.0 — Skeleton up

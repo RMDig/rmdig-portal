@@ -1,8 +1,9 @@
 # 30 — Advertiser Portal (rmdig-portal side of AvApp doc 30)
 
-> **Status: DESIGN ONLY.** No code, schema, or migration ships from this doc. It specifies the
-> rmdig-portal surface for self-served sponsor ads so the build can start later without re-deciding
-> architecture. **v2+ scope — off the v1 TestFlight / v1.5 AvAI critical path** (rmdig-ai
+> **Status (2026-10-02): AD-P1–AD-P7 BUILT and merged (#24–#31); publish runs against the AvServ
+> mock only.** Open: the AvServ publish contract (§11) and O3 AdLedger ratification. See
+> [00_status.md](00_status.md). Originally a design doc: it specified the rmdig-portal surface for
+> self-served sponsor ads so the build could start without re-deciding architecture. **v2+ scope — off the v1 TestFlight / v1.5 AvAI critical path** (rmdig-ai
 > `07_portal_bootstrap.md` §1.5; AvApp doc 24).
 >
 > **Numbering.** Mirrors AvApp `docs/plans/30_advertising_and_house_ad_distribution.md` so the two

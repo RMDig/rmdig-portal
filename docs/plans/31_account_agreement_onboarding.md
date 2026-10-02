@@ -1,6 +1,8 @@
 # 31 — Web onboarding: required identity + signed agreement (portal side of AvServ plan 23)
 
-> **Status: IMPLEMENTED 2026-09-30 (branch `feat/23-account-agreement`).** Rev 2 follows AvServ contract
+> **Status: MERGED 2026-09-30 (#77). Not live:** the pin is null until counsel's agreement
+> text is published, AvServ capture is off, and production needs `AVSERV_BASE_URL` plus the
+> AvServ service key ([00_status.md](00_status.md) §1). Rev 2 follows AvServ contract
 > revision 2.
 >
 > **Source of truth:** AvServ `docs/contracts/account_agreement.md` rev 2 (origin/main
