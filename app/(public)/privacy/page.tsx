@@ -110,15 +110,28 @@ export default function PrivacyPolicyPage() {
 
           <h3 className="mt-5">Automatic accident alerts (Incident Detection)</h3>
           <p className="mt-2">
-            Incident Detection is optional and stays off unless you turn it on for an
-            outing. While you are checked out with it on, the app watches your phone&apos;s
-            motion sensors on the phone itself to spot a possible accident, such as a hard
-            impact or a period of sustained tumbling. The raw sensor readings are not sent to
-            us. If the app detects a possible accident and you don&apos;t cancel the alarm,
-            or you report an accident yourself, it sends AvServ a short summary of the event
-            (what kind of event it was, when it happened, and a few measurements such as how
-            long the phone tumbled, how far it dropped, and how long it then stayed still)
-            together with your location at that moment.
+            Incident Detection is optional. It works only during an outing you have checked
+            out for, and only when you have turned it on. The app watches your phone&apos;s
+            motion sensors, on the phone itself, for a possible accident: for example a hard
+            impact followed by no movement, or the sustained tumbling of being caught in an
+            avalanche. It has two kinds of detection, each of which can be available on its
+            own. If one detects a possible accident and you don&apos;t cancel the alarm, or
+            you report an accident yourself, the phone sends AvServ:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6">
+            <li>
+              <strong>Impact detection:</strong> a summary of the motion and impact, the
+              number of seconds the phone then went without movement, and your location at
+              the moment of the incident.
+            </li>
+            <li>
+              <strong>Avalanche-involvement detection:</strong> how long the phone tumbled,
+              how far it descended (from the phone&apos;s barometer), and your location at
+              the moment of the incident.
+            </li>
+          </ul>
+          <p className="mt-2">
+            The raw sensor readings are not sent.
           </p>
           <p className="mt-2">
             We use this for one purpose: sending an automatic alert, and its follow-up
@@ -131,9 +144,8 @@ export default function PrivacyPolicyPage() {
             Separately, you can choose to turn on an on-phone motion buffer to help you
             report an incident later. It keeps the last few hours of motion and location
             readings in the app&apos;s private storage on your phone, deletes older readings
-            automatically, and turning it off deletes it. Nothing in it is sent to us.
-            Sharing an incident report for research is not available yet; this policy will
-            be updated before it is.
+            automatically, and turning it off deletes it. It stays on your phone unless you
+            choose to share it.
           </p>
         </section>
 
@@ -219,9 +231,11 @@ export default function PrivacyPolicyPage() {
             <li>missed check-in alerts;</li>
             <li>Send&nbsp;Help alerts, and alerts when the user reports an accident;</li>
             <li>
-              automatic accident alerts, during an outing with Incident Detection on (see
-              &quot;Automatic accident alerts&quot; above for what the phone sends: a short
-              motion summary and its location at the moment of a possible accident);
+              automatic accident alerts, during an outing with Incident Detection on, when
+              the phone reports a possible accident (for example a hard impact followed by no
+              movement, or the sustained tumbling of being caught in an avalanche) and the
+              user doesn&apos;t respond; see &quot;Automatic accident alerts&quot; above for
+              what the phone sends;
             </li>
             <li>all-clear, false-alarm, and duplicate-alert follow-ups;</li>
             <li>clearly labelled TEST DRILL messages used to verify the system;</li>

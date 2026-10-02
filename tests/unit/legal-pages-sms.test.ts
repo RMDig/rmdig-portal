@@ -31,8 +31,14 @@ describe("/privacy SMS disclosures", () => {
     expect(src).toMatch(re);
   });
 
-  it("says what the phone sends for Incident Detection", () => {
-    expect(src).toMatch(/motion summary and its location at the moment of a possible accident/);
+  it("says what each Incident Detection profile sends (AvServ plan 38b)", () => {
+    expect(src).toMatch(/Impact detection:.*summary of the motion and impact.*without movement.*location at the moment of the incident/);
+    expect(src).toMatch(/Avalanche-involvement detection:.*tumbled.*descended.*barometer.*location at the moment of the incident/);
+    expect(src).toMatch(/stays on your phone unless you choose to share it/);
+  });
+
+  it("describes automatic alerts in the filing's terms", () => {
+    expect(src).toMatch(/a hard impact followed by no movement, or the sustained tumbling of being caught in an avalanche/);
   });
 });
 
