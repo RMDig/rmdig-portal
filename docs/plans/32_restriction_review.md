@@ -1,6 +1,7 @@
 # 32 — Restriction review requests (portal side of AvServ plan 39)
 
-> **Status: IMPLEMENTING 2026-10-01** (branch `feat/w2-restriction-review`).
+> **Status: MERGED 2026-10-01 (#83, `6b099d1`); migration 0014 applied to production.**
+> Runs on the AvServ mock until AvServ builds plan 39 (after v1.5); see [00_status.md](00_status.md).
 >
 > **Source of truth:** AvServ `docs/contracts/restrictions.md` rev 1 (origin/main
 > `082195b`), which supersedes plan 39 §4. AvServ is the **system of record for
