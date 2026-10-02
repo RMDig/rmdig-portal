@@ -59,6 +59,10 @@ const Env = z.object({
   SENTRY_AUTH_TOKEN: z.string().optional(),
 
   // Phase-1.4+ — optional until those milestones land.
+  // Vercel Blob (SAR proof docs). On Vercel, connecting a Blob store sets
+  // BLOB_STORE_ID and uploads authenticate with the function's OIDC token;
+  // BLOB_READ_WRITE_TOKEN is the local-development fallback.
+  BLOB_STORE_ID: z.string().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
 
   // AvServ S2S identity integration (direction B — see rmdig-ai docs/plans/
