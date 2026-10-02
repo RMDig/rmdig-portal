@@ -284,6 +284,82 @@ not updated in the same sitting.
 `PROD_MIGRATIONS_READ_URL` uses its own role (`ci_migration_reader`) and is not
 affected.
 
+## Preview deployments
+
+Every PR gets a Vercel preview you can sign in to. Previews hold **no real user
+data** and never reach the live AvServ:
+
+- **Database:** a separate Neon project, `rmdig-portal-preview`, not a branch of
+  production. (Neon's Vercel integration can only fork preview branches from the
+  default branch, which here is production, so every preview would carry copies
+  of real users.) It has two branches: `preview-seed` (schema plus the test
+  personas) and its child `preview`, which every preview deployment shares.
+- **Migrations:** the `vercel-build` script runs `scripts/migrate-preview.ts`
+  before `next build`. On a preview it applies the PR's migrations to `preview`;
+  in production it does nothing (production is still migrated by hand before
+  merge, see "Run a production migration"). It refuses the production endpoint.
+- **AvServ:** `mock://localhost`. The `+restricted` persona gets one active
+  restriction from the mock.
+- **Email:** logged as `email.<kind>.preview_logged` (recipient and subject,
+  never the body), not sent. To get a real email on a preview, add your address
+  to `PREVIEW_EMAIL_RECIPIENTS`; an email is sent only if every recipient is listed.
+- **Startup check:** on `VERCEL_ENV=preview`, the server refuses to boot if
+  `DATABASE_URL` is the production endpoint or `AVSERV_BASE_URL` isn't `mock://`.
+- **Sign-in:** email and password with a persona. Google sign-in doesn't work on
+  previews (each preview URL would need its own registered redirect URI).
+
+### One-time setup
+
+1. **Neon:** create the project `rmdig-portal-preview` (same region as
+   production). Rename its default branch to `preview-seed`. Copy its
+   **non-pooled** connection string.
+2. **Migrate and seed `preview-seed`** from a local checkout of `main`:
+   ```bash
+   DATABASE_URL='<preview-seed non-pooled URL>' pnpm db:migrate
+   PREVIEW_SEED_DATABASE_URL='<preview-seed non-pooled URL>' \
+     PREVIEW_SEED_PASSWORD='<16+ chars, keep in the password manager>' \
+     pnpm db:seed-preview you@example.com
+   ```
+   This creates five personas on your address with plus tags: `+admin`
+   (`rmdig_admin`), `+user`, `+sar` (admin of an approved test SAR org), `+advertiser`
+   (admin of a test advertiser) and `+restricted`. All share that password and are
+   email-verified. Re-running is safe.
+3. **Neon:** create the branch `preview` from `preview-seed`. Copy its **pooled**
+   and **non-pooled** connection strings.
+4. **Vercel → Storage → the Neon database → Settings:** turn **off** preview
+   branching (Deployments Configuration → Preview), so the integration stops
+   creating production copies. Then in the Neon console delete the existing
+   `preview/*` branches of the production project; each one is a copy of
+   production.
+5. **Vercel → Settings → Environment Variables**, scoped to **Preview only**, with
+   values different from production:
+
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | `preview` branch, pooled |
+   | `DATABASE_URL_UNPOOLED` | `preview` branch, non-pooled |
+   | `NEXTAUTH_SECRET` | new: `openssl rand -hex 32` |
+   | `MFA_ENCRYPTION_KEY` | new: `openssl rand -hex 32` |
+   | `AVSERV_BASE_URL` | `mock://localhost` |
+   | `MFA_ENFORCEMENT` | `optional` (each reset of `preview` would otherwise force the admin persona to enroll again) |
+   | `PREVIEW_EMAIL_RECIPIENTS` | empty, or your own address while testing a template |
+
+   Do **not** add `AVSERV_SERVICE_JWT_SIGNING_KEY` or `AVSERV_FAILOVER_BASE_URL`
+   to Preview. For SAR proof uploads on previews, connect a second Vercel Blob
+   store to the Preview environment only.
+6. Push any commit to an open PR and sign in to its preview as `you+admin@…`.
+
+### Housekeeping
+
+- `preview` is shared, so an abandoned PR's migration stays on it. When previews
+  drift (a migration error in the build log, or stale data), go to the Neon console,
+  then `preview` → **Reset from parent**. The next preview build re-applies the
+  open PR's migrations.
+- After a migration merges to `main`, migrate `preview-seed` too (step 2's
+  `db:migrate` line), so resets start current.
+- `vercel-dev` (the CI E2E parent) is a separate matter: it's still a branch of
+  production, used only by CI.
+
 ## Routine maintenance
 
 See [infrastructure.md](infrastructure.md) §Maintenance for the schedule:
