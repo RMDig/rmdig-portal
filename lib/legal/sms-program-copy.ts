@@ -29,14 +29,25 @@ export interface ProgramMessage {
 
 const LOC_NOW = "Last known location: 39.61516, -106.14364 (+/-8 m).";
 
+// AvServ IncidentAlertBody assembles the automatic alert from an observed-event
+// phrase and a silence phrase (internal/dispatch/incident.go); the variants
+// below are built the same way so they can't drift from sample 3.
+function automaticAlert(observed: string, silence: string): string {
+  return (
+    `AvAI automatic alert for John Doe: their phone reported ${observed} about 4 min ago and ` +
+    `${silence}. This may be a false alarm, but treat it as real until ` +
+    `you reach them. ${LOC_NOW} Phone reported it 4 min ago. Call them now. If you cannot reach ` +
+    "them, call 911, say this is an automatic phone alert that may be a false alarm, and give " +
+    "this location."
+  );
+}
+
 /** The automatic accident alert, filed sample 3 (AvServ IncidentAlertBody,
- *  server-deadline source). */
-export const AUTOMATIC_ACCIDENT_ALERT =
-  "AvAI automatic alert for John Doe: their phone reported a hard impact about 4 min ago and " +
-  "we have not heard back from it since. This may be a false alarm, but treat it as real until " +
-  `you reach them. ${LOC_NOW} Phone reported it 4 min ago. Call them now. If you cannot reach ` +
-  "them, call 911, say this is an automatic phone alert that may be a false alarm, and give " +
-  "this location.";
+ *  impact detector, server-deadline source). */
+export const AUTOMATIC_ACCIDENT_ALERT = automaticAlert(
+  "a hard impact",
+  "we have not heard back from it since",
+);
 
 /** Prefix AvServ puts on every TEST DRILL message (incident.go drillBodyPrefix). */
 export const TEST_DRILL_PREFIX = "AvAI TEST DRILL - no action needed. ";
@@ -51,7 +62,8 @@ export const TEST_DRILL_PREFIX = "AvAI TEST DRILL - no action needed. ";
 export const PROGRAM_MESSAGES: ProgramMessage[] = [
   {
     label: "Trip notice (optional)",
-    when: "When the user chooses to tell you they're heading out, with their planned return time.",
+    when:
+      "When the user chooses to tell you they're heading out, with their planned return time (on another day it reads, for example, \"back by Sat Oct 3, 5:00 PM MDT\").",
     text:
       "AvAI: John Doe is heading out and plans to be back by 5:00 PM MDT. We will text you again " +
       "only if they miss their check-in. Reply STOP to opt out.",
@@ -69,6 +81,17 @@ export const PROGRAM_MESSAGES: ProgramMessage[] = [
     when:
       "During an outing with Incident Detection on, the phone reported a possible accident (for example a hard impact followed by no movement, or the sustained tumbling of being caught in an avalanche) and the user didn't respond.",
     text: AUTOMATIC_ACCIDENT_ALERT,
+  },
+  {
+    label: "Automatic accident alert (avalanche involvement)",
+    when:
+      "During an outing with Incident Detection on, the phone reported sustained tumbling, as when caught in an avalanche, and the user didn't respond.",
+    text: automaticAlert("a period of sustained tumbling", "we have not heard back from it since"),
+  },
+  {
+    label: "Automatic accident alert (alarm not cancelled)",
+    when: "The phone sounded its accident alarm and the user didn't cancel it.",
+    text: automaticAlert("a hard impact", "they did not cancel the alarm on their phone"),
   },
   {
     label: "Accident reported",
@@ -92,6 +115,13 @@ export const PROGRAM_MESSAGES: ProgramMessage[] = [
       "AvAI EMERGENCY: John Doe has triggered Send Help. Please try to reach them now and consider " +
       "contacting local emergency services. Last known location: 39.61516, -106.14364. Call them " +
       "directly or check the dashboard at avai.rmdig.ai. Treat this as real until you reach them.",
+  },
+  {
+    label: "Follow-up: Send Help retracted",
+    when: "The user retracted a Send Help alert as a false alarm.",
+    text:
+      "AvAI: the previous Send Help alert from John Doe was retracted as a false alarm. Please " +
+      "disregard it. If you are still concerned, reach them directly.",
   },
   {
     label: "Follow-up: false alarm",
