@@ -131,12 +131,27 @@ export default function TermsPage() {
             Consent operates by designation: when a user names an emergency contact (and
             confirms they have that person&apos;s permission — see §3), the contact
             receives a one-time notice message, and safety alerts flow by default with no
-            further confirmation required. Message frequency varies and is event-driven
-            only; message and data rates may apply. Recipients can reply STOP at any time
-            to end all messages — including safety alerts, in which case the designating
-            user is notified — and HELP for program information. Delivery is designed
-            at-least-once: duplicate alerts are possible by design. Full program details,
-            including the exact message texts:{" "}
+            further confirmation required.
+          </p>
+          <p className="mt-3">
+            The program sends: the one-time designation notice; optional trip notices the
+            user chooses to send when heading out; missed check-in alerts; Send&nbsp;Help
+            alerts and alerts when the user reports an accident; automatic accident alerts
+            during an outing with Incident Detection on; all-clear, false-alarm, and
+            duplicate-alert follow-ups; clearly labelled TEST DRILL messages; and replies to
+            YES, HELP, and STOP. No marketing messages are sent.
+          </p>
+          <p className="mt-3">
+            Message frequency varies and is event-driven only; message and data rates may
+            apply. Recipients can reply STOP at any time to end all messages — including
+            safety alerts, in which case the designating user is notified — and HELP for
+            program information. Delivery is designed at-least-once: duplicate alerts are
+            possible by design. Carriers are not liable for delayed or undelivered messages.
+            Support:{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium underline">
+              {SUPPORT_EMAIL}
+            </a>
+            . Full program details, including the exact message texts:{" "}
             <Link href="/sms" className="font-medium underline">
               rmdig.ai/sms
             </Link>

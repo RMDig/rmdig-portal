@@ -75,8 +75,11 @@ export default function PrivacyPolicyPage() {
           <p className="mt-2">
             To run the check-out/check-in feature you give AvAI the name and contact
             details (email address and, where provided, phone number) of the emergency
-            contact you choose. We store these on AvServ and use them for exactly one
-            thing: delivering your overdue and all-clear alerts. If you name someone as
+            contact you choose. We store these on AvServ and use them only to deliver the
+            messages you set up: the one-time designation notice, any trip notice you choose
+            to send, your safety alerts (overdue, Send&nbsp;Help and, if you use Incident
+            Detection, automatic accident alerts), and their follow-up and all-clear
+            messages. If you name someone as
             your emergency contact, please tell them — we hold their contact details on
             your instruction.
           </p>
@@ -105,6 +108,46 @@ export default function PrivacyPolicyPage() {
             reachable&quot; reports). These exist so the watchdog can work and so we can
             audit that an alert really fired.
           </p>
+
+          <h3 className="mt-5">Automatic accident alerts (Incident Detection)</h3>
+          <p className="mt-2">
+            Incident Detection is optional. It works only during an outing you have checked
+            out for, and only when you have turned it on. The app watches your phone&apos;s
+            motion sensors, on the phone itself, for a possible accident: for example a hard
+            impact followed by no movement, or the sustained tumbling of being caught in an
+            avalanche. It has two kinds of detection, each of which can be available on its
+            own. If one detects a possible accident and you don&apos;t cancel the alarm, or
+            you report an accident yourself, the phone sends AvServ:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6">
+            <li>
+              <strong>Impact detection:</strong> a summary of the motion and impact, the
+              number of seconds the phone then went without movement, and your location at
+              the moment of the incident.
+            </li>
+            <li>
+              <strong>Avalanche-involvement detection:</strong> how long the phone tumbled,
+              how far it descended (from the phone&apos;s barometer), and your location at
+              the moment of the incident.
+            </li>
+          </ul>
+          <p className="mt-2">
+            The raw sensor readings are not sent.
+          </p>
+          <p className="mt-2">
+            We use this for one purpose: sending an automatic alert, and its follow-up
+            messages, to your emergency contact. The alert tells them what your phone
+            reported (for example, a hard impact), when, and where, and that it may be a
+            false alarm; the measurements themselves are not sent to them. No one else
+            receives it. How long we keep it is in the retention table below.
+          </p>
+          <p className="mt-2">
+            Separately, you can choose to turn on an on-phone motion buffer to help you
+            report an incident later. It keeps the last few hours of motion and location
+            readings in the app&apos;s private storage on your phone, deletes older readings
+            automatically, and turning it off deletes it. It stays on your phone unless you
+            choose to share it.
+          </p>
         </section>
 
         <section>
@@ -123,8 +166,8 @@ export default function PrivacyPolicyPage() {
           <ul className="mt-3 list-disc space-y-2 pl-6">
             <li>
               <span className="font-medium text-neutral-900 dark:text-neutral-50">Your emergency contact</span> —
-              if an overdue alert fires, they receive your name, the alert, and your
-              last-known location. That is the product working as described.
+              if an alert fires (overdue, Send&nbsp;Help, or an automatic accident alert),
+              they receive your name, the alert, and your last-known location. That is the product working as described.
             </li>
             <li>
               <span className="font-medium text-neutral-900 dark:text-neutral-50">AvServ</span> — our own
@@ -152,9 +195,11 @@ export default function PrivacyPolicyPage() {
             data about you even though you never signed up: your name and the contact
             details the user provided (phone number and/or email address), plus the state
             of our messaging relationship with you — whether your introductory notice was
-            sent and whether you have opted out. We use this data for exactly two things:
-            a one-time notice message telling you that you were designated, and the safety
-            alerts themselves (overdue, Send&nbsp;Help, and all-clear messages).
+            sent and whether you have opted out. We use this data only for the messages
+            described under &quot;Text messages (SMS)&quot; below: a one-time notice telling
+            you that you were designated, any trip notice the user chooses to send, and the
+            safety alerts themselves (overdue, Send&nbsp;Help, and automatic accident alerts,
+            with their follow-up and all-clear messages).
           </p>
           <p className="mt-3">
             You have the same rights as any data subject: reply{" "}
@@ -177,13 +222,30 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>Text messages (SMS)</h2>
           <p className="mt-3">
-            AvAI&apos;s safety alerts are delivered by SMS and email to the emergency
+            AvAI&apos;s safety messages are delivered by SMS and email to the emergency
             contact an AvAI user designates. Messages are sent by our own servers through
-            Twilio, our SMS delivery provider, and are strictly event-driven: an overdue
-            alert, a Send&nbsp;Help alert, or the all-clear that follows. We send no
-            marketing or promotional texts, and message frequency depends entirely on the
-            user&apos;s safety activity. Message and data rates may apply. Full program details, including the exact
-            message texts, are published at{" "}
+            Twilio, our SMS delivery provider. The program sends only these messages:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6">
+            <li>a one-time notice when someone is designated as an emergency contact;</li>
+            <li>an optional trip notice, when the user chooses to send one as they head out;</li>
+            <li>missed check-in alerts;</li>
+            <li>Send&nbsp;Help alerts, and alerts when the user reports an accident;</li>
+            <li>
+              automatic accident alerts, during an outing with Incident Detection on, when
+              the phone reports a possible accident (for example a hard impact followed by no
+              movement, or the sustained tumbling of being caught in an avalanche) and the
+              user doesn&apos;t respond; see &quot;Automatic accident alerts&quot; above for
+              what the phone sends;
+            </li>
+            <li>all-clear, false-alarm, and duplicate-alert follow-ups;</li>
+            <li>clearly labelled TEST DRILL messages used to verify the system;</li>
+            <li>replies to YES, HELP, and STOP.</li>
+          </ul>
+          <p className="mt-3">
+            We send no marketing or promotional texts, and message frequency depends entirely
+            on the user&apos;s safety activity. Message and data rates may apply. Full program
+            details, including the exact message texts, are published at{" "}
             <Link href="/sms" className="font-medium underline">
               rmdig.ai/sms
             </Link>
@@ -198,7 +260,7 @@ export default function PrivacyPolicyPage() {
             <span className="font-medium text-neutral-900 dark:text-neutral-50">HELP</span>{" "}
             (or email {SUPPORT_EMAIL}) for assistance. Be aware of what opting out means
             here: if you text STOP, you will not receive that person&apos;s safety alerts,
-            including a real overdue or Send&nbsp;Help alert — tell them so they can choose
+            including a real overdue, Send&nbsp;Help, or accident alert — tell them so they can choose
             a different emergency contact.
           </p>
           <p className="mt-3">
@@ -226,6 +288,18 @@ export default function PrivacyPolicyPage() {
                 <tr>
                   <td>Check-out/check-in history</td>
                   <td>About 90 days, then deleted; deletable earlier on request</td>
+                </tr>
+                <tr>
+                  <td>Incident Detection summary and location</td>
+                  <td>
+                    90 days after the incident ends (cancelled or resolved), then deleted.
+                    What remains is a record of the incident without location or motion
+                    data: its type, times, and outcome.
+                  </td>
+                </tr>
+                <tr>
+                  <td>On-phone motion buffer</td>
+                  <td>On your phone only; the last few hours, deleted as it rolls over or when you turn it off</td>
                 </tr>
                 <tr>
                   <td>Device heartbeat telemetry</td>
@@ -266,6 +340,11 @@ export default function PrivacyPolicyPage() {
             These windows are our operating practice while the service is in beta; final
             retention terms are part of the legal review noted at the top of this page.
           </p>
+          <LawyerPlaceholder>
+            How long the incident record without location or motion data is kept, and
+            counsel&apos;s confirmation of the 90-day Incident Detection window under the
+            Colorado Privacy Act. Operator/counsel to supply.
+          </LawyerPlaceholder>
         </section>
 
         <section>
