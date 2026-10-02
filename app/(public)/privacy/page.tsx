@@ -74,10 +74,11 @@ export default function PrivacyPolicyPage() {
           <p className="mt-2">
             To run the check-out/check-in feature you give AvAI the name and contact
             details (email address and, where provided, phone number) of the emergency
-            contact you choose. We store these on AvServ and use them for exactly one
-            thing: delivering your safety alerts (overdue, Send&nbsp;Help and, if you use
-            Incident Detection, automatic accident alerts) and their follow-up and
-            all-clear messages. If you name someone as
+            contact you choose. We store these on AvServ and use them only to deliver the
+            messages you set up: the one-time designation notice, any trip notice you choose
+            to send, your safety alerts (overdue, Send&nbsp;Help and, if you use Incident
+            Detection, automatic accident alerts), and their follow-up and all-clear
+            messages. If you name someone as
             your emergency contact, please tell them — we hold their contact details on
             your instruction.
           </p>
@@ -181,10 +182,11 @@ export default function PrivacyPolicyPage() {
             data about you even though you never signed up: your name and the contact
             details the user provided (phone number and/or email address), plus the state
             of our messaging relationship with you — whether your introductory notice was
-            sent and whether you have opted out. We use this data for exactly two things:
-            a one-time notice message telling you that you were designated, and the safety
-            alerts themselves (overdue, Send&nbsp;Help, and automatic accident alerts, with
-            their follow-up and all-clear messages).
+            sent and whether you have opted out. We use this data only for the messages
+            described under &quot;Text messages (SMS)&quot; below: a one-time notice telling
+            you that you were designated, any trip notice the user chooses to send, and the
+            safety alerts themselves (overdue, Send&nbsp;Help, and automatic accident alerts,
+            with their follow-up and all-clear messages).
           </p>
           <p className="mt-3">
             You have the same rights as any data subject: reply{" "}
@@ -207,14 +209,28 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>Text messages (SMS)</h2>
           <p className="mt-3">
-            AvAI&apos;s safety alerts are delivered by SMS and email to the emergency
+            AvAI&apos;s safety messages are delivered by SMS and email to the emergency
             contact an AvAI user designates. Messages are sent by our own servers through
-            Twilio, our SMS delivery provider, and are strictly event-driven: an overdue
-            alert, a Send&nbsp;Help alert, an automatic accident alert, or the follow-up and
-            all-clear messages after them. We send no
-            marketing or promotional texts, and message frequency depends entirely on the
-            user&apos;s safety activity. Message and data rates may apply. Full program details, including the exact
-            message texts, are published at{" "}
+            Twilio, our SMS delivery provider. The program sends only these messages:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-6">
+            <li>a one-time notice when someone is designated as an emergency contact;</li>
+            <li>an optional trip notice, when the user chooses to send one as they head out;</li>
+            <li>missed check-in alerts;</li>
+            <li>Send&nbsp;Help alerts, and alerts when the user reports an accident;</li>
+            <li>
+              automatic accident alerts, during an outing with Incident Detection on (see
+              &quot;Automatic accident alerts&quot; above for what the phone sends: a short
+              motion summary and its location at the moment of a possible accident);
+            </li>
+            <li>all-clear, false-alarm, and duplicate-alert follow-ups;</li>
+            <li>clearly labelled TEST DRILL messages used to verify the system;</li>
+            <li>replies to YES, HELP, and STOP.</li>
+          </ul>
+          <p className="mt-3">
+            We send no marketing or promotional texts, and message frequency depends entirely
+            on the user&apos;s safety activity. Message and data rates may apply. Full program
+            details, including the exact message texts, are published at{" "}
             <Link href="/sms" className="font-medium underline">
               rmdig.ai/sms
             </Link>
