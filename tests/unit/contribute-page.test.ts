@@ -73,3 +73,27 @@ describe("/contribute page", () => {
     expect(render()).not.toContain('href="/support"');
   });
 });
+
+describe("/contribute dataset guidance", () => {
+  beforeEach(() => {
+    delete h.env.CONTRIBUTE_PAYMENT_LINK_URL;
+  });
+
+  it("says sample submission is in development, not available", () => {
+    const html = render();
+    expect(html).toMatch(/submit snowpack samples/);
+    expect(html).toMatch(/still in development and isn(&#x27;|')t available yet/);
+  });
+
+  it("welcomes AI use, asks open-source for non-safety models and peer verification for safety models", () => {
+    const html = render();
+    expect(html).toMatch(/Building AI models with the snowpack dataset is more than welcome/);
+    expect(html).toMatch(/release them as open source, for transparency/);
+    expect(html).toMatch(/validated advantage from pre-training/);
+    expect(html).toMatch(/verified by peers before you release/);
+  });
+
+  it("frames the guidance as requests, deferring to the dataset license", () => {
+    expect(render()).toMatch(/not license terms/);
+  });
+});

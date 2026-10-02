@@ -50,6 +50,39 @@ export default function ContributePage() {
         )}
       </div>
 
+      <section className="mt-12 space-y-4 leading-7 text-neutral-700 dark:text-neutral-200">
+        <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+          Snowpack samples and the open dataset
+        </h2>
+        <p>
+          Over the long term, we plan to let anyone submit snowpack samples to grow the{" "}
+          <Link href="/snowpack_dataset" className="font-medium underline">
+            open snowpack dataset
+          </Link>
+          . That feature is still in development and isn&apos;t available yet.
+        </p>
+        <p>
+          Building AI models with the snowpack dataset is more than welcome. We ask two things:
+        </p>
+        <ul className="list-disc space-y-2 pl-6">
+          <li>
+            <strong>Models not meant for safety decisions</strong> (research, education,
+            exploration): we encourage you to release them as open source, for transparency,
+            especially models that show a validated advantage from pre-training on this data,
+            so others can build on them.
+          </li>
+          <li>
+            <strong>Models meant to inform safety decisions</strong> in avalanche terrain are
+            welcome too, but we recommend having them verified by peers before you release
+            them.
+          </li>
+        </ul>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          These are requests from us, not license terms: the dataset&apos;s own license governs
+          how it may be used.
+        </p>
+      </section>
+
       <p className="mt-10 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
         Contributions are covered by our{" "}
         <Link href="/terms" className="font-medium underline">
