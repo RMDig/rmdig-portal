@@ -11,6 +11,7 @@ import {
   DESIGNATION_NOTICE,
   HELP_REPLY,
   PROGRAM_MESSAGES,
+  STOP_REPLY,
   YES_CONFIRMATION,
 } from "@/lib/legal/sms-program-copy";
 
@@ -39,7 +40,7 @@ describe("program messages (plan 38a samples + covered types)", () => {
   // Character counts computed in plan 38a §4 (and the July record for the
   // unchanged samples): a mismatch means a transcription error.
   const EXPECTED_LENGTH: Record<string, number> = {
-    "Heading-out notice (optional)": 146,
+    "Trip notice (optional)": 146,
     "Missed check-in": 251,
     "Automatic accident alert": 417,
     "Accident reported": 219,
@@ -83,13 +84,19 @@ describe("auto-replies as a contact receives them (confirmed live 2026-09-30)", 
     );
   });
 
+  it("STOP is the re-filed opt-out message (plan 38a §4)", () => {
+    expect(STOP_REPLY).toBe(
+      "AvAI: You are unsubscribed and will receive no more messages, including safety alerts. Reply START to resubscribe.",
+    );
+  });
+
   it("YES is AvServ dispatch.ConfirmBody", () => {
     expect(YES_CONFIRMATION).toBe(
       "AvAI: Confirmed. You are set as an emergency contact and will receive safety alerts if needed. Reply STOP any time to opt out, HELP for help.",
     );
   });
 
-  it.each([HELP_REPLY, YES_CONFIRMATION])("is GSM-7-safe ASCII on one line: %s", (text) => {
+  it.each([HELP_REPLY, YES_CONFIRMATION, STOP_REPLY])("is GSM-7-safe ASCII on one line: %s", (text) => {
     expect(text).toMatch(/^[\x20-\x7e]+$/);
   });
 });
@@ -149,6 +156,8 @@ describe("/sms page", () => {
   it("renders the full message list from the shared constant", () => {
     expect(src).toMatch(/PROGRAM_MESSAGES\.map/);
     expect(src).not.toMatch(/availability request/);
+    expect(src).toMatch(/\{STOP_REPLY\}/);
+    expect(src).toMatch(/trip notice/);
   });
 
   it("carries no trace of the never-filed long notice", () => {

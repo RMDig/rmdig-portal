@@ -46,11 +46,11 @@ export const TEST_DRILL_PREFIX = "AvAI TEST DRILL - no action needed. ";
  * filing uses (John Doe; 39.61516, -106.14364). Filed samples 2-5 are quoted
  * from the approved campaign; the rest are covered by its description and are
  * the exact output of AvServ's builders (internal/dispatch, golden tests) or,
- * for the heading-out notice, account contract §3.9.
+ * for the trip notice, account contract §3.9.
  */
 export const PROGRAM_MESSAGES: ProgramMessage[] = [
   {
-    label: "Heading-out notice (optional)",
+    label: "Trip notice (optional)",
     when: "When the user chooses to tell you they're heading out, with their planned return time.",
     text:
       "AvAI: John Doe is heading out and plans to be back by 5:00 PM MDT. We will text you again " +
@@ -169,3 +169,9 @@ export const HELP_REPLY =
 export const YES_CONFIRMATION =
   "AvAI: Confirmed. You are set as an emergency contact and will receive safety alerts " +
   "if needed. Reply STOP any time to opt out, HELP for help.";
+
+/** The STOP auto-reply, as the re-filed campaign registers it (AvServ plan
+ *  38a §4). Ships with the coordinated cutover, like DESIGNATION_NOTICE. */
+export const STOP_REPLY =
+  "AvAI: You are unsubscribed and will receive no more messages, including safety alerts. " +
+  "Reply START to resubscribe.";

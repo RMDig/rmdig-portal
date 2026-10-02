@@ -9,6 +9,7 @@ import {
   DESIGNATION_NOTICE,
   HELP_REPLY,
   PROGRAM_MESSAGES,
+  STOP_REPLY,
   YES_CONFIRMATION,
 } from "@/lib/legal/sms-program-copy";
 
@@ -46,7 +47,7 @@ export default function SmsProgramPage() {
             contact. If the user turns on Incident Detection for an outing and their phone
             reports a possible accident (a hard impact or sustained tumbling) that they
             don&apos;t respond to, we text the contact automatically. A user can also
-            choose to send their contact a short notice when heading out. We send no
+            choose to send their contact a short trip notice when heading out. We send no
             marketing or promotional messages — ever.
           </p>
         </section>
@@ -150,7 +151,10 @@ export default function SmsProgramPage() {
               <strong>STOP</strong> — opts the number out of all AvAI messages, including
               real safety alerts. Honored immediately and retained permanently as a
               suppression record. The user who designated the contact is notified so they
-              can arrange other coverage.
+              can arrange other coverage. The reply:
+              <blockquote className="mt-2 rounded-md border-l-4 border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 text-sm">
+                {STOP_REPLY}
+              </blockquote>
             </li>
             <li>
               <strong>HELP</strong> — returns the program-details reply:
@@ -165,7 +169,7 @@ export default function SmsProgramPage() {
           <h2>Message types &amp; frequency</h2>
           <ul className="mt-3 list-disc space-y-2 pl-6">
             <li>The one-time designation notice (above)</li>
-            <li>An optional heading-out notice, when the user chooses to send one</li>
+            <li>An optional trip notice, when the user chooses to send one as they head out</li>
             <li>Missed check-in alerts, with the user&apos;s last-known location</li>
             <li>
               Automatic accident alerts, during an outing with Incident Detection on; these
