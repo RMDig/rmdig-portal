@@ -13,14 +13,14 @@ import {
   users,
 } from "../lib/db/schema";
 import { isProductionDatabaseUrl } from "../lib/preview-guard";
-import { previewPersonas, SeedPassword } from "../lib/preview-seed";
+import { parseSeedArgs, previewPersonas, SeedPassword } from "../lib/preview-seed";
 
 // Seed the preview Neon project's `preview-seed` branch with test personas
 // (runbook "Preview deployments"). Run against that branch only, after
 // migrating it:
 //
 //   PREVIEW_SEED_DATABASE_URL=<preview-seed URL> PREVIEW_SEED_PASSWORD=<pw> \
-//     pnpm db:seed-preview you@example.com
+//     pnpm db:seed-preview you@example.com [--admin you@work.example]
 //
 // Takes its own variable, not DATABASE_URL, so it can't pick up whatever
 // .env.local points at, and refuses the production endpoint outright.
@@ -28,12 +28,14 @@ import { previewPersonas, SeedPassword } from "../lib/preview-seed";
 loadEnvConfig(process.cwd());
 
 async function main() {
-  const base = process.argv[2];
   const url = process.env.PREVIEW_SEED_DATABASE_URL;
-  if (!base || !url) {
-    console.error(
-      "Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-preview <your email>",
-    );
+  let args: ReturnType<typeof parseSeedArgs>;
+  try {
+    if (!url) throw new Error("PREVIEW_SEED_DATABASE_URL is not set");
+    args = parseSeedArgs(process.argv.slice(2));
+  } catch (err) {
+    console.error(`${(err as Error).message}
+Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-preview <your email> [--admin <email>]...`);
     process.exit(1);
   }
   if (isProductionDatabaseUrl(url)) {
@@ -41,7 +43,7 @@ async function main() {
     process.exit(1);
   }
 
-  const personas = previewPersonas(base);
+  const personas = previewPersonas(args.base);
   const passwordHash = await bcrypt.hash(SeedPassword.parse(process.env.PREVIEW_SEED_PASSWORD), 12);
 
   const client = postgres(url, { prepare: false, max: 1 });
@@ -119,7 +121,25 @@ async function main() {
       .values({ advertiserId: adv!.id, userId: id("advertiser"), role: "admin" })
       .onConflictDoNothing();
 
+    for (const email of args.extraAdmins) {
+      await db
+        .insert(users)
+        .values({
+          email,
+          name: "Preview Admin",
+          displayName: "Preview Admin",
+          passwordHash,
+          emailVerified: new Date(),
+          signupIntent: "explorer",
+        })
+        .onConflictDoNothing();
+      const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+      if (!row) throw new Error(`seed: ${email} missing after insert`);
+      await db.insert(userPlatformRoles).values({ userId: row.id, role: "rmdig_admin" }).onConflictDoNothing();
+    }
+
     for (const p of personas) console.log(`✓ ${p.tag.padEnd(10)} ${p.email}`);
+    for (const email of args.extraAdmins) console.log(`✓ ${"admin".padEnd(10)} ${email}`);
   } finally {
     await client.end();
   }

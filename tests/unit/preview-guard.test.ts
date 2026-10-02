@@ -7,7 +7,7 @@ import {
   previewSafetyProblems,
   shouldDeliverEmail,
 } from "@/lib/preview-guard";
-import { previewPersonas, SeedPassword } from "@/lib/preview-seed";
+import { parseSeedArgs, previewPersonas, SeedPassword } from "@/lib/preview-seed";
 
 // Preview deployments must never reach production data, the live AvServ, or a
 // real person's inbox by accident (runbook "Preview deployments").
@@ -132,5 +132,25 @@ describe("SeedPassword", () => {
   it("requires at least 16 characters", () => {
     expect(SeedPassword.safeParse("short").success).toBe(false);
     expect(SeedPassword.safeParse("a-long-enough-pass").success).toBe(true);
+  });
+});
+
+describe("parseSeedArgs", () => {
+  it("takes a base address alone", () => {
+    expect(parseSeedArgs(["ops@example.com"])).toEqual({ base: "ops@example.com", extraAdmins: [] });
+  });
+
+  it("collects --admin addresses, normalised and de-duplicated", () => {
+    expect(
+      parseSeedArgs(["ops@example.com", "--admin", "Me@Work.example", "--admin", "me@work.example"]),
+    ).toEqual({ base: "ops@example.com", extraAdmins: ["me@work.example"] });
+  });
+
+  it("rejects a missing base, a dangling flag, an unknown flag or a bad address", () => {
+    expect(() => parseSeedArgs([])).toThrow(/missing/);
+    expect(() => parseSeedArgs(["--admin", "me@work.example"])).toThrow(/missing/);
+    expect(() => parseSeedArgs(["ops@example.com", "--admin"])).toThrow(/unexpected/);
+    expect(() => parseSeedArgs(["ops@example.com", "--owner", "x@y.example"])).toThrow(/unexpected/);
+    expect(() => parseSeedArgs(["ops@example.com", "--admin", "nope"])).toThrow();
   });
 });

@@ -315,22 +315,35 @@ data** and never reach the live AvServ:
    **non-pooled** connection string.
 2. **Migrate and seed `preview-seed`** from a local checkout of `main`:
    ```bash
-   DATABASE_URL='<preview-seed non-pooled URL>' pnpm db:migrate
-   PREVIEW_SEED_DATABASE_URL='<preview-seed non-pooled URL>' \
-     PREVIEW_SEED_PASSWORD='<16+ chars, keep in the password manager>' \
-     pnpm db:seed-preview you@example.com
+   SEED=$(neonctl connection-string preview-seed --project-id <preview project id>)
+   DATABASE_URL="$SEED" pnpm db:migrate
+   read -rs -p "Preview seed password: " PW; echo   # 16+ chars, from the password manager
+   PREVIEW_SEED_DATABASE_URL="$SEED" PREVIEW_SEED_PASSWORD="$PW" \
+     pnpm db:seed-preview you@example.com --admin you@work.example; unset PW
    ```
+   The prompt keeps the password out of shell history. A literal value in the
+   command is used as-is: on 2026-10-02 a placeholder became the real password
+   and the accounts had to be deleted and re-seeded.
    This creates five personas on your address with plus tags: `+admin`
    (`rmdig_admin`), `+user`, `+sar` (admin of an approved test SAR org), `+advertiser`
    (admin of a test advertiser) and `+restricted`. All share that password and are
-   email-verified. Re-running is safe.
+   email-verified. Re-running is safe. Each `--admin <address>` adds one more
+   `rmdig_admin` account, so you can sign in to previews as yourself. It's a
+   separate preview account, not your production one, and it uses the same
+   seed password. To add it later, seed both `preview-seed` and `preview`, or
+   seed `preview-seed` and then reset `preview` from it.
 3. **Neon:** create the branch `preview` from `preview-seed`. Copy its **pooled**
    and **non-pooled** connection strings.
-4. **Vercel → Storage → the Neon database → Settings:** turn **off** preview
-   branching (Deployments Configuration → Preview), so the integration stops
-   creating production copies. Then in the Neon console delete the existing
-   `preview/*` branches of the production project; each one is a copy of
-   production.
+4. **Vercel → Storage → the Neon database → Allowed Environments:** set it to
+   **Production** only. That stops the integration creating production copies for
+   previews and removes its Preview-scoped `DATABASE_URL*` / `POSTGRES_*` / `PG*`
+   variables. The integration re-creates the Production variables when you do this:
+   check that its Production mapping still says the `production` branch before the
+   next deploy (the Production `DATABASE_URL` was pinned by hand before). Do the same
+   for the **Blob store** (Production only), or previews upload SAR proofs into
+   the production store. Then delete the production project's `preview/*` branches
+   (`neonctl branches delete <name> --project-id lingering-waterfall-99928244`);
+   each one is a copy of production.
 5. **Vercel → Settings → Environment Variables**, scoped to **Preview only**, with
    values different from production:
 
@@ -343,6 +356,10 @@ data** and never reach the live AvServ:
    | `AVSERV_BASE_URL` | `mock://localhost` |
    | `MFA_ENFORCEMENT` | `optional` (each reset of `preview` would otherwise force the admin persona to enroll again) |
    | `PREVIEW_EMAIL_RECIPIENTS` | empty, or your own address while testing a template |
+
+   From the CLI, pipe the value in and pass the git branch and sensitivity
+   explicitly, or the prompts swallow the piped value and nothing is added:
+   `printf '%s' "$VALUE" | vercel env add NAME preview "" --sensitive --yes`.
 
    Do **not** add `AVSERV_SERVICE_JWT_SIGNING_KEY` or `AVSERV_FAILOVER_BASE_URL`
    to Preview. For SAR proof uploads on previews, connect a second Vercel Blob

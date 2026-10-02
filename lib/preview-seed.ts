@@ -30,6 +30,23 @@ export function previewPersonas(baseEmail: string): PreviewPersona[] {
   ];
 }
 
+/** `<base email> [--admin <email>]...`. Each --admin address becomes one more
+ *  preview account with rmdig_admin, so you can sign in to previews as
+ *  yourself. Previews never hold production accounts; this is a separate
+ *  account that happens to share your address. */
+export function parseSeedArgs(argv: string[]): { base: string; extraAdmins: string[] } {
+  const [base, ...rest] = argv;
+  if (!base || base.startsWith("--")) throw new Error("missing <base email>");
+  const extraAdmins: string[] = [];
+  for (let i = 0; i < rest.length; i += 2) {
+    const flag = rest[i];
+    const value = rest[i + 1];
+    if (flag !== "--admin" || !value) throw new Error(`unexpected argument: ${flag ?? ""}`);
+    extraAdmins.push(z.string().email().parse(value.trim().toLowerCase()));
+  }
+  return { base, extraAdmins: [...new Set(extraAdmins)] };
+}
+
 // Shared by every persona; never committed. Long enough that a preview URL
 // someone stumbles on can't be guessed into.
 export const SeedPassword = z.string().min(16, "PREVIEW_SEED_PASSWORD must be at least 16 characters");
