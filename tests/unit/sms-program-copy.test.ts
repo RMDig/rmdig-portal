@@ -157,6 +157,10 @@ describe("/sms page", () => {
     expect(src).toMatch(/PROGRAM_MESSAGES\.map/);
     expect(src).not.toMatch(/availability request/);
     expect(src).toMatch(/\{STOP_REPLY\}/);
+    // The filed description's terms for automatic alerts (AvServ plan 38b).
+    expect(src.replace(/\s+/g, " ")).toMatch(
+      /a hard impact followed by no movement, or the sustained tumbling of being caught in an avalanche/,
+    );
     expect(src).toMatch(/trip notice/);
   });
 

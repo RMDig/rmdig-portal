@@ -45,8 +45,9 @@ export default function SmsProgramPage() {
             AvAI user designates an emergency contact; if the user misses a safety
             check-in, requests help, or reports an accident, our servers text that
             contact. If the user turns on Incident Detection for an outing and their phone
-            reports a possible accident (a hard impact or sustained tumbling) that they
-            don&apos;t respond to, we text the contact automatically. A user can also
+            reports a possible accident (for example a hard impact followed by no movement,
+            or the sustained tumbling of being caught in an avalanche) that they don&apos;t
+            respond to, we text the contact automatically. A user can also
             choose to send their contact a short trip notice when heading out. We send no
             marketing or promotional messages — ever.
           </p>

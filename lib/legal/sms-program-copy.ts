@@ -67,7 +67,7 @@ export const PROGRAM_MESSAGES: ProgramMessage[] = [
   {
     label: "Automatic accident alert",
     when:
-      "During an outing with Incident Detection on, the phone reported a possible accident and the user didn't respond.",
+      "During an outing with Incident Detection on, the phone reported a possible accident (for example a hard impact followed by no movement, or the sustained tumbling of being caught in an avalanche) and the user didn't respond.",
     text: AUTOMATIC_ACCIDENT_ALERT,
   },
   {
