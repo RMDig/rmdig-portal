@@ -1,3 +1,5 @@
+import { phoneVerificationEnabled } from "@/lib/phone/verify";
+
 import { AdvertiserForm } from "./AdvertiserForm";
 
 export const metadata = {
@@ -18,7 +20,7 @@ export default function AdvertiserNewPage() {
           before it appears in the app.
         </p>
       </div>
-      <AdvertiserForm />
+      <AdvertiserForm phoneVerifyEnabled={phoneVerificationEnabled()} />
     </div>
   );
 }

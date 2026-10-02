@@ -6,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserMemberships, users } from "@/lib/db/schema";
 import { createAdvertiserAccountSchema } from "@/lib/advertiser/schema";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { logger } from "@/lib/logger";
 
 // Server action behind /advertiser/new (docs/plans/30 §3). A signed-in,
@@ -59,6 +61,13 @@ export async function createAdvertiserAccountAction(
   }
   const data = parsed.data;
 
+  // Verified-phone gate (no-op when Twilio Verify is unconfigured); mirrors
+  // /sar/new.
+  const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode);
+  if (!phoneGate.ok) {
+    return { ok: false, error: phoneGate.error, fieldErrors: phoneGate.fieldErrors };
+  }
+
   // Persist atomically: the account and the creator's admin membership either both
   // land or neither does.
   let advertiserId: string;
@@ -70,7 +79,7 @@ export async function createAdvertiserAccountAction(
           name: data.name,
           contactName: data.contactName,
           contactEmail: data.contactEmail,
-          contactPhone: data.contactPhone,
+          contactPhone: phoneGate.phone,
           websiteUrl: data.websiteUrl,
           createdByUserId: userId,
         })
@@ -84,6 +93,18 @@ export async function createAdvertiserAccountAction(
       return adv.id;
     });
   } catch (err) {
+    // The only unique index this insert can trip (besides the PK) is the
+    // per-phone one — surface it as a field error, not a generic failure.
+    if (isUniqueViolation(err)) {
+      logger.warn({ event: "advertiser.create.phone_in_use", userId });
+      return {
+        ok: false,
+        error: "Please fix the highlighted fields.",
+        fieldErrors: {
+          contactPhone: ["This phone number is already registered to another advertiser."],
+        },
+      };
+    }
     logger.error({ event: "advertiser.create.tx_failed", userId, err });
     return { ok: false, error: "Couldn't create the advertiser account. Try again in a moment." };
   }

@@ -41,6 +41,15 @@ const Env = z.object({
   RESEND_API_KEY: z.string().startsWith("re_").optional(),
   RESEND_FROM_EMAIL: z.string().email().default("noreply@rmdig.ai"),
 
+  // Twilio Verify (org-creation phone OTP). All three optional as a set: when
+  // any is missing, phone verification is DISABLED and org creation proceeds
+  // without it (CI/local/preview) — SAR approval (§0) and per-creative ad
+  // approval remain the true gates. Set all three in prod to enforce.
+  // Verify OTPs use Twilio's own numbers, not our A2P campaign.
+  TWILIO_ACCOUNT_SID: z.string().startsWith("AC").optional(),
+  TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+  TWILIO_VERIFY_SERVICE_SID: z.string().startsWith("VA").optional(),
+
   // Sentry. DSN is optional locally (errors then just log); ORG/PROJECT/AUTH
   // are build-time only for source-map upload.
   SENTRY_DSN: z.string().url().optional(),
@@ -62,6 +71,15 @@ const Env = z.object({
   // committed. The portal signs; AvServ verifies the public half — so no
   // device/public key is needed on this side.
   AVSERV_SERVICE_JWT_SIGNING_KEY: z.string().optional(),
+  // The second AvServ node, used only to retry an agreement acceptance with the
+  // same Idempotency-Key when the primary is unreachable or answers 5xx/503
+  // (AvServ contract account_agreement.md §4, failover). Optional: unset means
+  // acceptances go to AVSERV_BASE_URL alone, and a failure there is shown.
+  AVSERV_FAILOVER_BASE_URL: z.string().optional(),
+  // E2E-only seam (docs/plans/31 §4): with AVSERV_BASE_URL=mock://* it lets the
+  // agreement page present a labelled test fixture while no version is pinned.
+  // Production never sets it, and it is ignored against a real AvServ.
+  E2E_AGREEMENT_FIXTURE: z.string().optional(),
 
   // Stripe Payment Link behind the /contribute button (AvApp doc 35 §4.3,
   // phase D1). Config, not code: the operator creates the one-time-only link

@@ -48,6 +48,12 @@ export default function AlertsExplainerPage() {
               <strong>All-clear</strong> — the person has since checked in safe. No action
               needed.
             </li>
+            <li>
+              <strong>More than one alert</strong> — you may get the same alert more than
+              once, or a follow-up saying our system may have sent you more than one. It is
+              one situation, not several. Treat any alert as real until you reach the
+              person.
+            </li>
           </ul>
         </section>
 
@@ -62,14 +68,29 @@ export default function AlertsExplainerPage() {
               <strong>If you can&apos;t reach them and are concerned</strong>, contact your
               local emergency services (911 in the US) or the sheriff&apos;s office for the
               county where they were traveling, and share the last-known location from the
-              message. AvAI alerts you — it does not contact emergency services on
-              anyone&apos;s behalf.
+              message.
             </li>
             <li>
               <strong>Keep the message</strong> — the coordinates and timestamp in it are
               exactly what responders will ask for.
             </li>
           </ol>
+        </section>
+
+        <section>
+          <h2>What AvAI does not do</h2>
+          <ul className="mt-3 list-disc space-y-3 pl-6">
+            <li>
+              <strong>It never calls 911 or any emergency service itself.</strong> AvAI
+              alerts you, the person they chose. Whether to call for help is your decision.
+            </li>
+            <li>
+              <strong>It is not a beacon.</strong> Rescuers can&apos;t use AvAI to find the
+              person&apos;s phone, and it doesn&apos;t signal anyone nearby. The location in
+              the message is the last one their phone sent to us, which may be from some
+              time before the alert.
+            </li>
+          </ul>
         </section>
 
         <section>

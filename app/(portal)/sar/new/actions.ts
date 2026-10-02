@@ -14,6 +14,8 @@ import {
 } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail, sendSarOrgSubmittedEmail } from "@/lib/email/send";
 import { env } from "@/lib/env";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { createSarOrgSchema } from "@/lib/sar/schema";
 import { logger } from "@/lib/logger";
@@ -67,6 +69,13 @@ export async function createSarOrgAction(
   }
   const data = parsed.data;
 
+  // Verified-phone gate (no-op when Twilio Verify is unconfigured). Runs
+  // before the proof-doc upload so a bad code doesn't orphan a blob.
+  const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode);
+  if (!phoneGate.ok) {
+    return { ok: false, error: phoneGate.error, fieldErrors: phoneGate.fieldErrors };
+  }
+
   // Upload the proof doc after field validation (so a bad form doesn't upload)
   // but before the transaction (the row needs the URL). A failed transaction
   // orphans the blob — acceptable, and rarer than a failed upload blocking submit.
@@ -98,7 +107,7 @@ export async function createSarOrgAction(
           regionName: data.regionName,
           contactName: data.contactName,
           contactEmail: data.contactEmail,
-          contactPhone: data.contactPhone,
+          contactPhone: phoneGate.phone,
           operatingStatus: data.operatingStatus,
           operatingStatusOther: data.operatingStatusOther,
           proofDocUrl,
@@ -120,6 +129,18 @@ export async function createSarOrgAction(
       return org.id;
     });
   } catch (err) {
+    // The only unique index this insert can trip (besides the PK) is the
+    // per-phone one — surface it as a field error, not a generic failure.
+    if (isUniqueViolation(err)) {
+      logger.warn({ event: "sar.create.phone_in_use", userId });
+      return {
+        ok: false,
+        error: "Please fix the highlighted fields.",
+        fieldErrors: {
+          contactPhone: ["This phone number is already registered to another organization."],
+        },
+      };
+    }
     logger.error({ event: "sar.create.tx_failed", userId, err });
     return { ok: false, error: "Couldn't submit your application. Try again in a moment." };
   }

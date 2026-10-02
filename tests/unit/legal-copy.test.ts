@@ -65,6 +65,26 @@ function publicSourceFiles(): string[] {
   for (const entry of readdirSync(templates)) {
     if (entry.startsWith("DataDeletion")) files.push(join(templates, entry));
   }
+  // AvAI onboarding (docs/plans/31 §4): the portal's own copy around the user
+  // agreement. The pinned agreement text and wording (lib/agreement/pinned.ts)
+  // are counsel's, fixed by AvServ's hashes, and deliberately not scanned.
+  const settings = join(process.cwd(), "app", "(portal)", "settings");
+  const agreementDir = join(settings, "agreement");
+  for (const entry of readdirSync(agreementDir)) {
+    if (entry.endsWith(".tsx")) files.push(join(agreementDir, entry));
+  }
+  // Restriction review (docs/plans/32): the user-facing page and the email.
+  const review = join(process.cwd(), "app", "(portal)", "account", "review");
+  for (const entry of readdirSync(review)) {
+    if (entry.endsWith(".tsx")) files.push(join(review, entry));
+  }
+  files.push(join(templates, "RestrictionReviewUpheldEmail.tsx"));
+  files.push(
+    join(settings, "AvaiAccountCard.tsx"),
+    join(settings, "AvaiIdentityForm.tsx"),
+    join(process.cwd(), "lib", "agreement", "errors.ts"),
+    join(process.cwd(), "lib", "agreement", "index.ts"),
+  );
   return files;
 }
 

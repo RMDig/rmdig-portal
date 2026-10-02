@@ -1,0 +1,74 @@
+# Nightly encrypted logical backup of the production portal DB to Cloudflare R2.
+#
+# This is the SECOND backup mechanism, deliberately in a different failure
+# domain from the first (Neon's built-in point-in-time restore): "Neon has a
+# bad day" and "our dump job broke" can never be the same event. Dumps are
+# age-encrypted before upload — the private key exists only in the operator's
+# password manager, never in GitHub or R2. Retention is 30 days (disclosed in
+# /privacy): the R2 bucket's lifecycle rule is the primary expiry, and the
+# prune step here is belt-and-braces.
+#
+# Gated on the DB_BACKUPS_ENABLED repo variable so scheduled runs stay green
+# (skipped) until the operator finishes setup — see docs/runbook.md
+# "Database backups".
+name: db-backup
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC = 2–3 a.m. Mountain, quietest DB hours
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  backup:
+    if: vars.DB_BACKUPS_ENABLED == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      R2_BUCKET: ${{ vars.R2_BACKUP_BUCKET }}
+    steps:
+      - name: Install pg_dump 17 and age
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates age
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump, encrypt, upload
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          AGE_PUBLIC_KEY: ${{ vars.AGE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
+          # Call v17 by path: the runner image also ships an older pg_dump, and
+          # the bare name resolves to it, which refuses a newer server (Neon
+          # prod is 17). Keep this in step with the production server version.
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          "$PG_DUMP" --version
+          "$PG_DUMP" "$PROD_DATABASE_URL" -Fc --no-owner -f portal.dump
+          age -r "$AGE_PUBLIC_KEY" -o "portal-$STAMP.dump.age" portal.dump
+          rm portal.dump
+          aws s3 cp "portal-$STAMP.dump.age" "s3://$R2_BUCKET/portal-db/portal-$STAMP.dump.age" \
+            --endpoint-url "$R2_ENDPOINT"
+          echo "uploaded portal-$STAMP.dump.age ($(stat -c%s "portal-$STAMP.dump.age") bytes)"
+
+      - name: Prune dumps older than 30 days (belt-and-braces; R2 lifecycle is primary)
+        run: |
+          set -euo pipefail
+          CUTOFF="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+          aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix portal-db/ \
+            --endpoint-url "$R2_ENDPOINT" \
+            --query "Contents[?LastModified<'$CUTOFF'].Key" --output text \
+          | tr '\t' '\n' | grep -v '^None$' | while read -r key; do
+              [ -n "$key" ] && aws s3 rm "s3://$R2_BUCKET/$key" --endpoint-url "$R2_ENDPOINT"
+            done || true

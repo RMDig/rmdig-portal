@@ -120,6 +120,56 @@ DATABASE_URL=<prod-url> pnpm db:migrate
 `db:migrate` is idempotent (it skips already-applied migrations), so running it
 again is safe. Confirm with `SELECT * FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 5;` if unsure what's applied.
 
+Get the URL in its own step and check it before using it — a `$(...)` around a
+command that fails (expired `neonctl auth`, a `pnpm dlx` install prompt) puts
+garbage in `DATABASE_URL`:
+
+```bash
+export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 --pooled)"
+case "$DATABASE_URL" in postgresql://*|postgres://*) echo "URL looks right";; *) echo "NOT a database URL, stop";; esac
+pnpm db:migrate
+unset DATABASE_URL
+```
+
+## Migration guard
+
+The CI job **"Migrations applied to production"** (`pnpm migrations:check-prod`,
+`lib/db/migration-guard.ts`) fails a main-targeted PR when:
+
+- the branch has a migration production hasn't applied yet → apply it (above),
+  then click **Re-run** on the job; or
+- a migration is unapplied but **older** than production's latest, which
+  `db:migrate` would skip forever (crossed migration branches) → regenerate it
+  on top of main.
+
+It warns (doesn't fail) when production has a migration the branch doesn't know:
+usually another PR's, applied first — rebase. A PR that doesn't touch
+`lib/db/migrations/` passes with a notice if the secret is missing; one that does
+fails until the secret exists. An unreachable database fails, never passes.
+
+**One-time setup:**
+
+1. In the Neon SQL editor, on the **production** branch, as the owner role,
+   create a role that can only read Drizzle's migration table (pick a long
+   random password):
+   ```sql
+   CREATE ROLE ci_migration_reader WITH LOGIN PASSWORD '<long random password>';
+   GRANT USAGE ON SCHEMA drizzle TO ci_migration_reader;
+   GRANT SELECT ON drizzle.__drizzle_migrations TO ci_migration_reader;
+   ```
+   It cannot read user tables or write anything (verified: `permission denied`).
+2. Build its connection string from the production one (same host and
+   database, `sslmode=require`), swapping in `ci_migration_reader` and its
+   password.
+3. GitHub → Settings → Secrets and variables → Actions → **New repository
+   secret** `PROD_MIGRATIONS_READ_URL` = that string.
+4. GitHub → Settings → Branches → the `main` rule → **Require status checks**
+   → add **Migrations applied to production**. Without this the job is red but
+   the merge button still works.
+
+This is the only CI job that touches production, and only with that read-only
+role; E2E never does (`E2E_ALLOW_DB`).
+
 ## Data-deletion requests (Colorado Privacy Act)
 
 Confirmed requests arrive by email to every `rmdig_admin` (the requester proved
@@ -163,6 +213,55 @@ code. Today it's `admin_only` (staff must have MFA; everyone else is nagged). At
 public launch, set it to `all` in **Vercel → Production env**, then redeploy
 (re-deploy the latest production build so the new value is picked up). Staff
 already require MFA regardless.
+
+## Database backups
+
+Two independent mechanisms, different failure domains:
+
+1. **Neon point-in-time restore** (managed, always on) — check the history
+   retention window on the `production` branch of project
+   `lingering-waterfall-99928244` and bump it if the plan allows; restore =
+   create a branch from a timestamp in the Neon console.
+2. **Nightly encrypted dump to Cloudflare R2** —
+   [.github/workflows/db-backup.yml](../.github/workflows/db-backup.yml),
+   09:00 UTC. `pg_dump -Fc` → `age`-encrypt → upload to
+   `r2://<bucket>/portal-db/`. Retention 30 days (disclosed in `/privacy`);
+   the bucket lifecycle rule is the primary expiry, the workflow prune step is
+   backup.
+
+**One-time setup** (workflow skips, green, until this is done):
+
+1. Generate an age keypair locally: `age-keygen -o portal-backup.key`. Store
+   the **private key** in the password manager (and nowhere else — not GitHub,
+   not R2). The public key (`age1…`) is not sensitive.
+2. Cloudflare → R2: create bucket `rmdig-portal-backups`; add a lifecycle rule
+   deleting objects under `portal-db/` after 30 days; create an R2 API token
+   scoped to that bucket (Object Read & Write).
+3. GitHub repo → Settings → Secrets and variables → Actions:
+   - Secrets: `PROD_DATABASE_URL` (pinned prod Neon URL via
+     `neonctl connection-string` — see "Connecting to production"),
+     `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`.
+   - Variables: `AGE_PUBLIC_KEY` (the `age1…` string),
+     `R2_BACKUP_BUCKET=rmdig-portal-backups`, and finally
+     `DB_BACKUPS_ENABLED=1` to arm the schedule.
+4. Run the workflow once by hand (Actions → db-backup → Run workflow) and
+   confirm an object lands in the bucket.
+
+**Restore drill** (quarterly — an untested backup is a hope, not a backup):
+
+1. Download the newest `portal-db/*.dump.age` from R2.
+2. `age -d -i portal-backup.key -o portal.dump portal-<stamp>.dump.age`
+3. Create a scratch Neon branch off `production`, then
+   `pg_restore -d "<scratch branch URL>" --clean --if-exists --no-owner portal.dump`
+4. Spot-check row counts (`users`, `sar_orgs`, `deletion_requests`) against
+   prod, then delete the scratch branch.
+
+If a nightly run fails, GitHub emails the repo owner — treat a red `db-backup`
+run as an incident, not noise: the second mechanism existing is the point.
+
+**Password-reset note:** rotating `PROD_DATABASE_URL` (Neon password reset)
+must be mirrored into this GitHub secret in the same sitting, or backups break
+silently at the next 09:00 UTC run.
 
 ## Routine maintenance
 

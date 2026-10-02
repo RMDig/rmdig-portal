@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import { VerifiedPhoneField } from "@/components/portal/VerifiedPhoneField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ function FieldError({ errors }: { errors?: string[] }) {
   return <p className="text-xs text-red-700 dark:text-red-400">{errors.join(", ")}</p>;
 }
 
-export function AdvertiserForm() {
+export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createAdvertiserAccountAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
@@ -67,16 +68,7 @@ export function AdvertiserForm() {
           />
           <FieldError errors={fieldErrors?.contactEmail} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="contactPhone">Contact phone (optional)</Label>
-          <Input
-            id="contactPhone"
-            name="contactPhone"
-            type="tel"
-            aria-invalid={!!fieldErrors?.contactPhone}
-          />
-          <FieldError errors={fieldErrors?.contactPhone} />
-        </div>
+        <VerifiedPhoneField enabled={phoneVerifyEnabled} fieldErrors={fieldErrors} />
       </section>
 
       <section className="space-y-3">
