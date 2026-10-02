@@ -51,18 +51,16 @@ export default function SmsProgramPage() {
           <p className="mt-3">
             Inside the AvAI app, a user adds a person as their emergency contact and, on
             that screen, must tick an unchecked box confirming they have that person&apos;s
-            permission to be added and alerted. Next to the box, the screen states what
-            the contact will receive: safety texts about missed check-ins and emergencies,
-            that message frequency varies, that message and data rates may apply, and that
-            they can reply STOP to opt out. The contact can&apos;t be saved until the box
-            is ticked. Designation — the user&apos;s deliberate act plus this
+            permission. Next to the box, the screen states what the contact will receive:
+            &ldquo;{CONTACT_SMS_DISCLOSURE}&rdquo; The contact can&apos;t be saved until
+            the box is ticked. Designation — the user&apos;s deliberate act plus this
             confirmation — is the consent basis for the program.
           </p>
           <figure className="mt-4 flex flex-col items-center">
             {/* A static screenshot of the AvApp Add Contact screen (fixture
                 data), copied from AvApp main docs/screenshots/
-                add_contact_attestation.png after RMDig/AvApp#144 added the SMS
-                disclosure line (AvServ account contract §3.8). Never an HTML
+                add_contact_attestation.png (2026-10-01, 987465e: disclosure names
+                trips and automatic accident alerts; AvServ account contract §3.8). Never an HTML
                 checkbox here: a form-like mock is reviewed as a web opt-in
                 form (Twilio 30925 lesson). */}
             <Image
