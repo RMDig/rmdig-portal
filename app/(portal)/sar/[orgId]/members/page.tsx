@@ -6,6 +6,7 @@ import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { orgInvitations, orgMemberships, sarOrgs, users } from "@/lib/db/schema";
 import { InviteForm } from "./InviteForm";
+import { MemberControls, RevokeInvite } from "./MemberControls";
 
 export const metadata = {
   title: "Members — rmdig",
@@ -38,14 +39,19 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
   }
 
   const members = await db
-    .select({ email: users.email, displayName: users.displayName, role: orgMemberships.role })
+    .select({
+      userId: users.id,
+      email: users.email,
+      displayName: users.displayName,
+      role: orgMemberships.role,
+    })
     .from(orgMemberships)
     .innerJoin(users, eq(users.id, orgMemberships.userId))
     .where(eq(orgMemberships.orgId, orgId))
     .orderBy(asc(orgMemberships.joinedAt));
 
   const pending = await db
-    .select({ email: orgInvitations.email, role: orgInvitations.role })
+    .select({ id: orgInvitations.id, email: orgInvitations.email, role: orgInvitations.role })
     .from(orgInvitations)
     .where(
       and(
@@ -60,7 +66,9 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
-        <p className="text-muted-foreground mt-1">Members and invitations.</p>
+        <p className="text-muted-foreground mt-1">
+          Members and invitations. An organization always keeps at least one admin.
+        </p>
       </div>
 
       {org.status === "approved" || org.status === "pending" ? (
@@ -82,14 +90,20 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Members</h2>
         <ul className="divide-y rounded-md border">
-          {members.map((m) => (
-            <li key={m.email} className="flex items-center justify-between px-4 py-3">
-              <span>{m.displayName ?? m.email}</span>
-              <span className="text-muted-foreground text-sm">
-                {ROLE_LABEL[m.role] ?? m.role}
-              </span>
-            </li>
-          ))}
+          {members.map((m) => {
+            const isYou = m.userId === session.user.id;
+            const label = m.displayName ?? m.email;
+            return (
+              <li key={m.userId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                <div>
+                  <span>{label}</span>
+                  {isYou ? <span className="text-muted-foreground text-sm"> (you)</span> : null}
+                  {m.displayName ? <p className="text-muted-foreground text-xs">{m.email}</p> : null}
+                </div>
+                <MemberControls orgId={orgId} userId={m.userId} role={m.role} isYou={isYou} label={label} />
+              </li>
+            );
+          })}
         </ul>
       </section>
 
@@ -98,11 +112,12 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
           <h2 className="text-lg font-medium">Pending invitations</h2>
           <ul className="divide-y rounded-md border">
             {pending.map((p) => (
-              <li key={p.email} className="flex items-center justify-between px-4 py-3">
-                <span>{p.email}</span>
-                <span className="text-muted-foreground text-sm">
-                  Invited as {ROLE_LABEL[p.role] ?? p.role}
-                </span>
+              <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div>
+                  <span>{p.email}</span>
+                  <p className="text-muted-foreground text-xs">Invited as {ROLE_LABEL[p.role] ?? p.role}</p>
+                </div>
+                <RevokeInvite orgId={orgId} invitationId={p.id} />
               </li>
             ))}
           </ul>

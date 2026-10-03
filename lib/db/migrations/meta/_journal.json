@@ -127,6 +127,13 @@
       "when": 1791061758987,
       "tag": "0017_org_type_and_resubmit",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791062414093,
+      "tag": "0018_org_membership_log",
+      "breakpoints": true
     }
   ]
 }
