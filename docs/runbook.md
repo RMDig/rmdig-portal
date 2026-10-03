@@ -304,6 +304,35 @@ not updated in the same sitting.
 `PROD_MIGRATIONS_READ_URL` uses its own role (`ci_migration_reader`) and is not
 affected.
 
+## SAR proof documents
+
+Proof-of-status documents (county SAR registrations, 501(c)(3) letters) live in
+a **private** Vercel Blob store. Nothing links to them directly. Staff open one
+from the approvals queue ("View document"), which goes through
+`/admin/sar-approvals/proof/<orgId>`. That route checks the staff role, streams
+the file with `Cache-Control: private, no-store`, and logs `sar.proof.viewed`.
+Anyone else gets a 404.
+
+**One-time switch to a private store (before merging the PR that adds this):**
+1. Create the store: Vercel → Storage → Create → Blob → access **Private**, or
+   `vercel blob create-store rmdig-sar-proofs --access private`.
+2. Connect it to `rmdig-portal` for **Production only**, in place of the current
+   public store. Disconnect the old one first, so `BLOB_STORE_ID` now names the
+   private store. Blob privacy is per store, and proof documents are the only
+   thing in Blob.
+3. Redeploy, then submit a test SAR application with a PDF, open it from the
+   approvals queue, and reject the test org.
+
+**Legacy documents:** anything uploaded before the switch lives in the old public
+store, and the route still reads those by their public URL. Leave the old store in
+place until no pending, approved or suspended org still points at it:
+
+```sql
+SELECT id, name FROM sar_orgs WHERE proof_doc_url LIKE '%.public.blob.vercel-storage.com%';
+```
+
+Once that returns nothing you still need, delete the old store.
+
 ## Preview deployments
 
 Every PR gets a Vercel preview you can sign in to. Previews hold **no real user

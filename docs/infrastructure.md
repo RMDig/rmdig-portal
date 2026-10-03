@@ -12,7 +12,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | **Vercel** | Project `rmdig-portal` under team `denny-schaedig-s-projects` | `VERCEL_GIT_COMMIT_SHA` (auto, build-time) | Hosting for Next.js app; deploys `main` to production, every PR to a preview |
 | **Neon** | Project linked via Vercel Marketplace ("Neon-managed" path) | `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct), `POSTGRES_*` family (auto-injected) | Primary Postgres for users, SAR orgs, device links. PostGIS enabled. First migration applied — empty `users` table exists. |
 | **Neon (previews)** | Separate project `rmdig-portal-preview`: branches `preview-seed` (test personas) → `preview` | Preview-scoped `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (set by hand) | Database for every Vercel preview; no production data (runbook "Preview deployments") |
-| **Vercel Blob** | Store connected to Production | `BLOB_STORE_ID` (OIDC auth) | SAR proof documents |
+| **Vercel Blob** | **Private** store connected to Production (runbook "SAR proof documents") | `BLOB_STORE_ID` (OIDC auth) | SAR proof documents, read only through the staff route |
 | **Google Cloud Console** | OAuth client for the `rmdig` project | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in (configured in P1.1) |
 | **Resend** | Domain `rmdig.ai` (apex DKIM, `send.rmdig.ai` envelope) | `RESEND_API_KEY`, `RESEND_FROM_EMAIL=noreply@rmdig.ai` | Transactional email — verification links, claim tokens, org approvals |
 | **Sentry** | Org `rocky-mountain-digerati`, project `rmdig-portal` | `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Error tracking, source-map upload at build time, GitHub integration for stack-trace source mapping |

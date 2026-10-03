@@ -38,7 +38,6 @@ export default async function SarApprovalsPage() {
       operatingStatus: sarOrgs.operatingStatus,
       operatingStatusOther: sarOrgs.operatingStatusOther,
       regionName: sarOrgs.regionName,
-      proofDocUrl: sarOrgs.proofDocUrl,
     })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
