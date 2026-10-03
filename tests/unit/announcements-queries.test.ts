@@ -34,9 +34,16 @@ describe("announcementsFor", () => {
   });
 
   it("filters live announcements to the viewer's audiences", async () => {
-    h.selects = [[row("all", ["everyone"]), row("sar", ["sar"]), row("ads", ["advertiser"])], [{ u: "u1" }], []];
+    h.selects = [[row("all", ["everyone"]), row("sar", ["sar"]), row("ads", ["advertiser"])], [{ role: "responder" }], []];
     const got = await announcementsFor("u1", false);
     expect(got.map((a) => a.id)).toEqual(["all", "sar"]);
+  });
+
+  it("shows SAR-admin notices only to a user who is admin of some org", async () => {
+    h.selects = [[row("adm", ["sar_admin"]), row("sar", ["sar"])], [{ role: "responder" }, { role: "admin" }], []];
+    expect((await announcementsFor("u1", false)).map((a) => a.id)).toEqual(["adm", "sar"]);
+    h.selects = [[row("adm", ["sar_admin"]), row("sar", ["sar"])], [{ role: "dispatcher" }], []];
+    expect((await announcementsFor("u2", false)).map((a) => a.id)).toEqual(["sar"]);
   });
 
   it("shows explorer-only notices to a user with no roles, and not to staff", async () => {

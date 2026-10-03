@@ -444,8 +444,10 @@ Banners on signed-in portal pages: `/admin/announcements` (**rmdig_admin only**)
   Incident), one or more audiences, optional start and end in **Mountain time**.
   The form previews the banner as you type.
 - **Audiences overlap:** Everyone signed in, Regular users (no SAR, advertiser or
-  staff role), SAR organization members, Advertisers, rmdig staff. A viewer sees
-  an announcement if they're in any of its audiences.
+  staff role), SAR organization members, SAR organization admins (the `admin`
+  role in any SAR org; also counted as members), Advertisers, rmdig staff. A
+  viewer sees an announcement if they're in any of its audiences. Banners show
+  on the next portal visit; nothing is emailed.
 - **Public copy:** the server refuses the forbidden claims (CLAUDE.md §0:
   "always", "real-time", "24/7"…). Write what's happening and when, nothing
   internal.
