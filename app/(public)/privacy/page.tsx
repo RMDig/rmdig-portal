@@ -68,16 +68,21 @@ export default function PrivacyPolicyPage() {
             your phone. They are not uploaded to our servers or shared with anyone.
           </p>
 
-          <h3 className="mt-5">Contributing to the research dataset (optional)</h3>
+          <h3 className="mt-5">Submitting photos to the research dataset (optional)</h3>
           <p className="mt-2">
-            Contributing field photos and their labels is optional. If you choose to
-            contribute, the photos and labels you send are reviewed by a person, and they may
-            be published in a public research dataset under the CC&nbsp;BY&nbsp;4.0 license.
+            Submitting field photos and their labels is optional and isn&apos;t available yet.
+            If you choose to submit them, a person reviews them, and they may be published in
+            a public research dataset under the CC&nbsp;BY&nbsp;4.0 license. We plan to pay
+            for accepted photos (see{" "}
+            <Link href="/contribute" className="font-medium underline">
+              rmdig.ai/contribute
+            </Link>
+            ), which will mean collecting the details needed to pay you.
           </p>
           <LawyerPlaceholder>
-            [COUNSEL] Final contribution wording, written once for v1 through upload: what is
-            sent, consent, review, publication under CC BY 4.0, attribution, withdrawal, and
-            retention. Mirror counsel&apos;s text here when it arrives; this paragraph and the
+            [COUNSEL] Final submission wording, written once for v1 through upload: what is
+            sent, consent, review, publication under CC BY 4.0, attribution, withdrawal,
+            retention, and the payment details collected to pay for accepted photos. Mirror counsel&apos;s text here when it arrives; this paragraph and the
             retention table stay conditional until then.
           </LawyerPlaceholder>
 
@@ -326,8 +331,8 @@ export default function PrivacyPolicyPage() {
                   <td>7 days, then reduced to aggregate statistics</td>
                 </tr>
                 <tr>
-                  <td>Contributed photos and labels (only if you choose to contribute)</td>
-                  <td>[COUNSEL] to supply, with the contribution wording above</td>
+                  <td>Submitted photos and labels (only if you choose to submit them)</td>
+                  <td>[COUNSEL] to supply, with the submission wording above</td>
                 </tr>
                 <tr>
                   <td>Emergency contact details</td>
@@ -440,7 +445,7 @@ export default function PrivacyPolicyPage() {
           <h2>Changes to this policy</h2>
           <p className="mt-3">
             We will post any changes on this page and update the date at the top. For
-            material changes — like the future dataset-contribution feature — we will also
+            material changes — like the future photo-submission feature — we will also
             notify you in the app before the change takes effect.
           </p>
         </section>

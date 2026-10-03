@@ -38,13 +38,14 @@ describe("/privacy Apple manifest paragraph (AvApp doc 43 §1)", () => {
 describe("/privacy captures and contributions", () => {
   it("has no unconditional capture-metadata retention row", () => {
     expect(src).not.toContain("Capture metadata (time, location, notes)</td> <td>Until you delete your account");
-    expect(src).toContain("Contributed photos and labels (only if you choose to contribute)");
+    expect(src).toContain("Submitted photos and labels (only if you choose to submit them)");
   });
 
-  it("describes contributing conditionally and marks it for counsel", () => {
-    expect(src).toContain("If you choose to contribute");
+  it("describes submitting conditionally, says payment details will be collected, and marks it for counsel", () => {
+    expect(src).toContain("If you choose to submit them");
     expect(src).toContain("CC&nbsp;BY&nbsp;4.0");
-    expect(src).toMatch(/\[COUNSEL\] Final contribution wording/);
+    expect(src).toContain("collecting the details needed to pay you");
+    expect(src).toMatch(/\[COUNSEL\] Final submission wording/);
   });
 });
 
