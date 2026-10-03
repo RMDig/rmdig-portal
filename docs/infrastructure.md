@@ -11,11 +11,15 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | **GitHub** | `dennys246/rmdig-portal` (public) | — | Source of truth, Vercel build trigger, Sentry source-code mapping |
 | **Vercel** | Project `rmdig-portal` under team `denny-schaedig-s-projects` | `VERCEL_GIT_COMMIT_SHA` (auto, build-time) | Hosting for Next.js app; deploys `main` to production, every PR to a preview |
 | **Neon** | Project linked via Vercel Marketplace ("Neon-managed" path) | `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct), `POSTGRES_*` family (auto-injected) | Primary Postgres for users, SAR orgs, device links. PostGIS enabled. First migration applied — empty `users` table exists. |
+| **Neon (previews)** | Separate project `rmdig-portal-preview`: branches `preview-seed` (test personas) → `preview` | Preview-scoped `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (set by hand) | Database for every Vercel preview; no production data (runbook "Preview deployments") |
+| **Vercel Blob** | Store connected to Production | `BLOB_STORE_ID` (OIDC auth) | SAR proof documents |
 | **Google Cloud Console** | OAuth client for the `rmdig` project | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in (configured in P1.1) |
 | **Resend** | Domain `rmdig.ai` (apex DKIM, `send.rmdig.ai` envelope) | `RESEND_API_KEY`, `RESEND_FROM_EMAIL=noreply@rmdig.ai` | Transactional email — verification links, claim tokens, org approvals |
 | **Sentry** | Org `rocky-mountain-digerati`, project `rmdig-portal` | `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Error tracking, source-map upload at build time, GitHub integration for stack-trace source mapping |
 | **Cloudflare** | DNS for `rmdig.ai` | — (DNS only) | Hosts apex DNS; `app.rmdig.ai` CNAME → Vercel; SPF/DKIM/DMARC for Proton + Resend |
 | **ProtonMail** | Mailbox for `*@rmdig.ai` | — | Human inbox / outbound personal email. Coexists with Resend at the apex via separate DKIM selectors. |
+| **Cloudflare R2** | Bucket `rmdig-portal-backups` (30-day lifecycle on `portal-db/`) | GitHub: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` secrets; `R2_BACKUP_BUCKET` var | Nightly age-encrypted `pg_dump` (runbook "Database backups"); separate bucket, key and token from AvServ's |
+| **GitHub Actions** | `RMDig/rmdig-portal` | Secrets: `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEXTAUTH_SECRET`, `PROD_DATABASE_URL` (non-pooled), `PROD_MIGRATIONS_READ_URL` (read-only role), `R2_*`. Vars: `AGE_PUBLIC_KEY`, `R2_BACKUP_BUCKET`, `DB_BACKUPS_ENABLED=1` | CI, E2E Neon branches, migration guard, nightly backups. Ruleset `main`: PR required, 3 required checks |
 
 ## Domains and DNS
 
@@ -28,9 +32,9 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 
 | Var | `.env.local` | Vercel: Production | Vercel: Preview | Vercel: Development | Sensitive in Vercel? |
 |---|---|---|---|---|---|
-| `DATABASE_URL` | dev-branch URL | auto (via Neon integration) | auto (per-PR branch) | auto | yes |
+| `DATABASE_URL` | dev-branch URL (**currently points at production — move it**) | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | auto | yes |
 | `NEXTAUTH_URL` | `http://localhost:3000` | `https://app.rmdig.ai` | unset (Auth.js auto-detects) | — | no |
-| `NEXTAUTH_SECRET` | hex string | same hex | same hex | same hex | yes |
+| `NEXTAUTH_SECRET` | hex string | hex | **its own value** (was missing until the previews PR, so preview sign-in failed) | hex | yes |
 | `GOOGLE_CLIENT_ID` | yes | yes | yes | yes | no |
 | `GOOGLE_CLIENT_SECRET` | yes | yes | yes | — (sensitive blocks Dev) | yes |
 | `RESEND_API_KEY` | yes | yes | yes | — | yes |
@@ -39,7 +43,14 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | `SENTRY_ORG` | — | `rocky-mountain-digerati` | same | same | no |
 | `SENTRY_PROJECT` | — | `rmdig-portal` | same | same | no |
 | `SENTRY_AUTH_TOKEN` | **never** | yes | yes | — (CI-only) | yes |
-| `MFA_ENFORCEMENT` | `admin_only` | `admin_only` (flip to `all` at public launch) | `admin_only` | `admin_only` | no |
+| `MFA_ENFORCEMENT` | `admin_only` | unset → defaults to `admin_only` (flip to `all` at public launch) | `optional` | `admin_only` | no |
+| `AVSERV_BASE_URL` | `mock://localhost` | `https://avserv-2.rmdig.ai` | `mock://localhost` (enforced at boot) | yes | no |
+| `AVSERV_SERVICE_JWT_SIGNING_KEY` | — | yes | — | — | yes |
+| `AVSERV_FAILOVER_BASE_URL` | — | `https://avserv-3.rmdig.ai` | — (never) | — | no |
+| `BLOB_STORE_ID` | — | set by the connected Blob store (OIDC) | a separate store, if connected | — | no |
+| `BLOB_READ_WRITE_TOKEN` | local fallback | — | — | — | yes |
+| `MFA_ENCRYPTION_KEY` | hex | hex | **its own value** | — | yes |
+| `PREVIEW_EMAIL_RECIPIENTS` | — | — | empty, or testers who should get real email | — | no |
 
 `.env.local` is gitignored. `.env.example` documents the contract.
 
@@ -57,6 +68,7 @@ dig _dmarc.rmdig.ai TXT +short                          # exactly one record, p=
 # Portal liveness
 curl https://app.rmdig.ai/healthz                       # {"status":"ok","commit":"<sha>"} once DNS is live
 curl https://<vercel-project>.vercel.app/healthz        # same, via Vercel-assigned URL
+curl https://rmdig.ai/readyz                            # {"status":"ready",...}: database reachable and fully migrated (the probe target)
 
 # Database (idempotent — re-running is safe; applies any pending migrations)
 pnpm db:migrate
@@ -82,7 +94,5 @@ curl -X POST https://api.resend.com/emails \
 
 ## What's NOT set up (deferred to later phases)
 
-- **Vercel Blob** (P1.4 — SAR proof-doc uploads). Token not yet provisioned.
-- **AvServ peer JWT signing key** (P1.3 — device-link S2S). Hand-off coordinated offline when AvServ ships the `PATCH /v1/internal/devices/:id` endpoint.
 - **Apple Sign-In** (v1.1+). Needs $99/yr Apple Developer account.
 - **Stripe Connect** (Phase 4 — payouts). Deliberately out of Phase 1 scope.

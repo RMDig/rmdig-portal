@@ -115,3 +115,87 @@ describe("client status hardening (real path)", () => {
     await expect(mintLinkCode("acct")).rejects.toMatchObject({ status: 503 });
   });
 });
+
+// Failover for the calls that are safe to repeat on the other node (AvServ
+// nodes are equal peers with replicated state). Account creation is NOT among
+// them: ids are random per node, so a retry after a lost response could create
+// a second account for the same email.
+describe("failover to AVSERV_FAILOVER_BASE_URL (real path)", () => {
+  const ACCOUNT = "11111111-1111-5111-8111-111111111111";
+  const urls = (f: ReturnType<typeof vi.fn>) => f.mock.calls.map((c) => String(c[0]));
+
+  beforeEach(() => {
+    process.env.AVSERV_FAILOVER_BASE_URL = "https://avserv-3.example";
+  });
+  afterEach(() => {
+    delete process.env.AVSERV_FAILOVER_BASE_URL;
+  });
+
+  it("lists devices from the failover node when the primary times out", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("The operation was aborted due to timeout"))
+      .mockResolvedValueOnce(jsonResponse(200, { devices: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { listDevices } = await import("@/lib/avserv/client");
+
+    await expect(listDevices(ACCOUNT)).resolves.toEqual([]);
+    expect(urls(fetchMock)).toEqual([
+      `https://avserv.example/v1/internal/accounts/${ACCOUNT}/devices`,
+      `https://avserv-3.example/v1/internal/accounts/${ACCOUNT}/devices`,
+    ]);
+  });
+
+  it("mints a link code on the failover node when the primary answers 5xx", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(502, { error: "bad gateway" }))
+      .mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { mintLinkCode } = await import("@/lib/avserv/client");
+
+    await expect(mintLinkCode(ACCOUNT)).resolves.toEqual({
+      code: "ABCD-1234",
+      expiresAt: "2026-10-03T12:10:00Z",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fail over on a 4xx from the primary", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(404, { error: "account not found" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { listDevices } = await import("@/lib/avserv/client");
+
+    await expect(listDevices(ACCOUNT)).rejects.toThrow("AvServ does not know this account (404)");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a 404 from the failover node as replication lag, not an unknown account", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("ECONNREFUSED"))
+      .mockResolvedValueOnce(jsonResponse(404, { error: "account not found" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { mintLinkCode } = await import("@/lib/avserv/client");
+
+    await expect(mintLinkCode(ACCOUNT)).rejects.toThrow(/replication lag/);
+  });
+
+  it("fails loud when no node answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+    const { listDevices, AvServError } = await import("@/lib/avserv/client");
+
+    const err = await listDevices(ACCOUNT).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AvServError);
+    expect((err as Error).message).toMatch(/ECONNREFUSED/);
+  });
+
+  it("keeps account creation on the primary only, even when it times out", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("The operation was aborted due to timeout"));
+    vi.stubGlobal("fetch", fetchMock);
+    const { findOrCreateAccount } = await import("@/lib/avserv/client");
+
+    await expect(findOrCreateAccount("someone@example.com")).rejects.toThrow();
+    expect(urls(fetchMock)).toEqual(["https://avserv.example/v1/internal/accounts"]);
+  });
+});

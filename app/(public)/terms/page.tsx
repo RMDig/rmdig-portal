@@ -34,7 +34,8 @@ export default function TermsPage() {
           <h2>1. Agreement</h2>
           <p className="mt-3">
             These terms govern your use of the AvAI™ mobile app and the rmdig web portal,
-            operated by {LEGAL_ENTITY} (&quot;rmdig&quot;, &quot;we&quot;).
+            operated by {LEGAL_ENTITY}{" "}
+            (&quot;rmdig&quot;, &quot;we&quot;).
           </p>
           <LawyerPlaceholder>
             Binding acceptance clause (assent mechanics, minimum age, authority to accept

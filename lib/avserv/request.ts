@@ -74,6 +74,41 @@ export async function avservFetch(
   }
 }
 
+/**
+ * One internal-tier request that is safe to repeat on the other node: a read,
+ * or a write whose duplicate is harmless (a second link code just expires).
+ * Tries AVSERV_BASE_URL, then AVSERV_FAILOVER_BASE_URL when nothing arrived or
+ * the node answered 5xx/503. Returns the last node's response with
+ * `viaFailover`, so the caller can read a failover 404 as replication lag
+ * rather than "unknown account". Throws {@link AvServError} only when no node
+ * answered at all.
+ *
+ * Never use it for POST /v1/internal/accounts: account ids are random per
+ * node, so a retry after a lost response can create a second account for the
+ * same email and stall replication between the nodes (AvServ inbox.go).
+ */
+export async function fetchOnAnyNode(
+  primary: string,
+  path: string,
+  init: { method: string; headers?: Record<string, string>; body?: string },
+): Promise<{ res: Response; viaFailover: boolean }> {
+  const nodes = [primary, env.AVSERV_FAILOVER_BASE_URL].filter((u): u is string => !!u);
+  let lastError: AvServError | undefined;
+  let lastRes: { res: Response; viaFailover: boolean } | undefined;
+  for (const [i, node] of nodes.entries()) {
+    try {
+      const res = await avservFetch(node, path, init);
+      lastRes = { res, viaFailover: i > 0 };
+      if (res.status < 500) return lastRes;
+    } catch (err) {
+      lastError = err as AvServError;
+    }
+  }
+  // A node that answered (even 5xx) says more than a timeout on the other.
+  if (lastRes) return lastRes;
+  throw lastError!;
+}
+
 // ── Contract calls (account_agreement.md, restrictions.md) ───────────────────
 // The newer S2S contracts share one error body ({code, error}), one failover
 // rule (retry the same idempotency key on the other node) and Zod-validated

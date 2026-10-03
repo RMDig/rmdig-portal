@@ -20,8 +20,28 @@ pinned to that branch's pooled endpoint** — it overrides the Neon integration,
 whose injected mapping had production traffic pointed at the `vercel-dev`
 branch while the Vercel *Development* env held the production-branch URL
 (discovered when migration 0009 "succeeded" but prod couldn't see the table).
-If you re-connect or reconfigure the Neon integration, re-verify which branch
-each Vercel environment actually reaches before trusting it.
+If you re-connect or reconfigure the Neon integration, re-pin `DATABASE_URL`
+by hand (below) before the next deploy. The dashboard saying "production" is not
+proof: on 2026-10-02 it said so while the re-created value reached a database
+without the portal schema, and every signed-in page failed until the re-pin.
+
+### Re-pin the production `DATABASE_URL`
+
+```bash
+U=$(neonctl connection-string production --project-id lingering-waterfall-99928244 \
+  --role-name neondb_owner --database-name neondb --pooled)
+case "$U" in *ep-crimson-thunder-aqloj3r3-pooler*) echo "host ok";; *) echo "WRONG HOST, stop";; esac
+psql "$U" -tAc "select to_regclass('public.rate_limits')"   # must print rate_limits
+vercel env rm DATABASE_URL production -y
+printf '%s' "$U" | vercel env add DATABASE_URL production --sensitive --yes; unset U
+vercel env ls production | grep -E ' DATABASE_URL '        # must list it before you redeploy
+vercel redeploy <current production deployment URL> --target production
+curl -s https://rmdig.ai/readyz                               # must be "ready"
+```
+
+For **Production**, don't pass a git-branch argument to `vercel env add`. With
+`""` it adds nothing and says nothing, and a redeploy then runs with no
+database URL at all (2026-10-02, about 20 min of 500s).
 
 `vercel env pull --environment production` does NOT work for secrets anymore —
 integration vars are marked sensitive and pull as empty strings. Get the URL
@@ -261,7 +281,164 @@ run as an incident, not noise: the second mechanism existing is the point.
 
 **Password-reset note:** rotating `PROD_DATABASE_URL` (Neon password reset)
 must be mirrored into this GitHub secret in the same sitting, or backups break
-silently at the next 09:00 UTC run.
+silently at the next 09:00 UTC run. This secret takes the **non-pooled** URL
+(host without `-pooler`): `pg_dump` should not go through the pooler.
+
+## Rotating the database password
+
+The `neondb_owner` password lives in several places; a reset breaks every one
+not updated in the same sitting.
+
+1. Neon console → Roles → `neondb_owner` → Reset password. Copy the **connection
+   string** form (not the `psql '…'` form).
+2. Vercel → Settings → Environment Variables → **`DATABASE_URL`** (Production):
+   paste the **pooled** URL (host with `-pooler`), bare — no quotes, no `psql`.
+3. GitHub secret `PROD_DATABASE_URL` (backups): the **non-pooled** URL.
+4. Any `.env.local` that uses it.
+5. Check the key name before redeploying — `vercel env ls production` must list
+   `DATABASE_URL` exactly. **2026-10-01/02:** it was saved as `DATABSE_URL`, every
+   server route returned 500 for ~20 h, and the log said
+   `DATABASE_URL: … received undefined`.
+6. Redeploy, then verify `/healthz`, one public page, and a real sign-in.
+
+`PROD_MIGRATIONS_READ_URL` uses its own role (`ci_migration_reader`) and is not
+affected.
+
+## Preview deployments
+
+Every PR gets a Vercel preview you can sign in to. Previews hold **no real user
+data** and never reach the live AvServ:
+
+- **Database:** a separate Neon project, `rmdig-portal-preview`, not a branch of
+  production. (Neon's Vercel integration can only fork preview branches from the
+  default branch, which here is production, so every preview would carry copies
+  of real users.) It has two branches: `preview-seed` (schema plus the test
+  personas) and its child `preview`, which every preview deployment shares.
+- **Migrations:** the `vercel-build` script runs `scripts/migrate-preview.ts`
+  before `next build`. On a preview it applies the PR's migrations to `preview`;
+  in production it does nothing (production is still migrated by hand before
+  merge, see "Run a production migration"). It refuses the production endpoint.
+- **AvServ:** `mock://localhost`. The `+restricted` persona gets one active
+  restriction from the mock.
+- **Email:** logged as `email.<kind>.preview_logged` (recipient and subject,
+  never the body), not sent. To get a real email on a preview, add your address
+  to `PREVIEW_EMAIL_RECIPIENTS`; an email is sent only if every recipient is listed.
+- **Startup check:** on `VERCEL_ENV=preview`, the server refuses to boot if
+  `DATABASE_URL` is the production endpoint or `AVSERV_BASE_URL` isn't `mock://`.
+- **Sign-in:** email and password with a persona. Google sign-in doesn't work on
+  previews (each preview URL would need its own registered redirect URI).
+
+### One-time setup
+
+1. **Neon:** create the project `rmdig-portal-preview` (same region as
+   production). Rename its default branch to `preview-seed`. Copy its
+   **non-pooled** connection string.
+2. **Migrate and seed `preview-seed`** from a local checkout of `main`:
+   ```bash
+   SEED=$(neonctl connection-string preview-seed --project-id <preview project id>)
+   DATABASE_URL="$SEED" pnpm db:migrate
+   read -rs -p "Preview seed password: " PW; echo   # 16+ chars, from the password manager
+   PREVIEW_SEED_DATABASE_URL="$SEED" PREVIEW_SEED_PASSWORD="$PW" \
+     pnpm db:seed-preview you@example.com --admin you@work.example; unset PW
+   ```
+   The prompt keeps the password out of shell history. A literal value in the
+   command is used as-is: on 2026-10-02 a placeholder became the real password
+   and the accounts had to be deleted and re-seeded.
+   This creates five personas on your address with plus tags: `+admin`
+   (`rmdig_admin`), `+user`, `+sar` (admin of an approved test SAR org), `+advertiser`
+   (admin of a test advertiser) and `+restricted`. All share that password and are
+   email-verified. Re-running is safe. Each `--admin <address>` adds one more
+   `rmdig_admin` account, so you can sign in to previews as yourself. It's a
+   separate preview account, not your production one, and it uses the same
+   seed password. To add it later, seed both `preview-seed` and `preview`, or
+   seed `preview-seed` and then reset `preview` from it.
+3. **Neon:** create the branch `preview` from `preview-seed`. Copy its **pooled**
+   and **non-pooled** connection strings.
+4. **Vercel → Storage → the Neon database → Allowed Environments:** set it to
+   **Production** only. That stops the integration creating production copies for
+   previews and removes its Preview-scoped `DATABASE_URL*` / `POSTGRES_*` / `PG*`
+   variables. The integration **re-creates the Production variables** when you do
+   this, replacing the hand-pinned `DATABASE_URL`: re-pin it ("Re-pin the production
+   `DATABASE_URL`" above) before anything deploys. Do the same
+   for the **Blob store** (Production only), or previews upload SAR proofs into
+   the production store. Then delete the production project's `preview/*` branches
+   (`neonctl branches delete <name> --project-id lingering-waterfall-99928244`);
+   each one is a copy of production.
+5. **Vercel → Settings → Environment Variables**, scoped to **Preview only**, with
+   values different from production:
+
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | `preview` branch, pooled |
+   | `DATABASE_URL_UNPOOLED` | `preview` branch, non-pooled |
+   | `NEXTAUTH_SECRET` | new: `openssl rand -hex 32` |
+   | `MFA_ENCRYPTION_KEY` | new: `openssl rand -hex 32` |
+   | `AVSERV_BASE_URL` | `mock://localhost` |
+   | `MFA_ENFORCEMENT` | `optional` (each reset of `preview` would otherwise force the admin persona to enroll again) |
+   | `PREVIEW_EMAIL_RECIPIENTS` | empty, or your own address while testing a template |
+
+   From the CLI, pipe the value in and pass the git branch and sensitivity
+   explicitly, or the prompts swallow the piped value and nothing is added:
+   `printf '%s' "$VALUE" | vercel env add NAME preview "" --sensitive --yes`.
+   The `""` (all preview branches) is for Preview only; never pass it for Production.
+
+   Do **not** add `AVSERV_SERVICE_JWT_SIGNING_KEY` or `AVSERV_FAILOVER_BASE_URL`
+   to Preview. For SAR proof uploads on previews, connect a second Vercel Blob
+   store to the Preview environment only.
+6. Push any commit to an open PR and sign in to its preview as `you+admin@…`.
+
+### Housekeeping
+
+- `preview` is shared, so an abandoned PR's migration stays on it. When previews
+  drift (a migration error in the build log, or stale data), go to the Neon console,
+  then `preview` → **Reset from parent**. The next preview build re-applies the
+  open PR's migrations.
+- After a migration merges to `main`, migrate `preview-seed` too (step 2's
+  `db:migrate` line), so resets start current.
+- `vercel-dev` (the CI E2E parent) is a separate matter: it's still a branch of
+  production, used only by CI.
+
+## Outages and rollback
+
+**Detect.** Two probes, two meanings:
+
+| URL | 200 means | Pages you? |
+|---|---|---|
+| `/healthz` | the deployment is running | no, it never touches the database |
+| `/readyz` | the database answers **and** holds every migration this build ships | yes: UptimeRobot monitor, push alerts |
+
+`/readyz` returns 503 with `checks.database` (`ok` / `unreachable`) and
+`checks.schema` (`ok` / `behind` / `unknown`). The cause is in the logs
+(`readyz.database_unreadable`, `readyz.schema_behind`), never in the body.
+
+**Diagnose.**
+```bash
+vercel logs --environment production --level error --since 1h --no-branch -x
+vercel env ls production | grep -E ' DATABASE_URL '   # exactly that name (the DATABSE_URL outage)
+curl -s https://rmdig.ai/readyz
+```
+- `database: ok, schema: behind` with the migrations table **missing** (log
+  `readyz.database_unreadable`, code `42P01`): the URL reaches the wrong database.
+  Re-pin (see "Connecting to production").
+- `database: ok, schema: behind` otherwise (log `readyz.schema_behind`): a
+  migration merged before it was applied; run it ("Run a production migration").
+- `database: unreachable`: wrong host or credentials (re-pin), or Neon itself;
+  check Neon status and the project's compute in the Neon console.
+
+**Roll back a bad deploy.** Vercel → Deployments → the last good production
+deployment → **Instant Rollback** (or `vercel rollback <deployment-url>`). It
+swaps the alias in seconds and doesn't rebuild. A rollback doesn't undo a
+migration: if the bad deploy shipped one, the old code runs against the new
+schema, which is the normal state before any merge (§3.8) and is safe for
+additive migrations.
+
+**After.** Record the incident in `docs/plans/00_status.md` with the cause and the
+lesson, and add any new step here.
+
+**Probe cost.** Neon's free compute suspends after 5 minutes idle. A `/readyz`
+probe every 5 minutes keeps it awake around the clock; every 10 minutes keeps
+it awake about half the time. Pick the interval against the plan's compute
+allowance (infrastructure.md "Maintenance").
 
 ## Routine maintenance
 

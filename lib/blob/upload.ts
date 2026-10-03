@@ -4,10 +4,13 @@ import { put } from "@vercel/blob";
 
 import { env } from "../env";
 
-// Proof-of-status document upload to Vercel Blob (SAR onboarding, P1.4). The
-// token is provisioned in every environment; a missing token is a misconfig and
-// fails loud (CLAUDE_BOOTSTRAP §1.3, no silent failures), distinct from a bad
-// file (ProofDocError) which the caller turns into a field error.
+// Proof-of-status document upload to Vercel Blob (SAR onboarding, P1.4).
+// Credentials: on Vercel, the store connection sets BLOB_STORE_ID and the
+// function authenticates with Vercel's OIDC identity (no long-lived secret);
+// BLOB_READ_WRITE_TOKEN remains for local development only. Neither being set
+// is a misconfig and fails loud (CLAUDE_BOOTSTRAP §1.3, no silent failures),
+// distinct from a bad file (ProofDocError) which the caller turns into a
+// field error.
 //
 // Privacy note: Vercel Blob serves objects at an unguessable public URL — there
 // is no per-request auth on the bytes. Proof docs (501(c)(3) letters, county
@@ -66,18 +69,22 @@ export async function uploadProofDoc(file: File): Promise<UploadedProofDoc> {
     return { url: `https://blob.local/sar-proofs/${randomBytes(8).toString("hex")}.${ext}` };
   }
 
-  if (!env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error(
-      "BLOB_READ_WRITE_TOKEN is not set — cannot upload SAR proof documents. " +
-        "Provision a Vercel Blob store and pull the token into this environment.",
-    );
-  }
-
   const key = `sar-proofs/${randomBytes(16).toString("hex")}.${ext}`;
   const blob = await put(key, file, {
     access: "public",
-    token: env.BLOB_READ_WRITE_TOKEN,
     contentType: file.type,
+    ...blobCredentials(),
   });
   return { url: blob.url };
+}
+
+/** Which Blob credentials this environment uses. The store id (Vercel OIDC)
+ *  wins when present; the SDK pairs it with the function's OIDC token. */
+export function blobCredentials(): { storeId: string } | { token: string } {
+  if (env.BLOB_STORE_ID) return { storeId: env.BLOB_STORE_ID };
+  if (env.BLOB_READ_WRITE_TOKEN) return { token: env.BLOB_READ_WRITE_TOKEN };
+  throw new Error(
+    "No Vercel Blob credentials: set BLOB_STORE_ID (connect a Blob store to the project in " +
+      "Vercel) or, for local development, BLOB_READ_WRITE_TOKEN — cannot upload SAR proof documents.",
+  );
 }
