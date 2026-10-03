@@ -68,6 +68,7 @@ dig _dmarc.rmdig.ai TXT +short                          # exactly one record, p=
 # Portal liveness
 curl https://app.rmdig.ai/healthz                       # {"status":"ok","commit":"<sha>"} once DNS is live
 curl https://<vercel-project>.vercel.app/healthz        # same, via Vercel-assigned URL
+curl https://rmdig.ai/readyz                            # {"status":"ready",...}: database reachable and fully migrated (the probe target)
 
 # Database (idempotent — re-running is safe; applies any pending migrations)
 pnpm db:migrate

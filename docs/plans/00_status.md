@@ -19,6 +19,15 @@
 because the Production database variable was saved as `DATABSE_URL` during a password
 rotation. Lesson in [runbook](../runbook.md) "Rotating the database password".
 
+**Incident record — 2026-10-02 (~15:44–16:40 MDT):** setting the Neon integration to
+Production-only (previews setup) re-created the Production `DATABASE_URL`. The new
+value reached a database without the portal schema (`42P01 rate_limits does not
+exist`), so sign-in and every signed-in page failed. A re-pin then ran
+`vercel env add … production ""`, which added nothing, so the redeploy had no
+database URL (`/healthz` 500). `/healthz` was green for the first part, as it was for
+the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
+`/readyz` with an external probe (runbook "Outages and rollback").
+
 ## 2. Phase 1 (bootstrap §4)
 
 | Milestone | Status | Evidence |

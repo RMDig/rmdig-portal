@@ -6,13 +6,14 @@ import {
   BETA_DISCLOSURE,
   OPERATOR_CONTINUITY_DISCLOSURE,
 } from "@/lib/legal/compliance-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "AvAI (Avalanche AI) — backcountry safety companion | RMDig",
   description:
     "AvAI by Rocky Mountain Digerati: a beta safety companion app for backcountry travel — check out before a trip, check in when you're back safe — plus open snowpack research and the Rocky Mountain Snowpack dataset.",
-  alternates: { canonical: "/" },
-};
+  path: "/",
+});
 
 // Search-engine identity card (Organization schema): ties the brand, the
 // legal entity, and the public research profile together for crawlers.
@@ -29,6 +30,15 @@ const ORG_JSONLD = {
     "https://huggingface.co/datasets/RMDig/rocky_mountain_snowpack",
     "https://github.com/RMDig",
   ],
+};
+
+// Site identity for search engines: the site name shown in results.
+const WEBSITE_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "AvAI by RMDig",
+  alternateName: ["RMDig", "Rocky Mountain Digerati"],
+  url: "https://rmdig.ai/",
 };
 
 // The public landing page. Copy here is a PUBLIC-FACING SURFACE under AvApp
@@ -143,7 +153,7 @@ export default function LandingPage() {
             Rocky Mountain Snowpack dataset
           </Link>{" "}
           (CC-BY-4.0) and{" "}
-          <Link href="/models" className="font-medium underline">
+          <Link href="/research/models" className="font-medium underline">
             open-source snowpack models
           </Link>
           , and research avalanche-risk modeling on snowpack imagery. The research is in
@@ -161,6 +171,10 @@ export default function LandingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSONLD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
       />
     </div>
   );

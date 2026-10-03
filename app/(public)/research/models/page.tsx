@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-export const metadata: Metadata = {
+import { ResearchTabs } from "@/components/public/ResearchTabs";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
   title: "Open-source snowpack models — snowGAN | RMDig",
   description:
     "RMDig's open-source generative models for snowpack imagery — snowGAN (magnified profile and core variants) on Hugging Face — plus experimental avalanche-research models in the snowGradient repo.",
-  alternates: { canonical: "/models" },
-};
+  path: "/research/models",
+});
 
 // Public research surface (doc 16 §6.2 scan applies). Same claim-ladder rule
 // as /snowpack_dataset: these are research artifacts described as research —
@@ -15,6 +18,7 @@ export const metadata: Metadata = {
 export default function ModelsPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
+      <ResearchTabs />
       <h1 className="text-3xl font-semibold tracking-tight">Open-source models</h1>
 
       <div className="mt-6 space-y-10 leading-7 text-neutral-700 dark:text-neutral-200 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 dark:[&_h2]:text-neutral-50">

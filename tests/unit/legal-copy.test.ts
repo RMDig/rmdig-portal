@@ -44,6 +44,8 @@ function publicSourceFiles(): string[] {
       else if (full.endsWith(".tsx")) files.push(full);
     }
   }
+  // Error and not-found pages render for public visitors too.
+  files.push(join(process.cwd(), "app", "error.tsx"), join(process.cwd(), "app", "not-found.tsx"));
   const templates = join(process.cwd(), "lib", "email", "templates");
   for (const entry of readdirSync(templates)) {
     if (entry.startsWith("DataDeletion")) files.push(join(templates, entry));

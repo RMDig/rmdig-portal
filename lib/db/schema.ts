@@ -811,3 +811,65 @@ export const restrictionReviewLog = pgTable(
   // History is read per request, newest first.
   (t) => [index("restriction_review_log_request_id_idx").on(t.requestId)],
 );
+
+// ---------------------------------------------------------------------------
+// Portal announcements (docs/runbook.md "Announcements"): staff-written notices
+// shown as a banner on signed-in portal pages, optionally scheduled and
+// targeted by audience. Planned maintenance of the whole portal uses the Global
+// Config switch instead (lib/maintenance/portal-switch.ts), since this table is
+// unreachable when the database is down.
+
+export const announcementSeverity = pgEnum("announcement_severity", [
+  "info",
+  "maintenance",
+  "incident",
+]);
+
+// Audiences overlap: a SAR member is also "everyone", and a SAR org admin is
+// also a SAR member. "explorer" is a signed-in user with no SAR, advertiser or
+// staff role (lib/announcements/announcements.ts).
+export const announcementAudience = pgEnum("announcement_audience", [
+  "everyone",
+  "explorer",
+  "sar",
+  "sar_admin",
+  "advertiser",
+  "staff",
+]);
+
+export const announcementAction = pgEnum("announcement_action", ["created", "ended"]);
+
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    message: text("message").notNull(),
+    severity: announcementSeverity("severity").notNull(),
+    audiences: announcementAudience("audiences").array().notNull(),
+    // Null start = from creation; null end = until ended by hand.
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    // Set when staff end it early; the scheduled endsAt is kept as written.
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  // Every portal page asks "what's live now": only rows not ended by hand.
+  (t) => [index("announcements_live_idx").on(t.endsAt).where(sql`ended_at IS NULL`)],
+);
+
+export const announcementLog = pgTable(
+  "announcement_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    announcementId: uuid("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    action: announcementAction("action").notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("announcement_log_announcement_id_idx").on(t.announcementId)],
+);

@@ -22,6 +22,12 @@ export const metadata: Metadata = {
   },
   description:
     "Rocky Mountain Digerati builds AvAI (Avalanche AI): a beta backcountry safety companion app, open snowpack research, and the Rocky Mountain Snowpack dataset.",
+  applicationName: "AvAI",
+  publisher: "Rocky Mountain Digerati LLC",
+  // Defaults for pages that don't set their own (public pages use
+  // lib/seo.ts pageMetadata, which sets the full set).
+  openGraph: { type: "website", siteName: "RMDig · AvAI", locale: "en_US" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

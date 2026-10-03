@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-export const metadata: Metadata = {
+import { ResearchTabs } from "@/components/public/ResearchTabs";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
   title: "Rocky Mountain Snowpack Dataset — open avalanche & snow science data | RMDig",
   description:
     "An open, CC-BY-4.0 dataset of Rocky Mountain snowpack profile and core imagery with site metadata, hosted on Hugging Face — the research foundation for AvAI (Avalanche AI).",
-  alternates: { canonical: "/snowpack_dataset" },
-};
+  path: "/snowpack_dataset",
+});
 
 // schema.org/Dataset markup — what makes the corpus eligible for Google
 // Dataset Search (name + description required; license/creator/sameAs
@@ -39,6 +42,7 @@ const DATASET_JSONLD = {
 export default function SnowpackDatasetPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
+      <ResearchTabs />
       <h1 className="text-3xl font-semibold tracking-tight">
         The Rocky Mountain Snowpack dataset
       </h1>
@@ -52,7 +56,7 @@ export default function SnowpackDatasetPage() {
               snow cores and magnified snowpack profile images, captured in chronological
               series so samples can be related to weather, geographic, and site
               conditions. Collection uses a novel mini-coring protocol —{" "}
-              <Link href="/methods" className="font-medium underline">
+              <Link href="/research/methods" className="font-medium underline">
                 read about the field methods
               </Link>
               .
@@ -90,7 +94,7 @@ export default function SnowpackDatasetPage() {
           <h2>The research it feeds</h2>
           <p className="mt-3">
             This corpus is the foundation for our avalanche-safety research line: the{" "}
-            <Link href="/models" className="font-medium underline">
+            <Link href="/research/models" className="font-medium underline">
               open-source snowGAN models
             </Link>{" "}
             over the two imaging modalities (magnified profile imagery and core samples)

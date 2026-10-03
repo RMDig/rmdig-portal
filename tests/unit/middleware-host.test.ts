@@ -14,29 +14,29 @@ function req(url: string): NextRequest {
 }
 
 describe("canonical-host middleware", () => {
-  it("308s app.rmdig.ai to the apex, preserving path and query", () => {
-    const res = middleware(req("https://app.rmdig.ai/privacy?x=1"));
+  it("308s app.rmdig.ai to the apex, preserving path and query", async () => {
+    const res = await middleware(req("https://app.rmdig.ai/privacy?x=1"));
     expect(res.status).toBe(308);
     expect(res.headers.get("location")).toBe("https://rmdig.ai/privacy?x=1");
   });
 
-  it("308s www.rmdig.ai to the apex", () => {
-    const res = middleware(req("https://www.rmdig.ai/account/delete"));
+  it("308s www.rmdig.ai to the apex", async () => {
+    const res = await middleware(req("https://www.rmdig.ai/account/delete"));
     expect(res.status).toBe(308);
     expect(res.headers.get("location")).toBe("https://rmdig.ai/account/delete");
   });
 
-  it("passes the apex through and forwards x-pathname", () => {
-    const res = middleware(req("https://rmdig.ai/settings"));
+  it("passes the apex through and forwards x-pathname", async () => {
+    const res = await middleware(req("https://rmdig.ai/settings"));
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
     // NextResponse.next({request}) carries the overridden request headers here.
     expect(res.headers.get("x-middleware-request-x-pathname")).toBe("/settings");
   });
 
-  it("leaves preview/local hosts alone (e2e runs on *.vercel.app)", () => {
+  it("leaves preview/local hosts alone (e2e runs on *.vercel.app)", async () => {
     for (const host of ["rmdig-portal-abc123.vercel.app", "localhost:3000"]) {
-      const res = middleware(req(`https://${host}/sign-in`));
+      const res = await middleware(req(`https://${host}/sign-in`));
       expect(res.status).toBe(200);
       expect(res.headers.get("location")).toBeNull();
     }
