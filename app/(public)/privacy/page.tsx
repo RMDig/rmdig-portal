@@ -61,15 +61,25 @@ export default function PrivacyPolicyPage() {
             permission prompt.
           </p>
 
-          <h3 className="mt-5">Photos</h3>
+          <h3 className="mt-5">Photos and captures</h3>
           <p className="mt-2">
-            AvAI lets you capture snowpack profile and core photos in the field. At this
-            stage of the beta, these photos are collected on and stay on your device — they
-            are not uploaded to our servers or shared with anyone. A future, separately
-            announced version will offer an opt-in way to contribute captures to a public
-            research dataset; if that launches, it will require your explicit per-session
-            consent in the app and this policy will be updated first.
+            AvAI lets you capture snowpack profile and core photos in the field. In this
+            release, your captures (the photos and their time, location and notes) stay on
+            your phone. They are not uploaded to our servers or shared with anyone.
           </p>
+
+          <h3 className="mt-5">Contributing to the research dataset (optional)</h3>
+          <p className="mt-2">
+            Contributing field photos and their labels is optional. If you choose to
+            contribute, the photos and labels you send are reviewed by a person, and they may
+            be published in a public research dataset under the CC&nbsp;BY&nbsp;4.0 license.
+          </p>
+          <LawyerPlaceholder>
+            [COUNSEL] Final contribution wording, written once for v1 through upload: what is
+            sent, consent, review, publication under CC BY 4.0, attribution, withdrawal, and
+            retention. Mirror counsel&apos;s text here when it arrives; this paragraph and the
+            retention table stay conditional until then.
+          </LawyerPlaceholder>
 
           <h3 className="mt-5">Emergency contact details</h3>
           <p className="mt-2">
@@ -108,10 +118,19 @@ export default function PrivacyPolicyPage() {
             reachable&quot; reports). These exist so the watchdog can work and so we can
             audit that an alert really fired.
           </p>
+          <p className="mt-2">
+            With them the app sends: the return times you set and any note you add to Send
+            Help (relayed to your contact); the state of your phone during a check-out
+            (battery, charging and low-power state, connectivity, notification permission,
+            and how many updates are waiting to send); and a device ID the app generates
+            for itself, which is not your phone&apos;s advertising or vendor identifier.
+            Crash reports go to Sentry with your account, device ID, location, contacts and
+            check-in details removed, so they are not linked to you.
+          </p>
 
           <h3 className="mt-5">Automatic accident alerts (Incident Detection)</h3>
           <p className="mt-2">
-            Incident Detection is optional. It works only during an outing you have checked
+            When Incident Detection is available, it is optional. It works only during an outing you have checked
             out for, and only when you have turned it on. The app watches your phone&apos;s
             motion sensors, on the phone itself, for a possible accident: for example a hard
             impact followed by no movement, or the sustained tumbling of being caught in an
@@ -156,8 +175,9 @@ export default function PrivacyPolicyPage() {
             AvAI does not track you across other companies&apos; apps or websites and sends
             no data to advertising or data-broker networks. The iOS privacy manifest
             declares tracking: none, with an empty tracking-domain list, and every data
-            type it declares (precise location, coarse location, photos) is marked
-            &quot;not used for tracking.&quot; We do not sell personal data.
+            type it declares (listed under &quot;Apple privacy-manifest disclosures&quot;
+            below) is marked &quot;not used for tracking.&quot; We do not sell personal
+            data.
           </p>
         </section>
 
@@ -282,8 +302,8 @@ export default function PrivacyPolicyPage() {
               </thead>
               <tbody className="[&_td]:py-2 [&_td]:pr-4 [&_tr]:border-b [&_tr]:border-neutral-200 dark:[&_tr]:border-neutral-800">
                 <tr>
-                  <td>Photos you capture</td>
-                  <td>On your device only — you control them; deleting the app removes them</td>
+                  <td>Photos and captures (time, location, notes)</td>
+                  <td>On your phone only — you control them; deleting the app removes them</td>
                 </tr>
                 <tr>
                   <td>Check-out/check-in history</td>
@@ -306,8 +326,8 @@ export default function PrivacyPolicyPage() {
                   <td>7 days, then reduced to aggregate statistics</td>
                 </tr>
                 <tr>
-                  <td>Capture metadata (time, location, notes)</td>
-                  <td>Until you delete your account</td>
+                  <td>Contributed photos and labels (only if you choose to contribute)</td>
+                  <td>[COUNSEL] to supply, with the contribution wording above</td>
                 </tr>
                 <tr>
                   <td>Emergency contact details</td>
@@ -377,10 +397,14 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>Apple privacy-manifest disclosures</h2>
           <p className="mt-3">
-            For transparency, the iOS app&apos;s privacy manifest declares exactly the
-            collection described above: precise location, coarse location, and photos —
-            each linked to your account, used for app functionality only, and not used for
-            tracking. The manifest also declares the app&apos;s use of four
+            For transparency, the iOS app&apos;s privacy manifest declares the data the app
+            sends, each used for app functionality only and not used for tracking. Linked to
+            your account: your name and email address; the emergency contacts you type in;
+            precise and coarse location; a device ID the app generates (not Apple&apos;s
+            advertising or vendor identifier); other content you enter (return times and the
+            Send Help note); and other diagnostic data (your phone&apos;s state during a
+            check-out). Not linked to you: crash data. Photos are not declared because they
+            stay on your phone. The app does no tracking. The manifest also declares the app&apos;s use of four
             &quot;required-reason&quot; system APIs, in each case for ordinary app
             operation rather than fingerprinting: user preferences storage (CA92.1), file
             timestamps (C617.1), free disk space (E174.1), and system boot time (35F9.1).
@@ -405,8 +429,10 @@ export default function PrivacyPolicyPage() {
             knowingly collect their data.
           </p>
           <LawyerPlaceholder>
-            Final children&apos;s-privacy clause (COPPA scope, minimum-age term consistent
-            with the Terms of Service). Counsel to supply.
+            [COUNSEL] Reconcile the minimum age. This page says AvAI is not directed to
+            children under 13, but the AvAI user agreement requires users to be 18 or older
+            (a tick-box). Counsel to set one age and supply the final children&apos;s-privacy
+            clause (COPPA scope) consistent with the Terms of Service.
           </LawyerPlaceholder>
         </section>
 
