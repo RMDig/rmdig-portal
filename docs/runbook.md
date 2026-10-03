@@ -108,6 +108,32 @@ Every action appends to `sar_org_status_log` (append-only audit) and is attribut
 to you. Manual approval is non-negotiable — safety-of-life alerts must never route
 to an unverified org.
 
+## SAR team terms
+
+Each SAR team writes the terms users accept when they add it, and chooses the
+services it provides through AvAI (AvServ plan 41; AvApp plan 47 §2.13). Org
+admins edit them at `/sar/<orgId>/terms`; **rmdig admins** review them at
+**Admin → Team terms review** (`/admin/sar-terms`).
+
+- **Services (capabilities):** missed check-ins from users who added the team;
+  Send Help from users who added it; "Also send help" from users in its area who
+  didn't add it; being named in a contact's alert; the anonymised area map
+  (stays off until counsel approves it). Incident Detection alerts come later.
+  Every service currently uses the portal channel.
+- **Wording check:** the editor and both actions refuse anything about
+  availability, hours, coverage, response times, monitoring, being on call, a
+  duty or promise to respond, guarantees, and the forbidden public claims. The
+  team can save a draft that fails it, but can't submit or publish one.
+- **Review:** read it as a user would. **Publish** fixes the version number (1, 2,
+  3…), the SHA-256 of the exact text, and whether users must accept again
+  (false only when the text is byte-identical and services were only removed).
+  **Send back** needs a note, which the team's admins see and receive by email.
+- **Published is final.** A database trigger refuses any change to a published
+  version; changes are a new version. Counsel's standard clauses are added when
+  they arrive.
+- **Not yet:** sending published terms to AvServ (the team sync) is the next
+  step. Until then, publishing affects nothing outside the portal.
+
 ## SAR org members
 
 Org admins manage their own team at `/sar/<orgId>/members`: invite (by email,

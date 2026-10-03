@@ -28,9 +28,9 @@ export default function SarOrgSubmittedEmail({ orgName }: SarOrgSubmittedEmailPr
             organization on rmdig.
           </Text>
           <Text style={paragraph}>
-            Because SAR organizations receive safety-of-life alerts, every application is reviewed by
-            our team before it&apos;s approved. We&apos;ll email you when there&apos;s a decision or
-            if we need anything else from you.
+            Our staff review every application, and call to confirm where needed, before approving
+            it. We&apos;ll email you when there&apos;s a decision or if we need anything else from
+            you.
           </Text>
           <Hr style={hr} />
           <Text style={muted}>

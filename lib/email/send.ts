@@ -21,6 +21,8 @@ import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEma
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
+import SarTermsDecisionEmail, { type SarTermsDecision } from "./templates/SarTermsDecisionEmail";
+import SarTermsPendingReviewEmail from "./templates/SarTermsPendingReviewEmail";
 import VerifyEmail from "./templates/VerifyEmail";
 
 // Lazy so importing this module never depends on the key being present —
@@ -296,5 +298,34 @@ export async function sendRestrictionReviewUpheldEmail(
     to,
     subject: "AvAI - we reviewed your request",
     html,
+  });
+}
+
+export async function sendSarTermsPendingReviewEmail(
+  to: string,
+  params: { orgName: string; reviewUrl: string },
+): Promise<void> {
+  const html = await render(SarTermsPendingReviewEmail(params));
+  await deliver({
+    kind: "sar_terms_pending_review",
+    label: "SAR-terms-pending-review",
+    to,
+    subject: `Team terms awaiting review: ${params.orgName}`,
+    html,
+  });
+}
+
+export async function sendSarTermsDecisionEmail(
+  to: string,
+  params: { orgName: string; decision: SarTermsDecision; version?: number; note?: string },
+): Promise<void> {
+  const html = await render(SarTermsDecisionEmail(params));
+  await deliver({
+    kind: "sar_terms_decision",
+    label: "SAR-terms-decision",
+    to,
+    subject: params.decision === "published" ? "Your team terms are published" : "Your team terms need changes",
+    html,
+    log: { decision: params.decision },
   });
 }

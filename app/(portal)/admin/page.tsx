@@ -87,6 +87,23 @@ export default async function AdminPage() {
       {isAdmin ? (
         <Card>
           <CardHeader>
+            <CardTitle>Team terms review</CardTitle>
+            <CardDescription>
+              Search &amp; rescue teams&apos; terms and the services they provide. Publish or send back each
+              submitted version.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/admin/sar-terms">Review team terms</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
             <CardTitle>Announcements</CardTitle>
             <CardDescription>
               Post a banner on signed-in portal pages, scheduled and targeted by audience, and

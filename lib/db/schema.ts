@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -435,6 +437,59 @@ export const orgMembershipLog = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("org_membership_log_org_id_idx").on(t.orgId)],
+);
+
+// Team terms (docs/plans/33; AvServ plan 41, contract sar_terms.md; AvApp plan
+// 47 §2.13). A SAR org writes the terms for being an emergency contact and
+// chooses which services it provides through AvAI (capabilities, each with the
+// channels it accepts). An rmdig operator reviews every version; publishing
+// fixes the version number and the SHA-256 of the exact body bytes, which the
+// app sends back on acceptance. A published version is immutable (a trigger in
+// migration 0019 enforces it); changes are a new version.
+export const sarTermsStatus = pgEnum("sar_terms_status", ["draft", "submitted", "published", "rejected"]);
+
+export interface SarCapabilitySetting {
+  name: "checkout_alerts" | "send_help_added" | "send_help_area" | "named_to_contacts" | "area_map" | "incident_alerts";
+  channels: Array<"portal" | "email" | "webhook" | "sms">;
+}
+
+export const sarOrgTerms = pgTable(
+  "sar_org_terms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    // Assigned at publish: 1, 2, 3… per org. Null while draft/submitted/rejected.
+    version: integer("version"),
+    body: text("body").notNull(),
+    capabilities: jsonb("capabilities").$type<SarCapabilitySetting[]>().notNull(),
+    // Hex SHA-256 of the UTF-8 bytes of `body`, set at publish.
+    sha256: text("sha256"),
+    status: sarTermsStatus("status").notNull().default("draft"),
+    authorUserId: uuid("author_user_id").references(() => users.id, { onDelete: "set null" }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    reviewedByUserId: uuid("reviewed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    // Staff note on a rejection, shown to the org's admins.
+    reviewNote: text("review_note"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    // Set at publish (AvServ sar_terms.md): false only when the body is
+    // byte-identical to the previous version and capabilities were only
+    // removed, so earlier acceptances carry forward. Any added capability or
+    // changed text means users accept again.
+    requiresReacceptance: boolean("requires_reacceptance"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("sar_org_terms_org_version").on(t.orgId, t.version).where(sql`version IS NOT NULL`),
+    // One open draft or submission per org at a time.
+    uniqueIndex("sar_org_terms_one_open")
+      .on(t.orgId)
+      .where(sql`status IN ('draft', 'submitted')`),
+    index("sar_org_terms_status_idx").on(t.status),
+  ],
 );
 
 // ── Data / account-deletion requests (Colorado Privacy Act) ──────────────────
