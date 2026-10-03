@@ -32,7 +32,6 @@ export interface PendingOrg {
   operatingStatus: string;
   operatingStatusOther: string | null;
   regionName: string | null;
-  proofDocUrl: string;
   region: PreviewPolygon | null;
 }
 
@@ -76,7 +75,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
           <dt className="inline font-medium text-foreground">Proof: </dt>
           <dd className="inline">
             <a
-              href={org.proofDocUrl}
+              href={`/admin/sar-approvals/proof/${org.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline"

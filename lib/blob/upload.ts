@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 
 import { env } from "../env";
 
@@ -12,12 +12,12 @@ import { env } from "../env";
 // distinct from a bad file (ProofDocError) which the caller turns into a
 // field error.
 //
-// Privacy note: Vercel Blob serves objects at an unguessable public URL — there
-// is no per-request auth on the bytes. Proof docs (501(c)(3) letters, county
-// registrations) are mildly sensitive, so the URL is treated as a secret: stored
-// on the org row, shown only to the submitter and to platform reviewers. This is
-// the Phase-1 simplicity tradeoff from rmdig-ai docs/plans/06; revisit if proof
-// docs ever carry PII beyond org registration.
+// Privacy: proof docs (501(c)(3) letters, county registrations, IDs on them)
+// live in a PRIVATE Blob store. Nothing reads them by URL; staff open them only
+// through /admin/sar-approvals/proof/[orgId], which checks the staff role and
+// streams the bytes with getProofDoc (runbook "SAR proof documents").
+// Documents uploaded before 2026-10-03 went to
+// the old public store; getProofDoc still reads those by their public URL.
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -71,11 +71,35 @@ export async function uploadProofDoc(file: File): Promise<UploadedProofDoc> {
 
   const key = `sar-proofs/${randomBytes(16).toString("hex")}.${ext}`;
   const blob = await put(key, file, {
-    access: "public",
+    access: "private",
     contentType: file.type,
     ...blobCredentials(),
   });
   return { url: blob.url };
+}
+
+/** A proof document as stored on the org row: a private-store URL, a legacy
+ *  public-store URL (before 2026-10-03), or the E2E fake. */
+export function proofDocAccess(url: string): "private" | "public" | "fake" {
+  const host = new URL(url).hostname;
+  if (host === "blob.local") return "fake";
+  return host.endsWith(".public.blob.vercel-storage.com") ? "public" : "private";
+}
+
+/** Stream a proof document for staff review. Null when it no longer exists.
+ *  The caller has already checked the staff role. */
+export async function getProofDoc(url: string): Promise<{
+  stream: ReadableStream<Uint8Array>;
+  contentType: string;
+} | null> {
+  const access = proofDocAccess(url);
+  if (access === "fake") return null;
+  const result =
+    access === "public" ? await get(url, { access: "public" }) : await get(url, { access: "private", ...blobCredentials() });
+  if (!result) return null;
+  // 304 only answers a conditional request, which this never sends.
+  if (result.statusCode !== 200) throw new Error(`Blob get returned ${result.statusCode} for a proof document`);
+  return { stream: result.stream, contentType: result.blob.contentType ?? "application/octet-stream" };
 }
 
 /** Which Blob credentials this environment uses. The store id (Vercel OIDC)
