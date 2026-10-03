@@ -4,12 +4,14 @@ import Link from "next/link";
 import DraftBanner from "@/components/legal/DraftBanner";
 import LawyerPlaceholder from "@/components/legal/LawyerPlaceholder";
 import { LEGAL_ENTITY, SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy — rmdig / AvAI",
   description:
     "How Rocky Mountain Digerati LLC collects, uses, and deletes personal data in the AvAI app and the rmdig portal.",
-};
+  path: "/privacy",
+});
 
 // The App Store Connect / Play Console privacy-policy URL points here, so this
 // page must stay public (no auth) at a stable path, and its factual claims

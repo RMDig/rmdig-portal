@@ -30,9 +30,11 @@ export const STAYS_UP = [
   "/alerts",
   "/avai",
   "/contribute",
-  "/methods",
-  "/models",
+  "/methods", // redirects to /research/methods
+  "/models", // redirects to /research/models
   "/privacy",
+  "/research",
+  "/services",
   "/sms",
   "/snowpack_dataset",
   "/support",

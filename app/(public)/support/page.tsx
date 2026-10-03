@@ -6,11 +6,14 @@ import {
   OPERATOR_CONTINUITY_DISCLOSURE,
   SUPPORT_EMAIL,
 } from "@/lib/legal/compliance-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Support — rmdig / AvAI",
-  description: "Support and contact for the AvAI app and the rmdig portal.",
-};
+  description:
+    "Support and contact for the AvAI app and the rmdig portal.",
+  path: "/support",
+});
 
 // This is the App Store Connect / Play Console support URL. AvApp doc 02
 // P0-13 requires the operator-continuity disclosure (doc 16 §6.1, verbatim)

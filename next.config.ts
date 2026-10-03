@@ -56,11 +56,15 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       // /avai is a real page again (2026-07-27) — no redirect.
-      { source: "/snowgan", destination: "/models", permanent: true },
-      { source: "/corediff", destination: "/models", permanent: true },
-      { source: "/corediffusion", destination: "/models", permanent: true },
+      { source: "/snowgan", destination: "/research/models", permanent: true },
+      { source: "/corediff", destination: "/research/models", permanent: true },
+      { source: "/corediffusion", destination: "/research/models", permanent: true },
       { source: "/about", destination: "/", permanent: true },
-      { source: "/projects", destination: "/models", permanent: true },
+      { source: "/projects", destination: "/research/models", permanent: true },
+      // Research moved under /research (2026-10). /snowpack_dataset keeps its
+      // URL: it's the brand's best-ranking page and is cited in press.
+      { source: "/models", destination: "/research/models", permanent: true },
+      { source: "/methods", destination: "/research/methods", permanent: true },
       // AvApp links people to rmdig.ai/account (AvApp work item 2026-10-02);
       // account management lives at /settings. Exact match only: /account/delete
       // and /account/review are real pages. Temporary, so /account stays free.
