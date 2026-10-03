@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { previewSafetyProblems } from "./preview-guard";
+
 // Single source of truth for env access across the app. Imported by lib/db,
 // lib/logger, lib/auth, sentry.*.config — anywhere else that touches env, route
 // it through here instead of reading process.env directly. That way the schema
@@ -59,6 +61,10 @@ const Env = z.object({
   SENTRY_AUTH_TOKEN: z.string().optional(),
 
   // Phase-1.4+ — optional until those milestones land.
+  // Vercel Blob (SAR proof docs). On Vercel, connecting a Blob store sets
+  // BLOB_STORE_ID and uploads authenticate with the function's OIDC token;
+  // BLOB_READ_WRITE_TOKEN is the local-development fallback.
+  BLOB_STORE_ID: z.string().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
 
   // AvServ S2S identity integration (direction B — see rmdig-ai docs/plans/
@@ -93,6 +99,13 @@ const Env = z.object({
   // GIT_COMMIT_SHA is the local-dev fallback.
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   GIT_COMMIT_SHA: z.string().optional(),
+
+  // Set by Vercel. On "preview" the safety rules in lib/preview-guard apply:
+  // no production database, a mock AvServ, and email logged instead of sent.
+  VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
+  // Preview only: comma-separated addresses that still receive real email, for
+  // testing a template end to end. Unset means previews send nothing.
+  PREVIEW_EMAIL_RECIPIENTS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof Env>;
@@ -114,6 +127,16 @@ if (!parsed.success && !isBuildOrCI) {
     .map(([k, v]) => `  ${k}: ${v?.join(", ")}`)
     .join("\n");
   throw new Error(`Invalid environment variables:\n${summary}\n\nCheck .env.local against .env.example.`);
+}
+
+// A preview must never reach production data or the live safety service.
+// Checked at runtime only: the build has its own check in
+// scripts/migrate-preview.ts, and CI has no preview env.
+if (parsed.success && !isBuildOrCI && parsed.data.VERCEL_ENV === "preview") {
+  const problems = previewSafetyProblems(parsed.data);
+  if (problems.length > 0) {
+    throw new Error(`Unsafe preview configuration:\n  ${problems.join("\n  ")}`);
+  }
 }
 
 // At build/CI, expose process.env as-is (typed) so static analysis doesn't

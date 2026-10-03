@@ -61,6 +61,10 @@ const nextConfig: NextConfig = {
       { source: "/corediffusion", destination: "/models", permanent: true },
       { source: "/about", destination: "/", permanent: true },
       { source: "/projects", destination: "/models", permanent: true },
+      // AvApp links people to rmdig.ai/account (AvApp work item 2026-10-02);
+      // account management lives at /settings. Exact match only: /account/delete
+      // and /account/review are real pages. Temporary, so /account stays free.
+      { source: "/account", destination: "/settings", permanent: false },
     ];
   },
 };

@@ -53,15 +53,16 @@ describe("auto-replies as a contact receives them (confirmed live 2026-09-30)", 
 describe("Add Contact consent copy (AvApp compliance_copy.dart twins, contract ยง3.8)", () => {
   it("matches the app's checkbox label and disclosure line", () => {
     expect(CONTACT_PERMISSION_ATTESTATION).toBe(
-      "I confirm I have this person's permission to be added as an emergency contact and alerted if I miss a check-in.",
+      "I confirm I have this person's permission to add them as my emergency contact, and for AvAI to text them about my trips and if I may need help.",
     );
     expect(CONTACT_SMS_DISCLOSURE).toBe(
-      "They'll get safety texts from AvAI about missed check-ins and emergencies. Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.",
+      "They'll get texts from AvAI about your trips, missed check-ins and emergencies, including automatic accident alerts. Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.",
     );
   });
 
   it("the disclosure states the four elements the campaign's message flow names", () => {
-    expect(CONTACT_SMS_DISCLOSURE).toMatch(/missed check-ins and emergencies/);
+    expect(CONTACT_SMS_DISCLOSURE).toMatch(/your trips, missed check-ins and emergencies/);
+    expect(CONTACT_SMS_DISCLOSURE).toMatch(/automatic accident alerts/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/Msg frequency varies/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/Msg & data rates may apply/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/reply STOP/);
@@ -69,17 +70,22 @@ describe("Add Contact consent copy (AvApp compliance_copy.dart twins, contract ย
 });
 
 describe("/sms consent screenshot", () => {
-  // AvApp main docs/screenshots/add_contact_attestation.png after AvApp#144
-  // (box unticked, disclosure line visible). A new app screenshot updates this
-  // hash and CONTACT_SMS_DISCLOSURE together.
-  const APPROVED_SHA256 = "d93905399e7ca80a466e6a7918e2023da6728f47b9639f7e3d42acf4079dbb48";
-  // The pre-#144 screenshot without the disclosure line.
-  const SUPERSEDED_SHA256 = "41457e9b5f5cddcfc923af115fae973763b6c459b85bb10bd34914cd50745169";
+  // AvApp main docs/screenshots/add_contact_attestation.png at 987465e (box
+  // unticked, Save disabled, disclosure naming trips and automatic accident
+  // alerts). A new app screenshot updates this hash and the consent strings
+  // together.
+  const APPROVED_SHA256 = "9beb72cc9fb5a409f9247233fa236f8cf440f44583a2592ca699b1172db4e772";
+  // Earlier screenshots: without the disclosure line, then with the
+  // missed-check-ins-only disclosure.
+  const SUPERSEDED_SHA256 = [
+    "41457e9b5f5cddcfc923af115fae973763b6c459b85bb10bd34914cd50745169",
+    "d93905399e7ca80a466e6a7918e2023da6728f47b9639f7e3d42acf4079dbb48",
+  ];
 
   it("is the current AvApp screenshot with the disclosure line", () => {
     const bytes = readFileSync(join(process.cwd(), "public", "research", "designation-attestation.png"));
     const hash = createHash("sha256").update(bytes).digest("hex");
-    expect(hash).not.toBe(SUPERSEDED_SHA256);
+    expect(SUPERSEDED_SHA256).not.toContain(hash);
     expect(hash).toBe(APPROVED_SHA256);
   });
 });
@@ -89,6 +95,11 @@ describe("/sms page", () => {
 
   it("renders the notice from the shared constant in both places", () => {
     expect(src.match(/\{DESIGNATION_NOTICE\}/g)).toHaveLength(2);
+  });
+
+  it("quotes the consent disclosure from the shared constant, never a paraphrase", () => {
+    expect(src).toMatch(/&ldquo;\{CONTACT_SMS_DISCLOSURE\}&rdquo;/);
+    expect(src).not.toMatch(/safety texts about missed check-ins/);
   });
 
   it("renders HELP and YES from the shared constants, with no stale HELP text", () => {

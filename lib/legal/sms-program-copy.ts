@@ -24,13 +24,14 @@ export const DESIGNATION_NOTICE =
  * in the same release.
  */
 export const CONTACT_SMS_DISCLOSURE =
-  "They'll get safety texts from AvAI about missed check-ins and emergencies. " +
-  "Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.";
+  "They'll get texts from AvAI about your trips, missed check-ins and emergencies, " +
+  "including automatic accident alerts. Msg frequency varies. Msg & data rates may apply. " +
+  "They can reply STOP to opt out.";
 
 /** The Add Contact checkbox label, twin of AvApp kContactPermissionAttestation. */
 export const CONTACT_PERMISSION_ATTESTATION =
-  "I confirm I have this person's permission to be added as an emergency contact " +
-  "and alerted if I miss a check-in.";
+  "I confirm I have this person's permission to add them as my emergency contact, " +
+  "and for AvAI to text them about my trips and if I may need help.";
 
 /**
  * The live HELP auto-reply (Twilio Advanced Opt-Out on the sending number;
