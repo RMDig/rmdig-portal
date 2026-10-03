@@ -47,6 +47,13 @@ function publicSourceFiles(): string[] {
   // The signed-in map's page and panel (its legend strings are checked in
   // tests/unit/map-layers.test.ts).
   for (const f of ["page.tsx", "MapView.tsx"]) files.push(join(process.cwd(), "app", "(portal)", "map", f));
+  // SAR team terms: the editor's guidance and the shared view users' terms
+  // render through (docs/plans/33).
+  files.push(
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "TermsEditor.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "page.tsx"),
+    join(process.cwd(), "components", "sar", "TermsView.tsx"),
+  );
   // Error and not-found pages render for public visitors too.
   files.push(join(process.cwd(), "app", "error.tsx"), join(process.cwd(), "app", "not-found.tsx"));
   const templates = join(process.cwd(), "lib", "email", "templates");

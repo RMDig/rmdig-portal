@@ -1,4 +1,5 @@
 import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -67,7 +68,10 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
         <p className="text-muted-foreground mt-1">
-          Members and invitations. An organization always keeps at least one admin.
+          Members and invitations. An organization always keeps at least one admin.{" "}
+          <Link href={`/sar/${orgId}/terms`} className="font-medium underline">
+            Team terms
+          </Link>
         </p>
       </div>
 
