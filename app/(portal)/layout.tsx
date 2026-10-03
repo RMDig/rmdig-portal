@@ -4,12 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
+import { announcementsFor, type LiveAnnouncement } from "@/lib/announcements/queries";
 import { auth } from "@/lib/auth";
 import { evaluateMfaGate } from "@/lib/auth/mfa-enforcement";
 import { getPlatformRoles } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs, users } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { MobileNav } from "@/components/public/MobileNav";
 import { SignOutButton } from "./SignOutButton";
 
@@ -56,6 +59,16 @@ export default async function PortalLayout({ children }: { children: React.React
       .innerJoin(sarOrgs, eq(sarOrgs.id, orgMemberships.orgId))
       .where(and(eq(orgMemberships.userId, userId), eq(sarOrgs.status, "pending")))
   ).map((o) => o.name);
+
+  // Staff announcements for this viewer's audiences. A failed read hides the
+  // banner rather than the page: announcements are advisory, and the page's
+  // own data reads surface a real database outage.
+  let notices: LiveAnnouncement[] = [];
+  try {
+    notices = await announcementsFor(userId, isStaff);
+  } catch (err) {
+    logger.error({ event: "announcements.read_failed", userId, err });
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -159,6 +172,10 @@ export default async function PortalLayout({ children }: { children: React.React
           </div>
         </div>
       </header>
+
+      {notices.map((n) => (
+        <AnnouncementBanner key={n.id} message={n.message} severity={n.severity} endsAt={n.endsAt} />
+      ))}
 
       {pendingNames.length > 0 ? (
         <div className="border-b bg-blue-50 dark:bg-blue-900/20">

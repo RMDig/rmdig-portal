@@ -87,6 +87,23 @@ export default async function AdminPage() {
       {isAdmin ? (
         <Card>
           <CardHeader>
+            <CardTitle>Announcements</CardTitle>
+            <CardDescription>
+              Post a banner on signed-in portal pages, scheduled and targeted by audience, and
+              preview what each audience sees.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/admin/announcements">Manage announcements</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
             <CardTitle>Team</CardTitle>
             <CardDescription>
               Invite new administrators or reviewers and manage who holds staff roles.

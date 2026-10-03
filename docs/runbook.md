@@ -436,6 +436,28 @@ must print `503`.
 **Reads:** the switch is read only for portal routes, at most once per 30 s per
 Edge instance, to stay inside the Hobby plan's included reads (100k a month).
 
+## Announcements
+
+Banners on signed-in portal pages: `/admin/announcements` (**rmdig_admin only**).
+
+- **Write:** message (≤ 300 characters), type (Information / Maintenance /
+  Incident), one or more audiences, optional start and end in **Mountain time**.
+  The form previews the banner as you type.
+- **Audiences overlap:** Everyone signed in, Regular users (no SAR, advertiser or
+  staff role), SAR organization members, Advertisers, rmdig staff. A viewer sees
+  an announcement if they're in any of its audiences.
+- **Public copy:** the server refuses the forbidden claims (CLAUDE.md §0:
+  "always", "real-time", "24/7"…). Write what's happening and when, nothing
+  internal.
+- **Preview as:** shows the banners a regular user, SAR member, advertiser or
+  staff member sees right now. It renders banners only: no one's data, no
+  permission change.
+- **End now** stops one early. Creating and ending are recorded in
+  `announcement_log` with who did it.
+- Announcements live in the portal database, so they can't announce the
+  database being down. For that, use the maintenance switch (above) and the
+  status page.
+
 ## Outages and rollback
 
 **Detect.** Two probes, two meanings:
