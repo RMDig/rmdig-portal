@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import LawyerPlaceholder from "@/components/legal/LawyerPlaceholder";
 import { env } from "@/lib/env";
 import { CONTRIBUTE_BODY, SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
 
@@ -52,43 +53,73 @@ export default function ContributePage() {
 
       <section className="mt-12 space-y-4 leading-7 text-neutral-700 dark:text-neutral-200">
         <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-          Snowpack samples and the open dataset
+          Submitting snowpack samples
         </h2>
         <p>
-          Over the long term, we plan to let anyone submit snowpack samples to grow the{" "}
+          Anyone will be able to submit snowpack samples to the{" "}
           <Link href="/snowpack_dataset" className="font-medium underline">
             open snowpack dataset
           </Link>
-          . That feature is still in development and isn&apos;t available yet.
+          . Collecting a sample takes an AvAI coring kit, which we plan to offer for sale this
+          winter, and samples are submitted through the AvAI app. Submitting isn&apos;t
+          available yet.
         </p>
         <p>
-          Building AI models with the snowpack dataset is more than welcome. We ask two things:
+          We plan to pay for each accepted photo, currently expected to be about $0.01 per
+          photo. A person reviews every sample, and we may reject samples that are low
+          quality: for example, blurry photos, or cores not collected the way the kit
+          describes. Rejected samples aren&apos;t paid for or published. Accepted photos may
+          be published in the dataset under the CC&nbsp;BY&nbsp;4.0 license.
+        </p>
+        <LawyerPlaceholder>
+          [COUNSEL] Submission and payment terms, published before submissions open: the rate,
+          how and when payment is made, tax reporting, rejection and any appeal, the license
+          you grant (CC BY 4.0), and withdrawal. The Terms of Service and privacy policy change
+          in the same release.
+        </LawyerPlaceholder>
+      </section>
+
+      <section className="mt-12 space-y-4 leading-7 text-neutral-700 dark:text-neutral-200">
+        <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+          Building models with the dataset
+        </h2>
+        <p>
+          Building AI models with the snowpack dataset is more than welcome. We encourage you
+          to release these as open source:
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
             <strong>Models not meant for safety decisions</strong> (research, education,
-            exploration): we encourage you to release them as open source, for transparency,
-            especially models that show a validated advantage from pre-training on this data,
-            so others can build on them.
+            exploration), for transparency.
           </li>
           <li>
-            <strong>Models meant to inform safety decisions</strong> in avalanche terrain are
-            welcome too, but we recommend having them verified by peers before you release
-            them.
+            <strong>Models that show a validated advantage from pre-training</strong> on this
+            data, so others can build on them.
           </li>
         </ul>
+        <p>
+          <strong>Models meant to inform safety decisions</strong> in avalanche terrain are
+          welcome too, but we recommend having them peer-reviewed by independent experts before
+          you release them.
+        </p>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           These are requests from us, not license terms: the dataset&apos;s own license governs
           how it may be used.
         </p>
+        <p>
+          We hold our own models to the same standard. We release our models that aren&apos;t
+          meant for safety decisions as open source. Safety models we train will be released
+          only after independent experts have peer-reviewed them, and we plan to publish that
+          work as a research paper.
+        </p>
       </section>
 
       <p className="mt-10 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
-        Contributions are covered by our{" "}
+        Payments to rmdig are covered by our{" "}
         <Link href="/terms" className="font-medium underline">
           Terms of Service
         </Link>
-        . Questions about a contribution go to{" "}
+        . Questions go to{" "}
         <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium underline">
           {SUPPORT_EMAIL}
         </a>

@@ -79,18 +79,39 @@ describe("/contribute dataset guidance", () => {
     delete h.env.CONTRIBUTE_PAYMENT_LINK_URL;
   });
 
-  it("says sample submission is in development, not available", () => {
+  it("says submitting needs a coring kit and isn't available yet", () => {
     const html = render();
-    expect(html).toMatch(/submit snowpack samples/);
-    expect(html).toMatch(/still in development and isn(&#x27;|')t available yet/);
+    expect(html).toMatch(/Anyone will be able to submit snowpack samples/);
+    expect(html).toMatch(/AvAI coring kit/);
+    expect(html).toMatch(/Submitting isn(&#x27;|')t available yet/);
   });
 
-  it("welcomes AI use, asks open-source for non-safety models and peer verification for safety models", () => {
+  it("states the planned payment and the right to reject low-quality samples, pending counsel", () => {
+    const html = render();
+    expect(html).toMatch(/about \$0\.01 per photo/);
+    expect(html).toMatch(/we may reject samples that are low quality/);
+    expect(html).toMatch(/Rejected samples aren(&#x27;|')t paid for or published/);
+    expect(html).toMatch(/\[COUNSEL\] Submission and payment terms/);
+  });
+
+  it("encourages open-source release for non-safety models and for validated pre-training advantage, separately", () => {
     const html = render();
     expect(html).toMatch(/Building AI models with the snowpack dataset is more than welcome/);
-    expect(html).toMatch(/release them as open source, for transparency/);
-    expect(html).toMatch(/validated advantage from pre-training/);
-    expect(html).toMatch(/verified by peers before you release/);
+    expect(html).toMatch(/Models not meant for safety decisions/);
+    expect(html).toMatch(/Models that show a validated advantage from pre-training/);
+    expect(html).toMatch(/peer-reviewed by independent experts before\s+you release/);
+  });
+
+  it("states rmdig's own model policy", () => {
+    const html = render();
+    expect(html).toMatch(/We release our models that aren(&#x27;|')t\s+meant for safety decisions as open source/);
+    expect(html).toMatch(/only after independent experts have peer-reviewed them/);
+  });
+
+  it("keeps 'contribution' for money: the footer covers payments, not samples", () => {
+    const html = render();
+    expect(html).toMatch(/Payments to rmdig are covered by our/);
+    expect(html).not.toMatch(/Contributions are covered by/);
   });
 
   it("frames the guidance as requests, deferring to the dataset license", () => {
