@@ -29,16 +29,20 @@ export default async function PortalLayout({ children }: { children: React.React
   const roles = await getPlatformRoles(userId);
   const isStaff = roles.length > 0;
 
-  const [row] = await db
-    .select({ mfaEnabledAt: users.mfaEnabledAt })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const [[row], orgAdminRows] = await Promise.all([
+    db.select({ mfaEnabledAt: users.mfaEnabledAt }).from(users).where(eq(users.id, userId)).limit(1),
+    db
+      .select({ orgId: orgMemberships.orgId })
+      .from(orgMemberships)
+      .where(and(eq(orgMemberships.userId, userId), eq(orgMemberships.role, "admin")))
+      .limit(1),
+  ]);
 
   const gate = evaluateMfaGate({
     enforcement: env.MFA_ENFORCEMENT,
     mfaEnabled: !!row?.mfaEnabledAt,
     isStaff,
+    isOrgAdmin: orgAdminRows.length > 0,
   });
 
   // Authoritative enforcement (see middleware.ts for why this lives here, not in

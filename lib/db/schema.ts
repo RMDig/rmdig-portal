@@ -407,6 +407,36 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
   (t) => [index("sar_org_status_log_org_id_idx").on(t.orgId)],
 );
 
+// Append-only audit of SAR org membership changes (docs/plans/33 §4 portal 7):
+// who joined (by invitation), whose role changed, who was removed or left,
+// and which invitations were revoked. The subject's email is snapshotted so
+// the history reads correctly after an account is deleted.
+export const orgMembershipAction = pgEnum("org_membership_action", [
+  "joined",
+  "role_changed",
+  "removed",
+  "left",
+  "invite_revoked",
+]);
+
+export const orgMembershipLog = pgTable(
+  "org_membership_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    action: orgMembershipAction("action").notNull(),
+    subjectUserId: uuid("subject_user_id").references(() => users.id, { onDelete: "set null" }),
+    subjectEmail: text("subject_email").notNull(),
+    fromRole: orgRole("from_role"),
+    toRole: orgRole("to_role"),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("org_membership_log_org_id_idx").on(t.orgId)],
+);
+
 // ── Data / account-deletion requests (Colorado Privacy Act) ──────────────────
 // The portal owns the user account, so the CPA deletion-on-request path lives
 // here (AvApp doc 24 §1.4; doc 12 T20 — precise geolocation is SENSITIVE data

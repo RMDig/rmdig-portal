@@ -108,6 +108,29 @@ Every action appends to `sar_org_status_log` (append-only audit) and is attribut
 to you. Manual approval is non-negotiable — safety-of-life alerts must never route
 to an unverified org.
 
+## SAR org members
+
+Org admins manage their own team at `/sar/<orgId>/members`: invite (by email,
+role chosen), change a member's role, remove a member, leave, and revoke a
+pending invitation.
+
+- **Always at least one admin.** Demoting or removing the last admin, including
+  yourself, is refused. Make someone else an admin first.
+- **Every change is logged** in `org_membership_log` with the actor: `joined`
+  (accepted an invitation), `role_changed`, `removed`, `left` and `invite_revoked`.
+  The subject's email is snapshotted.
+- **MFA:** with `MFA_ENFORCEMENT=admin_only`, SAR org admins must enroll, like
+  rmdig staff.
+- **The team's only admin is unreachable** (left the team, lost access): staff
+  can make another member admin in SQL after verifying the request with the org
+  out of band, and should record why:
+
+```sql
+UPDATE org_memberships SET role = 'admin' WHERE org_id = '<org>' AND user_id = '<user>';
+INSERT INTO org_membership_log (org_id, action, subject_user_id, subject_email, to_role, actor_user_id)
+  VALUES ('<org>', 'role_changed', '<user>', '<their email>', 'admin', '<your user id>');
+```
+
 ## Reset a user's MFA
 
 When a user has lost their authenticator **and** their recovery codes. (If they

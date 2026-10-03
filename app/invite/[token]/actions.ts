@@ -4,7 +4,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { orgInvitations, orgMemberships } from "@/lib/db/schema";
+import { orgInvitations, orgMembershipLog, orgMemberships } from "@/lib/db/schema";
 import { hashInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
 
@@ -32,6 +32,7 @@ export async function acceptInvitationAction(
     .select({
       id: orgInvitations.id,
       orgId: orgInvitations.orgId,
+      email: orgInvitations.email,
       role: orgInvitations.role,
       createdByUserId: orgInvitations.createdByUserId,
     })
@@ -52,7 +53,7 @@ export async function acceptInvitationAction(
     await db.transaction(async (tx) => {
       // onConflictDoNothing: if the user is already a member (e.g. a re-used
       // link), keep their existing role rather than overwriting it.
-      await tx
+      const joined = await tx
         .insert(orgMemberships)
         .values({
           orgId: invite.orgId,
@@ -60,7 +61,19 @@ export async function acceptInvitationAction(
           role: invite.role,
           invitedByUserId: invite.createdByUserId,
         })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ userId: orgMemberships.userId });
+      // Logged only when this actually added them (docs/plans/33 §4).
+      if (joined.length > 0) {
+        await tx.insert(orgMembershipLog).values({
+          orgId: invite.orgId,
+          action: "joined",
+          subjectUserId: userId,
+          subjectEmail: invite.email,
+          toRole: invite.role,
+          actorUserId: userId,
+        });
+      }
       await tx
         .update(orgInvitations)
         .set({ acceptedAt: new Date(), acceptedByUserId: userId })
