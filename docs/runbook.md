@@ -398,6 +398,44 @@ data** and never reach the live AvServ:
 - `vercel-dev` (the CI E2E parent) is a separate matter: it's still a branch of
   production, used only by CI.
 
+## Portal maintenance switch
+
+For planned work that takes the signed-in portal down (a database upgrade, a
+risky migration). While it's on, every portal route (sign-in, `/settings`,
+`/admin`, `/sar`, `/advertiser`…) answers a static **503 "down for
+maintenance"** page with `Retry-After`. These stay up throughout: the public
+site and store gates (`/`, `/privacy`, `/terms`, `/sms`, `/alerts`, `/support`,
+`/account/delete`, …) and `/healthz` / `/readyz`. The switch needs no database
+and no redeploy.
+
+**One-time setup:** Vercel → Storage → create a **Global Config** (formerly Edge
+Config) store and connect it to `rmdig-portal` for **Production** only. That sets
+`GLOBAL_CONFIG` (older stores set `EDGE_CONFIG`; either works). Redeploy once so
+the middleware sees the variable.
+
+**Turn it on:** in the store, set the key `portalMaintenance`:
+
+```json
+{ "enabled": true, "message": "We're upgrading the database.", "endsAt": "2026-10-04T08:30:00Z" }
+```
+
+- `message` (optional, ≤ 300 characters) is public copy: no internal detail,
+  and none of the forbidden claims (CLAUDE.md §0).
+- `endsAt` (optional, ISO 8601 with offset) is shown in Mountain time and sets
+  `Retry-After`.
+- It takes effect within about 30 seconds (each Edge instance caches the value).
+
+**Turn it off:** set `"enabled": false` (or delete the key).
+
+**Fails open:** if the store can't be read, or the value doesn't match the shape
+above, the portal stays up and the middleware logs
+`maintenance.switch_unreadable` / `maintenance.switch_invalid`. So check that a
+switch-on actually took: `curl -s -o /dev/null -w '%{http_code}' https://rmdig.ai/settings`
+must print `503`.
+
+**Reads:** the switch is read only for portal routes, at most once per 30 s per
+Edge instance, to stay inside the Hobby plan's included reads (100k a month).
+
 ## Outages and rollback
 
 **Detect.** Two probes, two meanings:
