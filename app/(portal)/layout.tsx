@@ -51,7 +51,8 @@ export default async function PortalLayout({ children }: { children: React.React
 
   // Under-review banner: members of pending SAR orgs see their status on every
   // portal page while they finish setup (operator decision 2026-07-26 —
-  // pending orgs can assemble their team; approval alone turns on routing).
+  // pending orgs can assemble their team). No routing claim: nothing routes
+  // alerts to SAR orgs yet (docs/plans/33 §4).
   const pendingNames = (
     await db
       .select({ name: sarOrgs.name })
@@ -101,6 +102,9 @@ export default async function PortalLayout({ children }: { children: React.React
               Below md the tabs live in the hamburger (MobileNav). */}
           <div className="col-start-3 flex items-center gap-4 justify-self-end text-sm">
             <nav className="hidden items-center gap-4 md:flex">
+              <Link href="/map" className="text-muted-foreground hover:text-foreground">
+                Map
+              </Link>
               <Link href="/services" className="text-muted-foreground hover:text-foreground">
                 Services
               </Link>
@@ -134,6 +138,7 @@ export default async function PortalLayout({ children }: { children: React.React
             </Link>
             <SignOutButton />
             <MobileNav>
+              <Link href="/map">Map</Link>
               <Link href="/avai">What is AvAI?</Link>
               <Link href="/services">Services</Link>
               <Link href="/research">Research</Link>
@@ -155,8 +160,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <span>
               {pendingNames.join(", ")}{" "}
               is under review. You can keep setting up your
-              organization and inviting teammates — alert routing turns on once it&apos;s
-              approved.
+              organization and inviting teammates while we review it.
             </span>
             <Link href="/sar/pending" className="font-medium whitespace-nowrap underline">
               Review status

@@ -49,6 +49,7 @@ the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
 | [30 Advertiser portal](30_advertiser_portal.md) | AD-P1–P7 ✅ merged (#24–#31), publish runs on the AvServ mock | AvServ publish contract (plan 30 §11); **O3 AdLedger ratification** (portal-owned, blocks Phase 3 billing) |
 | [31 Agreement onboarding](31_account_agreement_onboarding.md) | ✅ merged (#77) | **Counsel**: agreement text, assent/attestation wording, minimum age, individuals-only, privacy acknowledgement, retention vs deletion, scroll-to-agree (D2). Then AvServ publishes v1 → `pnpm agreement:pin v1` within 30 days; capture on. Also §1 |
 | [32 Restriction review](32_restriction_review.md) | ✅ merged (#83), runs on the mock | AvServ builds plan 39 (after v1.5) |
+| [33 Map and SAR workspace](33_map_and_sar_workspace.md) | Phase 1 `/map` ✅ (own SAR areas, own ad targets, staff overview) | Phases 2–4 (own history; SAR teams as opt-in contacts with team terms; red/orange SAR layers): doc amendments, AvServ contracts, counsel addendum (§4) |
 
 ## 4. Incident Detection re-filing (AvServ plans 38/38a/38b)
 

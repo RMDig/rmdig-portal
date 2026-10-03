@@ -44,6 +44,9 @@ function publicSourceFiles(): string[] {
       else if (full.endsWith(".tsx")) files.push(full);
     }
   }
+  // The signed-in map's page and panel (its legend strings are checked in
+  // tests/unit/map-layers.test.ts).
+  for (const f of ["page.tsx", "MapView.tsx"]) files.push(join(process.cwd(), "app", "(portal)", "map", f));
   // Error and not-found pages render for public visitors too.
   files.push(join(process.cwd(), "app", "error.tsx"), join(process.cwd(), "app", "not-found.tsx"));
   const templates = join(process.cwd(), "lib", "email", "templates");

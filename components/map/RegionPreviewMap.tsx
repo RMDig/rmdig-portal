@@ -2,8 +2,11 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import type { LngLatBoundsLike, Map as MaplibreMap, StyleSpecification } from "maplibre-gl";
+import type { Map as MaplibreMap } from "maplibre-gl";
 import { useEffect, useRef } from "react";
+
+import { OSM_STYLE } from "@/components/map/basemap";
+import { ringsBounds } from "@/lib/map/geometry";
 
 export interface PreviewPolygon {
   type: "Polygon";
@@ -14,39 +17,7 @@ export interface PreviewPolygon {
 // basemap, fit to the polygon — so a reviewer sees *where* the region is, not
 // just its shape. MapLibre is dynamically imported inside the effect (it touches
 // `window`), keeping SSR clean; same OSM raster source as the draw map.
-const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [{ id: "osm", type: "raster", source: "osm" }],
-};
 
-function polygonBounds(coordinates: number[][][]): LngLatBoundsLike {
-  let minLon = Infinity;
-  let minLat = Infinity;
-  let maxLon = -Infinity;
-  let maxLat = -Infinity;
-  for (const ring of coordinates) {
-    for (const position of ring) {
-      const lon = position[0]!;
-      const lat = position[1]!;
-      if (lon < minLon) minLon = lon;
-      if (lat < minLat) minLat = lat;
-      if (lon > maxLon) maxLon = lon;
-      if (lat > maxLat) maxLat = lat;
-    }
-  }
-  return [
-    [minLon, minLat],
-    [maxLon, maxLat],
-  ];
-}
 
 export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,7 +34,8 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
         container: containerRef.current,
         style: OSM_STYLE,
         interactive: false,
-        attributionControl: false,
+        // OSM requires visible attribution on every map (tile policy).
+        attributionControl: { compact: true },
       });
       map.on("load", () => {
         if (cancelled || !map) return;
@@ -87,7 +59,8 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
           source: "region",
           paint: { "line-color": "#2563eb", "line-width": 2 },
         });
-        map.fitBounds(polygonBounds(polygon.coordinates), { padding: 16, animate: false });
+        const bounds = ringsBounds(polygon.coordinates);
+        if (bounds) map.fitBounds(bounds, { padding: 16, animate: false });
       });
     })();
 

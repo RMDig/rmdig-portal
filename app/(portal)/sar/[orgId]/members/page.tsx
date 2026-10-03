@@ -68,7 +68,7 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
           {org.status === "pending" ? (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
               Your organization is under review. You can invite teammates and finish setting
-              up now — alert routing turns on once it&apos;s approved.
+              up now.
             </p>
           ) : null}
           <InviteForm orgId={orgId} />
