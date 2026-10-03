@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { env } from "../env";
-import { AvServError, avservFetch, commonStatusError, isMock } from "./request";
+import { AvServError, avservFetch, commonStatusError, fetchOnAnyNode, isMock } from "./request";
 
 export { AvServError } from "./request";
 
@@ -139,6 +139,14 @@ export function mockEmailForAccount(accountId: string): string | null {
   return mockAccountEmails.get(accountId) ?? null;
 }
 
+function failoverNotFound(): AvServError {
+  return new AvServError(
+    "AvServ's failover node doesn't have this account yet (404 after the primary failed) — " +
+      "most likely replication lag; retry shortly",
+    404,
+  );
+}
+
 /**
  * Find-or-create the AvServ account for a verified email (P-B1). Idempotent on
  * email; safe to call on every login. Throws {@link AvServError} on any failure
@@ -166,6 +174,8 @@ export async function findOrCreateAccount(email: string): Promise<AvServAccount>
     return { accountId, created };
   }
 
+  // Primary only, deliberately: see fetchOnAnyNode. A failure here is retried
+  // at the next login against the same node (rmdig-ai docs/plans/05).
   const res = await avservFetch(baseUrl, "/v1/internal/accounts", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -215,7 +225,10 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
     };
   }
 
-  const res = await avservFetch(
+  // Safe on either node: a duplicate mint only leaves an unused code that
+  // expires, and the app registers with every node, so a code minted on the
+  // failover node is redeemable there at once.
+  const { res, viaFailover } = await fetchOnAnyNode(
     baseUrl,
     `/v1/internal/accounts/${encodeURIComponent(accountId)}/link-codes`,
     { method: "POST" },
@@ -229,6 +242,9 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
     throw new AvServError("AvServ rejected the account id as malformed (400)", 400);
   }
   if (res.status === 404) {
+    // On the failover node a 404 is usually replication lag (the account was
+    // created on the primary seconds ago), not an unknown account.
+    if (viaFailover) throw failoverNotFound();
     // The account id we hold doesn't exist on AvServ — a mapping drift, not a
     // user error. Distinct status so it's diagnosable.
     throw new AvServError("AvServ does not know this account (404)", 404);
@@ -268,7 +284,8 @@ export async function listDevices(accountId: string): Promise<LinkedDevice[]> {
     return mockDevices(accountId);
   }
 
-  const res = await avservFetch(
+  // A read: safe on either node (the failover node may lag by a few seconds).
+  const { res, viaFailover } = await fetchOnAnyNode(
     baseUrl,
     `/v1/internal/accounts/${encodeURIComponent(accountId)}/devices`,
     { method: "GET" },
@@ -280,6 +297,7 @@ export async function listDevices(accountId: string): Promise<LinkedDevice[]> {
     throw new AvServError("AvServ rejected the account id as malformed (400)", 400);
   }
   if (res.status === 404) {
+    if (viaFailover) throw failoverNotFound();
     throw new AvServError("AvServ does not know this account (404)", 404);
   }
   if (!res.ok) {
