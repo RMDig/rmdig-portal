@@ -2,8 +2,11 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import type { GeoJSONSource, Map as MaplibreMap, Marker, StyleSpecification } from "maplibre-gl";
+import type { GeoJSONSource, Map as MaplibreMap, Marker } from "maplibre-gl";
 import { useEffect, useRef } from "react";
+
+import { OSM_STYLE } from "@/components/map/basemap";
+import { circleRing } from "@/lib/map/geometry";
 
 // A radius ad target's editable geometry: a draggable center pin + a mileage circle
 // (AD-P7b, AvApp doc 31 §3 Tier 1). The slider that sets `mi` lives in the parent
@@ -19,37 +22,14 @@ interface RadiusMapProps {
   onCenterChange: (lat: number, lon: number) => void;
 }
 
-const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [{ id: "osm", type: "raster", source: "osm" }],
-};
 
 const CIRCLE_SOURCE = "radius-circle";
 
-// A polygon approximating a `miles`-radius circle around [lon, lat], in GeoJSON
-// [lon, lat] order. Equirectangular degree conversion — plenty accurate for a preview
-// circle; the authoritative on-device match is point-in-circle, not this polygon.
-function circlePolygon(lon: number, lat: number, miles: number, steps = 64) {
-  const km = miles * 1.609344;
-  const dLat = km / 110.574;
-  const dLon = km / (111.32 * Math.cos((lat * Math.PI) / 180));
-  const coords: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const theta = (i / steps) * 2 * Math.PI;
-    coords.push([lon + dLon * Math.cos(theta), lat + dLat * Math.sin(theta)]);
-  }
+function circlePolygon(lon: number, lat: number, miles: number) {
   return {
     type: "Feature" as const,
     properties: {},
-    geometry: { type: "Polygon" as const, coordinates: [coords] },
+    geometry: { type: "Polygon" as const, coordinates: [circleRing(lon, lat, miles)] },
   };
 }
 

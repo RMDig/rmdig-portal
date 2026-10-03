@@ -179,8 +179,8 @@ export default async function DashboardPage() {
         <CardHeader>
           <CardTitle>Search &amp; rescue organizations</CardTitle>
           <CardDescription>
-            Run a SAR team? Register your organization and draw your service area so alerts can route
-            to you. Applications are reviewed before approval.
+            Run a SAR team? Register your organization and draw your service area. Our staff
+            review every application before approval.
           </CardDescription>
         </CardHeader>
         <CardContent>

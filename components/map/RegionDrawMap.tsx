@@ -2,9 +2,11 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import type { Map as MaplibreMap, StyleSpecification } from "maplibre-gl";
+import type { Map as MaplibreMap } from "maplibre-gl";
 import type { TerraDraw } from "terra-draw";
 import { useEffect, useRef } from "react";
+
+import { OSM_STYLE } from "@/components/map/basemap";
 
 import { Button } from "@/components/ui/button";
 
@@ -25,18 +27,6 @@ interface RegionDrawMapProps {
 // a vector provider if usage grows). MapLibre + Terra Draw run only in the
 // browser, so everything heavy is dynamically imported inside the effect to keep
 // it out of SSR (MapLibre touches `window` at construction).
-const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [{ id: "osm", type: "raster", source: "osm" }],
-};
 
 export default function RegionDrawMap({ onRegionChange, hasRegion }: RegionDrawMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
