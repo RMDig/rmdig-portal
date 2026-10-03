@@ -20,8 +20,28 @@ pinned to that branch's pooled endpoint** — it overrides the Neon integration,
 whose injected mapping had production traffic pointed at the `vercel-dev`
 branch while the Vercel *Development* env held the production-branch URL
 (discovered when migration 0009 "succeeded" but prod couldn't see the table).
-If you re-connect or reconfigure the Neon integration, re-verify which branch
-each Vercel environment actually reaches before trusting it.
+If you re-connect or reconfigure the Neon integration, re-pin `DATABASE_URL`
+by hand (below) before the next deploy. The dashboard saying "production" is not
+proof: on 2026-10-02 it said so while the re-created value reached a database
+without the portal schema, and every signed-in page failed until the re-pin.
+
+### Re-pin the production `DATABASE_URL`
+
+```bash
+U=$(neonctl connection-string production --project-id lingering-waterfall-99928244 \
+  --role-name neondb_owner --database-name neondb --pooled)
+case "$U" in *ep-crimson-thunder-aqloj3r3-pooler*) echo "host ok";; *) echo "WRONG HOST, stop";; esac
+psql "$U" -tAc "select to_regclass('public.rate_limits')"   # must print rate_limits
+vercel env rm DATABASE_URL production -y
+printf '%s' "$U" | vercel env add DATABASE_URL production --sensitive --yes; unset U
+vercel env ls production | grep -E ' DATABASE_URL '        # must list it before you redeploy
+vercel redeploy <current production deployment URL> --target production
+curl -s https://rmdig.ai/readyz                               # must be "ready"
+```
+
+For **Production**, don't pass a git-branch argument to `vercel env add`. With
+`""` it adds nothing and says nothing, and a redeploy then runs with no
+database URL at all (2026-10-02, about 20 min of 500s).
 
 `vercel env pull --environment production` does NOT work for secrets anymore —
 integration vars are marked sensitive and pull as empty strings. Get the URL
@@ -337,9 +357,9 @@ data** and never reach the live AvServ:
 4. **Vercel → Storage → the Neon database → Allowed Environments:** set it to
    **Production** only. That stops the integration creating production copies for
    previews and removes its Preview-scoped `DATABASE_URL*` / `POSTGRES_*` / `PG*`
-   variables. The integration re-creates the Production variables when you do this:
-   check that its Production mapping still says the `production` branch before the
-   next deploy (the Production `DATABASE_URL` was pinned by hand before). Do the same
+   variables. The integration **re-creates the Production variables** when you do
+   this, replacing the hand-pinned `DATABASE_URL`: re-pin it ("Re-pin the production
+   `DATABASE_URL`" above) before anything deploys. Do the same
    for the **Blob store** (Production only), or previews upload SAR proofs into
    the production store. Then delete the production project's `preview/*` branches
    (`neonctl branches delete <name> --project-id lingering-waterfall-99928244`);
@@ -360,6 +380,7 @@ data** and never reach the live AvServ:
    From the CLI, pipe the value in and pass the git branch and sensitivity
    explicitly, or the prompts swallow the piped value and nothing is added:
    `printf '%s' "$VALUE" | vercel env add NAME preview "" --sensitive --yes`.
+   The `""` (all preview branches) is for Preview only; never pass it for Production.
 
    Do **not** add `AVSERV_SERVICE_JWT_SIGNING_KEY` or `AVSERV_FAILOVER_BASE_URL`
    to Preview. For SAR proof uploads on previews, connect a second Vercel Blob
@@ -376,6 +397,48 @@ data** and never reach the live AvServ:
   `db:migrate` line), so resets start current.
 - `vercel-dev` (the CI E2E parent) is a separate matter: it's still a branch of
   production, used only by CI.
+
+## Outages and rollback
+
+**Detect.** Two probes, two meanings:
+
+| URL | 200 means | Pages you? |
+|---|---|---|
+| `/healthz` | the deployment is running | no, it never touches the database |
+| `/readyz` | the database answers **and** holds every migration this build ships | yes: UptimeRobot monitor, push alerts |
+
+`/readyz` returns 503 with `checks.database` (`ok` / `unreachable`) and
+`checks.schema` (`ok` / `behind` / `unknown`). The cause is in the logs
+(`readyz.database_unreadable`, `readyz.schema_behind`), never in the body.
+
+**Diagnose.**
+```bash
+vercel logs --environment production --level error --since 1h --no-branch -x
+vercel env ls production | grep -E ' DATABASE_URL '   # exactly that name (the DATABSE_URL outage)
+curl -s https://rmdig.ai/readyz
+```
+- `database: ok, schema: behind` with the migrations table **missing** (log
+  `readyz.database_unreadable`, code `42P01`): the URL reaches the wrong database.
+  Re-pin (see "Connecting to production").
+- `database: ok, schema: behind` otherwise (log `readyz.schema_behind`): a
+  migration merged before it was applied; run it ("Run a production migration").
+- `database: unreachable`: wrong host or credentials (re-pin), or Neon itself;
+  check Neon status and the project's compute in the Neon console.
+
+**Roll back a bad deploy.** Vercel → Deployments → the last good production
+deployment → **Instant Rollback** (or `vercel rollback <deployment-url>`). It
+swaps the alias in seconds and doesn't rebuild. A rollback doesn't undo a
+migration: if the bad deploy shipped one, the old code runs against the new
+schema, which is the normal state before any merge (§3.8) and is safe for
+additive migrations.
+
+**After.** Record the incident in `docs/plans/00_status.md` with the cause and the
+lesson, and add any new step here.
+
+**Probe cost.** Neon's free compute suspends after 5 minutes idle. A `/readyz`
+probe every 5 minutes keeps it awake around the clock; every 10 minutes keeps
+it awake about half the time. Pick the interval against the plan's compute
+allowance (infrastructure.md "Maintenance").
 
 ## Routine maintenance
 
