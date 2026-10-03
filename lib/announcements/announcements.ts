@@ -10,11 +10,12 @@ import { FORBIDDEN_PUBLIC_PHRASES } from "../legal/compliance-copy";
 export type Audience = (typeof announcementAudience.enumValues)[number];
 export type Severity = (typeof announcementSeverity.enumValues)[number];
 
-export const AUDIENCES: readonly Audience[] = ["everyone", "explorer", "sar", "advertiser", "staff"];
+export const AUDIENCES: readonly Audience[] = ["everyone", "explorer", "sar", "sar_admin", "advertiser", "staff"];
 export const AUDIENCE_LABEL: Record<Audience, string> = {
   everyone: "Everyone signed in",
   explorer: "Regular users",
   sar: "SAR organization members",
+  sar_admin: "SAR organization admins",
   advertiser: "Advertisers",
   staff: "rmdig staff",
 };
@@ -24,13 +25,23 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
   incident: "Incident",
 };
 
+export interface Viewer {
+  isStaff: boolean;
+  isSar: boolean;
+  /** Holds the `admin` role in at least one SAR org (dispatchers and
+   *  responders don't). Implies isSar. */
+  isSarAdmin: boolean;
+  isAdvertiser: boolean;
+}
+
 /** The audiences a viewer belongs to. "explorer" means none of the roles. */
-export function audiencesOf(v: { isStaff: boolean; isSar: boolean; isAdvertiser: boolean }): Set<Audience> {
+export function audiencesOf(v: Viewer): Set<Audience> {
   const set = new Set<Audience>(["everyone"]);
   if (v.isStaff) set.add("staff");
-  if (v.isSar) set.add("sar");
+  if (v.isSar || v.isSarAdmin) set.add("sar");
+  if (v.isSarAdmin) set.add("sar_admin");
   if (v.isAdvertiser) set.add("advertiser");
-  if (!v.isStaff && !v.isSar && !v.isAdvertiser) set.add("explorer");
+  if (!v.isStaff && !v.isSar && !v.isSarAdmin && !v.isAdvertiser) set.add("explorer");
   return set;
 }
 
@@ -128,7 +139,7 @@ export const createAnnouncementSchema = z
       }),
     severity: z.enum(["info", "maintenance", "incident"]),
     audiences: z
-      .array(z.enum(["everyone", "explorer", "sar", "advertiser", "staff"]))
+      .array(z.enum(["everyone", "explorer", "sar", "sar_admin", "advertiser", "staff"]))
       .min(1, "Pick at least one audience."),
     startsAt: optionalLocal,
     endsAt: optionalLocal,

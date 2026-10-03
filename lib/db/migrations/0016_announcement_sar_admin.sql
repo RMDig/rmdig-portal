@@ -1,0 +1,1 @@
+ALTER TYPE "public"."announcement_audience" ADD VALUE 'sar_admin' BEFORE 'advertiser';

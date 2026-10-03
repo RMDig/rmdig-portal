@@ -13,6 +13,7 @@ import {
   phaseOf,
   shownTo,
   type Audience,
+  type Viewer,
 } from "@/lib/announcements/announcements";
 import { auth } from "@/lib/auth";
 import { hasPlatformRole } from "@/lib/auth/roles";
@@ -26,12 +27,15 @@ export const metadata = { title: "Announcements — rmdig admin" };
 
 // The viewer each preview stands for. Preview renders banners only: it loads
 // no other person's data and changes no permissions.
-const PREVIEW_AS: Record<Audience, { isStaff: boolean; isSar: boolean; isAdvertiser: boolean }> = {
-  everyone: { isStaff: false, isSar: false, isAdvertiser: false },
-  explorer: { isStaff: false, isSar: false, isAdvertiser: false },
-  sar: { isStaff: false, isSar: true, isAdvertiser: false },
-  advertiser: { isStaff: false, isSar: false, isAdvertiser: true },
-  staff: { isStaff: true, isSar: false, isAdvertiser: false },
+const NONE: Viewer = { isStaff: false, isSar: false, isSarAdmin: false, isAdvertiser: false };
+const PREVIEW_AS: Record<Audience, Viewer> = {
+  everyone: NONE,
+  explorer: NONE,
+  // A SAR member who isn't an admin (dispatcher or responder).
+  sar: { ...NONE, isSar: true },
+  sar_admin: { ...NONE, isSar: true, isSarAdmin: true },
+  advertiser: { ...NONE, isAdvertiser: true },
+  staff: { ...NONE, isStaff: true },
 };
 
 export default async function AnnouncementsPage({

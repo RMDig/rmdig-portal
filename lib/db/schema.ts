@@ -825,12 +825,14 @@ export const announcementSeverity = pgEnum("announcement_severity", [
   "incident",
 ]);
 
-// Audiences overlap: a SAR member is also "everyone". "explorer" is a signed-in
-// user with no SAR, advertiser or staff role (lib/announcements/audience.ts).
+// Audiences overlap: a SAR member is also "everyone", and a SAR org admin is
+// also a SAR member. "explorer" is a signed-in user with no SAR, advertiser or
+// staff role (lib/announcements/announcements.ts).
 export const announcementAudience = pgEnum("announcement_audience", [
   "everyone",
   "explorer",
   "sar",
+  "sar_admin",
   "advertiser",
   "staff",
 ]);

@@ -12,16 +12,37 @@ import {
 
 describe("audiencesOf", () => {
   it("puts a user with no roles in everyone + explorer", () => {
-    expect([...audiencesOf({ isStaff: false, isSar: false, isAdvertiser: false })].sort()).toEqual(["everyone", "explorer"]);
+    expect([...audiencesOf({ isStaff: false, isSar: false, isSarAdmin: false, isAdvertiser: false })].sort()).toEqual(["everyone", "explorer"]);
   });
   it("adds each role, and drops explorer once any role is held", () => {
-    expect([...audiencesOf({ isStaff: true, isSar: true, isAdvertiser: false })].sort()).toEqual(["everyone", "sar", "staff"]);
-    expect(audiencesOf({ isStaff: false, isSar: false, isAdvertiser: true }).has("explorer")).toBe(false);
+    expect([...audiencesOf({ isStaff: true, isSar: true, isSarAdmin: false, isAdvertiser: false })].sort()).toEqual(["everyone", "sar", "staff"]);
+    expect(audiencesOf({ isStaff: false, isSar: false, isSarAdmin: false, isAdvertiser: true }).has("explorer")).toBe(false);
+  });
+});
+
+describe("SAR admins", () => {
+  const admin = audiencesOf({ isStaff: false, isSar: true, isSarAdmin: true, isAdvertiser: false });
+  const responder = audiencesOf({ isStaff: false, isSar: true, isSarAdmin: false, isAdvertiser: false });
+
+  it("are SAR members too, so SAR-wide notices still reach them", () => {
+    expect([...admin].sort()).toEqual(["everyone", "sar", "sar_admin"]);
+    expect(shownTo({ audiences: ["sar"] }, admin)).toBe(true);
+  });
+
+  it("alone see admin-only notices; dispatchers and responders don't", () => {
+    expect(shownTo({ audiences: ["sar_admin"] }, admin)).toBe(true);
+    expect(shownTo({ audiences: ["sar_admin"] }, responder)).toBe(false);
+  });
+
+  it("is accepted by the form schema", () => {
+    expect(
+      createAnnouncementSchema.safeParse({ message: "New: shift handover notes.", severity: "info", audiences: ["sar_admin"] }).success,
+    ).toBe(true);
   });
 });
 
 describe("shownTo", () => {
-  const sar = audiencesOf({ isStaff: false, isSar: true, isAdvertiser: false });
+  const sar = audiencesOf({ isStaff: false, isSar: true, isSarAdmin: false, isAdvertiser: false });
   it("shows an announcement when any audience matches", () => {
     expect(shownTo({ audiences: ["advertiser", "sar"] }, sar)).toBe(true);
     expect(shownTo({ audiences: ["everyone"] }, sar)).toBe(true);
