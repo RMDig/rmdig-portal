@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DeletionRequestForm } from "./DeletionRequestForm";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Delete my data — rmdig / AvAI",
   description:
     "Request deletion of your personal data from AvAI and the rmdig portal (Colorado Privacy Act).",
-};
+  path: "/account/delete",
+});
 
 // The store-listing "how do I delete my data" URL and the Privacy Policy's
 // CPA deletion path both point here. Public, no auth: app users and emergency

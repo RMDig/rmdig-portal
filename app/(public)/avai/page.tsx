@@ -6,19 +6,36 @@ import {
   BETA_DISCLOSURE,
   OPERATOR_CONTINUITY_DISCLOSURE,
 } from "@/lib/legal/compliance-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "What is AvAI? — the backcountry safety companion, in depth | RMDig",
   description:
     "AvAI (Avalanche AI) in depth: how the check-out/check-in safety watchdog works, Send Help, field snowpack capture, the beta status, and the research behind the name.",
-  alternates: { canonical: "/avai" },
-};
+  path: "/avai",
+});
 
 // The in-depth AvAI page, at the legacy URL the old marketing site had
 // indexed (this REPLACES the /avai → / redirect in next.config — the path is
 // a real page again). Linked from the centered header mark. Claim-ladder
 // discipline applies throughout (doc 16 §6.2 scan; doc 13: describe what the
 // beta does today, research framed as research).
+// The app as a software entity for search engines. No offers, ratings or
+// download links: AvAI is in closed beta (TestFlight / Play internal), and
+// structured data must not claim more than the page does.
+const APP_JSONLD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "AvAI",
+  alternateName: "Avalanche AI",
+  applicationCategory: "TravelApplication",
+  operatingSystem: "iOS, Android",
+  description:
+    "A beta safety companion for backcountry travel: check out before a trip and check in when you're back; if you don't check in on time, AvAI's servers alert your emergency contact with your last-known location.",
+  url: "https://rmdig.ai/avai",
+  publisher: { "@type": "Organization", name: "Rocky Mountain Digerati LLC", url: "https://rmdig.ai" },
+};
+
 export default function AvaiPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
@@ -89,7 +106,7 @@ export default function AvaiPage() {
           <p className="mt-3">
             AvAI includes a field capture tool for snowpack observations — profile and
             core photos framed on a crystal card, the same{" "}
-            <Link href="/methods" className="font-medium underline">
+            <Link href="/research/methods" className="font-medium underline">
               method
             </Link>{" "}
             behind our open{" "}
@@ -107,7 +124,7 @@ export default function AvaiPage() {
           <p className="mt-3">
             The name is short for <strong>Avalanche AI</strong>. Alongside the app, we
             research avalanche-risk modeling on snowpack imagery — the{" "}
-            <Link href="/models" className="font-medium underline">
+            <Link href="/research/models" className="font-medium underline">
               open-source snowGAN models
             </Link>{" "}
             are the first public artifacts of that line. The research is in development
@@ -147,6 +164,10 @@ export default function AvaiPage() {
           </p>
         </section>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_JSONLD) }}
+      />
     </article>
   );
 }

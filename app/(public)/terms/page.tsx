@@ -8,12 +8,14 @@ import {
   LEGAL_ENTITY,
   SUPPORT_EMAIL,
 } from "@/lib/legal/compliance-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Terms of Service — rmdig / AvAI",
   description:
     "Terms of Service for the AvAI app and the rmdig portal, operated by Rocky Mountain Digerati LLC.",
-};
+  path: "/terms",
+});
 
 // Public, no-auth, stable URL — referenced from the app's Settings links and
 // the store listings. Operative legal language is intentionally a set of

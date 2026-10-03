@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-export const metadata: Metadata = {
+import { ResearchTabs } from "@/components/public/ResearchTabs";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
   title: "Field methods — snowpack data collection | RMDig",
   description:
     "How the Rocky Mountain Snowpack dataset is collected: snowpit excavation, a novel mini-coring method, crystal-card observation, and magnified profile photography — and, in general terms, how the data feeds avalanche-risk research.",
-  alternates: { canonical: "/methods" },
-};
+  path: "/research/methods",
+});
 
 // Public research surface (doc 16 §6.2 scan applies). Deliberately GENERAL on
 // the modeling side — enough for credibility, not enough to hand competitors
@@ -16,6 +19,7 @@ export const metadata: Metadata = {
 export default function MethodsPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
+      <ResearchTabs />
       <h1 className="text-3xl font-semibold tracking-tight">Field methods</h1>
 
       <div className="mt-6 space-y-10 leading-7 text-neutral-700 dark:text-neutral-200 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-neutral-900 dark:[&_h2]:text-neutral-50">
@@ -114,7 +118,7 @@ export default function MethodsPage() {
           <p className="mt-3">
             Our modeling approach builds up in stages. Generative models over each imaging
             modality (the open-source{" "}
-            <Link href="/models" className="font-medium underline">
+            <Link href="/research/models" className="font-medium underline">
               snowGAN family
             </Link>
             ) force the networks to internalize real snowpack structure. On top of that

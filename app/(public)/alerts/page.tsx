@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Did you get an AvAI alert about someone? | RMDig",
   description:
     "What an AvAI safety alert means, why you received a text or email about someone, what to do next, and how your information is handled.",
-  alternates: { canonical: "/alerts" },
-};
+  path: "/alerts",
+});
 
 // Landing surface for emergency contacts who received an SMS/email and typed
 // in the bare domain (AvServ's no-URL-in-SMS rule sends them to rmdig.ai, not

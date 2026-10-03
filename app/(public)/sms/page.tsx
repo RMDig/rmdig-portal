@@ -10,13 +10,14 @@ import {
   HELP_REPLY,
   YES_CONFIRMATION,
 } from "@/lib/legal/sms-program-copy";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "AvAI SMS program — how alerts and consent work | RMDig",
   description:
     "Opt-in evidence and program details for AvAI safety-alert text messages: how emergency-contact designation works, the exact messages sent, YES/STOP/HELP semantics, and message frequency.",
-  alternates: { canonical: "/sms" },
-};
+  path: "/sms",
+});
 
 // A2P 10DLC opt-in evidence page at a stable URL (carrier vetting + CTIA
 // program-details reference), linked from the approved campaign. Quoted
