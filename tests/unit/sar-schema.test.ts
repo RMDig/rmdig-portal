@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 // values) stays real — only the client is stubbed.
 vi.mock("@/lib/db", () => ({ db: {} }));
 
-import { createSarOrgSchema } from "@/lib/sar/schema";
+import { createSarOrgSchema, updateSarOrgSchema } from "@/lib/sar/schema";
 
 const validRegion = JSON.stringify({
   type: "Polygon",
@@ -105,5 +105,40 @@ describe("createSarOrgSchema", () => {
       ],
     });
     expect(createSarOrgSchema.safeParse({ ...base, region: openRing }).success).toBe(false);
+  });
+});
+
+describe("org type and resubmission (docs/plans/33)", () => {
+  const square = { type: "Polygon", coordinates: [[[-108, 37], [-107, 37], [-107, 38], [-108, 37]]] };
+  const base = {
+    name: "Summit Patrol",
+    contactName: "Pat",
+    contactEmail: "pat@ski.example",
+    operatingStatus: "other",
+    operatingStatusOther: "Resort-employed patrol",
+    region: JSON.stringify(square),
+    tosAccepted: "on",
+  };
+
+  it("defaults a new application to a search & rescue team and accepts a ski patrol", () => {
+    expect(createSarOrgSchema.parse(base).orgType).toBe("sar_team");
+    expect(createSarOrgSchema.parse({ ...base, orgType: "ski_patrol" }).orgType).toBe("ski_patrol");
+  });
+
+  it("rejects an unknown org type", () => {
+    expect(createSarOrgSchema.safeParse({ ...base, orgType: "fire_department" }).success).toBe(false);
+  });
+
+  it("lets a resubmission keep the area on file when no new one is drawn", () => {
+    const { region: _r, tosAccepted: _t, ...rest } = base;
+    const parsed = updateSarOrgSchema.parse({ ...rest, region: "" });
+    expect(parsed.region).toBeUndefined();
+  });
+
+  it("validates a redrawn area and still requires detail for 'other'", () => {
+    const { tosAccepted: _t, ...rest } = base;
+    expect(updateSarOrgSchema.parse(rest).region).toEqual(square);
+    expect(updateSarOrgSchema.safeParse({ ...rest, region: "{bad" }).success).toBe(false);
+    expect(updateSarOrgSchema.safeParse({ ...rest, operatingStatusOther: "" }).success).toBe(false);
   });
 });

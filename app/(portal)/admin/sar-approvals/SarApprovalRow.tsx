@@ -27,6 +27,7 @@ export interface PendingOrg {
   id: string;
   name: string;
   status: string;
+  orgType: "sar_team" | "ski_patrol";
   submitterEmail: string;
   submittedAt: string; // ISO
   operatingStatus: string;
@@ -57,7 +58,11 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
           <dd className="inline">{org.submitterEmail}</dd>
         </div>
         <div>
-          <dt className="inline font-medium text-foreground">Type: </dt>
+          <dt className="inline font-medium text-foreground">Kind: </dt>
+          <dd className="inline">{org.orgType === "ski_patrol" ? "Ski-area patrol" : "Search & rescue team"}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-foreground">Operating status: </dt>
           <dd className="inline">
             {OPERATING_STATUS_LABEL[org.operatingStatus] ?? org.operatingStatus}
             {org.operatingStatus === "other" && org.operatingStatusOther
@@ -85,6 +90,14 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
           </dd>
         </div>
       </dl>
+
+      {org.orgType === "ski_patrol" && org.status === "pending" ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+          Ski patrol: before approving, call the ski area on a phone number you find yourself (its
+          website or directory listing), not one from this application, and confirm the patrol and
+          its contact (runbook &quot;Review a SAR org application&quot;).
+        </p>
+      ) : null}
 
       <RegionPreviewMap polygon={org.region} />
 

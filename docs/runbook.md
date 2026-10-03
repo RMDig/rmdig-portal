@@ -85,13 +85,24 @@ SAR org applications are reviewed in the UI — no SQL needed.
 
 1. Sign in as a user with `rmdig_admin` or `rmdig_reviewer`.
 2. Go to **Admin → SAR approvals** (`/admin/sar-approvals`).
-3. Each pending org shows its submitter, type, a service-area map, and a link to
-   the proof-of-status document. Verify the org is real (registration / 501(c)(3))
-   and the service area is sane.
-4. Choose one:
+3. Each pending org shows its submitter, its kind (search & rescue team or
+   ski-area patrol), its operating status, a service-area map, and "View document"
+   (proof of status, opened through the staff-only route; see "SAR proof
+   documents"). Verify the org is real (registration / 501(c)(3)) and the service
+   area is sane.
+4. **Ski-area patrols:** before approving, call the ski area on a number you find
+   yourself (its website or a directory listing), never one from the application,
+   and confirm the patrol and its contact person (AvApp doc 36 §9.3). Note the
+   call in the approval note.
+5. Choose one:
    - **Approve** → status `approved`; the org admin can now invite members. Emails the submitter.
    - **Reject** (reason required) → status `rejected`. Emails the submitter the reason.
    - **Request changes** (note required) → stays `pending`; emails the submitter what to fix.
+     Their admins see your note on `/sar/pending` and can **edit and resubmit**
+     (`/sar/<orgId>/edit`): every field except the verified phone, plus a redrawn
+     area and a replacement document if they choose. A resubmission logs
+     `resubmitted`, clears your note and emails every `rmdig_admin`. Approved orgs
+     can't be edited this way (§0).
 
 Every action appends to `sar_org_status_log` (append-only audit) and is attributed
 to you. Manual approval is non-negotiable — safety-of-life alerts must never route

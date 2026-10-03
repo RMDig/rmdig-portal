@@ -33,6 +33,7 @@ export default async function SarApprovalsPage() {
       id: sarOrgs.id,
       name: sarOrgs.name,
       status: sarOrgs.status,
+      orgType: sarOrgs.orgType,
       submitterEmail: users.email,
       submittedAt: sarOrgs.createdAt,
       operatingStatus: sarOrgs.operatingStatus,

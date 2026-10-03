@@ -3,7 +3,7 @@ import { phoneVerificationEnabled } from "@/lib/phone/verify";
 import { SarOrgForm } from "./SarOrgForm";
 
 export const metadata = {
-  title: "Register a SAR organization — rmdig",
+  title: "Register a search & rescue team or ski patrol — rmdig",
 };
 
 export default function SarNewPage() {
@@ -12,7 +12,7 @@ export default function SarNewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Register a SAR organization</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Register a search &amp; rescue team or ski patrol</h1>
         <p className="text-muted-foreground mt-1">
           Tell us about your team, draw your service area, and attach proof of operating status.
           We&apos;ll review your application before approving it.

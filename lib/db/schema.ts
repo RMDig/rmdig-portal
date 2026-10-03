@@ -262,7 +262,16 @@ export const sarOrgAction = pgEnum("sar_org_action", [
   "changes_requested",
   "suspended",
   "reactivated",
+  // The org's admin edited a pending application (after changes were
+  // requested, or before review) and sent it back to the queue.
+  "resubmitted",
 ]);
+
+// What kind of organization this is (AvApp doc 36 §9.3). Both go through the
+// same manual approval (CLAUDE.md §0); ski patrols also need a call back to the
+// resort's published number before approval (runbook "Review a SAR org
+// application").
+export const orgType = pgEnum("org_type", ["sar_team", "ski_patrol"]);
 
 // SAR organizations. The service-area polygon lives in a separate `region_geom`
 // PostGIS column (geography(Polygon,4326)) added by a raw-SQL migration and read/
@@ -273,6 +282,7 @@ export const sarOrgAction = pgEnum("sar_org_action", [
 // columns are Phase 4 and intentionally excluded (bootstrap §1, no scope creep).
 export const sarOrgs = pgTable("sar_orgs", {
   id: uuid("id").primaryKey().defaultRandom(),
+  orgType: orgType("org_type").default("sar_team").notNull(),
   name: text("name").notNull(),
   // Public-facing blurb shown on the (future) org page; optional at submit.
   description: text("description"),

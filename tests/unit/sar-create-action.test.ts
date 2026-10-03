@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   admins: [{ email: "admin@rmdig.ai" }] as Array<{ email: string }>,
   orgRow: [{ id: "org-1" }] as Array<{ id: string }>,
   selectN: 0,
+  inserted: [] as unknown[],
 }));
 
 vi.mock("@/lib/db", () => {
@@ -27,7 +28,8 @@ vi.mock("@/lib/db", () => {
   };
   const tx = {
     insert: () => ({
-      values: () => ({
+      values: (v: unknown) => ({
+        _capture: h.inserted.push(v),
         returning: () => Promise.resolve(h.orgRow),
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
           Promise.resolve(undefined).then(res, rej),
@@ -105,6 +107,7 @@ beforeEach(() => {
   h.account = [{ email: "submitter@sar.org", emailVerified: new Date() }];
   h.admins = [{ email: "admin@rmdig.ai" }];
   h.orgRow = [{ id: "org-1" }];
+  h.inserted = [];
   // signed-in by default
   authMock.mockResolvedValue({ user: { id: "user-1", email: "submitter@sar.org" } } as never);
 });
@@ -162,5 +165,16 @@ describe("createSarOrgAction", () => {
     vi.mocked(sendSarOrgSubmittedEmail).mockRejectedValueOnce(new Error("resend down"));
     const res = await createSarOrgAction(null, validFormData());
     expect(res.ok).toBe(true);
+  });
+
+  it("stores the org type, defaulting to a search & rescue team", async () => {
+    await createSarOrgAction(null, validFormData());
+    expect(h.inserted[0]).toMatchObject({ orgType: "sar_team" });
+    h.selectN = 0;
+    h.inserted = [];
+    const fd = validFormData();
+    fd.set("orgType", "ski_patrol");
+    await createSarOrgAction(null, fd);
+    expect(h.inserted[0]).toMatchObject({ orgType: "ski_patrol" });
   });
 });
