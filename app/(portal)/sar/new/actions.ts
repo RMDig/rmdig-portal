@@ -102,6 +102,7 @@ export async function createSarOrgAction(
       const [org] = await tx
         .insert(sarOrgs)
         .values({
+          orgType: data.orgType,
           name: data.name,
           description: data.description,
           regionName: data.regionName,

@@ -8,25 +8,16 @@ import { VerifiedPhoneField } from "@/components/portal/VerifiedPhoneField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+import {
+  ContactFields,
+  EMPTY_ORG_FIELDS,
+  FieldError,
+  OrgDetailsFields,
+  ProofHint,
+  SERVICE_AREA_HELP,
+} from "../SarOrgFields";
 import { createSarOrgAction } from "./actions";
-
-// Operating-status options. Values mirror the operating_status DB enum; labels
-// are inlined here (not imported from lib/sar/schema) so this client component
-// never pulls the server-only db client into the browser bundle. The server
-// re-validates against the enum.
-const OPERATING_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "county_sar", label: "County search & rescue" },
-  { value: "state_sar", label: "State search & rescue" },
-  { value: "501c3", label: "501(c)(3) nonprofit" },
-  { value: "nonprofit", label: "Other nonprofit" },
-  { value: "volunteer_group", label: "Volunteer group" },
-  { value: "other", label: "Other" },
-];
-
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors?.length) return null;
-  return <p className="text-xs text-red-700 dark:text-red-400">{errors.join(", ")}</p>;
-}
 
 export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
   const router = useRouter();
@@ -35,7 +26,7 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
 
   const [region, setRegion] = useState<DrawnPolygon | null>(null);
   const onRegionChange = useCallback((p: DrawnPolygon | null) => setRegion(p), []);
-  const [operatingStatus, setOperatingStatus] = useState("county_sar");
+  const [orgType, setOrgType] = useState("sar_team");
 
   useEffect(() => {
     if (state?.ok) router.push("/sar/pending");
@@ -45,81 +36,17 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
     <form action={formAction} className="space-y-8">
       <input type="hidden" name="region" value={region ? JSON.stringify(region) : ""} />
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-medium">Organization</h2>
-        <div className="space-y-2">
-          <Label htmlFor="name">Organization name</Label>
-          <Input id="name" name="name" required aria-invalid={!!fieldErrors?.name} />
-          <FieldError errors={fieldErrors?.name} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="description">Public description (optional)</Label>
-          <textarea
-            id="description"
-            name="description"
-            rows={3}
-            className="border-input bg-transparent flex w-full rounded-md border px-3 py-2 text-sm shadow-xs"
-            aria-invalid={!!fieldErrors?.description}
-          />
-          <FieldError errors={fieldErrors?.description} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="operatingStatus">Operating status</Label>
-          <select
-            id="operatingStatus"
-            name="operatingStatus"
-            value={operatingStatus}
-            onChange={(e) => setOperatingStatus(e.target.value)}
-            className="border-input bg-transparent flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs"
-          >
-            {OPERATING_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <FieldError errors={fieldErrors?.operatingStatus} />
-        </div>
-        {operatingStatus === "other" ? (
-          <div className="space-y-2">
-            <Label htmlFor="operatingStatusOther">Describe your organization type</Label>
-            <Input
-              id="operatingStatusOther"
-              name="operatingStatusOther"
-              aria-invalid={!!fieldErrors?.operatingStatusOther}
-            />
-            <FieldError errors={fieldErrors?.operatingStatusOther} />
-          </div>
-        ) : null}
-      </section>
+      <OrgDetailsFields initial={EMPTY_ORG_FIELDS} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Primary contact</h2>
-        <div className="space-y-2">
-          <Label htmlFor="contactName">Contact name</Label>
-          <Input id="contactName" name="contactName" required aria-invalid={!!fieldErrors?.contactName} />
-          <FieldError errors={fieldErrors?.contactName} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="contactEmail">Contact email</Label>
-          <Input
-            id="contactEmail"
-            name="contactEmail"
-            type="email"
-            required
-            aria-invalid={!!fieldErrors?.contactEmail}
-          />
-          <FieldError errors={fieldErrors?.contactEmail} />
-        </div>
+        <ContactFields initial={EMPTY_ORG_FIELDS} fieldErrors={fieldErrors} />
         <VerifiedPhoneField enabled={phoneVerifyEnabled} fieldErrors={fieldErrors} />
       </section>
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Service area</h2>
-        <p className="text-muted-foreground text-sm">
-          Draw the region your team covers. Alerts route to your org when a person&apos;s last-known
-          location falls inside it.
-        </p>
+        <p className="text-muted-foreground text-sm">{SERVICE_AREA_HELP}</p>
         <RegionDrawMap onRegionChange={onRegionChange} hasRegion={!!region} />
         {process.env.NEXT_PUBLIC_E2E === "1" ? (
           // Test-only seam: the headless E2E can't reliably draw on the map
@@ -154,10 +81,7 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Proof of operating status</h2>
-        <p className="text-muted-foreground text-sm">
-          A county registration letter, 501(c)(3) determination, or similar. PDF, PNG, or JPG, up to
-          10 MB.
-        </p>
+        <ProofHint orgType={orgType} />
         <div className="space-y-2">
           <input
             id="proofDoc"

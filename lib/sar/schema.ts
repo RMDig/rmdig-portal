@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { operatingStatus } from "../db/schema";
+import { operatingStatus, orgType } from "../db/schema";
 import { RegionPolygonSchema } from "./geo";
 
 // Shared validation for the SAR org creation form (/sar/new). The server action
@@ -12,6 +12,7 @@ import { RegionPolygonSchema } from "./geo";
 // Operating-status options derived from the DB enum so the form, the action, and
 // the column never drift. `other` requires the free-text detail (refine below).
 export const operatingStatusValues = operatingStatus.enumValues;
+export const orgTypeValues = orgType.enumValues;
 
 // Optional free-text field from FormData: an empty string (the browser sends ""
 // for a blank input) collapses to undefined so it stores as NULL, not "".
@@ -35,8 +36,37 @@ const regionField = z.preprocess((v) => {
   }
 }, RegionPolygonSchema);
 
+// Fields an org admin can change while the application is pending. The phone
+// is not among them: it was verified at submission, and a new one would need
+// verifying again (ask support).
+const editableFields = {
+  orgType: z.enum(orgTypeValues).default("sar_team"),
+  name: z.string().trim().min(1, "Enter your organization's name.").max(200),
+  description: optionalText(2000),
+  regionName: optionalText(200),
+  contactName: z.string().trim().min(1, "Enter a primary contact name.").max(200),
+  contactEmail: z.string().trim().toLowerCase().email("Enter a valid contact email.").max(320),
+  operatingStatus: z.enum(operatingStatusValues),
+  operatingStatusOther: optionalText(200),
+};
+
+const otherNeedsDetail = <T extends { operatingStatus: string; operatingStatusOther?: string }>(v: T) =>
+  v.operatingStatus !== "other" || !!v.operatingStatusOther;
+
+/** Resubmitting a pending application. The area is optional: absent means
+ *  "keep the one on file"; the proof document is optional the same way. */
+export const updateSarOrgSchema = z
+  .object({
+    ...editableFields,
+    region: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), regionField.optional()),
+  })
+  .refine(otherNeedsDetail, { message: "Describe your organization type.", path: ["operatingStatusOther"] });
+
+export type UpdateSarOrgInput = z.infer<typeof updateSarOrgSchema>;
+
 export const createSarOrgSchema = z
   .object({
+    orgType: editableFields.orgType,
     name: z.string().trim().min(1, "Enter your organization's name.").max(200),
     description: optionalText(2000),
     regionName: optionalText(200),
