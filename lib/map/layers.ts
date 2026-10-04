@@ -30,7 +30,7 @@ export interface MapLayer {
   emptyText: string;
 }
 
-export type OrgStatus = "pending" | "approved" | "rejected" | "suspended";
+export type OrgStatus = "pending" | "approved" | "rejected" | "suspended" | "leaving" | "withdrawn";
 
 export interface OrgRow {
   id: string;
@@ -46,6 +46,8 @@ const ORG_STYLE: Record<OrgStatus, { color: string; dashed: boolean; label: stri
   approved: { color: "#2563eb", dashed: false, label: "Approved" },
   pending: { color: "#6b7280", dashed: true, label: "Under review" },
   suspended: { color: "#d97706", dashed: true, label: "Suspended" },
+  leaving: { color: "#6b7280", dashed: true, label: "Leaving the program" },
+  withdrawn: { color: "#9ca3af", dashed: true, label: "Withdrawn" },
   rejected: { color: "#9ca3af", dashed: true, label: "Not approved" },
 };
 
@@ -80,9 +82,9 @@ export function memberOrgLayer(rows: OrgRow[]): MapLayer {
   };
 }
 
-/** Staff overview. Rejected orgs are left out, as on the approvals page. */
+/** Staff overview. Rejected and withdrawn orgs are left out. */
 export function allOrgsLayer(rows: OrgRow[]): MapLayer {
-  const shown = rows.filter((r) => r.status !== "rejected");
+  const shown = rows.filter((r) => r.status !== "rejected" && r.status !== "withdrawn");
   return {
     id: "all-orgs",
     label: "All search & rescue organizations (staff)",

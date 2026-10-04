@@ -42,7 +42,7 @@ export async function allOrgRows(): Promise<OrgRow[]> {
   const rows = (await db.execute(sql`
     SELECT o.id, o.name, o.status, ${SIMPLIFIED} AS geojson
     FROM sar_orgs o
-    WHERE o.status <> 'rejected'
+    WHERE o.status NOT IN ('rejected', 'withdrawn')
     ORDER BY o.name
   `)) as unknown as GeoRow[];
   return toOrgRows(rows);

@@ -108,6 +108,32 @@ Every action appends to `sar_org_status_log` (append-only audit) and is attribut
 to you. Manual approval is non-negotiable — safety-of-life alerts must never route
 to an unverified org.
 
+## SAR team sync to AvServ
+
+The portal is the only place a SAR team is approved, suspended, re-verified or
+withdrawn; AvServ only stores what the portal sends (AvServ
+`sar_team_sync.md`). The portal PUTs the team's current state to **both** nodes
+(`AVSERV_BASE_URL` and `AVSERV_FAILOVER_BASE_URL`) after: approve, suspend, mark
+leaving, withdraw, patrol re-verification, and publishing team terms. Each send
+bumps the org's revision; AvServ keeps the highest per node.
+
+- **Per-node status** is on each org in **Admin → SAR approvals**: revision,
+  usable or not, last accepted time, or the failure code. **Resync to AvServ**
+  resends the current state.
+- **Waiting for published team terms:** an approved team isn't sent until it has
+  published terms (its services). Publishing them sends it.
+- **A failed node** (`unreachable`, `sar_capture_unavailable`, `http_5xx`) is logged
+  as `sar.sync.node_failed`. Press Resync once the node is back; a node that missed
+  a PUT also converges from its peer. **409** (`revision_conflict`,
+  `terms_version_conflict`) is a portal bug, so investigate before resyncing.
+- **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
+  team until they end. **Withdraw** works only once every node reports no open
+  bindings (it asks both). **Suspend** stops alerts to the team at once, even for
+  bound check-outs.
+- **Ski patrols:** approval sets `verifiedAt` and `reverifyBy` (12 months). After
+  the call-back, "Mark re-verified" renews them. AvServ won't use a patrol past
+  `reverifyBy`.
+
 ## SAR team terms
 
 Each SAR team writes the terms users accept when they add it, and chooses the

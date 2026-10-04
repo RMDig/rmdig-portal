@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getPlatformRoles } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
-import { sarOrgs, users } from "@/lib/db/schema";
+import { sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
+import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
 import { getRegionAsGeoJson } from "@/lib/sar/geo";
 import { type PendingOrg, SarApprovalRow } from "./SarApprovalRow";
 
@@ -14,7 +15,7 @@ export const metadata = {
 
 // Reviewable lifecycle states, in display priority (pending first — those need
 // action). Rejected orgs are terminal and omitted.
-const STATUS_ORDER: Record<string, number> = { pending: 0, approved: 1, suspended: 2 };
+const STATUS_ORDER: Record<string, number> = { pending: 0, approved: 1, leaving: 2, suspended: 3 };
 
 export default async function SarApprovalsPage() {
   // The /admin route is staff-gated; re-check here so a direct URL can't reach
@@ -39,19 +40,40 @@ export default async function SarApprovalsPage() {
       operatingStatus: sarOrgs.operatingStatus,
       operatingStatusOther: sarOrgs.operatingStatusOther,
       regionName: sarOrgs.regionName,
+      reverifyBy: sarOrgs.reverifyBy,
     })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
-    .where(inArray(sarOrgs.status, ["pending", "approved", "suspended"]))
+    .where(inArray(sarOrgs.status, ["pending", "approved", "leaving", "suspended"]))
     .orderBy(asc(sarOrgs.createdAt));
 
   // The region lives in a raw PostGIS column read via lib/sar/geo. Few orgs are
   // in play at once, so a read per row is fine.
+  const syncRows = reviewable.length
+    ? await db.select().from(sarOrgSync).where(inArray(sarOrgSync.orgId, reviewable.map((o) => o.id)))
+    : [];
   const rows: PendingOrg[] = await Promise.all(
     reviewable.map(async (o) => ({
       ...o,
       submittedAt: o.submittedAt.toISOString(),
+      reverifyBy: o.reverifyBy?.toISOString() ?? null,
       region: await getRegionAsGeoJson(o.id),
+      sync: syncRows
+        .filter((s) => s.orgId === o.id)
+        .map((s) => ({
+          node: s.node,
+          revision: s.revision,
+          outcome: s.outcome,
+          detail:
+            s.outcome === "error"
+              ? `failed (${s.errorCode})`
+              : s.outcome === "skipped"
+                ? (SKIP_LABEL[s.unusableReason as SkipReason] ?? s.unusableReason ?? "skipped")
+                : s.usable
+                  ? "usable"
+                  : `not usable${s.unusableReason ? ` (${s.unusableReason})` : ""}`,
+          syncedAt: s.syncedAt?.toISOString() ?? null,
+        })),
     })),
   );
   // Pending first (they need action), then approved, then suspended.

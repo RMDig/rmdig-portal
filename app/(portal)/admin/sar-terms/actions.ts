@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs, sarOrgTerms, users } from "@/lib/db/schema";
 import { sendSarTermsDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
+import { syncSarOrg } from "@/lib/sar/sync";
 import { requiresReacceptance, termsSha256 } from "@/lib/sar/terms";
 import { termsWordingProblems } from "@/lib/sar/terms-rules";
 
@@ -101,6 +102,15 @@ export async function decideTermsAction(_prev: TermsDecisionResult | null, formD
   }
 
   logger.info({ event: decision === "publish" ? "sar.terms.published" : "sar.terms.rejected", staffId, orgId: outcome.orgId, version: outcome.version });
+  // A newly published version goes to AvServ (its services change what users
+  // are offered). syncSarOrg skips orgs AvServ doesn't know yet (pending).
+  if (decision === "publish") {
+    try {
+      await syncSarOrg(outcome.orgId);
+    } catch (err) {
+      logger.error({ event: "sar.sync.failed", orgId: outcome.orgId, after: "terms_publish", err });
+    }
+  }
   await notifyOrgAdmins(outcome.orgId, { orgName: outcome.orgName, decision: decision === "publish" ? "published" : "rejected", version: outcome.version, note });
   revalidatePath("/admin/sar-terms");
   return { ok: true, decision, version: outcome.version };

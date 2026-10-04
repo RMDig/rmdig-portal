@@ -141,6 +141,13 @@
       "when": 1791069904983,
       "tag": "0019_sar_org_terms",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791071864539,
+      "tag": "0020_sar_team_sync",
+      "breakpoints": true
     }
   ]
 }

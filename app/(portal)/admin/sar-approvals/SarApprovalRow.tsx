@@ -4,7 +4,7 @@ import { useActionState } from "react";
 
 import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPreviewMap";
 import { Button } from "@/components/ui/button";
-import { reviewSarOrgAction } from "./actions";
+import { resyncSarOrgAction, reviewSarOrgAction } from "./actions";
 
 // Operating-status labels (value mirrors the operating_status enum). Inlined to
 // keep this client component free of the server-only db import.
@@ -20,8 +20,17 @@ const OPERATING_STATUS_LABEL: Record<string, string> = {
 const STATUS_BADGE: Record<string, string> = {
   pending: "Pending review",
   approved: "Approved",
+  leaving: "Leaving the program",
   suspended: "Suspended",
 };
+
+export interface NodeSync {
+  node: string;
+  revision: number;
+  outcome: string;
+  detail: string;
+  syncedAt: string | null;
+}
 
 export interface PendingOrg {
   id: string;
@@ -34,6 +43,43 @@ export interface PendingOrg {
   operatingStatusOther: string | null;
   regionName: string | null;
   region: PreviewPolygon | null;
+  reverifyBy: string | null;
+  sync: NodeSync[];
+}
+
+// One small form per lifecycle action (approved/leaving/suspended orgs).
+function ActionButton({
+  formAction,
+  orgId,
+  decision,
+  label,
+  pending,
+  note,
+}: {
+  formAction: (fd: FormData) => void;
+  orgId: string;
+  decision: string;
+  label: string;
+  pending: boolean;
+  note?: string;
+}) {
+  return (
+    <form action={formAction} className="space-y-2">
+      <input type="hidden" name="orgId" value={orgId} />
+      <input type="hidden" name="decision" value={decision} />
+      {note ? (
+        <textarea
+          name="note"
+          rows={2}
+          placeholder={note}
+          className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
+        />
+      ) : null}
+      <Button type="submit" variant="outline" disabled={pending}>
+        {label}
+      </Button>
+    </form>
+  );
 }
 
 export function SarApprovalRow({ org }: { org: PendingOrg }) {
@@ -144,30 +190,61 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
             </Button>
           </form>
         </div>
-      ) : org.status === "approved" ? (
-        // Suspend an approved org — optional reason, recorded in the audit log.
-        <form action={formAction} className="max-w-md space-y-2">
-          <input type="hidden" name="orgId" value={org.id} />
-          <input type="hidden" name="decision" value="suspend" />
-          <textarea
-            name="note"
-            rows={2}
-            placeholder="Reason for suspending (optional, recorded in the audit log)"
-            className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
-          />
-          <Button type="submit" variant="outline" disabled={pending}>
-            Suspend
-          </Button>
-        </form>
-      ) : org.status === "suspended" ? (
-        // Reactivate a suspended org — returns it to pending for re-review.
-        <form action={formAction}>
-          <input type="hidden" name="orgId" value={org.id} />
-          <input type="hidden" name="decision" value="reactivate" />
-          <Button type="submit" variant="outline" disabled={pending}>
-            Reactivate (re-review)
-          </Button>
-        </form>
+      ) : (
+        // Lifecycle of an approved org. Suspension for cause is immediate in
+        // AvServ; leaving keeps bound check-outs until they end; withdraw only
+        // once no node has open check-outs bound (checked by the action).
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+          {org.status === "approved" || org.status === "leaving" ? (
+            <ActionButton
+              formAction={formAction}
+              orgId={org.id}
+              decision="suspend"
+              label="Suspend (stops alerts at once)"
+              pending={pending}
+              note="Reason for suspending (optional, recorded in the audit log)"
+            />
+          ) : null}
+          {org.status === "approved" ? (
+            <ActionButton formAction={formAction} orgId={org.id} decision="mark_leaving" label="Mark leaving" pending={pending} />
+          ) : null}
+          {org.status === "approved" && org.orgType === "ski_patrol" ? (
+            <ActionButton formAction={formAction} orgId={org.id} decision="reverify" label="Mark re-verified (12 months)" pending={pending} />
+          ) : null}
+          {org.status === "leaving" || org.status === "suspended" ? (
+            <ActionButton formAction={formAction} orgId={org.id} decision="withdraw" label="Withdraw" pending={pending} />
+          ) : null}
+          {org.status === "suspended" ? (
+            <ActionButton formAction={formAction} orgId={org.id} decision="reactivate" label="Reactivate (re-review)" pending={pending} />
+          ) : null}
+        </div>
+      )}
+
+      {org.status !== "pending" ? (
+        <div className="space-y-1 text-sm">
+          {org.orgType === "ski_patrol" && org.reverifyBy ? (
+            <p className="text-muted-foreground">Re-verify by {new Date(org.reverifyBy).toLocaleDateString()}.</p>
+          ) : null}
+          <p className="font-medium">AvServ sync</p>
+          {org.sync.length === 0 ? (
+            <p className="text-muted-foreground">Not sent yet.</p>
+          ) : (
+            <ul className="text-muted-foreground">
+              {org.sync.map((s) => (
+                <li key={s.node} className={s.outcome === "error" ? "text-red-700 dark:text-red-400" : undefined}>
+                  {s.node}: revision {s.revision}, {s.detail}
+                  {s.syncedAt ? ` · last accepted ${new Date(s.syncedAt).toLocaleString()}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action={resyncSarOrgAction}>
+            <input type="hidden" name="orgId" value={org.id} />
+            <Button type="submit" variant="ghost" size="sm">
+              Resync to AvServ
+            </Button>
+          </form>
+        </div>
       ) : null}
 
       {fieldErrors?.note ? (

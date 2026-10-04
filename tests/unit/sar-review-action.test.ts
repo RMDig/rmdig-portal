@@ -2,16 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   org: [{ status: "pending", name: "San Juan SAR", submitterEmail: "sub@sar.org" }] as Array<{
+    orgType?: string;
     status: string;
     name: string;
     submitterEmail: string;
   }>,
   staff: true,
+  updates: [] as unknown[],
+  sync: vi.fn(() => Promise.resolve([])),
+  nodeViews: [] as Array<{ openBindings: number } | null | Error>,
 }));
 
 vi.mock("@/lib/db", () => {
   const tx = {
-    update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+    update: () => ({ set: (v: unknown) => ({ where: () => { h.updates.push(v); return Promise.resolve(); } }) }),
     insert: () => ({ values: () => Promise.resolve() }),
   };
   const selChain: Record<string, unknown> = {
@@ -32,6 +36,14 @@ vi.mock("@/lib/auth/roles", () => ({ isPlatformStaff: vi.fn(() => Promise.resolv
 vi.mock("@/lib/email/send", () => ({ sendSarOrgDecisionEmail: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/sar/sync", () => ({ syncSarOrg: h.sync }));
+vi.mock("@/lib/avserv/sar-teams", () => ({
+  avservNodes: () => h.nodeViews.map((_, i) => ({ name: `avserv-${i + 2}`, baseUrl: `https://avserv-${i + 2}.example` })),
+  getSarTeam: (node: { name: string }) => {
+    const v = h.nodeViews[Number(node.name.split("-")[1]) - 2];
+    return v instanceof Error ? Promise.reject(v) : Promise.resolve(v ?? null);
+  },
+}));
 
 import { auth } from "@/lib/auth";
 import { sendSarOrgDecisionEmail } from "@/lib/email/send";
@@ -51,6 +63,8 @@ function fd(decision: string, note?: string): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.updates = [];
+  h.nodeViews = [];
   h.org = [{ status: "pending", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
   h.staff = true;
   authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
@@ -131,6 +145,62 @@ describe("reviewSarOrgAction", () => {
       orgName: "San Juan SAR",
       decision: "changes_requested",
       note: "Please add your county letter.",
+    });
+  });
+
+  describe("AvServ sync and the program lifecycle (docs/plans/33)", () => {
+    const at = (status: string, orgType = "sar_team") => [{ status, name: "San Juan SAR", orgType, submitterEmail: "sub@sar.org" }];
+
+    it("syncs after approve, stamping a patrol's verification dates, and never after reject", async () => {
+      h.org = at("pending", "ski_patrol");
+      expect(await reviewSarOrgAction(null, fd("approve"))).toEqual({ ok: true });
+      expect(h.sync).toHaveBeenCalledWith(ORG_ID);
+      const set = h.updates[0] as { verifiedAt: Date; reverifyBy: Date };
+      expect(set.reverifyBy.getUTCFullYear() * 12 + set.reverifyBy.getUTCMonth() - (set.verifiedAt.getUTCFullYear() * 12 + set.verifiedAt.getUTCMonth())).toBe(12);
+      h.sync.mockClear();
+      h.org = at("pending");
+      await reviewSarOrgAction(null, fd("reject", "No proof."));
+      expect(h.sync).not.toHaveBeenCalled();
+    });
+
+    it("marks an approved org leaving and syncs it", async () => {
+      h.org = at("approved");
+      expect(await reviewSarOrgAction(null, fd("mark_leaving"))).toEqual({ ok: true });
+      expect(h.updates[0]).toMatchObject({ status: "leaving", leavingNoticeAt: expect.any(Date) });
+      expect(h.sync).toHaveBeenCalled();
+    });
+
+    it("withdraws only when no node has open check-outs bound", async () => {
+      h.org = at("leaving");
+      h.nodeViews = [{ openBindings: 0 }, { openBindings: 2 }];
+      expect(await reviewSarOrgAction(null, fd("withdraw"))).toMatchObject({ ok: false, error: expect.stringMatching(/avserv-3 still has 2 check-outs/) });
+      expect(h.updates).toEqual([]);
+      h.nodeViews = [{ openBindings: 0 }, new Error("timeout")];
+      expect(await reviewSarOrgAction(null, fd("withdraw"))).toMatchObject({ ok: false, error: expect.stringMatching(/Couldn't confirm/) });
+      h.nodeViews = [{ openBindings: 0 }, null];
+      expect(await reviewSarOrgAction(null, fd("withdraw"))).toEqual({ ok: true });
+      expect(h.updates[0]).toEqual({ status: "withdrawn" });
+    });
+
+    it("re-verifies ski patrols only", async () => {
+      h.org = at("approved");
+      expect(await reviewSarOrgAction(null, fd("reverify"))).toMatchObject({ ok: false, error: "Only ski patrols are re-verified." });
+      h.org = at("approved", "ski_patrol");
+      expect(await reviewSarOrgAction(null, fd("reverify"))).toEqual({ ok: true });
+      expect(h.updates[0]).toMatchObject({ verifiedAt: expect.any(Date), reverifyBy: expect.any(Date) });
+    });
+
+    it("suspends a leaving org (for cause, immediate) and refuses lifecycle steps from the wrong status", async () => {
+      h.org = at("leaving");
+      expect(await reviewSarOrgAction(null, fd("suspend"))).toEqual({ ok: true });
+      h.org = at("pending");
+      expect(await reviewSarOrgAction(null, fd("mark_leaving"))).toMatchObject({ ok: false });
+    });
+
+    it("keeps the decision when the sync throws, and logs it", async () => {
+      h.org = at("approved");
+      h.sync.mockRejectedValueOnce(new Error("boom"));
+      expect(await reviewSarOrgAction(null, fd("suspend"))).toEqual({ ok: true });
     });
   });
 });
