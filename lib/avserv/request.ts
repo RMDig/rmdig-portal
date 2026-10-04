@@ -61,8 +61,11 @@ export async function avservFetch(
   path: string,
   init: { method: string; headers?: Record<string, string>; body?: string },
 ): Promise<Response> {
+  // Signed outside the try: a missing or bad signing key is our fault, not an
+  // unreachable node, and must not be retried on the other node or shown as
+  // an outage.
+  const token = await signServiceJwt();
   try {
-    const token = await signServiceJwt();
     return await fetch(`${baseUrl.replace(/\/$/, "")}${path}`, {
       method: init.method,
       headers: { authorization: `Bearer ${token}`, ...init.headers },
@@ -70,8 +73,16 @@ export async function avservFetch(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`);
+    throw new AvServError(`AvServ request failed: ${(err as Error).message}`, undefined, "unreachable");
   }
+}
+
+/** An AvServ failure that is an outage (no answer, a 5xx, or the failover
+ *  node lagging while the primary is down) rather than a fault in the
+ *  portal or the contract. Outages are logged; faults also go to Sentry. */
+export function isAvServOutage(err: unknown): boolean {
+  if (!(err instanceof AvServError)) return false;
+  return err.code === "unreachable" || err.code === "failover_lag" || (err.status !== undefined && err.status >= 500);
 }
 
 /**
@@ -202,11 +213,10 @@ export async function callWithFailover<T>(
       if (res.ok) return await parseContractOk(res, schema, what);
       last = await contractFailure(res, viaFailover);
     } catch (err) {
-      if (err instanceof AvServContractError) throw err;
-      last = new AvServContractError((err as Error).message, {
-        status: (err as AvServError).status,
-        viaFailover,
-      });
+      // Only a node failure is worth trying on the other node; anything else
+      // (a signing or programming fault) is ours and propagates as is.
+      if (err instanceof AvServContractError || !(err instanceof AvServError)) throw err;
+      last = new AvServContractError(err.message, { status: err.status, code: err.code, viaFailover });
     }
     if (!retryOn(last)) break;
   }

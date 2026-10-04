@@ -144,6 +144,7 @@ function failoverNotFound(): AvServError {
     "AvServ's failover node doesn't have this account yet (404 after the primary failed) — " +
       "most likely replication lag; retry shortly",
     404,
+    "failover_lag",
   );
 }
 
