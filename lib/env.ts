@@ -91,6 +91,9 @@ const Env = z.object({
   // per node, never shared. During rotation both ids are listed. Optional:
   // unset, /api/sar/intake answers 503 (AvServ retries) and logs loudly.
   AVSERV_SAR_INTAKE_KEYS: z.string().optional(),
+  // Vercel sends it as "Authorization: Bearer <CRON_SECRET>" on scheduled
+  // calls (vercel.json crons). Unset: the cron routes answer 503 and log.
+  CRON_SECRET: z.string().min(32).optional(),
 
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),

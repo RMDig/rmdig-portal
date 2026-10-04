@@ -15,6 +15,8 @@ import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
 import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
+import PatrolReverifyStaffEmail, { type PatrolReverifyStaffEmailProps } from "./templates/PatrolReverifyStaffEmail";
+import PatrolReverifyTeamEmail, { type PatrolReverifyTeamEmailProps } from "./templates/PatrolReverifyTeamEmail";
 import PlatformInviteEmail from "./templates/PlatformInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
@@ -343,4 +345,28 @@ export async function sendSarAlertNotifyEmail(
     disregard: `AvAI alert update for ${params.teamName}: retracted`,
   };
   await deliver({ kind: "sar_alert_notify", label: "SAR-alert-notify", to, subject: subject[params.kind], html, log: { alertKind: params.kind } });
+}
+
+export async function sendPatrolReverifyStaffEmail(to: string, params: PatrolReverifyStaffEmailProps): Promise<void> {
+  const html = await render(PatrolReverifyStaffEmail(params));
+  await deliver({
+    kind: "patrol_reverify_staff",
+    label: "patrol-reverify-staff",
+    to,
+    subject: params.stage === "lapsed" ? `${params.orgName}: verification lapsed` : `Re-verify ${params.orgName} by ${params.reverifyBy}`,
+    html,
+    log: { stage: params.stage },
+  });
+}
+
+export async function sendPatrolReverifyTeamEmail(to: string, params: PatrolReverifyTeamEmailProps): Promise<void> {
+  const html = await render(PatrolReverifyTeamEmail(params));
+  await deliver({
+    kind: "patrol_reverify_team",
+    label: "patrol-reverify-team",
+    to,
+    subject: params.stage === "lapsed" ? "Your patrol's AvAI verification lapsed" : "Annual verification for your patrol",
+    html,
+    log: { stage: params.stage },
+  });
 }

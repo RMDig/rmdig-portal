@@ -506,6 +506,22 @@ export const sarAlertViewLog = pgTable(
   (t) => [index("sar_alert_view_log_org_idx").on(t.orgId)],
 );
 
+// Re-verification reminders sent for a ski patrol (lib/sar/reverify.ts). One
+// row per (org, deadline, stage), claimed before sending so a stage goes out
+// once; re-verifying sets a new reverify_by, which starts the stages afresh.
+export const sarReverifyReminders = pgTable(
+  "sar_reverify_reminders",
+  {
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    reverifyBy: timestamp("reverify_by", { withTimezone: true }).notNull(),
+    stage: text("stage", { enum: ["due_30", "due_7", "lapsed"] }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.reverifyBy, t.stage] })],
+);
+
 // Every /map view of a team's RED layer (docs/plans/33 §4 item 6), written
 // before anything is shown. AvServ's data_share_log records the disclosure;
 // this records who in the team viewed it, which items, and from which nodes.
