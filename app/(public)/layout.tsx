@@ -29,7 +29,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           {/* AvAI mark → the in-depth /avai page, in the middle grid column: at
               true page center whenever both 1fr sides fit their content; a
               too-wide nav pushes it left instead of overlapping. Hidden on the
-              landing page, which shows it in the hero. */}
+              landing page and /avai, which show it already. */}
           <HeaderAvaiMark />
           <nav className="col-start-3 flex items-center gap-5 justify-self-end text-sm text-neutral-600 dark:text-neutral-300">
             <div className="hidden items-center gap-5 md:flex">
