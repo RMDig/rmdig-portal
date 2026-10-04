@@ -13,6 +13,7 @@ import {
   staysUp,
   STAYS_UP,
 } from "@/lib/maintenance/portal-switch";
+import { STATUS_PAGE_URL } from "@/lib/status-page";
 
 const h = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock("@vercel/global-config", () => ({ createClient: () => ({ get: h.get }) }));
@@ -89,6 +90,10 @@ describe("maintenancePage", () => {
     const html = maintenancePage({ enabled: true });
     expect(html).toContain("We're updating the portal");
     expect(html).not.toContain("Expected back");
+  });
+
+  it("links the public status page", () => {
+    expect(maintenancePage({ enabled: true })).toContain(`<a href="${STATUS_PAGE_URL}">Service status</a>`);
   });
 });
 

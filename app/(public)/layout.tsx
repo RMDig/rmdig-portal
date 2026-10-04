@@ -6,6 +6,7 @@ import { HeaderAvaiMark } from "@/components/public/HeaderAvaiMark";
 import { MobileNav } from "@/components/public/MobileNav";
 import { SessionButton } from "@/components/public/SessionButton";
 import { LEGAL_ENTITY } from "@/lib/legal/compliance-copy";
+import { STATUS_PAGE_URL } from "@/lib/status-page";
 
 // Shared chrome for every no-auth public surface (landing, privacy, terms,
 // support, data-deletion). These routes are store-submission gates (AvApp doc
@@ -79,6 +80,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <Link href="/account/delete" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               Delete my data
             </Link>
+            <a href={STATUS_PAGE_URL} rel="noopener" className="hover:text-neutral-900 dark:hover:text-neutral-100">
+              Status
+            </a>
             <a href={GITHUB_URL} rel="noopener" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               GitHub
             </a>
