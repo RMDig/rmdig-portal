@@ -648,6 +648,15 @@ Banners on signed-in portal pages: `/admin/announcements` (**rmdig_admin only**)
 
 ## Outages and rollback
 
+**Status page:** https://stats.uptimerobot.com/ZBWHy9EFCG (UptimeRobot, 5-minute
+checks): the website and portal (`rmdig.ai/readyz`), the public site, and each
+alert server's `/readyz`, listed separately. It's linked from the error pages,
+the maintenance screen, `/support` and the public footer
+(`lib/status-page.ts`). Keep it AvAI-only, and word any announcement plainly:
+no "real-time", "24/7", "always", "guaranteed", "never miss" or "redundant"
+(CLAUDE.md §0). Backup-mirror heartbeats are on Healthchecks.io and stay
+private.
+
 **Detect.** Two probes, two meanings:
 
 | URL | 200 means | Pages you? |

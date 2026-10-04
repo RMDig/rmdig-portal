@@ -7,6 +7,7 @@ import {
   SUPPORT_EMAIL,
 } from "@/lib/legal/compliance-copy";
 import { pageMetadata } from "@/lib/seo";
+import { STATUS_PAGE_URL } from "@/lib/status-page";
 
 export const metadata: Metadata = pageMetadata({
   title: "Support — rmdig / AvAI",
@@ -49,6 +50,13 @@ export default function SupportPage() {
             AvAI is currently distributed through TestFlight and Play Internal testing. If
             service is interrupted, armed check-outs may not be watched during the outage —
             fall back to your second safety plan.
+          </p>
+          <p className="mt-3">
+            To check whether the AvAI website and alert servers are up right now, see the{" "}
+            <a href={STATUS_PAGE_URL} className="font-medium underline">
+              status page
+            </a>
+            .
           </p>
         </section>
 

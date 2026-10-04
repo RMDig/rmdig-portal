@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { STATUS_PAGE_URL } from "../status-page";
+
 // The planned-maintenance switch for the portal (docs/runbook.md "Portal
 // maintenance switch"). The operator sets the `portalMaintenance` key in the
 // project's Vercel Global Config (formerly Edge Config); within ~30 s the Edge
@@ -90,7 +92,7 @@ main{max-width:28rem;padding:2rem;text-align:center}h1{font-size:1.5rem;margin:0
 @media (prefers-color-scheme:dark){body{background:#0a0a0a;color:#f5f5f5}p{color:#a3a3a3}}</style></head>
 <body><main><h1>The portal is down for maintenance</h1>
 <p>${escape(body)}</p>${until ? `\n<p>Expected back by ${escape(until)}.</p>` : ""}
-<p><a href="/support">Support</a> · <a href="/privacy">Privacy</a> · <a href="/">rmdig.ai</a></p></main></body></html>`;
+<p><a href="${STATUS_PAGE_URL}">Service status</a> · <a href="/support">Support</a> · <a href="/privacy">Privacy</a> · <a href="/">rmdig.ai</a></p></main></body></html>`;
 }
 
 // ── The one impure part ──────────────────────────────────────────────────────

@@ -3,6 +3,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
+import { STATUS_PAGE_URL } from "@/lib/status-page";
+
 // App Router global error boundary. Catches errors thrown while rendering the
 // root layout / app shell — the one place a regular error.tsx can't reach —
 // and reports them to Sentry. Without this, those client-side render failures
@@ -56,6 +58,11 @@ export default function GlobalError({
           >
             Try again
           </button>
+          <p style={{ marginTop: "1.5rem" }}>
+            <a href={STATUS_PAGE_URL} style={{ color: "inherit", fontSize: "0.875rem" }}>
+              Service status
+            </a>
+          </p>
           {error.digest ? (
             <p style={{ color: "#a3a3a3", fontSize: "0.75rem", marginTop: "1.5rem" }}>
               Reference: {error.digest}

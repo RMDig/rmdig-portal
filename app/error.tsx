@@ -4,6 +4,8 @@ import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { STATUS_PAGE_URL } from "@/lib/status-page";
+
 // Error boundary for every page below the root layout, including the portal
 // layout, which reads the database on each signed-in page. Without it a
 // database outage showed the bare global-error screen. Says only what we know:
@@ -33,6 +35,9 @@ export default function RouteError({
         >
           Try again
         </button>
+        <a href={STATUS_PAGE_URL} className="text-sm font-medium underline">
+          Service status
+        </a>
         <Link href="/support" className="text-sm font-medium underline">
           Support
         </Link>
