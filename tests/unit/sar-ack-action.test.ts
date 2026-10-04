@@ -24,14 +24,14 @@ vi.mock("@/lib/avserv/sar-teams", () => {
   ];
   return {
     avservNodes: () => nodes,
-    nodeFor: (ns: typeof nodes, s: string) => ns.find((n) => n.name.split(".")[0] === s),
     ackSarAlert: h.ack,
   };
 });
 vi.mock("@/lib/db", () => {
   const sel: Record<string, unknown> = {};
   sel.from = () => sel;
-  sel.where = () => Promise.resolve(h.deliveries);
+  sel.where = () => sel;
+  sel.limit = () => Promise.resolve(h.deliveries.slice(0, 1));
   return {
     db: {
       select: () => sel,
@@ -86,11 +86,11 @@ describe("ackAlertAction", () => {
     expect(await ackAlertAction("org", null, form())).toEqual({ ok: false, error: expect.stringMatching(/isn't one of your team's/) });
   });
 
-  it("acks each delivering node with that node's messageId, then records it", async () => {
+  it("acks every node under the shared alert id, then records it", async () => {
     expect(await ackAlertAction("org", null, form())).toEqual({ ok: true });
     expect(h.ack).toHaveBeenCalledTimes(2);
-    expect(h.ack).toHaveBeenCalledWith(expect.objectContaining({ name: "avserv-2.rmdig.ai" }), "m2", expect.objectContaining({ teamId: "org", by: "portal-user:u1" }));
-    expect(h.ack).toHaveBeenCalledWith(expect.objectContaining({ name: "avserv-3.rmdig.ai" }), "m3", expect.anything());
+    expect(h.ack).toHaveBeenCalledWith(expect.objectContaining({ name: "avserv-2.rmdig.ai" }), "sub:team", expect.objectContaining({ teamId: "org", by: "portal-user:u1" }));
+    expect(h.ack).toHaveBeenCalledWith(expect.objectContaining({ name: "avserv-3.rmdig.ai" }), "sub:team", expect.anything());
     expect(h.acks).toEqual([expect.objectContaining({ orgId: "org", alertId: "sub:team", ackedByUserId: "u1" })]);
   });
 

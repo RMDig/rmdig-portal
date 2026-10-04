@@ -121,6 +121,23 @@ export default async function AdminPage() {
       {isAdmin ? (
         <Card>
           <CardHeader>
+            <CardTitle>Deletion requests</CardTitle>
+            <CardDescription>
+              Confirmed data-deletion requests with their 45-day deadlines, and which search &amp;
+              rescue teams received each account&apos;s data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/admin/deletion-requests">Open the deletion queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
             <CardTitle>Team</CardTitle>
             <CardDescription>
               Invite new administrators or reviewers and manage who holds staff roles.
