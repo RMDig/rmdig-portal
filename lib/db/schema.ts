@@ -234,6 +234,11 @@ export const sarOrgStatus = pgEnum("sar_org_status", [
   "approved",
   "rejected",
   "suspended",
+  // Leaving the program (AvServ plan 41 §2.5): no new offers or binds, but
+  // check-outs already bound keep the team until they end. Withdrawn once
+  // every AvServ node reports no open bindings; the row stays for history.
+  "leaving",
+  "withdrawn",
 ]);
 
 // What kind of organization is applying. Drives the operator's verification
@@ -267,6 +272,10 @@ export const sarOrgAction = pgEnum("sar_org_action", [
   // The org's admin edited a pending application (after changes were
   // requested, or before review) and sent it back to the queue.
   "resubmitted",
+  "leaving",
+  "withdrawn",
+  // Staff re-verified a ski patrol (yearly, AvServ plan 41 §2.4).
+  "reverified",
 ]);
 
 // What kind of organization this is (AvApp doc 36 §9.3). Both go through the
@@ -316,6 +325,13 @@ export const sarOrgs = pgTable("sar_orgs", {
   // Most recent reject reason / change-request note shown to the submitter. The
   // append-only sar_org_status_log keeps the full per-transition history.
   reviewNote: text("review_note"),
+  // AvServ team sync (AvServ sar_team_sync.md). Bumped on every change that
+  // is sent; AvServ keeps the highest revision on every node.
+  syncRevision: integer("sync_revision").default(0).notNull(),
+  leavingNoticeAt: timestamp("leaving_notice_at", { withTimezone: true }),
+  // Ski patrols: verified on approval and every 12 months after.
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  reverifyBy: timestamp("reverify_by", { withTimezone: true }),
 },
   (t) => [
     // The operator approvals queue lists pending orgs; index the status it filters on.
@@ -407,6 +423,30 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
 },
   // History is always read per-org, newest first; index org_id for that lookup.
   (t) => [index("sar_org_status_log_org_id_idx").on(t.orgId)],
+);
+
+// The outcome of the last team sync to each AvServ node (sar_team_sync.md):
+// the portal sends to every node and shows each node's state to staff.
+export const sarOrgSync = pgTable(
+  "sar_org_sync",
+  {
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    // The node's base URL host, e.g. avserv-2.rmdig.ai.
+    node: text("node").notNull(),
+    revision: integer("revision").notNull(),
+    // ok: the node holds this revision. error: the PUT failed (see code).
+    // skipped: nothing to send yet (e.g. no published terms).
+    outcome: text("outcome").$type<"ok" | "error" | "skipped">().notNull(),
+    usable: boolean("usable"),
+    unusableReason: text("unusable_reason"),
+    errorCode: text("error_code"),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull(),
+    // When this node last accepted a PUT (avserv_synced_at in the contract).
+    syncedAt: timestamp("synced_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.node] })],
 );
 
 // Append-only audit of SAR org membership changes (docs/plans/33 §4 portal 7):
