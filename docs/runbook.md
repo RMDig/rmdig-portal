@@ -133,6 +133,15 @@ bumps the org's revision; AvServ keeps the highest per node.
 - **Ski patrols:** approval sets `verifiedAt` and `reverifyBy` (12 months). After
   the call-back, "Mark re-verified" renews them. AvServ won't use a patrol past
   `reverifyBy`.
+- **Re-verification reminders:** a daily Vercel cron (`vercel.json`, 15:00 UTC)
+  calls `/api/cron/patrol-reverify` with `Authorization: Bearer $CRON_SECRET`.
+  At 30 days out, rmdig admins (with the number on file) and the patrol's admins
+  are emailed; at 7 days, rmdig admins only; once lapsed, both. Each stage goes
+  out once (`sar_reverify_reminders`); re-verifying starts the stages afresh. If
+  every email for a stage fails, it's retried the next day
+  (`sar.reverify.stage_unsent`). `CRON_SECRET` unset: the route answers 503 and
+  logs `cron.patrol_reverify.unconfigured`. To run it by hand:
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai/api/cron/patrol-reverify`.
 
 ## SAR team terms
 
