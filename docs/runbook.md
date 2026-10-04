@@ -199,9 +199,11 @@ maintenance switch.
   `sar.intake.team_not_active` (an
   alert for a team that isn't approved or leaving: stored, but investigate the
   team sync), `sar.intake.failed` (database), `sar.intake.member_email_failed`.
-- **Member email:** the first delivery of an alert emails every team member a
-  notice with no name or location, linking to `/sar/<orgId>/alerts`. Drills,
-  the second node's copy and duplicate notices don't email.
+- **Member email:** the first delivery of an alert, and of each update (all-clear,
+  retracted), emails every team member a notice with no name or location, linking
+  to `/sar/<orgId>/alerts`. "Also send help" from a user who hadn't added the team
+  says so. Drills, the second node's copy (same `alertId` and `kind`) and
+  duplicate notices don't email.
 - **Alerts page:** team admins and dispatchers only. Each view is logged in
   `sar_alert_view_log` (who saw which alerts, and when).
 - **Mark received:** sends an ack to each node that delivered the alert, and is

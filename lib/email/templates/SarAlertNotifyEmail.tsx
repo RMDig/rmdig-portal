@@ -5,6 +5,8 @@ export type SarAlertNotifyKind = "overdue" | "send_help" | "all_clear" | "disreg
 export interface SarAlertNotifyEmailProps {
   teamName: string;
   kind: SarAlertNotifyKind;
+  /** "Also send help": a user in the team's area who hadn't added the team. */
+  fromAreaUser: boolean;
   alertsUrl: string;
 }
 
@@ -18,7 +20,7 @@ const HEADLINE: Record<SarAlertNotifyKind, string> = {
 // To a SAR team's members when AvServ delivers an alert on the portal channel
 // (docs/plans/33). Deliberately carries no name, location or note: the
 // details are in the portal, where every view is logged.
-export default function SarAlertNotifyEmail({ teamName, kind, alertsUrl }: SarAlertNotifyEmailProps) {
+export default function SarAlertNotifyEmail({ teamName, kind, fromAreaUser, alertsUrl }: SarAlertNotifyEmailProps) {
   const update = kind === "all_clear" || kind === "disregard";
   return (
     <Html>
@@ -30,7 +32,9 @@ export default function SarAlertNotifyEmail({ teamName, kind, alertsUrl }: SarAl
           <Text style={paragraph}>
             {update
               ? `An AvAI alert sent to ${teamName} has an update.`
-              : `An AvAI user who added ${teamName} to their check-out has an alert. The details are in the portal.`}
+              : fromAreaUser
+                ? `An AvAI user in ${teamName}'s area, who hadn't added ${teamName}, chose to send it their Send Help. The details are in the portal.`
+                : `An AvAI user who added ${teamName} to their check-out has an alert. The details are in the portal.`}
           </Text>
           <Button href={alertsUrl} style={button}>
             Open your team&apos;s alerts
