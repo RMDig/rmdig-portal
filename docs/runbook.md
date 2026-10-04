@@ -127,8 +127,10 @@ bumps the org's revision; AvServ keeps the highest per node.
   a PUT also converges from its peer. **409** (`revision_conflict`,
   `terms_version_conflict`) is a portal bug, so investigate before resyncing.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
-  team until they end. **Withdraw** works only once every node reports no open
-  bindings (it asks both). **Suspend** stops alerts to the team at once, even for
+  team until they end. **Withdraw** works only once every node reports
+  `openBindings: 0` (it asks both). A node that doesn't answer, or hasn't received
+  the team (press Resync first), blocks it: withdrawing early would stop alerts for
+  check-outs still bound to the team. **Suspend** stops alerts to the team at once, even for
   bound check-outs.
 - **Ski patrols:** approval sets `verifiedAt` and `reverifyBy` (12 months). After
   the call-back, "Mark re-verified" renews them. AvServ won't use a patrol past
@@ -187,9 +189,12 @@ maintenance switch.
 - **Responses:** `200` stored. `409 duplicate` already stored (AvServ treats it as
   delivered). `401 unknown_key | bad_signature | stale_signature` (clock skew over
   5 minutes counts as stale). `400` bad payload or `Idempotency-Key` not equal to
-  `messageId`. `404 unknown_team`. `413` body over 256 KB. AvServ doesn't retry
-  4xx. `503 intake_not_configured` (keys unset or malformed) and `500` (database)
-  are retried.
+  `messageId`. `404 unknown_team`. `413` body over 256 KB. AvServ retries `401`
+  (skew or a key mid-rotation) and `429`, plus `503 intake_not_configured` (keys
+  unset or malformed) and `500` (database); it doesn't retry the other 4xx, and
+  pages. A run of `sar.intake.rejected` with `stale_signature` means a node's
+  clock is off; with `unknown_key`, a key id that isn't in
+  `AVSERV_SAR_INTAKE_KEYS`.
 - **Logs:** `sar.intake.rejected` (signature), `sar.intake.unknown_team`,
   `sar.intake.team_not_active` (an
   alert for a team that isn't approved or leaving: stored, but investigate the

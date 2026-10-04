@@ -11,11 +11,13 @@ import { IntakePayload, parseIntakeKeys, verifySignature } from "@/lib/sar/intak
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// AvServ → portal SAR intake (AvServ sar_portal_intake.md). Answers per §3:
-// 2xx or 409 duplicate = delivered; any other 4xx = permanent failure (AvServ
-// doesn't retry, and pages); 5xx = retryable. So: anything wrong with the
-// request is a 4xx, and only our own failures are 5xx. The message is stored
-// before answering 2xx; member emails follow and never change the answer.
+// AvServ → portal SAR intake (AvServ sar_portal_intake.md). Answers per §3
+// (as amended after the S3 audit): 2xx or 409 duplicate = delivered; 5xx, 401
+// and 429 = retried (a 401 is clock skew or a key mid-rotation, which heal);
+// any other 4xx = permanent (AvServ doesn't retry, and pages). So: anything
+// wrong with the request is a 4xx, and only our own failures are 5xx. The
+// message is stored before answering 2xx; member emails follow and never
+// change the answer.
 
 const MAX_BODY_BYTES = 256 * 1024;
 
