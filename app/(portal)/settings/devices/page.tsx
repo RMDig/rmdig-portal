@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -5,6 +6,7 @@ import { redirect } from "next/navigation";
 import { DevicesList } from "./DevicesList";
 import { auth } from "@/lib/auth";
 import { listDevices, type LinkedDevice } from "@/lib/avserv/client";
+import { isAvServOutage } from "@/lib/avserv/request";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -53,8 +55,15 @@ export default async function DevicesPage() {
   try {
     devices = await listDevices(user.avservAccountId);
   } catch (err) {
-    // No silent catch (§5): log the cause; null drives the recoverable error UI.
-    logger.error({ event: "avserv.devices.list_failed", userId: session.user.id, err });
+    // No silent catch (§5): null drives the recoverable error UI. An AvServ
+    // outage is logged; anything else (a portal bug, a contract drift, a
+    // signing key problem) is a fault every user hits, so it also goes to Sentry.
+    if (isAvServOutage(err)) {
+      logger.warn({ event: "avserv.devices.list_unavailable", userId: session.user.id, err });
+    } else {
+      logger.error({ event: "avserv.devices.list_failed", userId: session.user.id, err });
+      Sentry.captureException(err, { tags: { event: "avserv.devices.list_failed" } });
+    }
   }
 
   return (
