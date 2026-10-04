@@ -107,7 +107,7 @@ describe("POST /api/sar/intake", () => {
     expect(res.status).toBe(200);
     expect(h.insertedValues[0]).toMatchObject({ messageId: "m1", alertId: "sub:team", orgId: ORG, kind: "overdue", node: "avserv-2", drill: false });
     expect(h.email).toHaveBeenCalledTimes(2);
-    expect(h.email).toHaveBeenCalledWith("lead@sar.org", { teamName: "Summit SAR", kind: "overdue", alertsUrl: `https://rmdig.ai/sar/${ORG}/alerts` });
+    expect(h.email).toHaveBeenCalledWith("lead@sar.org", { teamName: "Summit SAR", kind: "overdue", fromAreaUser: false, alertsUrl: `https://rmdig.ai/sar/${ORG}/alerts` });
   });
 
   it("answers 409 duplicate for a repeated messageId (AvServ treats it as delivered)", async () => {
@@ -126,6 +126,24 @@ describe("POST /api/sar/intake", () => {
     expect((await POST(request(payload({ drill: true })))).status).toBe(200);
     expect((await POST(request(payload({ kind: "duplicate_disclaimer", alert: { refersTo: "sub:team", deliveries: 2 } })))).status).toBe(200);
     expect(h.email).not.toHaveBeenCalled();
+  });
+
+  it("emails each update once too: the other node's copy of an all-clear doesn't email again", async () => {
+    const clear = payload({ messageId: "m5", kind: "all_clear", capability: null, alert: { refersTo: "sub:team", at: "2026-10-04T11:00:00Z" } });
+    h.inserted = [{ messageId: "m5" }];
+    h.copies = [{ id: "m5" }];
+    expect((await POST(request(clear))).status).toBe(200);
+    expect(h.email).toHaveBeenCalledWith("lead@sar.org", expect.objectContaining({ kind: "all_clear" }));
+    h.email.mockClear();
+    h.copies = [{ id: "m5" }, { id: "m6" }];
+    expect((await POST(request({ ...clear, messageId: "m6" }))).status).toBe(200);
+    expect(h.email).not.toHaveBeenCalled();
+  });
+
+  it("says when Send Help came from a user in the area who hadn't added the team", async () => {
+    const area = payload({ kind: "send_help", capability: "send_help_area", alert: { helpRequestId: "h", userDisplayName: "Pat", lastFix: null, note: null, checkoutId: null, openedAt: "2026-10-04T10:00:00Z" } });
+    expect((await POST(request(area))).status).toBe(200);
+    expect(h.email).toHaveBeenCalledWith("lead@sar.org", expect.objectContaining({ kind: "send_help", fromAreaUser: true }));
   });
 
   it("rejects bad signatures permanently (401), with the reason", async () => {

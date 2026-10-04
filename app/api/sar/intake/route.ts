@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
@@ -120,15 +120,14 @@ export async function POST(req: Request) {
 // turned into a non-2xx: the message is stored and visible in the portal.
 async function notifyMembers(payload: IntakePayload, teamName: string): Promise<void> {
   if (payload.drill || payload.kind === "duplicate_disclaimer") return;
-  // Only the first delivery of an alert emails; the other node's copy doesn't.
-  if (payload.kind === "overdue" || payload.kind === "send_help") {
-    const copies = await db
-      .select({ id: sarIntakeMessages.messageId })
-      .from(sarIntakeMessages)
-      .where(eq(sarIntakeMessages.alertId, payload.alertId))
-      .limit(2);
-    if (copies.length > 1) return;
-  }
+  // Only the first delivery emails; the other node's copy of the same alert or
+  // update (same alertId and kind, sar_portal_intake.md) doesn't.
+  const copies = await db
+    .select({ id: sarIntakeMessages.messageId })
+    .from(sarIntakeMessages)
+    .where(and(eq(sarIntakeMessages.alertId, payload.alertId), eq(sarIntakeMessages.kind, payload.kind)))
+    .limit(2);
+  if (copies.length > 1) return;
   const members = await db
     .select({ email: users.email })
     .from(orgMemberships)
@@ -136,7 +135,12 @@ async function notifyMembers(payload: IntakePayload, teamName: string): Promise<
     .where(eq(orgMemberships.orgId, payload.teamId));
   const alertsUrl = `${env.NEXTAUTH_URL ?? "https://rmdig.ai"}/sar/${payload.teamId}/alerts`;
   const results = await Promise.allSettled(
-    members.map((m) => sendSarAlertNotifyEmail(m.email, { teamName, kind: payload.kind as "overdue" | "send_help" | "all_clear" | "disregard", alertsUrl })),
+    members.map((m) => sendSarAlertNotifyEmail(m.email, {
+        teamName,
+        kind: payload.kind as "overdue" | "send_help" | "all_clear" | "disregard",
+        fromAreaUser: payload.capability === "send_help_area",
+        alertsUrl,
+      })),
   );
   results.forEach((r, i) => {
     if (r.status === "rejected") logger.error({ event: "sar.intake.member_email_failed", teamId: payload.teamId, to: members[i]!.email, err: r.reason });

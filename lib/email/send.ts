@@ -335,7 +335,7 @@ export async function sendSarTermsDecisionEmail(
 
 export async function sendSarAlertNotifyEmail(
   to: string,
-  params: { teamName: string; kind: SarAlertNotifyKind; alertsUrl: string },
+  params: { teamName: string; kind: SarAlertNotifyKind; fromAreaUser: boolean; alertsUrl: string },
 ): Promise<void> {
   const html = await render(SarAlertNotifyEmail(params));
   const subject: Record<SarAlertNotifyKind, string> = {
