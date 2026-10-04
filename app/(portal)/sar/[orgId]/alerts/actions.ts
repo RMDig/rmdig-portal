@@ -43,8 +43,7 @@ export async function ackAlertAction(orgId: string, _prev: AckResult | null, for
     .limit(1);
   if (!delivered) return { ok: false, error: "That alert isn't one of your team's." };
 
-  const ackedAt = new Date();
-  const body = { teamId: orgId, by: `portal-user:${userId}`, ackedAt: ackedAt.toISOString() };
+  const body = { teamId: orgId, by: `portal-user:${userId}` };
   const nodes = avservNodes();
   if (nodes.length === 0) {
     logger.error({ event: "sar.ack.no_avserv_nodes", orgId });
@@ -53,7 +52,7 @@ export async function ackAlertAction(orgId: string, _prev: AckResult | null, for
   const results = await Promise.all(
     nodes.map(async (node) => {
       const r = await ackSarAlert(node, alertId.data, body);
-      return r.ok ? { node: node.name, ok: true as const } : { node: node.name, ok: false as const, code: r.code };
+      return r.ok ? { node: node.name, ok: true as const, at: r.at } : { node: node.name, ok: false as const, code: r.code };
     }),
   );
   const failed = results.filter((r) => !r.ok);
@@ -62,6 +61,9 @@ export async function ackAlertAction(orgId: string, _prev: AckResult | null, for
     return { ok: false, error: "Couldn't record that with AvAI. Try again in a moment." };
   }
 
+  // AvServ's time (the earliest ack wins); our clock only if no node said.
+  const ats = results.flatMap((r) => (r.ok && r.at ? [r.at] : [])).sort();
+  const ackedAt = ats[0] ? new Date(ats[0]) : new Date();
   await db.insert(sarAlertAcks).values({ orgId, alertId: alertId.data, ackedByUserId: userId, ackedAt }).onConflictDoNothing();
   logger.info({ event: "sar.ack.recorded", orgId, userId, alertId: alertId.data, nodes: results.length - failed.length });
   revalidatePath(`/sar/${orgId}/alerts`);

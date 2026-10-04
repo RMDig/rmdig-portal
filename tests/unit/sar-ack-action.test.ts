@@ -61,7 +61,7 @@ beforeEach(() => {
     { messageId: "m3", node: "avserv-3", kind: "overdue" },
     { messageId: "m4", node: "avserv-2", kind: "all_clear" },
   ];
-  h.ack.mockResolvedValue({ ok: true, first: true });
+  h.ack.mockResolvedValue({ ok: true, first: true, at: "2026-10-05T19:00:05Z" });
 });
 
 describe("ackAlertAction", () => {
@@ -91,7 +91,14 @@ describe("ackAlertAction", () => {
     expect(h.ack).toHaveBeenCalledTimes(2);
     expect(h.ack).toHaveBeenCalledWith(expect.objectContaining({ name: "avserv-2.rmdig.ai" }), "sub:team", expect.objectContaining({ teamId: "org", by: "portal-user:u1" }));
     expect(h.ack).toHaveBeenCalledWith(expect.objectContaining({ name: "avserv-3.rmdig.ai" }), "sub:team", expect.anything());
+    expect(h.ack.mock.calls[0]![2]).toEqual({ teamId: "org", by: "portal-user:u1" });
     expect(h.acks).toEqual([expect.objectContaining({ orgId: "org", alertId: "sub:team", ackedByUserId: "u1" })]);
+  });
+
+  it("records the earliest ack time AvServ returns, not the portal's clock", async () => {
+    h.ack.mockResolvedValueOnce({ ok: true, first: false, at: "2026-10-05T19:00:09Z" }).mockResolvedValueOnce({ ok: true, first: true, at: "2026-10-05T19:00:01Z" });
+    await ackAlertAction("org", null, form());
+    expect(h.acks).toEqual([expect.objectContaining({ ackedAt: new Date("2026-10-05T19:00:01Z") })]);
   });
 
   it("records it when one node fails, logging the failure loudly", async () => {

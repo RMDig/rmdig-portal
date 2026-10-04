@@ -65,7 +65,7 @@ export default async function DeletionRequestsPage() {
               <ShareLogLookupForm requestId={q.id} suggestedAccountId={accountFor.get(q.email.toLowerCase()) ?? null} />
               {!accountFor.get(q.email.toLowerCase()) ? (
                 <p className="text-muted-foreground mt-2 text-xs">
-                  No portal account is linked to this email. Use the account id from the AvServ deletion step.
+                  No portal account is linked to this email. Find its AvAI accounts above, or use the account id from the AvServ deletion step.
                 </p>
               ) : null}
             </CardContent>
