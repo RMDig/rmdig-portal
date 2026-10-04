@@ -91,33 +91,6 @@ export async function setRegionGeom(
 }
 
 /**
- * Find every approved SAR org whose service area contains the given point. This
- * is the routing query AvServ alert dispatch will lean on (rmdig-ai
- * docs/plans/03): a user's last-known GPS resolves to all covering orgs. Uses
- * ST_Covers (closed — a point exactly on the boundary counts) on the geography
- * type for true spheroidal containment. Restricted to `approved` orgs so an
- * unverified org never enters routing.
- */
-export async function findApprovedOrgsContaining(
-  lon: number,
-  lat: number,
-  exec: SqlExecutor = db,
-): Promise<Array<{ id: string; name: string }>> {
-  if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
-    throw new Error(`findApprovedOrgsContaining: coordinate out of range (${lon}, ${lat})`);
-  }
-  const rows = (await exec.execute(sql`
-    SELECT id, name
-    FROM sar_orgs
-    WHERE status = 'approved'
-      AND region_geom IS NOT NULL
-      AND ST_Covers(region_geom, ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography)
-    ORDER BY name
-  `)) as unknown as Array<{ id: string; name: string }>;
-  return rows;
-}
-
-/**
  * Read an org's region back as a GeoJSON Polygon for the admin preview / map
  * re-hydration. Returns null when the org has no region set. The result is
  * re-validated through {@link RegionPolygonSchema} so a drifted DB value can't

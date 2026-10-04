@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "about": "Shared AvServ/portal test vectors for SAR service-area matching (AvServ plan 41 §3-§4). Semantics are PostGIS ST_Covers: the boundary is covered. Coordinates are GeoJSON [lon, lat]. Both repos must pass every case; change this file only in coordinated PRs.",
+  "areas": {
+    "square_with_hole": {
+      "type": "Polygon",
+      "coordinates": [
+        [[-106.0, 39.0], [-105.0, 39.0], [-105.0, 40.0], [-106.0, 40.0], [-106.0, 39.0]],
+        [[-105.6, 39.4], [-105.4, 39.4], [-105.4, 39.6], [-105.6, 39.6], [-105.6, 39.4]]
+      ]
+    },
+    "two_islands": {
+      "type": "MultiPolygon",
+      "coordinates": [
+        [[[-107.0, 38.0], [-106.8, 38.0], [-106.8, 38.2], [-107.0, 38.2], [-107.0, 38.0]]],
+        [[[-106.5, 38.0], [-106.3, 38.0], [-106.4, 38.2], [-106.5, 38.0]]]
+      ]
+    },
+    "concave_u": {
+      "type": "Polygon",
+      "coordinates": [
+        [[-108.0, 37.0], [-107.0, 37.0], [-107.0, 38.0], [-107.3, 38.0], [-107.3, 37.3], [-107.7, 37.3], [-107.7, 38.0], [-108.0, 38.0], [-108.0, 37.0]]
+      ]
+    }
+  },
+  "points": [
+    {"area": "square_with_hole", "name": "inside", "lon": -105.8, "lat": 39.2, "covered": true},
+    {"area": "square_with_hole", "name": "outside", "lon": -104.9, "lat": 39.5, "covered": false},
+    {"area": "square_with_hole", "name": "in the hole", "lon": -105.5, "lat": 39.5, "covered": false},
+    {"area": "square_with_hole", "name": "on the outer edge", "lon": -105.0, "lat": 39.5, "covered": true},
+    {"area": "square_with_hole", "name": "on an outer vertex", "lon": -106.0, "lat": 40.0, "covered": true},
+    {"area": "square_with_hole", "name": "on the hole edge", "lon": -105.5, "lat": 39.4, "covered": true},
+    {"area": "square_with_hole", "name": "on a hole vertex", "lon": -105.4, "lat": 39.6, "covered": true},
+    {"area": "square_with_hole", "name": "level with a vertex, outside", "lon": -104.5, "lat": 40.0, "covered": false},
+    {"area": "two_islands", "name": "first island", "lon": -106.9, "lat": 38.1, "covered": true},
+    {"area": "two_islands", "name": "second island", "lon": -106.4, "lat": 38.05, "covered": true},
+    {"area": "two_islands", "name": "between the islands", "lon": -106.6, "lat": 38.1, "covered": false},
+    {"area": "two_islands", "name": "on a slanted edge", "lon": -106.45, "lat": 38.1, "covered": true},
+    {"area": "concave_u", "name": "in the notch", "lon": -107.5, "lat": 37.8, "covered": false},
+    {"area": "concave_u", "name": "in the left arm", "lon": -107.85, "lat": 37.8, "covered": true},
+    {"area": "concave_u", "name": "in the base", "lon": -107.5, "lat": 37.1, "covered": true},
+    {"area": "concave_u", "name": "on the notch floor", "lon": -107.5, "lat": 37.3, "covered": true}
+  ],
+  "routes": [
+    {"area": "square_with_hole", "name": "vertex inside", "lines": [[[-104.5, 39.5], [-105.5, 39.2]]], "touches": true},
+    {"area": "concave_u", "name": "crosses an arm, no vertex inside", "lines": [[[-108.2, 37.8], [-107.5, 37.8]]], "touches": true},
+    {"area": "concave_u", "name": "inside the notch only", "lines": [[[-107.6, 37.9], [-107.4, 37.5]]], "touches": false},
+    {"area": "two_islands", "name": "passes between the islands", "lines": [[[-106.6, 37.5], [-106.6, 38.5]]], "touches": false},
+    {"area": "two_islands", "name": "second line touches", "lines": [[[-110.0, 30.0], [-110.0, 31.0]], [[-106.4, 37.9], [-106.4, 38.1]]], "touches": true}
+  ],
+  "circles": [
+    {"area": "square_with_hole", "name": "centre inside", "lon": -105.8, "lat": 39.2, "radiusMeters": 100, "matches": true},
+    {"area": "square_with_hole", "name": "in the hole about 4.3 km from its edge, radius 5 km", "lon": -105.45, "lat": 39.5, "radiusMeters": 5000, "matches": true},
+    {"area": "square_with_hole", "name": "in the hole about 4.3 km from its edge, radius 3 km", "lon": -105.45, "lat": 39.5, "radiusMeters": 3000, "matches": false},
+    {"area": "square_with_hole", "name": "about 3.8 km east, radius 5 km", "lon": -104.956, "lat": 39.5, "radiusMeters": 5000, "matches": true},
+    {"area": "square_with_hole", "name": "about 3.8 km east, radius 3 km", "lon": -104.956, "lat": 39.5, "radiusMeters": 3000, "matches": false},
+    {"area": "two_islands", "name": "between the islands, far from both", "lon": -106.65, "lat": 38.1, "radiusMeters": 5000, "matches": false}
+  ]
+}

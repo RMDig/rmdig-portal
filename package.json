@@ -24,6 +24,7 @@
     "agreement:pin": "tsx scripts/pin-agreement.ts",
     "agreement:check": "tsx scripts/check-agreement-pin.ts",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test device-link.live.spec.ts"
   },
