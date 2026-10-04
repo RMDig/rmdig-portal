@@ -84,3 +84,22 @@ describe("getSarTeam", () => {
     await expect(getSarTeam(NODE, "org-1")).rejects.toThrow(/schema validation/);
   });
 });
+
+describe("ackSarAlert (contacts_delete_and_sar_ack.md §2)", () => {
+  it("POSTs {teamId, by} under the shared alert id and returns the node's stored ack time", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json(200, { ack: { at: "2026-10-05T19:00:01Z", by: "portal-user:u0" }, first: false }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { ackSarAlert } = await import("@/lib/avserv/sar-teams");
+    expect(await ackSarAlert(NODE, "sub-1:org-1", { teamId: "org-1", by: "portal-user:u1" })).toEqual({ ok: true, first: false, at: "2026-10-05T19:00:01Z" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("https://avserv-2.example/v1/internal/sar-alerts/sub-1%3Aorg-1/ack");
+    expect(JSON.parse(init.body)).toEqual({ teamId: "org-1", by: "portal-user:u1" });
+  });
+
+  it("maps sar_alert_unknown and an unreachable node to failures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(404, { code: "sar_alert_unknown" })).mockRejectedValueOnce(new Error("down")));
+    const { ackSarAlert } = await import("@/lib/avserv/sar-teams");
+    expect(await ackSarAlert(NODE, "s:t", { teamId: "t", by: "portal-user:u" })).toEqual({ ok: false, status: 404, code: "sar_alert_unknown" });
+    expect(await ackSarAlert(NODE, "s:t", { teamId: "t", by: "portal-user:u" })).toMatchObject({ ok: false, code: "unreachable" });
+  });
+});

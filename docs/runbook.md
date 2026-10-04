@@ -376,11 +376,15 @@ under the CPA — treat every request as covering it.
    `data_share_log` from both nodes (`GET /v1/internal/data-share-log`) and lists
    each team, what it received (name, location, route, note) and when; drill
    traffic is skipped. The account id fills in when the email matches a portal
-   user linked to AvAI; otherwise paste it from step 3. **Incomplete** (a node
+   user linked to AvAI. Otherwise **Find AvAI accounts for this email** asks both
+   nodes (`POST /v1/internal/accounts/lookup`, logged on AvServ with you as the
+   reader) and lists every account carrying the address; **Use** fills one in. Only
+   a *login* match is verified; an *app* email isn't, and several accounts can
+   carry one, so confirm the requester controls each account before deleting it. **Incomplete** (a node
    didn't answer) means teams may be missing: look up again before relying on it.
    Tell each listed team to delete what it received [COUNSEL: notice wording], and
-   note the teams in the completion note. Needs AvServ's `sar_feed` route group on
-   `svc-key-portal-1`; rows past AvServ's retention period are already gone.
+   note the teams in the completion note. Needs AvServ's `sar_feed` and `account_lookup` route
+   groups on `svc-key-portal-1`; rows past AvServ's retention period are already gone.
 4. **Record completion** so the queue stays truthful:
 
    ```sql

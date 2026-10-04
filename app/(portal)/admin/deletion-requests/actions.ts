@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
 import { hasPlatformRole } from "@/lib/auth/roles";
+import { lookupAccountsByEmail, mergeAccountMatches, type AccountMatch } from "@/lib/avserv/account-lookup";
 import { readShareLog } from "@/lib/avserv/share-log";
 import { avservNodes } from "@/lib/avserv/sar-teams";
 import { db } from "@/lib/db";
@@ -61,4 +62,44 @@ export async function lookupShareLogAction(_prev: ShareLogLookup | null, formDat
     teams: summary.teams.length,
   });
   return { ok: true, summary, teamNames: Object.fromEntries(names.map((n) => [n.id, n.name])) };
+}
+
+export type AccountLookup =
+  | { ok: true; status: "complete" | "incomplete" | "error"; matches: AccountMatch[]; unavailable: Array<{ node: string; code: string }> }
+  | { ok: false; error: string };
+
+/** AvAI accounts carrying a confirmed request's email (account_agreement.md
+ *  §4.1). The address comes from the request row, never the browser. */
+export async function lookupAccountsAction(_prev: AccountLookup | null, formData: FormData): Promise<AccountLookup> {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  if (!(await hasPlatformRole(actor.userId, "rmdig_admin"))) {
+    return { ok: false, error: "Only a platform administrator can look this up." };
+  }
+  const requestId = z.string().uuid().safeParse(formData.get("requestId"));
+  if (!requestId.success) return { ok: false, error: "Unknown request." };
+  const [request] = await db
+    .select({ email: deletionRequests.email })
+    .from(deletionRequests)
+    .where(and(eq(deletionRequests.id, requestId.data), eq(deletionRequests.status, "confirmed")))
+    .limit(1);
+  if (!request) return { ok: false, error: "That request isn't in the confirmed queue." };
+
+  const nodes = avservNodes();
+  if (nodes.length === 0) {
+    logger.error({ event: "deletion.account_lookup.no_avserv_nodes", requestId: requestId.data });
+    return { ok: false, error: "No AvAI servers are configured, so this can't be looked up." };
+  }
+  const merged = mergeAccountMatches(await Promise.all(nodes.map((n) => lookupAccountsByEmail(n, request.email, actor.userId))));
+  for (const u of merged.unavailable) {
+    logger.error({ event: "deletion.account_lookup.node_failed", requestId: requestId.data, node: u.node, code: u.code });
+  }
+  logger.info({
+    event: "deletion.account_lookup",
+    requestId: requestId.data,
+    staffId: actor.userId,
+    status: merged.status,
+    matches: merged.matches.length,
+  });
+  return { ok: true, ...merged };
 }

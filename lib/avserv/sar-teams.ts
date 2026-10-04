@@ -93,7 +93,9 @@ export async function getSarTeam(node: AvServNode, orgId: string): Promise<NodeV
   return parsed.data;
 }
 
-export type AckResult = { ok: true; first: boolean } | { ok: false; status: number | undefined; code: string };
+/** `at` is the stored ack time (the earliest ack wins on every node), or null
+ *  if a 200 carried no readable body. */
+export type AckResult = { ok: true; first: boolean; at: string | null } | { ok: false; status: number | undefined; code: string };
 
 /** Record a team's acknowledgement on one node (contacts_delete_and_sar_ack.md
  *  §2): POST /v1/internal/sar-alerts/{alertId}/ack, keyed by the alert id
@@ -103,9 +105,9 @@ export type AckResult = { ok: true; first: boolean } | { ok: false; status: numb
 export async function ackSarAlert(
   node: AvServNode,
   alertId: string,
-  body: { teamId: string; by: string; ackedAt: string },
+  body: { teamId: string; by: string },
 ): Promise<AckResult> {
-  if (isMock(node.baseUrl)) return { ok: true, first: true };
+  if (isMock(node.baseUrl)) return { ok: true, first: true, at: new Date().toISOString() };
   let res: Response;
   try {
     res = await avservFetch(node.baseUrl, `/v1/internal/sar-alerts/${encodeURIComponent(alertId)}/ack`, {
@@ -118,8 +120,11 @@ export async function ackSarAlert(
     return { ok: false, status: undefined, code: "unreachable" };
   }
   if (res.ok) {
-    const parsed = z.object({ first: z.boolean() }).safeParse(await res.json().catch(() => null));
-    return { ok: true, first: parsed.success ? parsed.data.first : false };
+    // The ack time is the receiving node's; a repeat returns the first ack.
+    const parsed = z
+      .object({ first: z.boolean(), ack: z.object({ at: z.string(), by: z.string() }) })
+      .safeParse(await res.json().catch(() => null));
+    return parsed.success ? { ok: true, first: parsed.data.first, at: parsed.data.ack.at } : { ok: true, first: false, at: null };
   }
   const err = ErrorBody.safeParse(await res.json().catch(() => null));
   return { ok: false, status: res.status, code: (err.success && err.data.code) || `http_${res.status}` };

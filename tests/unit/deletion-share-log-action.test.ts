@@ -5,12 +5,14 @@ const h = vi.hoisted(() => ({
   admin: true,
   selects: [] as unknown[][],
   read: vi.fn(),
+  lookup: vi.fn(),
   nodes: [{ name: "avserv-2.rmdig.ai", baseUrl: "https://a2" }, { name: "avserv-3.rmdig.ai", baseUrl: "https://a3" }],
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
 vi.mock("@/lib/auth/roles", () => ({ hasPlatformRole: () => Promise.resolve(h.admin) }));
 vi.mock("@/lib/avserv/share-log", () => ({ readShareLog: h.read }));
+vi.mock("@/lib/avserv/account-lookup", async (orig) => ({ ...(await orig<object>()), lookupAccountsByEmail: h.lookup }));
 vi.mock("@/lib/avserv/sar-teams", () => ({ avservNodes: () => h.nodes }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("@/lib/db", () => {
@@ -26,7 +28,7 @@ vi.mock("@/lib/db", () => {
   return { db: { select } };
 });
 
-import { lookupShareLogAction } from "@/app/(portal)/admin/deletion-requests/actions";
+import { lookupAccountsAction, lookupShareLogAction } from "@/app/(portal)/admin/deletion-requests/actions";
 
 const REQ = "11111111-1111-4111-8111-111111111111";
 const ACCT = "22222222-2222-4222-8222-222222222222";
@@ -81,5 +83,35 @@ describe("lookupShareLogAction", () => {
     h.nodes = [];
     h.selects = [[{ id: REQ }]];
     expect(await lookupShareLogAction(null, fd())).toMatchObject({ ok: false, error: expect.stringMatching(/No AvAI servers/) });
+  });
+});
+
+describe("lookupAccountsAction", () => {
+  const req = () => {
+    const f = new FormData();
+    f.set("requestId", REQ);
+    f.set("email", "attacker-chosen@example.org");
+    return f;
+  };
+
+  it("looks up the request's own email on every node, as the operator", async () => {
+    h.selects = [[{ email: "gone@example.org" }]];
+    h.lookup.mockImplementation((n: { name: string }) =>
+      Promise.resolve({ ok: true, node: n.name, matches: [{ accountId: "a1", verified: true, source: "login", status: "active", createdAt: "2026-09-01T00:00:00Z" }] }),
+    );
+    const r = await lookupAccountsAction(null, req());
+    expect(h.lookup).toHaveBeenCalledWith(h.nodes[0], "gone@example.org", "staff-1");
+    expect(h.lookup).toHaveBeenCalledTimes(2);
+    expect(r).toMatchObject({ ok: true, status: "complete", matches: [{ accountId: "a1" }] });
+    expect(h.log.info).toHaveBeenCalledWith(expect.objectContaining({ event: "deletion.account_lookup", matches: 1 }));
+  });
+
+  it("refuses non-admins and requests outside the confirmed queue", async () => {
+    h.admin = false;
+    expect(await lookupAccountsAction(null, req())).toMatchObject({ ok: false, error: expect.stringMatching(/platform administrator/) });
+    h.admin = true;
+    h.selects = [[]];
+    expect(await lookupAccountsAction(null, req())).toMatchObject({ ok: false, error: expect.stringMatching(/confirmed queue/) });
+    expect(h.lookup).not.toHaveBeenCalled();
   });
 });
