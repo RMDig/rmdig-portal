@@ -96,17 +96,19 @@ export async function getSarTeam(node: AvServNode, orgId: string): Promise<NodeV
 export type AckResult = { ok: true; first: boolean } | { ok: false; status: number | undefined; code: string };
 
 /** Record a team's acknowledgement on one node (contacts_delete_and_sar_ack.md
- *  §2): POST /v1/internal/sar-alerts/{ledgerKey}/ack. Means "received" only;
- *  AvServ suppresses nothing because of it. */
+ *  §2): POST /v1/internal/sar-alerts/{alertId}/ack, keyed by the alert id
+ *  `<subject>:<teamId>` every node shares (AvServ S3b; each node sends under
+ *  its own message id). Means "received" only; AvServ suppresses nothing
+ *  because of it. */
 export async function ackSarAlert(
   node: AvServNode,
-  ledgerKey: string,
+  alertId: string,
   body: { teamId: string; by: string; ackedAt: string },
 ): Promise<AckResult> {
   if (isMock(node.baseUrl)) return { ok: true, first: true };
   let res: Response;
   try {
-    res = await avservFetch(node.baseUrl, `/v1/internal/sar-alerts/${encodeURIComponent(ledgerKey)}/ack`, {
+    res = await avservFetch(node.baseUrl, `/v1/internal/sar-alerts/${encodeURIComponent(alertId)}/ack`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -121,9 +123,4 @@ export async function ackSarAlert(
   }
   const err = ErrorBody.safeParse(await res.json().catch(() => null));
   return { ok: false, status: res.status, code: (err.success && err.data.code) || `http_${res.status}` };
-}
-
-/** The configured node a delivery came from ("avserv-2" ↔ avserv-2.rmdig.ai). */
-export function nodeFor(nodes: AvServNode[], sender: string): AvServNode | undefined {
-  return nodes.find((n) => n.name === sender || n.name.split(".")[0] === sender);
 }

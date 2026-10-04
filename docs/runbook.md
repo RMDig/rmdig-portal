@@ -370,6 +370,17 @@ under the CPA — treat every request as covering it.
 3. **AvServ data.** Delete the account's checkout history, heartbeat rows, and
    emergency-contact details on AvServ (operator process; no S2S deletion
    endpoint yet — track as an AvServ work item).
+3a. **SAR teams that received the data.** **Admin → Deletion requests**
+   (`/admin/deletion-requests`, rmdig admins) lists the confirmed queue with each
+   request's days left. For a request, "Teams that received data" reads AvServ's
+   `data_share_log` from both nodes (`GET /v1/internal/data-share-log`) and lists
+   each team, what it received (name, location, route, note) and when; drill
+   traffic is skipped. The account id fills in when the email matches a portal
+   user linked to AvAI; otherwise paste it from step 3. **Incomplete** (a node
+   didn't answer) means teams may be missing: look up again before relying on it.
+   Tell each listed team to delete what it received [COUNSEL: notice wording], and
+   note the teams in the completion note. Needs AvServ's `sar_feed` route group on
+   `svc-key-portal-1`; rows past AvServ's retention period are already gone.
 4. **Record completion** so the queue stays truthful:
 
    ```sql
