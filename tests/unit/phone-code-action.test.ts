@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/rate-limit", () => ({
   incrementRateLimit: (key: string) => {
     h.rlKeys.push(key);

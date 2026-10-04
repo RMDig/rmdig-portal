@@ -5,8 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ackSarAlert, avservNodes, nodeFor } from "@/lib/avserv/sar-teams";
-import { auth } from "@/lib/auth";
-import { userMfaGate } from "@/lib/auth/mfa-gate";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { getOrgRole } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarAlertAcks, sarIntakeMessages } from "@/lib/db/schema";
@@ -20,16 +19,12 @@ import { logger } from "@/lib/logger";
 export type AckResult = { ok: true } | { ok: false; error: string };
 
 export async function ackAlertAction(orgId: string, _prev: AckResult | null, formData: FormData): Promise<AckResult> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) return { ok: false, error: "You must be signed in." };
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   const role = await getOrgRole(userId, orgId);
   if (role !== "admin" && role !== "dispatcher") {
     return { ok: false, error: "Only your team's admins and dispatchers can mark alerts received." };
-  }
-  // Server actions don't pass through the portal layout's MFA redirect.
-  if ((await userMfaGate(userId)).gate === "required") {
-    return { ok: false, error: "Set up two-factor authentication first." };
   }
   const alertId = z.string().min(1).max(300).safeParse(formData.get("alertId"));
   if (!alertId.success) return { ok: false, error: "Unknown alert." };

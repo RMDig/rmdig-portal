@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { ProofDocError, uploadProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
 import {
@@ -36,11 +36,9 @@ export async function createSarOrgAction(
   _prev: CreateSarOrgResult | null,
   formData: FormData,
 ): Promise<CreateSarOrgResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in to register an organization." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   // Email verification is required before any state-changing action (docs/plans/
   // 06 §Authentication). Read it fresh rather than trusting the session token.

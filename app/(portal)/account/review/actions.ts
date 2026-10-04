@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { listRestrictions } from "@/lib/avserv/restrictions";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
@@ -32,11 +32,9 @@ export async function submitReviewRequestAction(
   _prev: ReviewRequestResult | null,
   formData: FormData,
 ): Promise<ReviewRequestResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   const parsed = reviewRequestSchema.safeParse({
     restrictionId: formData.get("restrictionId"),

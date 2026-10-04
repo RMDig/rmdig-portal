@@ -45,6 +45,7 @@ vi.mock("@/lib/db", () => {
 });
 
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 // Keep the real RegionPolygonSchema (the schema validates the region with it);
 // only stub the DB-touching write helper.
 vi.mock("@/lib/sar/geo", async (importOriginal) => ({

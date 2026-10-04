@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/auth/org-roles", () => ({ canManageOrg: vi.fn(() => Promise.resolve(h.canManage)) }));
 vi.mock("@/lib/email/send", () => ({ sendOrgInviteEmail: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { isPlatformStaff } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
@@ -96,11 +96,9 @@ export async function reviewSarOrgAction(
   _prev: ReviewResult | null,
   formData: FormData,
 ): Promise<ReviewResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await isPlatformStaff(userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
@@ -246,9 +244,10 @@ async function openBindingsBlocker(orgId: string): Promise<string | null> {
 
 /** Staff resend the current state to every node (after a failed node). */
 export async function resyncSarOrgAction(formData: FormData): Promise<void> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId || !(await isPlatformStaff(userId))) throw new Error("You don't have access to the approvals queue.");
+  const actor = await portalActor();
+  if (!actor.ok) throw new Error(actor.error);
+  const userId = actor.userId;
+  if (!(await isPlatformStaff(userId))) throw new Error("You don't have access to the approvals queue.");
   const orgId = z.string().uuid().parse(formData.get("orgId"));
   await syncSarOrg(orgId);
   logger.info({ event: "sar.sync.resync", userId, orgId });

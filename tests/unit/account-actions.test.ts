@@ -53,7 +53,8 @@ beforeEach(() => {
   h.selectResult = [];
   h.rlAllowed = true;
   h.updates = [];
-});
+});vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
+
 
 describe("updateDisplayNameAction", () => {
   it("rejects an empty name", async () => {

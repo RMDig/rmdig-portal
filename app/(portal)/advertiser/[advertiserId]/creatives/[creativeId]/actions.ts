@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import {
@@ -32,11 +32,9 @@ export async function submitCreativeForReviewAction(
   _prev: SubmitResult | null,
   _formData: FormData,
 ): Promise<SubmitResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await isAdvertiserMember(userId, advertiserId))) {
     return { ok: false, error: "You don't have access to this advertiser account." };
   }

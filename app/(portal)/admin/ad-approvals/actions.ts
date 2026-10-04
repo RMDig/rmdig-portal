@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { isPlatformStaff } from "@/lib/auth/roles";
 import { publishCreative, unpublishCreative } from "@/lib/avserv/client";
 import { columnsToAdTarget } from "@/lib/advertiser/target";
@@ -126,11 +126,9 @@ export async function reviewCreativeAction(
   _prev: ReviewResult | null,
   formData: FormData,
 ): Promise<ReviewResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await isPlatformStaff(userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
@@ -285,11 +283,9 @@ export async function publishApprovedCreativeAction(
   _prev: PublishResult | null,
   _formData: FormData,
 ): Promise<PublishResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  if (!(await isPlatformStaff(session.user.id))) {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  if (!(await isPlatformStaff(actor.userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
 
@@ -328,7 +324,7 @@ export async function publishApprovedCreativeAction(
     return { ok: false, error: "AvServ didn't accept the creative. Try again in a moment." };
   }
 
-  logger.info({ event: "ad.publish.retry_success", userId: session.user.id, creativeId });
+  logger.info({ event: "ad.publish.retry_success", userId: actor.userId, creativeId });
   revalidatePath("/admin/ad-approvals");
   return { ok: true };
 }

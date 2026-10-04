@@ -116,7 +116,8 @@ beforeEach(() => {
   h.listRestrictions.mockResolvedValue([restriction("active")]);
   h.liftRestriction.mockResolvedValue(restriction("lifted"));
   h.sendUpheld.mockResolvedValue(undefined);
-});
+});vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
+
 
 describe("submitReviewRequestAction", () => {
   const form = () => fd({ restrictionId: RID, submissionKey: KEY, message: "These were false alarms from a rough road." });

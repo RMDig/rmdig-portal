@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { isPlatformStaff } from "@/lib/auth/roles";
 import { liftRestriction, listRestrictions, type Restriction } from "@/lib/avserv/restrictions";
 import { AvServContractError } from "@/lib/avserv/request";
@@ -34,11 +34,9 @@ export async function decideReviewAction(
   _prev: ReviewDecisionResult | null,
   formData: FormData,
 ): Promise<ReviewDecisionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const staffId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const staffId = actor.userId;
   if (!(await isPlatformStaff(staffId))) {
     return { ok: false, error: "You don't have access to the review queue." };
   }

@@ -59,6 +59,7 @@ const dbMock = {
 };
 
 vi.mock("@/lib/auth", () => ({ auth: () => Promise.resolve(h.session) }));
+vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/auth/roles", () => ({
   hasPlatformRole: () => Promise.resolve(h.isAdmin),
   PLATFORM_ROLE_LABEL: { rmdig_admin: "Platform Administrator", rmdig_reviewer: "Reviewer" },

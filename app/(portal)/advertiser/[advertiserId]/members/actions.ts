@@ -3,7 +3,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageAdvertiser } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserInvitations } from "@/lib/db/schema";
@@ -29,11 +29,9 @@ export async function createAdvertiserInvitationAction(
   _prev: InviteResult | null,
   formData: FormData,
 ): Promise<InviteResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await canManageAdvertiser(userId, advertiserId))) {
     return { ok: false, error: "Only an advertiser admin can invite members." };
   }

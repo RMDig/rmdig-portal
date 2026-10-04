@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { createAnnouncementSchema } from "@/lib/announcements/announcements";
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { announcementLog, announcements } from "@/lib/db/schema";
@@ -19,10 +19,9 @@ export type AnnouncementResult =
   | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
 
 async function adminId(): Promise<string | null> {
-  const session = await auth();
-  const id = session?.user?.id;
-  if (!id || !(await hasPlatformRole(id, "rmdig_admin"))) return null;
-  return id;
+  const actor = await portalActor();
+  if (!actor.ok || !(await hasPlatformRole(actor.userId, "rmdig_admin"))) return null;
+  return actor.userId;
 }
 
 export async function createAnnouncementAction(

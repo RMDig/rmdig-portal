@@ -2,7 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { ProofDocError, uploadProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
@@ -28,9 +28,9 @@ export async function updateSarOrgAction(
   _prev: UpdateSarOrgResult | null,
   formData: FormData,
 ): Promise<UpdateSarOrgResult> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) return { ok: false, error: "You must be signed in." };
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await canManageOrg(userId, orgId))) {
     return { ok: false, error: "Only your organization's admins can edit the application." };
   }
