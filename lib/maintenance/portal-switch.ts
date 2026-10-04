@@ -41,6 +41,9 @@ export const STAYS_UP = [
   "/terms",
   "/healthz",
   "/readyz",
+  // Team alerts from AvServ keep arriving during portal maintenance whenever
+  // the database is up (sar_portal_intake.md).
+  "/api/sar/intake",
 ] as const;
 
 export function staysUp(pathname: string): boolean {

@@ -449,6 +449,63 @@ export const sarOrgSync = pgTable(
   (t) => [primaryKey({ columns: [t.orgId, t.node] })],
 );
 
+// Alerts AvServ delivered to a team on the portal channel (AvServ
+// sar_portal_intake.md). One row per message: messageId is the delivery's
+// ledger key on the sending node (also the Idempotency-Key), so a retry is a
+// 409 duplicate; alertId groups both nodes' deliveries of one alert. The
+// payload holds the alert as sent (user display name, last fix, planned route,
+// expected return, note): never the contact's identity or the user's email.
+export const sarIntakeMessages = pgTable(
+  "sar_intake_messages",
+  {
+    messageId: text("message_id").primaryKey(),
+    alertId: text("alert_id").notNull(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    capability: text("capability"),
+    node: text("node").notNull(),
+    drill: boolean("drill").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+    payload: jsonb("payload").notNull(),
+  },
+  (t) => [index("sar_intake_messages_org_alert_idx").on(t.orgId, t.alertId)],
+);
+
+// A team member marked an alert received (AvServ contacts_delete_and_sar_ack.md
+// §2). Means "received", never "responding"; it suppresses nothing. First ack
+// per team and alert wins, as in AvServ.
+export const sarAlertAcks = pgTable(
+  "sar_alert_acks",
+  {
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    alertId: text("alert_id").notNull(),
+    ackedByUserId: uuid("acked_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    ackedAt: timestamp("acked_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.alertId] })],
+);
+
+// Who opened a team's alerts (docs/plans/33: AvServ logs the disclosure, the
+// portal logs the viewing).
+export const sarAlertViewLog = pgTable(
+  "sar_alert_view_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    alertIds: text("alert_ids").array().notNull(),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("sar_alert_view_log_org_idx").on(t.orgId)],
+);
+
 // Append-only audit of SAR org membership changes (docs/plans/33 §4 portal 7):
 // who joined (by invitation), whose role changed, who was removed or left,
 // and which invitations were revoked. The subject's email is snapshotted so

@@ -86,6 +86,11 @@ const Env = z.object({
   // agreement page present a labelled test fixture while no version is pinned.
   // Production never sets it, and it is ignored against a real AvServ.
   E2E_AGREEMENT_FIXTURE: z.string().optional(),
+  // SAR intake (AvServ sar_portal_intake.md §2): the HMAC secret each AvServ
+  // node signs its alert POSTs with, packed "keyId:secret,keyId:secret". One
+  // per node, never shared. During rotation both ids are listed. Optional:
+  // unset, /api/sar/intake answers 503 (AvServ retries) and logs loudly.
+  AVSERV_SAR_INTAKE_KEYS: z.string().optional(),
 
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),

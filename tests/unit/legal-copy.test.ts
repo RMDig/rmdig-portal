@@ -53,6 +53,8 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "TermsEditor.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "page.tsx"),
     join(process.cwd(), "components", "sar", "TermsView.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "page.tsx"),
+    join(process.cwd(), "lib", "email", "templates", "SarAlertNotifyEmail.tsx"),
   );
   // Error and not-found pages render for public visitors too.
   files.push(join(process.cwd(), "app", "error.tsx"), join(process.cwd(), "app", "not-found.tsx"));

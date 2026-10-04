@@ -20,6 +20,7 @@ import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
+import SarAlertNotifyEmail, { type SarAlertNotifyKind } from "./templates/SarAlertNotifyEmail";
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
 import SarTermsDecisionEmail, { type SarTermsDecision } from "./templates/SarTermsDecisionEmail";
 import SarTermsPendingReviewEmail from "./templates/SarTermsPendingReviewEmail";
@@ -328,4 +329,18 @@ export async function sendSarTermsDecisionEmail(
     html,
     log: { decision: params.decision },
   });
+}
+
+export async function sendSarAlertNotifyEmail(
+  to: string,
+  params: { teamName: string; kind: SarAlertNotifyKind; alertsUrl: string },
+): Promise<void> {
+  const html = await render(SarAlertNotifyEmail(params));
+  const subject: Record<SarAlertNotifyKind, string> = {
+    overdue: `AvAI alert for ${params.teamName}: missed check-in`,
+    send_help: `AvAI alert for ${params.teamName}: Send Help`,
+    all_clear: `AvAI alert update for ${params.teamName}: resolved`,
+    disregard: `AvAI alert update for ${params.teamName}: retracted`,
+  };
+  await deliver({ kind: "sar_alert_notify", label: "SAR-alert-notify", to, subject: subject[params.kind], html, log: { alertKind: params.kind } });
 }
