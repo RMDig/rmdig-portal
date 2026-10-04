@@ -171,14 +171,20 @@ describe("reviewSarOrgAction", () => {
       expect(h.sync).toHaveBeenCalled();
     });
 
-    it("withdraws only when no node has open check-outs bound", async () => {
+    it("withdraws only once every node reports 0 open bindings (sar_team_sync §2.5)", async () => {
       h.org = at("leaving");
       h.nodeViews = [{ openBindings: 0 }, { openBindings: 2 }];
       expect(await reviewSarOrgAction(null, fd("withdraw"))).toMatchObject({ ok: false, error: expect.stringMatching(/avserv-3 still has 2 check-outs/) });
-      expect(h.updates).toEqual([]);
       h.nodeViews = [{ openBindings: 0 }, new Error("timeout")];
       expect(await reviewSarOrgAction(null, fd("withdraw"))).toMatchObject({ ok: false, error: expect.stringMatching(/Couldn't confirm/) });
+      // A node that hasn't received the team reports nothing, not 0.
       h.nodeViews = [{ openBindings: 0 }, null];
+      expect(await reviewSarOrgAction(null, fd("withdraw"))).toMatchObject({ ok: false, error: expect.stringMatching(/avserv-3 hasn't received this team/) });
+      // No nodes configured: nothing can confirm it.
+      h.nodeViews = [];
+      expect(await reviewSarOrgAction(null, fd("withdraw"))).toMatchObject({ ok: false, error: expect.stringMatching(/No AvAI servers/) });
+      expect(h.updates).toEqual([]);
+      h.nodeViews = [{ openBindings: 0 }, { openBindings: 0 }];
       expect(await reviewSarOrgAction(null, fd("withdraw"))).toEqual({ ok: true });
       expect(h.updates[0]).toEqual({ status: "withdrawn" });
     });

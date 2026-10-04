@@ -224,19 +224,31 @@ export async function reviewSarOrgAction(
   return { ok: true };
 }
 
-/** A reason withdrawal must wait, or null when every node reports no open
- *  bindings (sar_team_sync.md §1: withdraw a leaving team only at 0 on every
- *  node). A node that has never received the team has none. */
+/** A reason withdrawal must wait, or null only when every node reports 0
+ *  open bindings (sar_team_sync.md §2.5). A leaving team keeps receiving
+ *  alerts for check-outs already bound to it, so withdrawing early would stop
+ *  them: anything short of a 0 from every node blocks, including a node that
+ *  doesn't answer, one that hasn't received the team, and no nodes at all. */
 async function openBindingsBlocker(orgId: string): Promise<string | null> {
-  for (const node of avservNodes()) {
+  const nodes = avservNodes();
+  if (nodes.length === 0) {
+    logger.error({ event: "sar.withdraw.no_avserv_nodes", orgId });
+    return "No AvAI servers are configured, so open check-outs can't be confirmed.";
+  }
+  for (const node of nodes) {
+    let view: Awaited<ReturnType<typeof getSarTeam>>;
     try {
-      const view = await getSarTeam(node, orgId);
-      if (view && view.openBindings > 0) {
-        return `${node.name} still has ${view.openBindings} check-out${view.openBindings === 1 ? "" : "s"} bound to this team. Withdraw once they end.`;
-      }
+      view = await getSarTeam(node, orgId);
     } catch (err) {
       logger.error({ event: "sar.withdraw.node_check_failed", orgId, node: node.name, err });
       return `Couldn't confirm open check-outs with ${node.name}. Try again in a moment.`;
+    }
+    if (!view) {
+      logger.error({ event: "sar.withdraw.node_missing_team", orgId, node: node.name });
+      return `${node.name} hasn't received this team, so it can't confirm open check-outs. Press Resync to AvServ, then try again.`;
+    }
+    if (view.openBindings > 0) {
+      return `${node.name} still has ${view.openBindings} check-out${view.openBindings === 1 ? "" : "s"} bound to this team. Withdraw once they end.`;
     }
   }
   return null;
