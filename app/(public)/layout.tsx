@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { GITHUB_URL, HUGGING_FACE_URL } from "@/components/public/BrandIcons";
+import { HeaderAvaiMark } from "@/components/public/HeaderAvaiMark";
 import { MobileNav } from "@/components/public/MobileNav";
 import { SessionButton } from "@/components/public/SessionButton";
 import { LEGAL_ENTITY } from "@/lib/legal/compliance-copy";
@@ -25,26 +26,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               priority
             />
           </Link>
-          {/* AvAI mark → the in-depth /avai page. Middle grid column: the
-              mark sits at TRUE page center whenever
-              both 1fr sides fit their content; a too-wide nav pushes it left
-              instead of overlapping (grid min-content floor). */}
-          <Link href="/avai" aria-label="What is AvAI?" className="hidden md:block">
-            <Image
-              src="/avai-logo.png"
-              alt="AvAI"
-              width={50}
-              height={32}
-              className="dark:hidden"
-            />
-            <Image
-              src="/avai-logo-white.png"
-              alt="AvAI"
-              width={50}
-              height={32}
-              className="hidden dark:block"
-            />
-          </Link>
+          {/* AvAI mark → the in-depth /avai page, in the middle grid column: at
+              true page center whenever both 1fr sides fit their content; a
+              too-wide nav pushes it left instead of overlapping. Hidden on the
+              landing page, which shows it in the hero. */}
+          <HeaderAvaiMark />
           <nav className="col-start-3 flex items-center gap-5 justify-self-end text-sm text-neutral-600 dark:text-neutral-300">
             <div className="hidden items-center gap-5 md:flex">
               <Link href="/services" className="hover:text-neutral-900 dark:hover:text-neutral-100">
