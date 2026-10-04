@@ -66,23 +66,26 @@ export default function LandingPage() {
         {/* 600×384 sources at 128px tall — 3x for retina crispness. Theme
             pair: the black mark disappears on a dark background, so each
             variant renders only in its matching color scheme (dark: follows
-            prefers-color-scheme). */}
-        <Image
-          src="/avai-logo.png"
-          alt="AvAI"
-          width={200}
-          height={128}
-          priority
-          className="dark:hidden"
-        />
-        <Image
-          src="/avai-logo-white.png"
-          alt="AvAI"
-          width={200}
-          height={128}
-          priority
-          className="hidden dark:block"
-        />
+            prefers-color-scheme). The mark links to /avai, the in-depth page:
+            the header's copy is hidden here, so this is the way in. */}
+        <Link href="/avai" aria-label="What is AvAI?" className="rounded-md">
+          <Image
+            src="/avai-logo.png"
+            alt="AvAI"
+            width={200}
+            height={128}
+            priority
+            className="dark:hidden"
+          />
+          <Image
+            src="/avai-logo-white.png"
+            alt="AvAI"
+            width={200}
+            height={128}
+            priority
+            className="hidden dark:block"
+          />
+        </Link>
         <h1 className="mt-6 tracking-tight">
           <span className="block text-4xl font-semibold sm:text-5xl">Check Out</span>
           <span className="text-muted-foreground my-1 block text-xl font-normal italic sm:text-2xl">
@@ -166,6 +169,12 @@ export default function LandingPage() {
         <p className="mt-3 max-w-3xl leading-7 text-neutral-600 dark:text-neutral-300">
           {OPERATOR_CONTINUITY_DISCLOSURE}
         </p>
+        <Link
+          href="/avai"
+          className="mt-6 inline-block rounded-md border border-neutral-300 dark:border-neutral-700 px-5 py-2.5 font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+        >
+          Learn more about AvAI
+        </Link>
       </section>
 
       <script
