@@ -72,6 +72,10 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
           <Link href={`/sar/${orgId}/terms`} className="font-medium underline">
             Team terms
           </Link>
+          {" · "}
+          <Link href={`/sar/${orgId}/alerts`} className="font-medium underline">
+            Alerts
+          </Link>
         </p>
       </div>
 

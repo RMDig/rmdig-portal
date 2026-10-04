@@ -7,11 +7,9 @@ import { redirect } from "next/navigation";
 import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
 import { announcementsFor, type LiveAnnouncement } from "@/lib/announcements/queries";
 import { auth } from "@/lib/auth";
-import { evaluateMfaGate } from "@/lib/auth/mfa-enforcement";
-import { getPlatformRoles } from "@/lib/auth/roles";
+import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { db } from "@/lib/db";
-import { orgMemberships, sarOrgs, users } from "@/lib/db/schema";
-import { env } from "@/lib/env";
+import { orgMemberships, sarOrgs } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { MobileNav } from "@/components/public/MobileNav";
 import { SignOutButton } from "./SignOutButton";
@@ -26,24 +24,8 @@ export default async function PortalLayout({ children }: { children: React.React
   const userId = session.user.id;
 
   // One roles read serves both the Admin nav and the MFA policy (admin_only).
-  const roles = await getPlatformRoles(userId);
+  const { gate, roles } = await userMfaGate(userId);
   const isStaff = roles.length > 0;
-
-  const [[row], orgAdminRows] = await Promise.all([
-    db.select({ mfaEnabledAt: users.mfaEnabledAt }).from(users).where(eq(users.id, userId)).limit(1),
-    db
-      .select({ orgId: orgMemberships.orgId })
-      .from(orgMemberships)
-      .where(and(eq(orgMemberships.userId, userId), eq(orgMemberships.role, "admin")))
-      .limit(1),
-  ]);
-
-  const gate = evaluateMfaGate({
-    enforcement: env.MFA_ENFORCEMENT,
-    mfaEnabled: !!row?.mfaEnabledAt,
-    isStaff,
-    isOrgAdmin: orgAdminRows.length > 0,
-  });
 
   // Authoritative enforcement (see middleware.ts for why this lives here, not in
   // Edge middleware). The pathname comes from middleware so we don't loop the

@@ -157,8 +157,43 @@ admins edit them at `/sar/<orgId>/terms`; **rmdig admins** review them at
 - **Published is final.** A database trigger refuses any change to a published
   version; changes are a new version. Counsel's standard clauses are added when
   they arrive.
-- **Not yet:** sending published terms to AvServ (the team sync) is the next
-  step. Until then, publishing affects nothing outside the portal.
+- **Publishing sends the team to AvServ** with its new terms version (see SAR
+  team sync to AvServ).
+
+## SAR alert intake
+
+AvServ delivers team alerts (missed check-ins, Send Help, all-clears,
+disregards) to `POST /api/sar/intake` (AvServ `sar_portal_intake.md`). Both
+nodes send each alert, so a team can receive it twice; the alerts page shows it
+once ("delivered 2 times, one alert"). The endpoint stays up under the
+maintenance switch.
+
+- **Keys:** one secret per node. `AVSERV_SAR_INTAKE_KEYS` (Vercel Production,
+  sensitive) is packed `keyId:secret,keyId:secret`. Generate each secret with
+  `openssl rand -hex 32` (32+ characters is enforced). The node's `.env` gets the
+  same pair as `AVSERV_SAR_PORTAL_INTAKE_KEY_ID` and
+  `AVSERV_SAR_PORTAL_INTAKE_SECRET`. Redeploy after changing it.
+- **Rotation:** add the new pair alongside the old, redeploy, switch the node,
+  then remove the old pair and redeploy again.
+- **Responses:** `200` stored. `409 duplicate` already stored (AvServ treats it as
+  delivered). `401 unknown_key | bad_signature | stale_signature` (clock skew over
+  5 minutes counts as stale). `400` bad payload or `Idempotency-Key` not equal to
+  `messageId`. `404 unknown_team`. `413` body over 256 KB. AvServ doesn't retry
+  4xx. `503 intake_not_configured` (keys unset or malformed) and `500` (database)
+  are retried.
+- **Logs:** `sar.intake.rejected` (signature), `sar.intake.unknown_team`,
+  `sar.intake.team_not_active` (an
+  alert for a team that isn't approved or leaving: stored, but investigate the
+  team sync), `sar.intake.failed` (database), `sar.intake.member_email_failed`.
+- **Member email:** the first delivery of an alert emails every team member a
+  notice with no name or location, linking to `/sar/<orgId>/alerts`. Drills,
+  the second node's copy and duplicate notices don't email.
+- **Alerts page:** team admins and dispatchers only. Each view is logged in
+  `sar_alert_view_log` (who saw which alerts, and when).
+- **Mark received:** sends an ack to each node that delivered the alert, and is
+  recorded once any node accepts it. It means received only: it doesn't say the
+  team is responding, and AvServ doesn't stop or delay anything because of it.
+  Failed nodes are logged as `sar.ack.node_failed`.
 
 ## SAR org members
 
