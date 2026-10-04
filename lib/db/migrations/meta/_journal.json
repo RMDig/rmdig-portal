@@ -155,6 +155,13 @@
       "when": 1791073225632,
       "tag": "0021_sar_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791079680078,
+      "tag": "0022_sar_map_view_log",
+      "breakpoints": true
     }
   ]
 }

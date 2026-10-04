@@ -506,6 +506,24 @@ export const sarAlertViewLog = pgTable(
   (t) => [index("sar_alert_view_log_org_idx").on(t.orgId)],
 );
 
+// Every /map view of a team's RED layer (docs/plans/33 §4 item 6), written
+// before anything is shown. AvServ's data_share_log records the disclosure;
+// this records who in the team viewed it, which items, and from which nodes.
+export const sarMapViewLog = pgTable(
+  "sar_map_view_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    itemIds: text("item_ids").array().notNull(),
+    nodes: text("nodes").array().notNull(),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("sar_map_view_log_org_idx").on(t.orgId)],
+);
+
 // Append-only audit of SAR org membership changes (docs/plans/33 §4 portal 7):
 // who joined (by invitation), whose role changed, who was removed or left,
 // and which invitations were revoked. The subject's email is snapshotted so

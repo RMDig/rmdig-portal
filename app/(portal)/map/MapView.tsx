@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { Bounds } from "@/lib/map/geometry";
@@ -51,8 +52,20 @@ export function MapView({ layers }: { layers: MapLayer[] }) {
               {layer.label}
             </label>
 
+            {layer.notice && layer.status !== "error" ? (
+              <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+                {layer.notice}
+              </p>
+            ) : null}
+            {layer.link ? (
+              <Link href={layer.link.href} className="block text-xs font-medium underline">
+                {layer.link.label}
+              </Link>
+            ) : null}
             {layer.status === "error" ? (
-              <p className="text-red-600">This layer couldn&apos;t load. Refresh to try again.</p>
+              <p role="alert" className="text-red-600">
+                {layer.errorText ?? "This layer couldn't load. Refresh to try again."}
+              </p>
             ) : layer.status === "loading" ? (
               <p className="text-muted-foreground">Loading…</p>
             ) : layer.items.length === 0 ? (

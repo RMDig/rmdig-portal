@@ -2,9 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
-import { getPlatformRoles } from "@/lib/auth/roles";
+import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { layersFor } from "@/lib/map/layers";
-import { advertiserIdsFor, allOrgRows, memberOrgRows, targetRows } from "@/lib/map/queries";
+import { advertiserIdsFor, allOrgRows, dispatchOrgsFor, memberOrgRows, targetRows } from "@/lib/map/queries";
+import { loadRedLayers } from "@/lib/map/red-read";
 
 import { MapView } from "./MapView";
 
@@ -16,15 +17,21 @@ export const metadata = { title: "Map — rmdig" };
 // where alerts route without review (CLAUDE.md §0), so changes stay on the
 // existing forms. Scoped here on the server, re-checking the session rather
 // than trusting the layout.
+//
+// Team admins and dispatchers also get their team's RED layer (lib/map/red-read).
 export default async function MapPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
   const userId = session.user.id;
+  // Next renders this page alongside the layout's MFA redirect, and this page
+  // reads alerts from AvServ (which logs the disclosure) and logs the view.
+  const { gate, roles } = await userMfaGate(userId);
+  if (gate === "required") redirect("/settings/mfa/enroll");
 
-  const [roles, memberOrgs, advertiserIds] = await Promise.all([
-    getPlatformRoles(userId),
+  const [memberOrgs, advertiserIds, dispatchOrgs] = await Promise.all([
     memberOrgRows(userId),
     advertiserIdsFor(userId),
+    dispatchOrgsFor(userId),
   ]);
   const isStaff = roles.length > 0;
   const [targets, allOrgs] = await Promise.all([
@@ -32,13 +39,14 @@ export default async function MapPage() {
     isStaff ? allOrgRows() : Promise.resolve(null),
   ]);
 
-  const layers = layersFor({
+  const red = await loadRedLayers(userId, dispatchOrgs);
+  const layers = [...red, ...layersFor({
     isStaff,
     memberOrgs,
     isAdvertiser: advertiserIds.length > 0,
     targets,
     allOrgs,
-  });
+  })];
 
   return (
     <div className="space-y-6">
@@ -47,6 +55,9 @@ export default async function MapPage() {
         <p className="text-muted-foreground mt-1">
           Your organization&apos;s service area and your ad targets in one place. To change an area,
           use the form where you set it.
+          {red.length > 0
+            ? " Alert locations are the last ones the user's phone sent and may be old. In an emergency, call 911."
+            : null}
         </p>
       </div>
       {layers.length === 0 ? (

@@ -55,6 +55,8 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "components", "sar", "TermsView.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "page.tsx"),
     join(process.cwd(), "lib", "email", "templates", "SarAlertNotifyEmail.tsx"),
+    // The RED layer's labels, legend, notice and error text on /map.
+    join(process.cwd(), "lib", "map", "red.ts"),
   );
   // Error and not-found pages render for public visitors too.
   files.push(join(process.cwd(), "app", "error.tsx"), join(process.cwd(), "app", "not-found.tsx"));

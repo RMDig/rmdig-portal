@@ -16,16 +16,14 @@ import type { LayerItem } from "@/lib/map/layers";
 const SOURCE = "items";
 
 function toFeatureCollection(items: LayerItem[]) {
+  const props = (i: LayerItem) => ({ color: i.color, dashed: i.dashed, label: i.label });
   return {
     type: "FeatureCollection" as const,
-    features: items
-      .filter((i) => i.rings)
-      .map((i) => ({
-        type: "Feature" as const,
-        id: i.id,
-        properties: { color: i.color, dashed: i.dashed, label: i.label },
-        geometry: { type: "Polygon" as const, coordinates: i.rings! },
-      })),
+    features: items.flatMap((i) => [
+      ...(i.rings ? [{ type: "Feature" as const, properties: props(i), geometry: { type: "Polygon" as const, coordinates: i.rings } }] : []),
+      ...(i.lines ? [{ type: "Feature" as const, properties: props(i), geometry: { type: "MultiLineString" as const, coordinates: i.lines } }] : []),
+      ...(i.point ? [{ type: "Feature" as const, properties: props(i), geometry: { type: "Point" as const, coordinates: i.point } }] : []),
+    ]),
   };
 }
 
@@ -59,6 +57,7 @@ export default function LayeredMap({ items, focus }: { items: LayerItem[]; focus
           id: "items-fill",
           type: "fill",
           source: SOURCE,
+          filter: ["==", ["geometry-type"], "Polygon"],
           paint: { "fill-color": ["get", "color"], "fill-opacity": 0.18 },
         });
         map.addLayer({
@@ -74,6 +73,13 @@ export default function LayeredMap({ items, focus }: { items: LayerItem[]; focus
           source: SOURCE,
           filter: ["get", "dashed"],
           paint: { "line-color": ["get", "color"], "line-width": 2, "line-dasharray": [2, 2] },
+        });
+        map.addLayer({
+          id: "items-point",
+          type: "circle",
+          source: SOURCE,
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: { "circle-color": ["get", "color"], "circle-radius": 6, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
         });
         loadedRef.current = true;
         const b = unionBounds(itemsRef.current.map((i) => i.bounds));
