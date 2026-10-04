@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { classifyAgreementError, reportAgreementFailure } from "@/lib/agreement/errors";
 import { ALERT_NAME_MAX, codePointLength, LEGAL_NAME_MAX, normalizeName } from "@/lib/agreement/names";
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { putIdentity } from "@/lib/avserv/agreement";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -51,11 +51,9 @@ export async function saveAvaiIdentityAction(
   _prev: AvaiIdentityResult | null,
   formData: FormData,
 ): Promise<AvaiIdentityResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   const parsed = identitySchema.safeParse({
     legalName: formData.get("legalName") ?? "",

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { logger } from "@/lib/logger";
 import { normalizeUsPhone, PhoneVerifyError, startPhoneVerification } from "@/lib/phone/verify";
 import { incrementRateLimit } from "@/lib/rate-limit";
@@ -24,11 +24,9 @@ export async function sendPhoneCodeAction(
   _prev: SendPhoneCodeResult | null,
   formData: FormData,
 ): Promise<SendPhoneCodeResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   const parsed = schema.safeParse({ phone: formData.get("phone") });
   if (!parsed.success) {

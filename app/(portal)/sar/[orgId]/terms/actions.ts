@@ -3,7 +3,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgTerms, userPlatformRoles, users } from "@/lib/db/schema";
@@ -26,9 +26,9 @@ export async function saveTermsAction(
   _prev: TermsSaveResult | null,
   formData: FormData,
 ): Promise<TermsSaveResult> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) return { ok: false, error: "You must be signed in." };
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await canManageOrg(userId, orgId))) {
     return { ok: false, error: "Only your organization's admins can edit its terms." };
   }

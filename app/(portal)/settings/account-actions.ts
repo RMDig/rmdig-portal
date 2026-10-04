@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -24,10 +24,8 @@ export async function updateDisplayNameAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
 
   const parsed = displayNameSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -41,9 +39,9 @@ export async function updateDisplayNameAction(
   await db
     .update(users)
     .set({ displayName: parsed.data.displayName })
-    .where(eq(users.id, session.user.id));
+    .where(eq(users.id, actor.userId));
 
-  logger.info({ event: "account.display_name.updated", userId: session.user.id });
+  logger.info({ event: "account.display_name.updated", userId: actor.userId });
   return { ok: true };
 }
 
@@ -72,11 +70,9 @@ export async function changePasswordAction(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   const parsed = changePasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {

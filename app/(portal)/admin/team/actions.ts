@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { hasPlatformRole, PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import {
@@ -69,9 +69,10 @@ export async function createPlatformInviteAction(
   _prev: TeamActionResult,
   formData: FormData,
 ): Promise<TeamActionResult> {
-  const session = await auth();
-  const actorId = session?.user?.id;
-  if (!actorId || !(await hasPlatformRole(actorId, "rmdig_admin"))) {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const actorId = actor.userId;
+  if (!(await hasPlatformRole(actorId, "rmdig_admin"))) {
     return { ok: false, error: "Only a platform administrator can invite staff." };
   }
 
@@ -166,9 +167,10 @@ export async function cancelPlatformInviteAction(
   _prev: TeamActionResult,
   formData: FormData,
 ): Promise<TeamActionResult> {
-  const session = await auth();
-  const actorId = session?.user?.id;
-  if (!actorId || !(await hasPlatformRole(actorId, "rmdig_admin"))) {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const actorId = actor.userId;
+  if (!(await hasPlatformRole(actorId, "rmdig_admin"))) {
     return { ok: false, error: "Only a platform administrator can manage invitations." };
   }
   const parsed = cancelSchema.safeParse(Object.fromEntries(formData));
@@ -206,9 +208,10 @@ export async function revokePlatformRoleAction(
   _prev: TeamActionResult,
   formData: FormData,
 ): Promise<TeamActionResult> {
-  const session = await auth();
-  const actorId = session?.user?.id;
-  if (!actorId || !(await hasPlatformRole(actorId, "rmdig_admin"))) {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const actorId = actor.userId;
+  if (!(await hasPlatformRole(actorId, "rmdig_admin"))) {
     return { ok: false, error: "Only a platform administrator can revoke roles." };
   }
   const parsed = revokeSchema.safeParse(Object.fromEntries(formData));

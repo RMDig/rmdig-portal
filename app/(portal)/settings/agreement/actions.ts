@@ -8,7 +8,7 @@ import { z } from "zod";
 import { presentedAgreement } from "@/lib/agreement";
 import { classifyAgreementError, reportAgreementFailure } from "@/lib/agreement/errors";
 import { ALERT_NAME_MAX, codePointLength, LEGAL_NAME_MAX, normalizeName } from "@/lib/agreement/names";
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { acceptAgreement, type AcceptBody } from "@/lib/avserv/agreement";
 import { browserIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
@@ -56,11 +56,9 @@ export async function acceptAgreementAction(
   _prev: AcceptAgreementResult | null,
   formData: FormData,
 ): Promise<AcceptAgreementResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   const presented = presentedAgreement();
   if (!presented) {

@@ -32,6 +32,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/auth/roles", () => ({ isPlatformStaff: vi.fn(() => Promise.resolve(h.staff)) }));
 vi.mock("@/lib/email/send", () => ({ sendSarOrgDecisionEmail: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));

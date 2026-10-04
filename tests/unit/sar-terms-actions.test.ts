@@ -44,6 +44,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 vi.mock("@/lib/auth", () => ({ auth: () => Promise.resolve(h.userId ? { user: { id: h.userId } } : null) }));
+vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/auth/org-roles", () => ({ canManageOrg: () => Promise.resolve(h.canManage) }));
 vi.mock("@/lib/auth/roles", () => ({ hasPlatformRole: () => Promise.resolve(h.platformAdmin) }));
 vi.mock("@/lib/email/send", () => ({ sendSarTermsPendingReviewEmail: h.pendingEmail, sendSarTermsDecisionEmail: h.decisionEmail }));

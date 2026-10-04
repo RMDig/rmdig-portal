@@ -3,7 +3,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { orgInvitations, sarOrgs } from "@/lib/db/schema";
@@ -35,11 +35,9 @@ export async function createInvitationAction(
   _prev: InviteResult | null,
   formData: FormData,
 ): Promise<InviteResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
   if (!(await canManageOrg(userId, orgId))) {
     return { ok: false, error: "Only an organization admin can invite members." };
   }

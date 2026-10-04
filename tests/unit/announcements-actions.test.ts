@@ -74,7 +74,8 @@ beforeEach(() => {
   h.updates = [];
   h.updateReturns = [{ id: ID }];
   h.insertError = null;
-});
+});vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
+
 
 describe("createAnnouncementAction", () => {
   it("saves the announcement and its log row, with times converted from Mountain time", async () => {

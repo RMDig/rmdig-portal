@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserMemberships, users } from "@/lib/db/schema";
 import { createAdvertiserAccountSchema } from "@/lib/advertiser/schema";
@@ -28,11 +28,9 @@ export async function createAdvertiserAccountAction(
   _prev: CreateAdvertiserResult | null,
   formData: FormData,
 ): Promise<CreateAdvertiserResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in to create an advertiser account." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   // Email verification is required before any state-changing action. Read it fresh
   // rather than trusting the session token.

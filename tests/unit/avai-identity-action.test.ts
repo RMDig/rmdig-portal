@@ -54,7 +54,8 @@ beforeEach(() => {
   h.rateAllowed = true;
   h.incrementRateLimit.mockImplementation(() => Promise.resolve({ allowed: h.rateAllowed }));
   h.putIdentity.mockResolvedValue(account(false, true));
-});
+});vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
+
 
 describe("saveAvaiIdentityAction", () => {
   it("sends the normalized names and never an email", async () => {

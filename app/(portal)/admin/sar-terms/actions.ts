@@ -4,7 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs, sarOrgTerms, users } from "@/lib/db/schema";
@@ -40,9 +40,10 @@ export type TermsDecisionResult =
 class Refused extends Error {}
 
 export async function decideTermsAction(_prev: TermsDecisionResult | null, formData: FormData): Promise<TermsDecisionResult> {
-  const session = await auth();
-  const staffId = session?.user?.id;
-  if (!staffId || !(await hasPlatformRole(staffId, "rmdig_admin"))) {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const staffId = actor.userId;
+  if (!(await hasPlatformRole(staffId, "rmdig_admin"))) {
     return { ok: false, error: "Only a platform administrator can publish team terms." };
   }
   const parsed = decisionSchema.safeParse(Object.fromEntries(formData));

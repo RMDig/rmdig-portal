@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { auth } from "@/lib/auth";
+import { portalActor } from "@/lib/auth/portal-actor";
 import { mintLinkCode } from "@/lib/avserv/client";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -25,11 +25,9 @@ export async function mintDeviceLinkCodeAction(
   _prev: MintLinkCodeResult | null,
   _formData: FormData,
 ): Promise<MintLinkCodeResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in to link a device." };
-  }
-  const userId = session.user.id;
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  const userId = actor.userId;
 
   const [row] = await db
     .select({ avservAccountId: users.avservAccountId })

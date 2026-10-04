@@ -47,7 +47,8 @@ const PRESENTED = present({
     { id: "age_18_plus", text: "I am 18 years of age or older.", required: true },
     { id: "updates_ok", text: "Email me about changes.", required: false },
   ],
-});
+});vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
+
 const KEY = "22222222-2222-4222-8222-222222222222";
 
 function form(overrides: Record<string, string | null> = {}): FormData {

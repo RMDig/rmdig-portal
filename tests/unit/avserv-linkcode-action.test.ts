@@ -32,7 +32,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.sessionUserId = "u1";
   h.selectRows = [];
-});
+});vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
+
 
 describe("mintDeviceLinkCodeAction", () => {
   it("mints a code for a mapped, signed-in user", async () => {
