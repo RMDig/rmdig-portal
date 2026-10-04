@@ -1,8 +1,8 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { columnsToAdTarget } from "../advertiser/target";
 import { db } from "../db";
-import { adCampaigns, adCreatives, advertiserMemberships } from "../db/schema";
+import { adCampaigns, adCreatives, advertiserMemberships, orgMemberships, sarOrgs } from "../db/schema";
 import { describeTarget } from "../geo/lookup";
 import { RegionPolygonSchema } from "../sar/geo";
 import type { OrgRow, OrgStatus, TargetRow } from "./layers";
@@ -46,6 +46,23 @@ export async function allOrgRows(): Promise<OrgRow[]> {
     ORDER BY o.name
   `)) as unknown as GeoRow[];
   return toOrgRows(rows);
+}
+
+/** Teams whose alerts the user may see on the map: admin or dispatcher of a
+ *  team AvServ dispatches to (approved, or leaving with check-outs still bound). */
+export async function dispatchOrgsFor(userId: string): Promise<Array<{ id: string; name: string }>> {
+  return db
+    .select({ id: sarOrgs.id, name: sarOrgs.name })
+    .from(orgMemberships)
+    .innerJoin(sarOrgs, eq(sarOrgs.id, orgMemberships.orgId))
+    .where(
+      and(
+        eq(orgMemberships.userId, userId),
+        inArray(orgMemberships.role, ["admin", "dispatcher"]),
+        inArray(sarOrgs.status, ["approved", "leaving"]),
+      ),
+    )
+    .orderBy(sarOrgs.name);
 }
 
 /** The advertiser accounts the user belongs to. */

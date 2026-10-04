@@ -195,6 +195,28 @@ maintenance switch.
   team is responding, and AvServ doesn't stop or delay anything because of it.
   Failed nodes are logged as `sar.ack.node_failed`.
 
+## SAR map: alerts layer
+
+Team admins and dispatchers see a red layer on `/map` for each approved or
+leaving team: the alerts AvAI sent to the team, read from **both** nodes
+(`GET /v1/internal/sar-teams/<orgId>/alerts`, AvServ `sar_feeds.md`) with the
+viewer named in `X-AvAI-Reader`. Both copies of one alert are merged into one item,
+and any node's resolution wins.
+
+- **Logging:** each view is written to `sar_map_view_log` (items and the nodes that
+  answered) before the page renders; if that write fails, the page fails. AvServ
+  logs its disclosure in its own `data_share_log`.
+- **One node down:** the layer shows what the other returned, plus a notice naming
+  the missing node. `sar.map.red_node_failed` is logged with the node's code.
+- **Both down (or no nodes configured):** the layer says it couldn't load and points
+  to the Alerts page and 911; nothing is logged as viewed.
+  `sar.map.no_avserv_nodes` means neither `AVSERV_BASE_URL` nor
+  `AVSERV_FAILOVER_BASE_URL` is set.
+- **AvServ side:** the feed ships in AvServ plan 41 S3; the portal path needs to be on
+  `svc-key-portal-1`'s allowlist. Until then each read fails and the layer shows the
+  error state.
+- **Orange (other emergencies in the area)** stays off until counsel decides.
+
 ## SAR org members
 
 Org admins manage their own team at `/sar/<orgId>/members`: invite (by email,

@@ -1,4 +1,4 @@
-import { circleRing, ringsBounds, type Bounds } from "./geometry";
+import { circleRing, ringsBounds, type Bounds, type LonLat } from "./geometry";
 
 // The layer model behind /map (docs/plans/33). Pure: the page's server
 // queries produce plain rows, these builders turn them into layers, and the
@@ -14,6 +14,10 @@ export interface LayerItem {
   detail: string;
   /** Polygon rings to draw, if the item has a shape on the map. */
   rings: number[][][] | null;
+  /** A point to mark (e.g. an alert's last location). */
+  point?: LonLat | null;
+  /** Lines to draw (e.g. a planned route), as MultiLineString coordinates. */
+  lines?: number[][][] | null;
   bounds: Bounds | null;
   color: string;
   /** Drawn with a dashed outline (e.g. not yet approved). */
@@ -28,6 +32,11 @@ export interface MapLayer {
   /** Shown in the legend and the panel, in plain words. */
   legend: Array<{ color: string; dashed: boolean; label: string }>;
   emptyText: string;
+  /** A warning shown above a layer that loaded only in part. */
+  notice?: string;
+  /** What to say, and where else to look, when the layer can't load. */
+  errorText?: string;
+  link?: { href: string; label: string };
 }
 
 export type OrgStatus = "pending" | "approved" | "rejected" | "suspended" | "leaving" | "withdrawn";
