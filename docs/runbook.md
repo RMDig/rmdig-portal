@@ -171,6 +171,26 @@ admins edit them at `/sar/<orgId>/terms`; **rmdig admins** review them at
 - **Publishing sends the team to AvServ** with its new terms version (see SAR
   team sync to AvServ).
 
+## AvServ checks
+
+**Admin → AvServ checks** (`/admin/avserv-checks`, rmdig admins) makes one harmless
+call per portal feature to every configured node, through the portal's own client
+code: team sync (`sar_sync`), the red alerts feed and the deletion lookup
+(`sar_feed`), "Mark received" (`sar_ack`) and the email lookup (`account_lookup`).
+The ids are made up, so nothing is written on AvServ; the email lookup checks
+`probe@example.com`, which AvServ logs only as a hash, with you as the reader.
+
+- **Pass** is the answer an unknown id should get (`sar_team_unknown`,
+  `sar_alert_unknown`, or an empty result).
+- **`path_not_allowed` / `http_403`**: `svc-key-portal-1` lacks that route group on
+  that node. Ask AvServ to add it.
+- **`unreachable`, `http_5xx`**: the node is down or failing; see Outages and rollback.
+- Anything mentioning the signing key: `AVSERV_SERVICE_JWT_SIGNING_KEY` is missing
+  or wrong in Vercel.
+
+Run it after an AvServ release, after a key change, and before a drill. Each run is
+logged as `avserv.checks.run`, at error level if anything failed.
+
 ## SAR alert intake
 
 AvServ delivers team alerts (missed check-ins, Send Help, all-clears,

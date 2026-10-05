@@ -138,6 +138,23 @@ export default async function AdminPage() {
       {isAdmin ? (
         <Card>
           <CardHeader>
+            <CardTitle>AvServ checks</CardTitle>
+            <CardDescription>
+              Confirm each AvAI server has the routes the portal uses and our key holds each route
+              group. Run after a server release or key change.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/admin/avserv-checks">Run AvServ checks</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
             <CardTitle>Team</CardTitle>
             <CardDescription>
               Invite new administrators or reviewers and manage who holds staff roles.
