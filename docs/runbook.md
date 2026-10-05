@@ -210,6 +210,14 @@ maintenance switch.
   recorded once any node accepts it. It means received only: it doesn't say the
   team is responding, and AvServ doesn't stop or delay anything because of it.
   Failed nodes are logged as `sar.ack.node_failed`.
+- **Retention** (daily cron `/api/cron/sar-retention`, 09:30 UTC, `lib/sar/retention.ts`):
+  24 hours after an alert ends (its all-clear or retraction), its position and
+  planned route are removed from the stored payload (status stays); 90 days after
+  it ends, the alert, its follow-ups and its ack are deleted. Alerts-page and map
+  view logs are deleted after 12 months. An alert with no all-clear is kept and
+  logged as `sar.retention.stale_open_alerts` once it's 30 days old: find out why
+  AvServ never sent its follow-up. Run by hand with
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai/api/cron/sar-retention`.
 
 ## SAR map: alerts layer
 

@@ -1,8 +1,6 @@
-import { timingSafeEqual } from "node:crypto";
-
 import { NextResponse } from "next/server";
 
-import { env } from "@/lib/env";
+import { cronAuthFailure } from "@/lib/cron/auth";
 import { logger } from "@/lib/logger";
 import { runReverifyReminders } from "@/lib/sar/reverify-run";
 
@@ -11,21 +9,9 @@ import { runReverifyReminders } from "@/lib/sar/reverify-run";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authorized(header: string | null, secret: string): boolean {
-  const want = Buffer.from(`Bearer ${secret}`);
-  const got = Buffer.from(header ?? "");
-  return got.length === want.length && timingSafeEqual(got, want);
-}
-
 export async function GET(req: Request) {
-  if (!env.CRON_SECRET) {
-    logger.error({ event: "cron.patrol_reverify.unconfigured" });
-    return NextResponse.json({ code: "cron_not_configured" }, { status: 503 });
-  }
-  if (!authorized(req.headers.get("authorization"), env.CRON_SECRET)) {
-    logger.warn({ event: "cron.patrol_reverify.unauthorized" });
-    return NextResponse.json({ code: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronAuthFailure(req, "patrol_reverify");
+  if (denied) return denied;
   try {
     const summary = await runReverifyReminders(new Date());
     logger.info({ event: "cron.patrol_reverify.done", ...summary });
