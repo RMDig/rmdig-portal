@@ -88,7 +88,9 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
                     <dd className="inline">
                       {a.lastFix
                         ? `${a.lastFix.lat.toFixed(5)}, ${a.lastFix.lon.toFixed(5)}${a.lastFix.accuracyMeters != null ? ` (±${Math.round(a.lastFix.accuracyMeters)} m)` : ""}, ${ago(a.lastFix.at)}`
-                        : "none sent"}
+                        : a.state === "open"
+                          ? "none sent"
+                          : "removed after the alert ended"}
                     </dd>
                   </div>
                   {a.expectedReturnAt ? (

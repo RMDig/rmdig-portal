@@ -1,4 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [{ "path": "/api/cron/patrol-reverify", "schedule": "0 15 * * *" }]
+  "crons": [
+    { "path": "/api/cron/patrol-reverify", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/sar-retention", "schedule": "30 9 * * *" }
+  ]
 }
