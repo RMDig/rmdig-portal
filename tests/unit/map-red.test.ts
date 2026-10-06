@@ -98,6 +98,8 @@ describe("redLayer", () => {
   it("shows a fix with no time as \"fix time unknown\", and an unnamed user as \"A user\"", () => {
     const item = redLayer(ORG, mergeRedFeeds([ok("a2", [{ ...base, userDisplayName: null, lastFix: { lat: 39.6, lon: -106, accuracyMeters: null, at: null } }])]), NOW).items[0]!;
     expect(item.label).toBe("Missed check-in: A user");
+    const blank = redLayer(ORG, mergeRedFeeds([ok("a2", [{ ...base, userDisplayName: "" }])]), NOW).items[0]!;
+    expect(blank.label).toBe("Missed check-in: A user");
     expect(item.detail).toContain("39.60000, -106.00000, fix time unknown");
     expect(item.point).toEqual([-106, 39.6]);
   });

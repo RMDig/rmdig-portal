@@ -1,5 +1,6 @@
 import type { RedFeedResult, RedItem } from "../avserv/sar-feeds";
 import { formatMountain } from "../announcements/announcements";
+import { alertUserName } from "../sar/intake";
 import { circleRing, ringsBounds, type LonLat } from "./geometry";
 import type { LayerItem, MapLayer } from "./layers";
 
@@ -87,7 +88,7 @@ function redItem(orgId: string, a: RedItem, now: Date): LayerItem {
   if (a.ack) parts.push("marked received");
   return {
     id: `red:${orgId}:${a.itemId}`,
-    label: `${KIND_LABEL[a.kind]}: ${a.userDisplayName ?? "A user"}`,
+    label: `${KIND_LABEL[a.kind]}: ${alertUserName(a.userDisplayName)}`,
     detail: parts.join(" · "),
     rings,
     point,

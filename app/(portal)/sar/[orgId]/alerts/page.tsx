@@ -7,7 +7,7 @@ import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { getOrgRole } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarAlertAcks, sarAlertViewLog, sarIntakeMessages, sarOrgs } from "@/lib/db/schema";
-import { groupAlerts, type IntakePayload } from "@/lib/sar/intake";
+import { alertUserName, groupAlerts, type IntakePayload } from "@/lib/sar/intake";
 
 import { AckButton } from "./AckButton";
 
@@ -75,7 +75,7 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
               <li key={a.alertId} className="space-y-2 rounded-md border p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="font-semibold">
-                    {KIND_LABEL[a.kind]}: {a.userDisplayName ?? "A user"}
+                    {KIND_LABEL[a.kind]}: {alertUserName(a.userDisplayName)}
                     {a.drill ? <span className="text-muted-foreground font-normal"> (drill)</span> : null}
                   </h2>
                   <span className={a.state === "open" ? "text-sm font-medium text-red-700 dark:text-red-400" : "text-muted-foreground text-sm"}>
