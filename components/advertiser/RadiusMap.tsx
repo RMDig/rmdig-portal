@@ -5,14 +5,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MaplibreMap, Marker } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
-import { OSM_STYLE } from "@/components/map/basemap";
+import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
 import { circleRing } from "@/lib/map/geometry";
 
 // A radius ad target's editable geometry: a draggable center pin + a mileage circle
 // (AD-P7b, AvApp doc 31 §3 Tier 1). The slider that sets `mi` lives in the parent
 // TargetPicker; this map renders the pin and the circle and reports pin moves up.
-// Reuses the same MapLibre + free OSM raster basemap as components/map/RegionDrawMap
-// (no API key, fine at this volume). MapLibre touches `window` at construction, so it
+// Uses the shared portal basemap (components/map/basemap.ts). MapLibre touches `window` at construction, so it
 // is dynamically imported inside the effect to stay out of SSR.
 
 interface RadiusMapProps {
@@ -58,10 +57,11 @@ export default function RadiusMap({ lat, lon, mi, onCenterChange }: RadiusMapPro
       const { lat: lat0, lon: lon0, mi: mi0 } = stateRef.current;
       const map = new maplibregl.Map({
         container: containerRef.current,
-        style: OSM_STYLE,
+        style: basemapStyle(),
         center: [lon0, lat0],
         zoom: 6,
       });
+      attachBasemapFallback(map);
       mapRef.current = map;
       map.addControl(new maplibregl.NavigationControl(), "top-right");
 

@@ -5,7 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
-import { OSM_STYLE } from "@/components/map/basemap";
+import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
 import { ringsBounds } from "@/lib/map/geometry";
 
 export interface PreviewPolygon {
@@ -13,10 +13,10 @@ export interface PreviewPolygon {
   coordinates: number[][][];
 }
 
-// Read-only, non-interactive map that draws a SAR org's service area over an OSM
-// basemap, fit to the polygon — so a reviewer sees *where* the region is, not
+// Read-only, non-interactive map that draws a SAR org's service area over the
+// shared portal basemap, fit to the polygon — so a reviewer sees *where* the region is, not
 // just its shape. MapLibre is dynamically imported inside the effect (it touches
-// `window`), keeping SSR clean; same OSM raster source as the draw map.
+// `window`), keeping SSR clean.
 
 
 export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon | null }) {
@@ -32,11 +32,12 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
       if (cancelled || !containerRef.current) return;
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: OSM_STYLE,
+        style: basemapStyle(),
         interactive: false,
-        // OSM requires visible attribution on every map (tile policy).
+        // Both basemaps require visible attribution on every map.
         attributionControl: { compact: true },
       });
+      attachBasemapFallback(map);
       map.on("load", () => {
         if (cancelled || !map) return;
         map.addSource("region", {

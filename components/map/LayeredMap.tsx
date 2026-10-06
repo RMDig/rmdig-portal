@@ -5,7 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
-import { OSM_STYLE } from "@/components/map/basemap";
+import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
 import { unionBounds, type Bounds } from "@/lib/map/geometry";
 import type { LayerItem } from "@/lib/map/layers";
 
@@ -43,11 +43,12 @@ export default function LayeredMap({ items, focus }: { items: LayerItem[]; focus
       if (cancelled || !containerRef.current) return;
       const map = new maplibregl.Map({
         container: containerRef.current,
-        style: OSM_STYLE,
+        style: basemapStyle(),
         center: [-105.5, 39.0],
         zoom: 6,
         attributionControl: { compact: true },
       });
+      attachBasemapFallback(map);
       mapRef.current = map;
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       map.on("load", () => {

@@ -6,7 +6,7 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import type { TerraDraw } from "terra-draw";
 import { useEffect, useRef } from "react";
 
-import { OSM_STYLE } from "@/components/map/basemap";
+import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
 
 import { Button } from "@/components/ui/button";
 
@@ -22,9 +22,7 @@ interface RegionDrawMapProps {
   hasRegion: boolean;
 }
 
-// Free OpenStreetMap raster basemap — no API key, fine for drawing a service
-// area at low volume (the tile-usage policy is acceptable at this scale; revisit
-// a vector provider if usage grows). MapLibre + Terra Draw run only in the
+// The shared portal basemap (components/map/basemap.ts). MapLibre + Terra Draw run only in the
 // browser, so everything heavy is dynamically imported inside the effect to keep
 // it out of SSR (MapLibre touches `window` at construction).
 
@@ -51,10 +49,11 @@ export default function RegionDrawMap({ onRegionChange, hasRegion }: RegionDrawM
 
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: OSM_STYLE,
+        style: basemapStyle(),
         center: [-106.0, 39.0], // Colorado-ish; the user pans to their area
         zoom: 6,
       });
+      attachBasemapFallback(map);
       map.addControl(new maplibregl.NavigationControl(), "top-right");
 
       draw = new TerraDraw({

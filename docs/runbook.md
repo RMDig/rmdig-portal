@@ -194,6 +194,25 @@ logged as `avserv.checks.run`, at error level if anything failed. The same check
 as `portal-user:cron`); a failure answers 503, logs `cron.avserv_checks.failed` and
 goes to Sentry.
 
+## Map basemap (MapTiler)
+
+Every portal map uses one basemap (`components/map/basemap.ts`): **MapTiler
+Outdoor** (contours, hillshade) when `NEXT_PUBLIC_MAPTILER_KEY` is set, otherwise
+the free OpenStreetMap tiles.
+
+- **Account:** MapTiler Cloud, **Flex** plan (commercial use; the free plan is
+  non-commercial). Ask MapTiler for their data-processing agreement; the privacy
+  policy lists them as a provider.
+- **Key:** create one in MapTiler → API keys, **restricted to allowed origins**
+  `https://rmdig.ai` and `https://*.vercel.app` (previews). It's public by design
+  (the browser sends it with every tile request), so set it as a plain env var in
+  Vercel for Production and Preview. It's inlined at build: redeploy after changing it.
+- **If MapTiler fails** (bad or revoked key, outage), each map falls back to
+  OpenStreetMap so its layers (areas, alert dots, routes) still draw, logs
+  `basemap: MapTiler style failed…` in the browser, and reports
+  `basemap.fallback` to Sentry. A run of those means fix the key or check MapTiler.
+- **Usage:** each map shown is one MapTiler session; Flex includes 25,000 a month.
+
 ## AvServ service key
 
 The portal signs every AvServ call with an Ed25519 key, whose public half AvServ
