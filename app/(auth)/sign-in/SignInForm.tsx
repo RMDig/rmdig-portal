@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
+// Each points at "Send a new link" on the Check your email page.
 const ERROR_MESSAGES: Record<string, string> = {
-  "invalid-link": "That verification link is malformed. Try signing up again.",
-  "invalid-token": "That verification link isn't valid. Try requesting a new one.",
-  "expired-token": "That verification link has expired. Sign up again to get a new one.",
+  "invalid-link": "That verification link is incomplete.",
+  "invalid-token": "That verification link isn't valid, or was replaced by a newer one.",
+  "expired-token": "That verification link has expired.",
 };
 
 export function SignInForm() {
@@ -22,6 +23,10 @@ export function SignInForm() {
   const reset = params.get("reset") === "true";
   const urlError = params.get("error");
   const urlErrorMessage = urlError ? ERROR_MESSAGES[urlError] : null;
+  // Where to go after signing in (an invite, an account-review link); the
+  // server re-validates it (lib/auth/return-to.ts).
+  const next = params.get("next") ?? "";
+  const nextQs = next ? `?next=${encodeURIComponent(next)}` : "";
 
   const [state, formAction, pending] = useActionState(signInCredentialsAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
@@ -54,11 +59,15 @@ export function SignInForm() {
       ) : null}
       {urlErrorMessage ? (
         <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-900 dark:bg-red-900/20 dark:text-red-200">
-          {urlErrorMessage}
+          {urlErrorMessage}{" "}
+          <Link href={`/verify-email${nextQs}`} className="font-medium underline">
+            Get a new link
+          </Link>
         </div>
       ) : null}
 
       <form action={signInGoogleAction}>
+        <input type="hidden" name="next" value={next} />
         <Button type="submit" variant="outline" className="w-full">
           Continue with Google
         </Button>
@@ -84,6 +93,7 @@ export function SignInForm() {
         }}
         className="space-y-4"
       >
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -144,12 +154,19 @@ export function SignInForm() {
         </Button>
       </form>
 
-      <p className="text-muted-foreground text-center text-sm">
-        Don&apos;t have an account?{" "}
-        <Link href="/sign-up" className="font-medium text-foreground underline">
-          Sign up
-        </Link>
-      </p>
+      <div className="text-muted-foreground space-y-1 text-center text-sm">
+        <p>
+          Don&apos;t have an account?{" "}
+          <Link href={`/sign-up${nextQs}`} className="font-medium text-foreground underline">
+            Sign up
+          </Link>
+        </p>
+        <p>
+          <Link href={`/verify-email${nextQs}`} className="underline">
+            Didn&apos;t get your verification email?
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

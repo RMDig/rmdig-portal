@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignUpForm } from "./SignUpForm";
@@ -24,7 +25,9 @@ export default function SignUpPage() {
         <CardTitle>Create your rmdig account</CardTitle>
       </CardHeader>
       <CardContent>
-        <SignUpForm />
+        <Suspense fallback={null}>
+          <SignUpForm />
+        </Suspense>
       </CardContent>
     </Card>
   );

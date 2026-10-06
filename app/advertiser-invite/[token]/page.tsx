@@ -2,6 +2,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
+import { nextQuery } from "@/lib/auth/return-to";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserInvitations } from "@/lib/db/schema";
@@ -62,14 +63,14 @@ export default async function AdvertiserInvitePage({
           <p className="text-muted-foreground">
             You&apos;ve been invited to manage advertising for{" "}
             <strong>{invite.advertiserName}</strong> as {ROLE_LABEL[invite.role] ?? invite.role}.
-            Sign in or create an account — with this link still open — to accept.
+            Sign in or create an account to accept. You&apos;ll come back here afterwards.
           </p>
           <div className="flex gap-3">
             <Button asChild>
-              <Link href="/sign-in">Sign in</Link>
+              <Link href={`/sign-in${nextQuery(`/advertiser-invite/${token}`)}`}>Sign in</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/sign-up">Create account</Link>
+              <Link href={`/sign-up${nextQuery(`/advertiser-invite/${token}`)}`}>Create account</Link>
             </Button>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanne
 import { announcementsFor, type LiveAnnouncement } from "@/lib/announcements/queries";
 import { auth } from "@/lib/auth";
 import { userMfaGate } from "@/lib/auth/mfa-gate";
+import { nextQuery } from "@/lib/auth/return-to";
 import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -19,7 +20,9 @@ const ENROLL_PATH = "/settings/mfa/enroll";
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    // Back to the page they asked for after signing in (an invite, an AvServ
+    // notice's account-review link), not always the dashboard.
+    redirect(`/sign-in${nextQuery((await headers()).get("x-return-to"))}`);
   }
   const userId = session.user.id;
 

@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
 import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
+import { safeReturnTo } from "@/lib/auth/return-to";
 import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
@@ -69,6 +70,49 @@ export type ActionResult =
 // every call — unthrottled, it's an account-spam and email-fan-out vector.
 // 5/hr still covers a NAT'd household or club signing up the same evening.
 const SIGNUP_IP_RATE_LIMIT = { limit: 5, windowSec: 60 * 60 };
+// Re-sent verification links per address: enough for a lost email, not a
+// way to mail-bomb someone through our sender.
+const VERIFY_RESEND_RATE_LIMIT = { limit: 3, windowSec: 60 * 60 };
+
+/** Replace any earlier link for this address with a fresh one and email it.
+ *  `next` (a safe same-site path) rides along so verification can return the
+ *  user to where they were headed, e.g. an invite. Throws if the send fails. */
+async function issueVerification(email: string, next: string | null): Promise<void> {
+  await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email));
+  const token = randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await db.insert(verificationTokens).values({ identifier: email, token, expires });
+  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const verifyUrl = `${baseUrl}/api/verify?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
+  await sendVerificationEmail(email, verifyUrl);
+}
+
+/** Re-send a verification link to an existing, unverified account. Rate
+ *  limited per address. Never changes the account (in particular never its
+ *  password: a stranger re-signing up with someone's address must not end up
+ *  owning the account once its owner clicks the link). Returns nothing that
+ *  reveals whether the address has an account. */
+async function resendIfUnverified(email: string, next: string | null): Promise<void> {
+  const [user] = await db
+    .select({ id: users.id, emailVerified: users.emailVerified })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  if (!user || user.emailVerified) return;
+  const rl = await incrementRateLimit(`verify-resend:${email}`, VERIFY_RESEND_RATE_LIMIT);
+  if (!rl.allowed) {
+    logger.warn({ event: "verify.resend_rate_limited", userId: user.id, attempts: rl.attempts });
+    return;
+  }
+  try {
+    await issueVerification(email, next);
+    logger.info({ event: "verify.resent", userId: user.id });
+  } catch (err) {
+    // Neutral to the caller (it can't reveal the account exists), loud here.
+    logger.error({ event: "verify.resend_failed", userId: user.id, err });
+  }
+}
+
 
 export async function signUpAction(
   _prev: ActionResult | null,
@@ -84,6 +128,7 @@ export async function signUpAction(
   }
 
   const { email, password, intent } = parsed.data;
+  const next = safeReturnTo(formData.get("next"));
 
   const ip = await clientIp();
   const rl = await incrementRateLimit(`signup-ip:${ip}`, SIGNUP_IP_RATE_LIMIT);
@@ -102,7 +147,10 @@ export async function signUpAction(
     .limit(1);
 
   if (existing) {
+    // An unverified owner signing up again gets a fresh link (their original
+    // password stands); a verified one gets nothing. Same answer either way.
     logger.info({ event: "signup.duplicate", email });
+    await resendIfUnverified(email, next);
     return { ok: true };
   }
 
@@ -117,31 +165,42 @@ export async function signUpAction(
     return { ok: false, error: "Something went wrong creating your account. Try again." };
   }
 
-  const token = randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  await db.insert(verificationTokens).values({
-    identifier: email,
-    token,
-    expires,
-  });
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const verifyUrl = `${baseUrl}/api/verify?token=${token}&email=${encodeURIComponent(email)}`;
-
   try {
-    await sendVerificationEmail(email, verifyUrl);
+    await issueVerification(email, next);
   } catch (err) {
-    // The user row and token are written — they can request a re-send. Surface
-    // the failure rather than pretending it succeeded.
+    // The account exists; the user can ask for a new link on the "Check your
+    // email" page. Surface the failure rather than pretending it worked.
     logger.error({ event: "signup.email_send_failed", userId: user.id, err });
     return {
       ok: false,
       error:
-        "We created your account but couldn't send the verification email. Try signing up again in a moment.",
+        "We created your account but couldn't send the verification email. In a moment, use \"Send a new link\" on the Check your email page.",
     };
   }
 
   logger.info({ event: "signup.success", userId: user.id });
+  return { ok: true };
+}
+
+// ----- Re-send a verification link -----
+
+const resendSchema = z.object({ email: z.string().email().toLowerCase() });
+
+export async function resendVerificationAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = resendSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Enter the email you signed up with.", fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+  const ip = await clientIp();
+  const rl = await incrementRateLimit(`verify-resend-ip:${ip}`, SIGNUP_IP_RATE_LIMIT);
+  if (!rl.allowed) {
+    logger.warn({ event: "verify.resend_ip_rate_limited", ip, attempts: rl.attempts });
+    return { ok: false, error: "Too many requests from this network. Try again later." };
+  }
+  await resendIfUnverified(parsed.data.email, safeReturnTo(formData.get("next")));
   return { ok: true };
 }
 
@@ -170,7 +229,7 @@ export async function signInCredentialsAction(
       email: parsed.data.email,
       password: parsed.data.password,
       ...(parsed.data.totp ? { totp: parsed.data.totp } : {}),
-      redirectTo: "/dashboard",
+      redirectTo: safeReturnTo(formData.get("next")) ?? "/dashboard",
     });
     return { ok: true };
   } catch (err) {
@@ -211,8 +270,8 @@ export async function signInCredentialsAction(
 
 // ----- Sign in (Google OAuth) -----
 
-export async function signInGoogleAction(): Promise<void> {
-  await signIn("google", { redirectTo: "/dashboard" });
+export async function signInGoogleAction(formData: FormData): Promise<void> {
+  await signIn("google", { redirectTo: safeReturnTo(formData.get("next")) ?? "/dashboard" });
 }
 
 // ----- Sign out -----
