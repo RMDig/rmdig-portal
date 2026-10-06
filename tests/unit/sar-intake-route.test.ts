@@ -55,6 +55,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 
+import { POST as POST_DRILL } from "@/app/api/sar/intake/drill/route";
 import { POST } from "@/app/api/sar/intake/route";
 import { db } from "@/lib/db";
 
@@ -123,7 +124,7 @@ describe("POST /api/sar/intake", () => {
     expect((await POST(request(payload()))).status).toBe(200);
     expect(h.email).not.toHaveBeenCalled();
     h.copies = [{ id: "m1" }];
-    expect((await POST(request(payload({ drill: true })))).status).toBe(200);
+    expect((await POST_DRILL(request(payload({ drill: true })))).status).toBe(200);
     expect((await POST(request(payload({ kind: "duplicate_disclaimer", alert: { refersTo: "sub:team", deliveries: 2 } })))).status).toBe(200);
     expect(h.email).not.toHaveBeenCalled();
   });
@@ -144,6 +145,23 @@ describe("POST /api/sar/intake", () => {
     const area = payload({ kind: "send_help", capability: "send_help_area", alert: { helpRequestId: "h", userDisplayName: "Pat", lastFix: null, note: null, checkoutId: null, openedAt: "2026-10-04T10:00:00Z" } });
     expect((await POST(request(area))).status).toBe(200);
     expect(h.email).toHaveBeenCalledWith("lead@sar.org", expect.objectContaining({ kind: "send_help", fromAreaUser: true }));
+  });
+
+  it("keeps drills and live alerts apart: each URL refuses the other kind (permanent 4xx)", async () => {
+    const onLive = await POST(request(payload({ drill: true })));
+    expect(onLive.status).toBe(400);
+    expect(await onLive.json()).toEqual({ code: "drill_on_live_intake" });
+    const onDrill = await POST_DRILL(request(payload()));
+    expect(onDrill.status).toBe(400);
+    expect(await onDrill.json()).toEqual({ code: "live_on_drill_intake" });
+    expect(h.insertedValues).toEqual([]);
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.intake.wrong_url", code: "drill_on_live_intake" }));
+  });
+
+  it("stores a drill from the drill URL as a drill, emailing no one", async () => {
+    expect((await POST_DRILL(request(payload({ drill: true })))).status).toBe(200);
+    expect(h.insertedValues[0]).toMatchObject({ messageId: "m1", drill: true });
+    expect(h.email).not.toHaveBeenCalled();
   });
 
   it("rejects bad signatures permanently (401), with the reason", async () => {
