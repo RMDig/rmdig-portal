@@ -1,6 +1,8 @@
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 
 import { env } from "../env";
+import { logger } from "../logger";
 import { signServiceJwt } from "./service-jwt";
 
 // Shared plumbing for every call on AvServ's internal (S2S) tier: the error
@@ -75,6 +77,18 @@ export async function avservFetch(
   } catch (err) {
     throw new AvServError(`AvServ request failed: ${(err as Error).message}`, undefined, "unreachable");
   }
+}
+
+/** The failure code for a request that threw before any node answered.
+ *  "unreachable" only when the network failed (avservFetch tags those);
+ *  anything else, such as a bad signing key, is a fault on our side: logged,
+ *  sent to Sentry, and reported as itself, never passed off as an outage. */
+export function failureCode(err: unknown, context: Record<string, unknown>): string {
+  if (err instanceof AvServError && err.code === "unreachable") return "unreachable";
+  const message = err instanceof Error ? err.message : String(err);
+  logger.error({ event: "avserv.request.portal_fault", ...context, err });
+  Sentry.captureException(err, { tags: { event: "avserv.request.portal_fault" } });
+  return `portal_fault: ${message.slice(0, 120)}`;
 }
 
 /** An AvServ failure that is an outage (no answer, a 5xx, or the failover

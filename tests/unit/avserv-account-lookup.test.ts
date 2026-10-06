@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ fetch: vi.fn() }));
-vi.mock("@/lib/avserv/request", () => ({ avservFetch: h.fetch, isMock: (u: string) => u.startsWith("mock://") }));
+vi.mock("@/lib/avserv/request", async (orig) => ({
+  ...(await orig<object>()),
+  avservFetch: h.fetch,
+  isMock: (u: string) => u.startsWith("mock://"),
+}));
+vi.mock("@/lib/env", () => ({ env: {} }));
+vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { lookupAccountsByEmail, mergeAccountMatches, type AccountMatch } from "@/lib/avserv/account-lookup";
+import { AvServError } from "@/lib/avserv/request";
 
 const NODE = { name: "avserv-2.rmdig.ai", baseUrl: "https://avserv-2.rmdig.ai" };
 const m = (o: Partial<AccountMatch> = {}): AccountMatch => ({ accountId: "a1", verified: false, source: "app", status: "active", createdAt: "2026-09-01T00:00:00Z", ...o });
@@ -27,8 +35,13 @@ describe("lookupAccountsByEmail", () => {
     expect(await lookupAccountsByEmail(NODE, "p@e.org", "s")).toEqual({ ok: false, node: NODE.name, code: "lookup_unavailable" });
     h.fetch.mockResolvedValueOnce(json(403, { code: "path_not_allowed" }));
     expect(await lookupAccountsByEmail(NODE, "p@e.org", "s")).toEqual({ ok: false, node: NODE.name, code: "path_not_allowed" });
-    h.fetch.mockRejectedValueOnce(new Error("timeout"));
+    h.fetch.mockRejectedValueOnce(new AvServError("AvServ request failed: timeout", undefined, "unreachable"));
     expect(await lookupAccountsByEmail(NODE, "p@e.org", "s")).toEqual({ ok: false, node: NODE.name, code: "unreachable" });
+  });
+  it("reports a fault of ours (e.g. the signing key) as itself, not as an unreachable node", async () => {
+    h.fetch.mockRejectedValueOnce(new TypeError('"pkcs8" must be PKCS#8 formatted string'));
+    const r = await lookupAccountsByEmail(NODE, "p@e.org", "s");
+    expect(r).toMatchObject({ ok: false, code: expect.stringMatching(/^portal_fault: "pkcs8"/) });
   });
 });
 

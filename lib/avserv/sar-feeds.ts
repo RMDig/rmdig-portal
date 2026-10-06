@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { AvServNode } from "./sar-teams";
-import { avservFetch, isMock } from "./request";
+import { avservFetch, failureCode, isMock } from "./request";
 
 // AvServ's RED map feed (sar_feeds.md §1): alerts dispatched to one team, read
 // from ONE node. The caller reads every node and merges (lib/map/red.ts). A
@@ -61,10 +61,11 @@ export async function readRedFeed(node: AvServNode, orgId: string, readerUserId:
         method: "GET",
         headers: { "x-avai-reader": `portal-user:${readerUserId}` },
       });
-    } catch {
+    } catch (err) {
       // No answer from this node (timeout, DNS, refused): the merge shows the
-      // other node's answer with an "unavailable" marker.
-      return { ok: false, node: node.name, code: "unreachable" };
+      // other node's answer with an "unavailable" marker. A fault of ours
+      // (e.g. the signing key) is reported as itself.
+      return { ok: false, node: node.name, code: failureCode(err, { call: "red_feed", node: node.name }) };
     }
     if (!res.ok) {
       const err = ErrorBody.safeParse(await res.json().catch(() => null));

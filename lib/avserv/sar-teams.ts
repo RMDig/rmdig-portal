@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { env } from "../env";
 import type { SyncBody } from "../sar/sync-body";
-import { AvServError, avservFetch, isMock } from "./request";
+import { AvServError, avservFetch, failureCode, isMock } from "./request";
 
 // AvServ's SAR team endpoints (sar_team_sync.md §1–2). The portal sends every
 // change to EVERY node, never just one: each node keeps the highest revision,
@@ -51,8 +51,10 @@ export async function putSarTeam(node: AvServNode, body: SyncBody): Promise<PutR
       body: JSON.stringify(body),
     });
   } catch (err) {
-    // No answer at all (timeout, DNS, refused): the caller logs it loudly.
-    return { ok: false, status: undefined, code: "unreachable", retryable: true, detail: (err as Error).message };
+    // No answer at all (timeout, DNS, refused) is retryable; a fault of ours
+    // (e.g. the signing key) is reported as itself and isn't.
+    const code = failureCode(err, { call: "sar_sync", node: node.name });
+    return { ok: false, status: undefined, code, retryable: code === "unreachable", detail: (err as Error).message };
   }
   if (res.ok) {
     const parsed = PutOk.safeParse(await res.json().catch(() => null));
@@ -115,9 +117,9 @@ export async function ackSarAlert(
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-  } catch {
+  } catch (err) {
     // No answer from this node: the caller tries the other and reports.
-    return { ok: false, status: undefined, code: "unreachable" };
+    return { ok: false, status: undefined, code: failureCode(err, { call: "sar_ack", node: node.name }) };
   }
   if (res.ok) {
     // The ack time is the receiving node's; a repeat returns the first ack.

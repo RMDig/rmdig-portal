@@ -4,9 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // never as an empty list.
 
 const h = vi.hoisted(() => ({ fetch: vi.fn() }));
-vi.mock("@/lib/avserv/request", () => ({ avservFetch: h.fetch, isMock: (u: string) => u.startsWith("mock://") }));
+vi.mock("@/lib/avserv/request", async (orig) => ({
+  ...(await orig<object>()),
+  avservFetch: h.fetch,
+  isMock: (u: string) => u.startsWith("mock://"),
+}));
+vi.mock("@/lib/env", () => ({ env: {} }));
+vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { readRedFeed, type RedItem } from "@/lib/avserv/sar-feeds";
+import { AvServError } from "@/lib/avserv/request";
 
 const NODE = { name: "avserv-2.rmdig.ai", baseUrl: "https://avserv-2.rmdig.ai" };
 const item = (id: string): RedItem => ({
@@ -45,7 +53,7 @@ describe("readRedFeed", () => {
   it("reports AvServ's error code, an unreachable node and a malformed answer as failures", async () => {
     h.fetch.mockResolvedValueOnce(json(503, { code: "feed_unavailable" }));
     expect(await readRedFeed(NODE, "o", "u")).toEqual({ ok: false, node: NODE.name, code: "feed_unavailable" });
-    h.fetch.mockRejectedValueOnce(new Error("timeout"));
+    h.fetch.mockRejectedValueOnce(new AvServError("AvServ request failed: timeout", undefined, "unreachable"));
     expect(await readRedFeed(NODE, "o", "u")).toEqual({ ok: false, node: NODE.name, code: "unreachable" });
     h.fetch.mockResolvedValueOnce(json(200, { items: [{ itemId: "x" }], nextCursor: null, asOf: "t" }));
     expect(await readRedFeed(NODE, "o", "u")).toEqual({ ok: false, node: NODE.name, code: "bad_response" });
@@ -62,5 +70,10 @@ describe("readRedFeed", () => {
     const r = await readRedFeed({ name: "mock", baseUrl: "mock://avserv" }, "o", "u");
     expect(r).toMatchObject({ ok: true, items: [] });
     expect(h.fetch).not.toHaveBeenCalled();
+  });
+  it("reports a fault of ours (e.g. the signing key) as itself, not as an unreachable node", async () => {
+    h.fetch.mockRejectedValueOnce(new TypeError('"pkcs8" must be PKCS#8 formatted string'));
+    const r = await readRedFeed(NODE, "o", "u");
+    expect(r).toMatchObject({ ok: false, code: expect.stringMatching(/^portal_fault: "pkcs8"/) });
   });
 });
