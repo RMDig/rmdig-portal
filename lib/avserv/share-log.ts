@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { avservFetch, isMock } from "./request";
+import { avservFetch, failureCode, isMock } from "./request";
 import type { AvServNode } from "./sar-teams";
 
 // AvServ's data_share_log lookup (sar_feeds.md §4, AvServ #196): what ONE node
@@ -44,8 +44,8 @@ export async function readShareLog(node: AvServNode, accountId: string): Promise
     let res: Response;
     try {
       res = await avservFetch(node.baseUrl, `/v1/internal/data-share-log?${qs}`, { method: "GET" });
-    } catch {
-      return { ok: false, node: node.name, code: "unreachable" };
+    } catch (err) {
+      return { ok: false, node: node.name, code: failureCode(err, { call: "share_log", node: node.name }) };
     }
     if (!res.ok) {
       const err = ErrorBody.safeParse(await res.json().catch(() => null));

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { avservFetch, isMock } from "./request";
+import { avservFetch, failureCode, isMock } from "./request";
 import type { AvServNode } from "./sar-teams";
 
 // AvServ's operator lookup of accounts by email (account_agreement.md §4.1,
@@ -33,8 +33,8 @@ export async function lookupAccountsByEmail(node: AvServNode, email: string, rea
       headers: { "content-type": "application/json", "x-avai-reader": `portal-user:${readerUserId}` },
       body: JSON.stringify({ email }),
     });
-  } catch {
-    return { ok: false, node: node.name, code: "unreachable" };
+  } catch (err) {
+    return { ok: false, node: node.name, code: failureCode(err, { call: "account_lookup", node: node.name }) };
   }
   if (!res.ok) {
     const err = ErrorBody.safeParse(await res.json().catch(() => null));

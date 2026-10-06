@@ -8,8 +8,11 @@ import { z } from "zod";
 const h = vi.hoisted(() => ({ sign: vi.fn(), fetch: vi.fn() }));
 vi.mock("@/lib/avserv/service-jwt", () => ({ signServiceJwt: h.sign }));
 vi.mock("@/lib/env", () => ({ env: { AVSERV_FAILOVER_BASE_URL: "https://avserv-3.example" } }));
+const s = vi.hoisted(() => ({ capture: vi.fn(), error: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureException: s.capture }));
+vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: s.error } }));
 
-import { AvServContractError, AvServError, avservFetch, callWithFailover, isAvServOutage } from "@/lib/avserv/request";
+import { AvServContractError, AvServError, avservFetch, callWithFailover, failureCode, isAvServOutage } from "@/lib/avserv/request";
 
 beforeEach(() => {
   h.sign.mockReset().mockResolvedValue("jwt");
@@ -67,5 +70,18 @@ describe("isAvServOutage", () => {
     expect(isAvServOutage(new AvServError("unknown account", 404))).toBe(false);
     expect(isAvServOutage(new AvServError("schema validation failed"))).toBe(false);
     expect(isAvServOutage(new Error("bad key"))).toBe(false);
+  });
+});
+
+describe("failureCode", () => {
+  it("keeps a network failure as unreachable, without alarming anyone", () => {
+    expect(failureCode(new AvServError("x", undefined, "unreachable"), { call: "t" })).toBe("unreachable");
+    expect(s.capture).not.toHaveBeenCalled();
+  });
+  it("reports anything else as a portal fault: logged, sent to Sentry, labelled with its message", () => {
+    const err = new TypeError('"pkcs8" must be PKCS#8 formatted string');
+    expect(failureCode(err, { call: "red_feed", node: "a2" })).toBe('portal_fault: "pkcs8" must be PKCS#8 formatted string');
+    expect(s.error).toHaveBeenCalledWith(expect.objectContaining({ event: "avserv.request.portal_fault", call: "red_feed", node: "a2" }));
+    expect(s.capture).toHaveBeenCalledWith(err, expect.anything());
   });
 });
