@@ -614,9 +614,28 @@ data** and never reach the live AvServ:
    command is used as-is: on 2026-10-02 a placeholder became the real password
    and the accounts had to be deleted and re-seeded.
    This creates five personas on your address with plus tags: `+admin`
-   (`rmdig_admin`), `+user`, `+sar` (admin of an approved test SAR org), `+advertiser`
-   (admin of a test advertiser) and `+restricted`. All share that password and are
-   email-verified. Re-running is safe. Each `--admin <address>` adds one more
+   (`rmdig_admin`), `+user`, `+sar`, `+advertiser` (admin of a test advertiser)
+   and `+restricted`. All share that password and are email-verified. Re-running
+   is safe.
+
+   It also seeds the **demo world** (`lib/preview-demo.ts`) for showcasing and
+   testing, with fixed ids so re-runs add nothing:
+   - **Demo Search & Rescue** and **Demo Ski Patrol** (both "sample, not a real
+     team"), approved with service areas around Breckenridge and Copper, published
+     terms, and `+sar` as admin. The patrol is due for re-verification in 20 days.
+   - **Three alerts** to the demo team: an open missed check-in delivered by both
+     nodes (ready to "Mark received"), a Send Help resolved two days ago (position
+     already removed), and an "Also send help" from a user in the area, retracted
+     and marked received. The mock AvServ feed answers from these, so `/map` shows
+     them as the red layer (`lib/avserv/sar-feeds-mock.ts`).
+   - **Demo Outfitters**, a sample advertiser with ads approved, pending and
+     rejected, and `+advertiser` as admin.
+   - A **confirmed deletion request** (`former-user@example.com`) 30 days into
+     its 45.
+
+   The demo world exists **only** on previews (separate database, mock AvServ).
+   Never create sample teams or advertisers in production: a sample team could be
+   offered to real users as one that will be alerted. Each `--admin <address>` adds one more
    `rmdig_admin` account, so you can sign in to previews as yourself. It's a
    separate preview account, not your production one, and it uses the same
    seed password. To add it later, seed both `preview-seed` and `preview`, or
