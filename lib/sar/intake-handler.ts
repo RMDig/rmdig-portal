@@ -6,7 +6,7 @@ import { orgMemberships, sarIntakeMessages, sarOrgs, users } from "../db/schema"
 import { sendSarAlertNotifyEmail } from "../email/send";
 import { env } from "../env";
 import { logger } from "../logger";
-import { IntakePayload, parseIntakeKeys, verifySignature } from "./intake";
+import { type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
 
 // AvServ → portal SAR intake (AvServ sar_portal_intake.md), shared by the live
 // route (app/api/sar/intake) and the drill route (app/api/sar/intake/drill).
@@ -61,9 +61,14 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
 
   let payload: IntakePayload;
   try {
-    const parsed = IntakePayload.safeParse(JSON.parse(rawBody.toString("utf8")));
-    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "invalid payload");
-    payload = parsed.data;
+    const parsed = parseIntakePayload(JSON.parse(rawBody.toString("utf8")));
+    if (!parsed.ok) throw new Error(parsed.error);
+    payload = parsed.payload;
+    if (parsed.dropped.length) {
+      // Accepted without those details: off-contract from AvServ, so loud, but
+      // never a reason to withhold the alert from the team.
+      logger.error({ event: "sar.intake.fields_dropped", node, messageId: payload.messageId, fields: parsed.dropped });
+    }
   } catch (err) {
     logger.warn({ event: "sar.intake.invalid_payload", node, err: (err as Error).message });
     return reply(400, "invalid_payload");

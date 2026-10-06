@@ -52,6 +52,13 @@ describe("readRedFeed", () => {
     expect(h.fetch.mock.calls[1]![1]).toBe("/v1/internal/sar-teams/org-1/alerts?limit=200&cursor=c2");
   });
 
+  it("keeps an item whose fix has no time or whose name is unknown, rather than failing the node", async () => {
+    const odd = { ...item("a"), userDisplayName: null, lastFix: { lat: 39.6, lon: -106 } };
+    h.fetch.mockResolvedValueOnce(json(200, { items: [odd], nextCursor: null, asOf: "t" }));
+    const r = await readRedFeed(NODE, "o", "u");
+    expect(r.ok && r.items[0]).toMatchObject({ userDisplayName: null, lastFix: { lat: 39.6, lon: -106, accuracyMeters: null, at: null } });
+  });
+
   it("reports AvServ's error code, an unreachable node and a malformed answer as failures", async () => {
     h.fetch.mockResolvedValueOnce(json(503, { code: "feed_unavailable" }));
     expect(await readRedFeed(NODE, "o", "u")).toEqual({ ok: false, node: NODE.name, code: "feed_unavailable" });

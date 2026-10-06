@@ -77,7 +77,7 @@ function redItem(orgId: string, a: RedItem, now: Date): LayerItem {
   const rings = fix ? [circleRing(fix.lon, fix.lat, Math.max(fix.accuracyMeters ?? 0, MIN_RADIUS_M) / 1609.344)] : null;
   const lines = a.plannedRoute?.coordinates ?? null;
   const where = fix
-    ? `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)}${fix.accuracyMeters != null ? ` (±${Math.round(fix.accuracyMeters)} m)` : ""}, ${ago(fix.at, now)}`
+    ? `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)}${fix.accuracyMeters != null ? ` (±${Math.round(fix.accuracyMeters)} m)` : ""}, ${fix.at ? ago(fix.at, now) : "fix time unknown"}`
     : a.status === "open"
       ? "No location received"
       : "Location no longer shown";
@@ -87,7 +87,7 @@ function redItem(orgId: string, a: RedItem, now: Date): LayerItem {
   if (a.ack) parts.push("marked received");
   return {
     id: `red:${orgId}:${a.itemId}`,
-    label: `${KIND_LABEL[a.kind]}: ${a.userDisplayName}`,
+    label: `${KIND_LABEL[a.kind]}: ${a.userDisplayName ?? "A user"}`,
     detail: parts.join(" · "),
     rings,
     point,

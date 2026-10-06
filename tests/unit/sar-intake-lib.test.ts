@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { groupAlerts, IntakePayload, parseIntakeKeys, verifySignature, type StoredMessage } from "@/lib/sar/intake";
+import { groupAlerts, IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature, type StoredMessage } from "@/lib/sar/intake";
 
 // AvServ sar_portal_intake.md: keys, signatures, payloads, and one alert per
 // alertId however many nodes delivered it.
@@ -90,5 +90,31 @@ describe("groupAlerts", () => {
       msg({ ...overdue("b", "n"), alertId: "new" }, "2026-10-02T10:00:00Z"),
     ]);
     expect(two.map((a) => [a.alertId, a.state])).toEqual([["new", "open"], ["old", "resolved"]]);
+  });
+});
+
+describe("parseIntakePayload: a detail never refuses an alert", () => {
+  const withAlert = (alert: Record<string, unknown>) => ({ ...overdue("m1", "avserv-2"), alert: { ...overdue("m1", "avserv-2").alert, ...alert } });
+
+  it("accepts a fix with no time, whether null or left out (the 2026-10-06 drill), keeping the location", () => {
+    for (const lastFix of [{ lat: 39.6, lon: -106.1, accuracyMeters: null, at: null }, { lat: 39.6, lon: -106.1 }]) {
+      const r = parseIntakePayload(withAlert({ lastFix }));
+      expect(r).toMatchObject({ ok: true, dropped: [] });
+      if (r.ok && r.payload.kind === "overdue") expect(r.payload.alert.lastFix).toEqual({ lat: 39.6, lon: -106.1, accuracyMeters: null, at: null });
+    }
+  });
+
+  it("drops a malformed or missing detail and names it, instead of refusing the alert", () => {
+    const r = parseIntakePayload(withAlert({ lastFix: { lat: "north" }, userDisplayName: undefined, expectedReturnAt: 42 }));
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok) return;
+    expect(r.dropped.sort()).toEqual(["expectedReturnAt", "lastFix", "userDisplayName"]);
+    if (r.payload.kind === "overdue") expect(r.payload.alert).toMatchObject({ lastFix: null, userDisplayName: null, expectedReturnAt: null, checkoutId: "c1" });
+  });
+
+  it("still refuses a message missing what identifies or routes it", () => {
+    expect(parseIntakePayload({ ...overdue("m1", "n"), teamId: "not-a-uuid" })).toMatchObject({ ok: false, error: expect.stringMatching(/teamId/) });
+    expect(parseIntakePayload({ ...env, messageId: "m", node: "n", alertId: "a", kind: "all_clear", alert: { at: "x" } })).toMatchObject({ ok: false, error: expect.stringMatching(/refersTo/) });
+    expect(parseIntakePayload({ ...overdue("m1", "n"), kind: "incident" }).ok).toBe(false);
   });
 });
