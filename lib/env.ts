@@ -56,6 +56,10 @@ const Env = z.object({
   // are build-time only for source-map upload.
   SENTRY_DSN: z.string().url().optional(),
   NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  // MapTiler key for the portal basemap (components/map/basemap.ts). Public by
+  // design, restricted to our origins in the MapTiler dashboard; unset means
+  // the free OpenStreetMap tiles. Read in the browser (inlined at build).
+  NEXT_PUBLIC_MAPTILER_KEY: z.string().optional(),
   SENTRY_ORG: z.string().optional(),
   SENTRY_PROJECT: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
