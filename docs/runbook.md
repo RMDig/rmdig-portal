@@ -232,7 +232,13 @@ Production env vars:
 ## SAR alert intake
 
 AvServ delivers team alerts (missed check-ins, Send Help, all-clears,
-disregards) to `POST /api/sar/intake` (AvServ `sar_portal_intake.md`). Both
+disregards) to `POST /api/sar/intake` (AvServ `sar_portal_intake.md`). Drills go
+to a separate URL, `POST /api/sar/intake/drill` (AvServ's
+`AVSERV_SAR_DRILL_SINK_URL`): each URL refuses the other kind with a permanent
+`400 drill_on_live_intake` / `live_on_drill_intake` (logged as
+`sar.intake.wrong_url`), so a misrouted drill can't reach a team as real. Both use
+the same keys. Drills are stored with `drill = true`, shown as "(drill)" on the
+team's Alerts page, kept off the map, and never email anyone. Both
 nodes send each alert, so a team can receive it twice; the alerts page shows it
 once ("delivered 2 times, one alert"). The endpoint stays up under the
 maintenance switch.
