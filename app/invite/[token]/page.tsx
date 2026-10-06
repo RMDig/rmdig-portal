@@ -2,6 +2,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
+import { nextQuery } from "@/lib/auth/return-to";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { orgInvitations, sarOrgs } from "@/lib/db/schema";
@@ -58,15 +59,14 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <h1 className="text-2xl font-semibold tracking-tight">Join {invite.orgName}</h1>
           <p className="text-muted-foreground">
             You&apos;ve been invited to join <strong>{invite.orgName}</strong> as{" "}
-            {ROLE_LABEL[invite.role] ?? invite.role}. Sign in or create an account — with this link
-            still open — to accept.
+            {ROLE_LABEL[invite.role] ?? invite.role}. Sign in or create an account to accept. You&apos;ll come back here afterwards.
           </p>
           <div className="flex gap-3">
             <Button asChild>
-              <Link href="/sign-in">Sign in</Link>
+              <Link href={`/sign-in${nextQuery(`/invite/${token}`)}`}>Sign in</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/sign-up">Create account</Link>
+              <Link href={`/sign-up${nextQuery(`/invite/${token}`)}`}>Create account</Link>
             </Button>
           </div>
         </div>

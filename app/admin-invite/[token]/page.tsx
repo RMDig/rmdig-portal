@@ -2,6 +2,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
+import { nextQuery } from "@/lib/auth/return-to";
 import { PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
@@ -56,15 +57,14 @@ export default async function AdminInvitePage({
           <p className="text-muted-foreground">
             You&apos;ve been invited to join the rmdig platform team as{" "}
             <strong>{PLATFORM_ROLE_LABEL[invite.role]}</strong>. Sign in or create an
-            account with <strong>{invite.email}</strong>, then open this link again to
-            accept.
+            account with <strong>{invite.email}</strong> to accept. You&apos;ll come back here afterwards.
           </p>
           <div className="flex gap-2">
             <Button asChild>
-              <Link href="/sign-in">Sign in</Link>
+              <Link href={`/sign-in${nextQuery(`/admin-invite/${token}`)}`}>Sign in</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/sign-up">Create account</Link>
+              <Link href={`/sign-up${nextQuery(`/admin-invite/${token}`)}`}>Create account</Link>
             </Button>
           </div>
         </div>

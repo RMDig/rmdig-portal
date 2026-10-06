@@ -58,6 +58,9 @@ export async function middleware(req: NextRequest) {
 
   const headers = new Headers(req.headers);
   headers.set("x-pathname", req.nextUrl.pathname);
+  // Where a signed-out visitor was going, so the portal layout can send them
+  // back after sign-in (lib/auth/return-to.ts validates it there).
+  headers.set("x-return-to", req.nextUrl.pathname + req.nextUrl.search);
   return NextResponse.next({ request: { headers } });
 }
 

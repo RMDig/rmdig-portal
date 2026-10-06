@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/lib/db";
 import { users, verificationTokens } from "@/lib/db/schema";
+import { safeReturnTo } from "@/lib/auth/return-to";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -11,10 +12,13 @@ export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
   const email = url.searchParams.get("email")?.toLowerCase();
+  // Carried from sign-up so the user ends up where they were headed.
+  const next = safeReturnTo(url.searchParams.get("next"));
+  const nextParam = next ? `&next=${encodeURIComponent(next)}` : "";
 
   if (!token || !email) {
     logger.warn({ event: "verify.missing_params" });
-    redirect("/sign-in?error=invalid-link");
+    redirect(`/sign-in?error=invalid-link${nextParam}`);
   }
 
   const [vt] = await db
@@ -30,12 +34,12 @@ export async function GET(req: Request): Promise<Response> {
 
   if (!vt) {
     logger.warn({ event: "verify.token_not_found", email });
-    redirect("/sign-in?error=invalid-token");
+    redirect(`/sign-in?error=invalid-token${nextParam}`);
   }
 
   if (vt.expires.getTime() < Date.now()) {
     logger.warn({ event: "verify.token_expired", email });
-    redirect("/sign-in?error=expired-token");
+    redirect(`/sign-in?error=expired-token${nextParam}`);
   }
 
   // Mark verified and burn the token. Both in a single round-trip would be
@@ -55,5 +59,5 @@ export async function GET(req: Request): Promise<Response> {
     );
 
   logger.info({ event: "verify.success", email });
-  redirect("/sign-in?verified=true");
+  redirect(`/sign-in?verified=true${nextParam}`);
 }

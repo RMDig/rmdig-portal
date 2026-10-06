@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { signUpAction } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -12,17 +12,21 @@ import { PasswordInput } from "@/components/ui/password-input";
 
 export function SignUpForm() {
   const router = useRouter();
+  // Carried into the verification link so the user ends up where they were
+  // headed (e.g. an invite); the server re-validates it.
+  const next = useSearchParams().get("next") ?? "";
   const [state, formAction, pending] = useActionState(signUpAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
   useEffect(() => {
     if (state?.ok) {
-      router.push("/verify-email");
+      router.push(next ? `/verify-email?next=${encodeURIComponent(next)}` : "/verify-email");
     }
-  }, [state, router]);
+  }, [state, router, next]);
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="next" value={next} />
       <div className="space-y-2">
         <Label htmlFor="intent">What brings you to AvAI?</Label>
         {/* Routing hint only — after email verification, SAR/advertiser picks
@@ -102,7 +106,7 @@ export function SignUpForm() {
 
       <p className="text-muted-foreground text-center text-sm">
         Already have an account?{" "}
-        <Link href="/sign-in" className="text-foreground font-medium underline">
+        <Link href={next ? `/sign-in?next=${encodeURIComponent(next)}` : "/sign-in"} className="text-foreground font-medium underline">
           Sign in
         </Link>
       </p>

@@ -152,7 +152,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user.emailVerified) {
           logger.info({ event: "auth.credentials.unverified", userId: user.id });
-          throw new Error("Please verify your email before signing in. Check your inbox.");
+          throw new Error(
+            "Please verify your email before signing in. Check your inbox, or use \"Didn't get your verification email?\" below for a new link.",
+          );
         }
 
         // Second factor (phase two). The password is correct; if MFA is on, the
