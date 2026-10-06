@@ -9,7 +9,7 @@ import { defineConfig, devices } from "@playwright/test";
 // test.skip):
 //   • device-link.mock.spec.ts — always-on CI gate, AVSERV_BASE_URL=mock://*.
 //   • device-link.live.spec.ts — opt-in, runs only when AVSERV_LIVE_E2E=1 with a
-//     real AVSERV_BASE_URL + AVSERV_SERVICE_JWT_SIGNING_KEY.
+//     real AVSERV_BASE_URL + AVSERV_SERVICE_JWT_SIGNING_KEY_B64.
 //
 // global-setup seeds a verified, non-staff credentials user into the database
 // pointed at by DATABASE_URL — which MUST be a disposable Neon dev/test branch,

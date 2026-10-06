@@ -31,7 +31,7 @@ describe("avservFetch", () => {
   });
 
   it("lets a signing failure through as itself, without calling out", async () => {
-    h.sign.mockRejectedValue(new Error("AVSERV_SERVICE_JWT_SIGNING_KEY is not set"));
+    h.sign.mockRejectedValue(new Error("AVSERV_SERVICE_JWT_SIGNING_KEY_B64 is not set"));
     const err = await avservFetch("https://avserv-2.example", "/x", { method: "GET" }).catch((e: unknown) => e);
     expect(err).not.toBeInstanceOf(AvServError);
     expect((err as Error).message).toMatch(/SIGNING_KEY/);

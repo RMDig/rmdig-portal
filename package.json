@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "tsx scripts/migrate-preview.ts && next build",
+    "vercel-build": "tsx scripts/check-service-key.ts && tsx scripts/migrate-preview.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

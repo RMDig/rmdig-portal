@@ -4,11 +4,11 @@ import { E2E_USER, expectMintedCodeVisible, queryAvservAccountId, signIn } from 
 
 // Opt-in live suite: the true cross-service check against a real AvServ. Runs
 // only when the operator exports AVSERV_LIVE_E2E=1 alongside a real
-// AVSERV_BASE_URL and AVSERV_SERVICE_JWT_SIGNING_KEY (so the server can sign the
+// AVSERV_BASE_URL and AVSERV_SERVICE_JWT_SIGNING_KEY_B64 (so the server can sign the
 // service JWT). Otherwise skipped, keeping CI green without a live dependency.
 test.skip(
   process.env.AVSERV_LIVE_E2E !== "1",
-  "live device-link E2E is opt-in: set AVSERV_LIVE_E2E=1 with a real AVSERV_BASE_URL + AVSERV_SERVICE_JWT_SIGNING_KEY",
+  "live device-link E2E is opt-in: set AVSERV_LIVE_E2E=1 with a real AVSERV_BASE_URL + AVSERV_SERVICE_JWT_SIGNING_KEY_B64",
 );
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

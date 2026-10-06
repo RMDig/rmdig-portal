@@ -72,11 +72,18 @@ const Env = z.object({
   // /v1/internal/accounts endpoints; `mock://localhost` exercises the portal
   // half without a live AvServ.
   AVSERV_BASE_URL: z.string().optional(),
-  // PKCS#8 PEM Ed25519 private key (kid svc-key-portal-1) that signs the
-  // short-lived service JWT for /v1/internal/*. Held only in Vercel env, never
-  // committed. The portal signs; AvServ verifies the public half — so no
-  // device/public key is needed on this side.
-  AVSERV_SERVICE_JWT_SIGNING_KEY: z.string().optional(),
+  // The Ed25519 private key that signs the short-lived service JWT for
+  // /v1/internal/*: ONE base64 line, the base64 of the PKCS#8 PEM file
+  // (lib/avserv/service-key.ts). Held only in Vercel env, never committed.
+  // AvServ verifies the public half. The build checks it (scripts/
+  // check-service-key.ts) against AVSERV_SERVICE_JWT_KEY_SHA256, the public
+  // fingerprint AvServ holds for AVSERV_SERVICE_JWT_KID; changing the kid is
+  // how a key is rotated with overlap (runbook "Rotating the AvServ service key").
+  // Shapes are validated by the build check, not here: a bad value fails the
+  // deploy rather than every route at runtime.
+  AVSERV_SERVICE_JWT_SIGNING_KEY_B64: z.string().optional(),
+  AVSERV_SERVICE_JWT_KID: z.string().optional(),
+  AVSERV_SERVICE_JWT_KEY_SHA256: z.string().optional(),
   // The second AvServ node, used only to retry an agreement acceptance with the
   // same Idempotency-Key when the primary is unreachable or answers 5xx/503
   // (AvServ contract account_agreement.md §4, failover). Optional: unset means

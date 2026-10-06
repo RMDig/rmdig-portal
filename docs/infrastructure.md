@@ -45,7 +45,9 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | `SENTRY_AUTH_TOKEN` | **never** | yes | yes | — (CI-only) | yes |
 | `MFA_ENFORCEMENT` | `admin_only` | unset → defaults to `admin_only` (flip to `all` at public launch) | `optional` | `admin_only` | no |
 | `AVSERV_BASE_URL` | `mock://localhost` | `https://avserv-2.rmdig.ai` | `mock://localhost` (enforced at boot) | yes | no |
-| `AVSERV_SERVICE_JWT_SIGNING_KEY` | — | yes | — | — | yes |
+| `AVSERV_SERVICE_JWT_SIGNING_KEY_B64` | — | yes | — | — | yes |
+| `AVSERV_SERVICE_JWT_KEY_SHA256` | — | yes | — | — | yes |
+| `AVSERV_SERVICE_JWT_KID` | — | yes | — | — | yes |
 | `AVSERV_FAILOVER_BASE_URL` | — | `https://avserv-3.rmdig.ai` | — (never) | — | no |
 | `BLOB_STORE_ID` | — | set by the connected Blob store (OIDC) | a separate store, if connected | — | no |
 | `BLOB_READ_WRITE_TOKEN` | local fallback | — | — | — | yes |

@@ -81,11 +81,13 @@ function codeOf(err: unknown): string {
 }
 
 /** Every probe on every configured node, in parallel. Never throws for a node's
- *  answer; a probe that throws (e.g. a signing-key fault) is reported as such. */
-export async function runAvServChecks(readerUserId: string): Promise<CheckResult[]> {
+ *  answer; a probe that throws (e.g. a signing-key fault) is reported as such.
+ *  The daily cron leaves out the email lookup, the one probe AvServ logs. */
+export async function runAvServChecks(readerUserId: string, opts: { emailLookup?: boolean } = {}): Promise<CheckResult[]> {
   const nodes = avservNodes();
+  const probes = opts.emailLookup === false ? PROBES.filter((p) => p.group !== "account_lookup") : PROBES;
   const runs = nodes.flatMap((node) =>
-    PROBES.map(async (p): Promise<CheckResult> => {
+    probes.map(async (p): Promise<CheckResult> => {
       try {
         const r = await p.run(node, readerUserId);
         return { check: p.check, group: p.group, node: node.name, ...r };
