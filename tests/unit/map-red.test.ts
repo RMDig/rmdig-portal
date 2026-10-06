@@ -95,6 +95,13 @@ describe("redLayer", () => {
     expect(failed.errorText).toMatch(/Alerts page.*call 911/);
   });
 
+  it("shows a fix with no time as \"fix time unknown\", and an unnamed user as \"A user\"", () => {
+    const item = redLayer(ORG, mergeRedFeeds([ok("a2", [{ ...base, userDisplayName: null, lastFix: { lat: 39.6, lon: -106, accuracyMeters: null, at: null } }])]), NOW).items[0]!;
+    expect(item.label).toBe("Missed check-in: A user");
+    expect(item.detail).toContain("39.60000, -106.00000, fix time unknown");
+    expect(item.point).toEqual([-106, 39.6]);
+  });
+
   it("lists an item without a location but draws nothing for it", () => {
     const item = redLayer(ORG, mergeRedFeeds([ok("a2", [{ ...base, status: "resolved", lastFix: null, plannedRoute: null }])]), NOW).items[0]!;
     expect(item).toMatchObject({ point: null, rings: null, lines: null, bounds: null, dashed: true });

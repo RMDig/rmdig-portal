@@ -10,7 +10,11 @@ import { avservFetch, failureCode, isMock } from "./request";
 // an empty map that is really an outage is the failure this contract exists
 // to prevent.
 
-const Fix = z.object({ lat: z.number(), lon: z.number(), accuracyMeters: z.number().nullable(), at: z.string() });
+// Unknown accuracy or time keeps the fix (older app builds send no time), and
+// an unknown name keeps the item: one item's missing detail must never fail
+// the node's whole feed.
+const unknownAsNull = <T extends z.ZodTypeAny>(t: T) => t.nullish().transform((v) => v ?? null);
+const Fix = z.object({ lat: z.number(), lon: z.number(), accuracyMeters: unknownAsNull(z.number()), at: unknownAsNull(z.string()) });
 const MultiLineString = z.object({
   type: z.literal("MultiLineString"),
   coordinates: z.array(z.array(z.array(z.number()).min(2))),
@@ -20,7 +24,7 @@ export const RedItem = z.object({
   itemId: z.string().min(1),
   kind: z.enum(["overdue", "send_help", "incident"]),
   status: z.enum(["open", "resolved", "retracted"]),
-  userDisplayName: z.string(),
+  userDisplayName: unknownAsNull(z.string()),
   // Withheld (null) once an item has been resolved for more than 24 h.
   lastFix: Fix.nullable(),
   plannedRoute: MultiLineString.nullable(),

@@ -164,6 +164,17 @@ describe("POST /api/sar/intake", () => {
     expect(h.email).not.toHaveBeenCalled();
   });
 
+  it("accepts an alert whose fix has no time (stored, emailed), and one with a broken detail, logging the drop", async () => {
+    const noTime = payload({ alert: { checkoutId: "c", userDisplayName: "Pat", lastFix: { lat: 39.6, lon: -106, accuracyMeters: null, at: null }, plannedRoute: null, expectedReturnAt: "2026-10-04T09:00:00Z", alertedAt: "2026-10-04T10:00:00Z" } });
+    expect((await POST(request(noTime))).status).toBe(200);
+    expect(h.insertedValues[0]).toMatchObject({ messageId: "m1" });
+    h.inserted = [{ messageId: "m2" }];
+    h.copies = [{ id: "m2" }];
+    const broken = payload({ messageId: "m2", alert: { checkoutId: "c", userDisplayName: "Pat", lastFix: { lat: "x" }, plannedRoute: null, expectedReturnAt: "2026-10-04T09:00:00Z", alertedAt: "2026-10-04T10:00:00Z" } });
+    expect((await POST(request(broken))).status).toBe(200);
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.intake.fields_dropped", fields: ["lastFix"] }));
+  });
+
   it("rejects bad signatures permanently (401), with the reason", async () => {
     expect(await (await POST(request(payload(), { keyId: "unknown" }))).json()).toEqual({ code: "unknown_key" });
     expect((await POST(request(payload(), { t: Math.floor(Date.now() / 1000) - 301 }))).status).toBe(401);

@@ -75,7 +75,7 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
               <li key={a.alertId} className="space-y-2 rounded-md border p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="font-semibold">
-                    {KIND_LABEL[a.kind]}: {a.userDisplayName}
+                    {KIND_LABEL[a.kind]}: {a.userDisplayName ?? "A user"}
                     {a.drill ? <span className="text-muted-foreground font-normal"> (drill)</span> : null}
                   </h2>
                   <span className={a.state === "open" ? "text-sm font-medium text-red-700 dark:text-red-400" : "text-muted-foreground text-sm"}>
@@ -87,7 +87,7 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
                     <dt className="text-foreground inline font-medium">Last location: </dt>
                     <dd className="inline">
                       {a.lastFix
-                        ? `${a.lastFix.lat.toFixed(5)}, ${a.lastFix.lon.toFixed(5)}${a.lastFix.accuracyMeters != null ? ` (±${Math.round(a.lastFix.accuracyMeters)} m)` : ""}, ${ago(a.lastFix.at)}`
+                        ? `${a.lastFix.lat.toFixed(5)}, ${a.lastFix.lon.toFixed(5)}${a.lastFix.accuracyMeters != null ? ` (±${Math.round(a.lastFix.accuracyMeters)} m)` : ""}, ${a.lastFix.at ? ago(a.lastFix.at) : "fix time unknown"}`
                         : a.state === "open"
                           ? "none sent"
                           : "removed after the alert ended"}

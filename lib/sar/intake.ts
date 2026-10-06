@@ -55,7 +55,18 @@ export function verifySignature(input: {
   return given.length === expected.length && timingSafeEqual(given, expected) ? { ok: true } : { ok: false, code: "bad_signature" };
 }
 
-const Fix = z.object({ lat: z.number(), lon: z.number(), accuracyMeters: z.number().nullable(), at: z.string() }).nullable();
+// The fields that identify and route a message are essential: a message
+// without them is refused. Every detail of the alert is nullable, and
+// parseIntakePayload drops a malformed one rather than refuse the alert: a
+// missing fix time from an older app build must never cost a team the alert
+// (found in the 2026-10-06 drill). AvServ always sends lastFix as
+// {lat, lon, accuracyMeters, at}, with null for an unknown accuracy or time.
+// Unknown accuracy or time (null, or a build that left the key out) keeps the
+// fix: only a fix without lat/lon is dropped.
+const unknownAsNull = <T extends z.ZodTypeAny>(t: T) => t.nullish().transform((v) => v ?? null);
+const Fix = z
+  .object({ lat: z.number(), lon: z.number(), accuracyMeters: unknownAsNull(z.number()), at: unknownAsNull(z.string()) })
+  .nullable();
 
 const Envelope = z.object({
   schemaVersion: z.literal(1),
@@ -68,37 +79,73 @@ const Envelope = z.object({
   drill: z.boolean(),
 });
 
+const detail = z.string().nullable();
+
 export const IntakePayload = z.discriminatedUnion("kind", [
   Envelope.extend({
     kind: z.literal("overdue"),
     alert: z.object({
-      checkoutId: z.string(),
-      userDisplayName: z.string(),
+      checkoutId: detail,
+      userDisplayName: detail,
       lastFix: Fix,
       plannedRoute: z.unknown().nullable(),
-      expectedReturnAt: z.string(),
-      alertedAt: z.string(),
+      expectedReturnAt: detail,
+      alertedAt: detail,
     }),
   }),
   Envelope.extend({
     kind: z.literal("send_help"),
     alert: z.object({
-      helpRequestId: z.string(),
-      userDisplayName: z.string(),
+      helpRequestId: detail,
+      userDisplayName: detail,
       lastFix: Fix,
-      note: z.string().nullable(),
-      checkoutId: z.string().nullable(),
-      openedAt: z.string(),
+      note: detail,
+      checkoutId: detail,
+      openedAt: detail,
     }),
   }),
-  Envelope.extend({ kind: z.literal("all_clear"), alert: z.object({ refersTo: z.string(), at: z.string() }) }),
-  Envelope.extend({ kind: z.literal("disregard"), alert: z.object({ refersTo: z.string(), at: z.string() }) }),
+  Envelope.extend({ kind: z.literal("all_clear"), alert: z.object({ refersTo: z.string(), at: detail }) }),
+  Envelope.extend({ kind: z.literal("disregard"), alert: z.object({ refersTo: z.string(), at: detail }) }),
   Envelope.extend({
     kind: z.literal("duplicate_disclaimer"),
-    alert: z.object({ refersTo: z.string(), deliveries: z.number() }),
+    alert: z.object({ refersTo: z.string(), deliveries: z.number().nullable() }),
   }),
 ]);
 export type IntakePayload = z.infer<typeof IntakePayload>;
+
+/** Alert details that can be dropped (set to null) instead of refusing the
+ *  alert. Everything else is essential. */
+const DROPPABLE = new Set(["checkoutId", "userDisplayName", "lastFix", "plannedRoute", "expectedReturnAt", "alertedAt", "helpRequestId", "note", "openedAt", "at", "deliveries"]);
+
+export type ParsedIntake = { ok: true; payload: IntakePayload; dropped: string[] } | { ok: false; error: string };
+
+/** Parse a delivery. A missing or malformed alert detail is set to null and
+ *  named in `dropped` (the caller logs it loudly); only an essential field
+ *  refuses the message. */
+export function parseIntakePayload(raw: unknown): ParsedIntake {
+  const dropped: string[] = [];
+  let candidate = raw;
+  for (let attempt = 0; attempt < DROPPABLE.size + 1; attempt++) {
+    const r = IntakePayload.safeParse(candidate);
+    if (r.success) return { ok: true, payload: r.data, dropped };
+    const fixable = r.error.issues.map((i) => i.path).filter((path) => path[0] === "alert" && typeof path[1] === "string" && DROPPABLE.has(path[1]));
+    const essential = r.error.issues.find((i) => !(i.path[0] === "alert" && typeof i.path[1] === "string" && DROPPABLE.has(i.path[1])));
+    if (essential || fixable.length === 0 || typeof candidate !== "object" || candidate === null) {
+      const issue = essential ?? r.error.issues[0];
+      return { ok: false, error: `${issue?.path.join(".") || "payload"}: ${issue?.message ?? "invalid"}` };
+    }
+    const alert = { ...((candidate as { alert?: Record<string, unknown> }).alert ?? {}) };
+    for (const path of fixable) {
+      const field = path[1] as string;
+      if (alert[field] !== null) {
+        alert[field] = null;
+        if (!dropped.includes(field)) dropped.push(field);
+      }
+    }
+    candidate = { ...(candidate as object), alert };
+  }
+  return { ok: false, error: "payload: could not be repaired" };
+}
 
 export interface StoredMessage {
   messageId: string;
@@ -115,7 +162,7 @@ export interface TeamAlert {
   kind: "overdue" | "send_help";
   /** open until an all-clear (resolved) or a retraction (retracted). */
   state: "open" | "resolved" | "retracted";
-  userDisplayName: string;
+  userDisplayName: string | null;
   lastFix: z.infer<typeof Fix>;
   expectedReturnAt: string | null;
   note: string | null;

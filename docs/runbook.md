@@ -259,6 +259,12 @@ maintenance switch.
   pages. A run of `sar.intake.rejected` with `stale_signature` means a node's
   clock is off; with `unknown_key`, a key id that isn't in
   `AVSERV_SAR_INTAKE_KEYS`.
+- **Details never refuse an alert:** a missing or malformed detail (fix, name,
+  route, times, note) is stored as empty and logged as `sar.intake.fields_dropped`
+  with the field names; only a broken envelope (ids, team, kind, node, sent time,
+  drill flag) or a follow-up without `refersTo` is `400 invalid_payload`. A fix with
+  no time shows "fix time unknown". A run of `fields_dropped` means AvServ's payload
+  has drifted from the contract: tell AvServ.
 - **Logs:** `sar.intake.rejected` (signature), `sar.intake.unknown_team`,
   `sar.intake.team_not_active` (an
   alert for a team that isn't approved or leaving: stored, but investigate the
