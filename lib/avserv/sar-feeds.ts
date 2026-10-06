@@ -24,7 +24,7 @@ export const RedItem = z.object({
   itemId: z.string().min(1),
   kind: z.enum(["overdue", "send_help", "incident"]),
   status: z.enum(["open", "resolved", "retracted"]),
-  userDisplayName: unknownAsNull(z.string()),
+  userDisplayName: unknownAsNull(z.string()).transform((v) => (v && v.trim() ? v : null)),
   // Withheld (null) once an item has been resolved for more than 24 h.
   lastFix: Fix.nullable(),
   plannedRoute: MultiLineString.nullable(),

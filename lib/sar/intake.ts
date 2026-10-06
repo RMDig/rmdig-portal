@@ -80,13 +80,18 @@ const Envelope = z.object({
 });
 
 const detail = z.string().nullable();
+// A blank name is an unknown name (a device that never set one).
+const userName = z
+  .string()
+  .nullable()
+  .transform((v) => (v && v.trim() ? v : null));
 
 export const IntakePayload = z.discriminatedUnion("kind", [
   Envelope.extend({
     kind: z.literal("overdue"),
     alert: z.object({
       checkoutId: detail,
-      userDisplayName: detail,
+      userDisplayName: userName,
       lastFix: Fix,
       plannedRoute: z.unknown().nullable(),
       expectedReturnAt: detail,
@@ -97,7 +102,7 @@ export const IntakePayload = z.discriminatedUnion("kind", [
     kind: z.literal("send_help"),
     alert: z.object({
       helpRequestId: detail,
-      userDisplayName: detail,
+      userDisplayName: userName,
       lastFix: Fix,
       note: detail,
       checkoutId: detail,
@@ -112,6 +117,12 @@ export const IntakePayload = z.discriminatedUnion("kind", [
   }),
 ]);
 export type IntakePayload = z.infer<typeof IntakePayload>;
+
+/** How an alert names its user: the name, or "A user" when it's unknown or
+ *  blank (including alerts stored before blank names were normalized). */
+export function alertUserName(name: string | null | undefined): string {
+  return name && name.trim() ? name : "A user";
+}
 
 /** Alert details that can be dropped (set to null) instead of refusing the
  *  alert. Everything else is essential. */

@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { groupAlerts, IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature, type StoredMessage } from "@/lib/sar/intake";
+import { alertUserName, groupAlerts, IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature, type StoredMessage } from "@/lib/sar/intake";
 
 // AvServ sar_portal_intake.md: keys, signatures, payloads, and one alert per
 // alertId however many nodes delivered it.
@@ -116,5 +116,17 @@ describe("parseIntakePayload: a detail never refuses an alert", () => {
     expect(parseIntakePayload({ ...overdue("m1", "n"), teamId: "not-a-uuid" })).toMatchObject({ ok: false, error: expect.stringMatching(/teamId/) });
     expect(parseIntakePayload({ ...env, messageId: "m", node: "n", alertId: "a", kind: "all_clear", alert: { at: "x" } })).toMatchObject({ ok: false, error: expect.stringMatching(/refersTo/) });
     expect(parseIntakePayload({ ...overdue("m1", "n"), kind: "incident" }).ok).toBe(false);
+  });
+});
+
+describe("blank user names (the drill's test device had none)", () => {
+  it("treats a blank or whitespace name as unknown when received", () => {
+    for (const userDisplayName of ["", "   "]) {
+      const r = parseIntakePayload({ ...overdue("m1", "n"), alert: { ...overdue("m1", "n").alert, userDisplayName } });
+      expect(r.ok && r.payload.kind === "overdue" && r.payload.alert.userDisplayName).toBeNull();
+    }
+  });
+  it("shows an unknown or blank name as \"A user\", including alerts already stored", () => {
+    expect([alertUserName(null), alertUserName(""), alertUserName("  "), alertUserName("Pat")]).toEqual(["A user", "A user", "A user", "Pat"]);
   });
 });
