@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { mockRedFeed } from "./sar-feeds-mock";
 import type { AvServNode } from "./sar-teams";
 import { avservFetch, failureCode, isMock } from "./request";
 
@@ -49,7 +50,7 @@ const MAX_PAGES = 5;
 /** The team's RED feed from one node, all pages. `reader` is the viewing
  *  member (`portal-user:<id>`); AvServ logs the disclosure against it. */
 export async function readRedFeed(node: AvServNode, orgId: string, readerUserId: string): Promise<RedFeedResult> {
-  if (isMock(node.baseUrl)) return { ok: true, node: node.name, items: [], asOf: new Date().toISOString() };
+  if (isMock(node.baseUrl)) return { ok: true, node: node.name, items: await mockRedFeed(orgId), asOf: new Date().toISOString() };
   const items: RedItem[] = [];
   let cursor: string | null = null;
   let asOf = "";

@@ -12,6 +12,8 @@ vi.mock("@/lib/avserv/request", async (orig) => ({
 vi.mock("@/lib/env", () => ({ env: {} }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+const mock = vi.hoisted(() => ({ items: [] as unknown[] }));
+vi.mock("@/lib/avserv/sar-feeds-mock", () => ({ mockRedFeed: () => Promise.resolve(mock.items) }));
 
 import { readRedFeed, type RedItem } from "@/lib/avserv/sar-feeds";
 import { AvServError } from "@/lib/avserv/request";
@@ -66,9 +68,10 @@ describe("readRedFeed", () => {
     expect(await readRedFeed(NODE, "o", "u")).toEqual({ ok: false, node: NODE.name, code: "too_many_pages" });
   });
 
-  it("answers an empty feed in mock mode without calling out", async () => {
+  it("answers from the mock feed in mock mode without calling out", async () => {
+    mock.items = [item("demo")];
     const r = await readRedFeed({ name: "mock", baseUrl: "mock://avserv" }, "o", "u");
-    expect(r).toMatchObject({ ok: true, items: [] });
+    expect(r).toMatchObject({ ok: true, items: [{ itemId: "demo" }] });
     expect(h.fetch).not.toHaveBeenCalled();
   });
   it("reports a fault of ours (e.g. the signing key) as itself, not as an unreachable node", async () => {

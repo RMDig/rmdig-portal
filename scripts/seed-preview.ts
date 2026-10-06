@@ -7,12 +7,11 @@ import postgres from "postgres";
 import {
   advertiserAccounts,
   advertiserMemberships,
-  orgMemberships,
-  sarOrgs,
   userPlatformRoles,
   users,
 } from "../lib/db/schema";
 import { isProductionDatabaseUrl } from "../lib/preview-guard";
+import { seedDemoWorld } from "../lib/preview-demo";
 import { parseSeedArgs, previewPersonas, SeedPassword } from "../lib/preview-seed";
 
 // Seed the preview Neon project's `preview-seed` branch with test personas
@@ -73,33 +72,6 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
       .values({ userId: id("admin"), role: "rmdig_admin" })
       .onConflictDoNothing();
 
-    // An approved test org, so the SAR persona sees the org dashboard. Approval
-    // is a direct insert on a test branch: there is no real org to verify (§0
-    // governs production, where approval only happens in the operator queue).
-    const sarEmail = personas.find((p) => p.tag === "sar")!.email;
-    let [org] = await db.select({ id: sarOrgs.id }).from(sarOrgs).where(eq(sarOrgs.contactEmail, sarEmail));
-    if (!org) {
-      [org] = await db
-        .insert(sarOrgs)
-        .values({
-          name: "Preview Test SAR (not a real team)",
-          regionName: "Test region",
-          contactName: "Preview SAR Lead",
-          contactEmail: sarEmail,
-          operatingStatus: "volunteer_group",
-          proofDocUrl: "https://example.invalid/preview-seed-proof.pdf",
-          status: "approved",
-          approvedAt: new Date(),
-          approvedByUserId: id("admin"),
-          createdByUserId: id("sar"),
-        })
-        .returning({ id: sarOrgs.id });
-    }
-    await db
-      .insert(orgMemberships)
-      .values({ orgId: org!.id, userId: id("sar"), role: "admin" })
-      .onConflictDoNothing();
-
     const advEmail = personas.find((p) => p.tag === "advertiser")!.email;
     let [adv] = await db
       .select({ id: advertiserAccounts.id })
@@ -121,6 +93,19 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
       .values({ advertiserId: adv!.id, userId: id("advertiser"), role: "admin" })
       .onConflictDoNothing();
 
+    // The demo world (lib/preview-demo.ts): sample teams with areas, terms and
+    // alerts, a sample advertiser with ads, and a deletion request. Approval
+    // and publication are direct inserts on a test branch: there is no real
+    // org to verify (§0 governs production, where both only happen in the
+    // operator queues).
+    await seedDemoWorld(db, {
+      admin: id("admin"),
+      sar: id("sar"),
+      advertiser: id("advertiser"),
+      sarEmail: personas.find((p) => p.tag === "sar")!.email,
+      advertiserEmail: advEmail,
+    });
+
     for (const email of args.extraAdmins) {
       await db
         .insert(users)
@@ -139,6 +124,7 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
     }
 
     for (const p of personas) console.log(`✓ ${p.tag.padEnd(10)} ${p.email}`);
+    console.log("✓ demo world: 2 sample teams, 3 alerts, 1 advertiser with 3 ads, 1 deletion request");
     for (const email of args.extraAdmins) console.log(`✓ ${"admin".padEnd(10)} ${email}`);
   } finally {
     await client.end();
