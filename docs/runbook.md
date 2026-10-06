@@ -185,11 +185,49 @@ The ids are made up, so nothing is written on AvServ; the email lookup checks
 - **`path_not_allowed` / `http_403`**: `svc-key-portal-1` lacks that route group on
   that node. Ask AvServ to add it.
 - **`unreachable`, `http_5xx`**: the node is down or failing; see Outages and rollback.
-- Anything mentioning the signing key: `AVSERV_SERVICE_JWT_SIGNING_KEY` is missing
-  or wrong in Vercel.
+- `portal_fault: …` mentioning the signing key: the key in Vercel is missing or
+  malformed (see "AvServ service key").
 
 Run it after an AvServ release, after a key change, and before a drill. Each run is
-logged as `avserv.checks.run`, at error level if anything failed.
+logged as `avserv.checks.run`, at error level if anything failed. The same checks
+(without the email lookup) also run daily at 14:00 UTC (`/api/cron/avserv-checks`,
+as `portal-user:cron`); a failure answers 503, logs `cron.avserv_checks.failed` and
+goes to Sentry.
+
+## AvServ service key
+
+The portal signs every AvServ call with an Ed25519 key, whose public half AvServ
+holds for the kid (`svc-key-portal-1` today, the same on both nodes). Three
+Production env vars:
+
+| Variable | Value |
+|---|---|
+| `AVSERV_SERVICE_JWT_SIGNING_KEY_B64` | one line: `base64 -i key.pem \| tr -d '\n'`, sensitive, no quotes |
+| `AVSERV_SERVICE_JWT_KID` | `svc-key-portal-1` |
+| `AVSERV_SERVICE_JWT_KEY_SHA256` | the public fingerprint AvServ reports for the kid |
+
+- **Check a key file** without printing it: `head -c 27 key.pem` shows
+  `-----BEGIN PRIVATE KEY-----`, and
+  `openssl pkey -in key.pem -pubout -outform DER | shasum -a 256` must equal AvServ's
+  fingerprint for the kid (`svc-key-portal-1`:
+  `75f978cdde3238996af7772bed2691005e48657aa6e3794fa9603e494e6d735e`).
+- **Set it:** `base64 -i key.pem | tr -d '\n' | pbcopy`, then
+  `vercel env add AVSERV_SERVICE_JWT_SIGNING_KEY_B64 production --sensitive` and paste.
+  Env changes need a new deployment.
+- **The build checks it** (`scripts/check-service-key.ts`, in `vercel-build`): with a
+  real `AVSERV_BASE_URL`, the build fails unless the key loads as Ed25519 and matches
+  `AVSERV_SERVICE_JWT_KEY_SHA256`. A failed build never goes live; the last good
+  deployment keeps serving. The build log prints the kid and fingerprint.
+- **Rotate with overlap** (AvServ confirmed 2026-10-06):
+  1. Mint the new key (`openssl genpkey -algorithm ed25519 -out svc-key-portal-2.pem`)
+     and send AvServ the public half
+     (`openssl pkey -in svc-key-portal-2.pem -pubout`) and its fingerprint.
+  2. AvServ **adds** `svc-key-portal-2` to `AVSERV_SERVICE_KEYS` and lists both kids
+     with all route groups in `AVSERV_SERVICE_KEY_SCOPES`, one node at a time. Wait for
+     them to confirm both nodes.
+  3. **Switch** the portal: set the new `_B64`, `AVSERV_SERVICE_JWT_KID=svc-key-portal-2`
+     and its `_SHA256` together, redeploy, and run Admin → AvServ checks.
+  4. AvServ **removes** `svc-key-portal-1`. Delete the old key file.
 
 ## SAR alert intake
 
@@ -613,7 +651,7 @@ data** and never reach the live AvServ:
    `printf '%s' "$VALUE" | vercel env add NAME preview "" --sensitive --yes`.
    The `""` (all preview branches) is for Preview only; never pass it for Production.
 
-   Do **not** add `AVSERV_SERVICE_JWT_SIGNING_KEY` or `AVSERV_FAILOVER_BASE_URL`
+   Do **not** add `AVSERV_SERVICE_JWT_SIGNING_KEY_B64` or `AVSERV_FAILOVER_BASE_URL`
    to Preview. For SAR proof uploads on previews, connect a second Vercel Blob
    store to the Preview environment only.
 6. Push any commit to an open PR and sign in to its preview as `you+admin@…`.

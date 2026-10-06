@@ -38,7 +38,7 @@ DATABASE_URL=<disposable dev/test branch> \
 E2E_ALLOW_DB=1 \
 AVSERV_LIVE_E2E=1 \
 AVSERV_BASE_URL=<real AvServ base URL> \
-AVSERV_SERVICE_JWT_SIGNING_KEY="<svc-key-portal-1 private PEM>" \
+AVSERV_SERVICE_JWT_SIGNING_KEY_B64="$(base64 -i key.pem | tr -d '\n')" \
 pnpm test:e2e:live
 ```
 

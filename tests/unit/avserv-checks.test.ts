@@ -51,7 +51,7 @@ describe("runAvServChecks", () => {
 
   it("fails on an unexpected answer and reports a thrown fault (e.g. a signing key) as itself", async () => {
     h.readRedFeed.mockResolvedValue({ ok: false, node: "n", code: "unreachable" });
-    h.readShareLog.mockRejectedValue(new Error("AVSERV_SERVICE_JWT_SIGNING_KEY is not set"));
+    h.readShareLog.mockRejectedValue(new Error("AVSERV_SERVICE_JWT_SIGNING_KEY_B64 is not set"));
     const r = await runAvServChecks("s");
     expect(r.find((x) => x.check === "Red alerts feed")).toMatchObject({ ok: false, answer: "unreachable" });
     expect(r.find((x) => x.check === "Deletion lookup")).toMatchObject({ ok: false, answer: expect.stringMatching(/SIGNING_KEY/) });
