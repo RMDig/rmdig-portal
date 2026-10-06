@@ -39,6 +39,8 @@ export const STAYS_UP = [
   "/services",
   "/sms",
   "/snowpack_dataset",
+  // Where people check whether AvAI is down; most needed during an outage.
+  "/status",
   "/support",
   "/terms",
   "/healthz",

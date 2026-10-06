@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/research/methods`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/research/incident-detection`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${base}/support`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/status`, changeFrequency: "hourly", priority: 0.6 },
     { url: `${base}/alerts`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/sms`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${base}/privacy`, changeFrequency: "monthly", priority: 0.5 },

@@ -7,7 +7,6 @@ import {
   SUPPORT_EMAIL,
 } from "@/lib/legal/compliance-copy";
 import { pageMetadata } from "@/lib/seo";
-import { STATUS_PAGE_URL } from "@/lib/status-page";
 
 export const metadata: Metadata = pageMetadata({
   title: "Support — rmdig / AvAI",
@@ -53,9 +52,9 @@ export default function SupportPage() {
           </p>
           <p className="mt-3">
             To check whether the AvAI website and alert servers are up right now, see the{" "}
-            <a href={STATUS_PAGE_URL} className="font-medium underline">
+            <Link href="/status" className="font-medium underline">
               status page
-            </a>
+            </Link>
             .
           </p>
         </section>
