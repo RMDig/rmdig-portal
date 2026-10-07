@@ -11,6 +11,8 @@ export function ChecksRunner() {
   const [state, action, pending] = useActionState<ChecksOutcome | null, FormData>(runChecksAction, null);
   const nodes = state?.ok ? [...new Set(state.results.map((r) => r.node))] : [];
   const checks = state?.ok ? [...new Set(state.results.map((r) => r.check))] : [];
+  const failed = state?.ok ? state.results.filter((r) => !r.ok && !r.warn).length : 0;
+  const warned = state?.ok ? state.results.filter((r) => r.warn).length : 0;
   return (
     <div className="space-y-4">
       <form action={action}>
@@ -22,9 +24,14 @@ export function ChecksRunner() {
       {state?.ok ? (
         <>
           <p className="text-sm">
-            {state.results.every((r) => r.ok)
+            {failed === 0 && warned === 0
               ? "Every check passed on every node."
-              : `${state.results.filter((r) => !r.ok).length} check(s) failed. A 403 or path_not_allowed means our key lacks that route group on that node.`}
+              : [
+                  failed ? `${failed} check(s) failed. A 403 or path_not_allowed means our key lacks that route group on that node.` : null,
+                  warned ? `${warned} warning(s): a disk is low, the daily cleanup is stale, or AvServ couldn't read a check.` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -49,8 +56,11 @@ export function ChecksRunner() {
                       {nodes.map((n) => {
                         const r = row.find((x) => x.node === n);
                         return (
-                          <td key={n} className={`py-2 pr-4 ${r?.ok ? "text-green-700 dark:text-green-400" : "text-red-600"}`}>
-                            {r ? `${r.ok ? "Pass" : "Fail"}: ${r.answer}` : "—"}
+                          <td
+                            key={n}
+                            className={`py-2 pr-4 ${r?.ok ? "text-green-700 dark:text-green-400" : r?.warn ? "text-amber-700 dark:text-amber-400" : "text-red-600"}`}
+                          >
+                            {r ? `${r.ok ? "Pass" : r.warn ? "Warn" : "Fail"}: ${r.answer}` : "—"}
                           </td>
                         );
                       })}

@@ -196,11 +196,22 @@ The ids are made up, so nothing is written on AvServ; the email lookup checks
 - `portal_fault: …` mentioning the signing key: the key in Vercel is missing or
   malformed (see "AvServ service key").
 
+**Node health** (`node_health`; AvServ `docs/contracts/node_health.md`) follows: per
+node, an overall row, then free space on the Docker VM disk, the database disk
+(PGDATA) and the backup-ring disk, and the last daily Docker cleanup. AvServ sets
+each status; the portal only shows it. A disk **warns** below 20% free and **fails**
+below 10%; the cleanup warns if it failed, never ran, or last ran over 48 h ago; a
+check AvServ can't read shows as a warning with its reason. A warning means ask
+AvServ to free space or look at the cleanup; a failing disk also pages the operator
+through AvServ's Prometheus (`DiskSpaceCritical`). Disk numbers stay here, never on
+the public status page.
+
 Run it after an AvServ release, after a key change, and before a drill. Each run is
 logged as `avserv.checks.run`, at error level if anything failed. The same checks
 (without the email lookup) also run daily at 14:00 UTC (`/api/cron/avserv-checks`,
 as `portal-user:cron`); a failure answers 503, logs `cron.avserv_checks.failed` and
-goes to Sentry.
+goes to Sentry. Node-health warnings don't fail the run: they log
+`cron.avserv_checks.warned` and go to Sentry as warnings.
 
 ## Map basemap (MapTiler)
 
