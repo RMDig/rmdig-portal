@@ -2,6 +2,7 @@ import { and, asc, eq, gt, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { canManageAdvertiser } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import {
@@ -29,7 +30,7 @@ export default async function AdvertiserMembersPage({
   const { advertiserId } = await params;
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   // Advertiser-admin only — re-checked here, never trusting the nav.
   if (!(await canManageAdvertiser(session.user.id, advertiserId))) {

@@ -41,7 +41,7 @@ export default function SarOrgPendingReviewEmail({
           </Section>
           <Hr style={hr} />
           <Text style={muted}>
-            You&apos;re receiving this because you hold the rmdig_admin platform role.
+            You&apos;re receiving this because you review search &amp; rescue applications on rmdig.
           </Text>
         </Container>
       </Body>

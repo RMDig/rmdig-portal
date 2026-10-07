@@ -13,7 +13,7 @@ export function AcceptInvite({ token }: { token: string }) {
   const [state, formAction, pending] = useActionState(action, null);
 
   useEffect(() => {
-    if (state?.ok) router.push(`/advertiser/${state.advertiserId}/members`);
+    if (state?.ok) router.push(`/advertiser/${state.advertiserId}/creatives`);
   }, [state, router]);
 
   return (

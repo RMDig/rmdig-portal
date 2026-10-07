@@ -2,6 +2,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { getPlatformRoles } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
@@ -22,7 +23,7 @@ export default async function SarApprovalsPage() {
   // the queue, and so a write can never trust the layout (docs/plans/06).
   const session = await auth();
   if (!session?.user) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   const roles = await getPlatformRoles(session.user.id);
   if (roles.length === 0) {

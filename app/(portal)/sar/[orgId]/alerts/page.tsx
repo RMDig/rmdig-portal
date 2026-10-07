@@ -1,8 +1,10 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { formatMountain } from "@/lib/announcements/announcements";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { getOrgRole } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
@@ -30,10 +32,25 @@ function ago(iso: string): string {
 export default async function TeamAlertsPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   if (!/^[0-9a-f-]{36}$/i.test(orgId)) redirect("/dashboard");
   const role = await getOrgRole(session.user.id, orgId);
-  if (role !== "admin" && role !== "dispatcher") redirect("/dashboard");
+  if (!role) redirect("/dashboard");
+  if (role !== "admin" && role !== "dispatcher") {
+    // A member whose role can't see alerts: say so, rather than a silent
+    // redirect that looks like a broken link.
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Team alerts</h1>
+        <p className="text-muted-foreground">
+          Only your team&apos;s admins and dispatchers can see alerts. Ask an admin if your role should change.
+        </p>
+        <Link href="/dashboard" className="text-sm font-medium underline">
+          Back to your dashboard
+        </Link>
+      </div>
+    );
+  }
   // Next renders this page alongside the layout's MFA redirect, so check it
   // here too: a view that was never shown mustn't be read or logged.
   if ((await userMfaGate(session.user.id)).gate === "required") redirect("/settings/mfa/enroll");

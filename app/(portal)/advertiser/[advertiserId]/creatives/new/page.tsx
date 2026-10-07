@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import { advertiserAccounts } from "@/lib/db/schema";
@@ -20,7 +21,7 @@ export default async function NewCreativePage({
   const { advertiserId } = await params;
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   // Any team member may author — re-checked here, never trusting the nav.
   if (!(await isAdvertiserMember(session.user.id, advertiserId))) {

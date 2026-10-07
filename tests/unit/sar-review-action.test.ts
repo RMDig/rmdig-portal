@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   }>,
   staff: true,
   updates: [] as unknown[],
+  logs: [] as unknown[],
   sync: vi.fn(() => Promise.resolve([])),
   nodeViews: [] as Array<{ openBindings: number } | null | Error>,
 }));
@@ -16,7 +17,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => {
   const tx = {
     update: () => ({ set: (v: unknown) => ({ where: () => { h.updates.push(v); return Promise.resolve(); } }) }),
-    insert: () => ({ values: () => Promise.resolve() }),
+    insert: () => ({ values: (v: unknown) => { h.logs.push(v); return Promise.resolve(); } }),
   };
   const selChain: Record<string, unknown> = {
     from: () => selChain,
@@ -65,6 +66,7 @@ function fd(decision: string, note?: string): FormData {
 beforeEach(() => {
   vi.clearAllMocks();
   h.updates = [];
+  h.logs = [];
   h.nodeViews = [];
   h.org = [{ status: "pending", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
   h.staff = true;
@@ -154,7 +156,7 @@ describe("reviewSarOrgAction", () => {
 
     it("syncs after approve, stamping a patrol's verification dates, and never after reject", async () => {
       h.org = at("pending", "ski_patrol");
-      expect(await reviewSarOrgAction(null, fd("approve"))).toEqual({ ok: true });
+      expect(await reviewSarOrgAction(null, fd("approve", "Spoke to J. Doe, patrol director, via the area's listed number."))).toEqual({ ok: true });
       expect(h.sync).toHaveBeenCalledWith(ORG_ID);
       const set = h.updates[0] as { verifiedAt: Date; reverifyBy: Date };
       expect(set.reverifyBy.getUTCFullYear() * 12 + set.reverifyBy.getUTCMonth() - (set.verifiedAt.getUTCFullYear() * 12 + set.verifiedAt.getUTCMonth())).toBe(12);
@@ -193,8 +195,34 @@ describe("reviewSarOrgAction", () => {
       h.org = at("approved");
       expect(await reviewSarOrgAction(null, fd("reverify"))).toMatchObject({ ok: false, error: "Only ski patrols are re-verified." });
       h.org = at("approved", "ski_patrol");
-      expect(await reviewSarOrgAction(null, fd("reverify"))).toEqual({ ok: true });
+      expect(await reviewSarOrgAction(null, fd("reverify", "Called the area's front desk; patrol confirmed."))).toEqual({ ok: true });
       expect(h.updates[0]).toMatchObject({ verifiedAt: expect.any(Date), reverifyBy: expect.any(Date) });
+    });
+
+    it("requires a note recording the call before approving or re-verifying a patrol", async () => {
+      h.org = at("pending", "ski_patrol");
+      for (const note of [undefined, "   "]) {
+        expect(await reviewSarOrgAction(null, fd("approve", note))).toMatchObject({
+          ok: false,
+          fieldErrors: { note: [expect.stringMatching(/call to the ski area/)] },
+        });
+      }
+      h.org = at("approved", "ski_patrol");
+      expect(await reviewSarOrgAction(null, fd("reverify"))).toMatchObject({ ok: false, fieldErrors: { note: expect.any(Array) } });
+      expect(h.updates).toEqual([]);
+      expect(h.sync).not.toHaveBeenCalled();
+    });
+
+    it("logs an approval note for staff and keeps it out of the submitter's email", async () => {
+      h.org = at("pending");
+      expect(await reviewSarOrgAction(null, fd("approve", "Checked the 501(c)(3) on the IRS lookup."))).toEqual({ ok: true });
+      expect(h.logs[0]).toMatchObject({ action: "approved", note: "Checked the 501(c)(3) on the IRS lookup." });
+      expect(sendSarOrgDecisionEmail).toHaveBeenCalledWith("sub@sar.org", expect.objectContaining({ note: undefined }));
+      // An empty textarea logs no note rather than an empty one.
+      h.logs = [];
+      h.org = at("pending");
+      await reviewSarOrgAction(null, fd("approve", ""));
+      expect(h.logs[0]).toMatchObject({ note: null });
     });
 
     it("suspends a leaving org (for cause, immediate) and refuses lifecycle steps from the wrong status", async () => {

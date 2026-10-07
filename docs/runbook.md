@@ -79,9 +79,15 @@ ON CONFLICT DO NOTHING;
 
 To revoke a role: `DELETE FROM user_platform_roles WHERE user_id = (SELECT id FROM users WHERE email = '…') AND role = '…';`
 
+Everyone holding either role gets the queue emails: a new or resubmitted SAR
+application (linking to its row on `/admin/sar-approvals`) and a new
+restriction review request (linking to `/admin/restriction-reviews/<id>`; the
+email carries no user text, so read the request in the portal).
+
 ## Review a SAR org application
 
-SAR org applications are reviewed in the UI — no SQL needed.
+SAR org applications are reviewed in the UI — no SQL needed. Each new or
+resubmitted application emails all staff with a link to its row.
 
 1. Sign in as a user with `rmdig_admin` or `rmdig_reviewer`.
 2. Go to **Admin → SAR approvals** (`/admin/sar-approvals`).
@@ -93,7 +99,9 @@ SAR org applications are reviewed in the UI — no SQL needed.
 4. **Ski-area patrols:** before approving, call the ski area on a number you find
    yourself (its website or a directory listing), never one from the application,
    and confirm the patrol and its contact person (AvApp doc 36 §9.3). Note the
-   call in the approval note.
+   call in the approval note (required for a patrol; staff-only, kept in
+   `sar_org_status_log`, never emailed). "Mark re-verified" takes the same note
+   for the yearly call-back.
 5. Choose one:
    - **Approve** → status `approved`; the org admin can now invite members. Emails the submitter.
    - **Reject** (reason required) → status `rejected`. Emails the submitter the reason.
@@ -101,7 +109,7 @@ SAR org applications are reviewed in the UI — no SQL needed.
      Their admins see your note on `/sar/pending` and can **edit and resubmit**
      (`/sar/<orgId>/edit`): every field except the verified phone, plus a redrawn
      area and a replacement document if they choose. A resubmission logs
-     `resubmitted`, clears your note and emails every `rmdig_admin`. Approved orgs
+     `resubmitted`, clears your note and emails all staff. Approved orgs
      can't be edited this way (§0).
 
 Every action appends to `sar_org_status_log` (append-only audit) and is attributed
@@ -289,7 +297,7 @@ maintenance switch.
   alert for a team that isn't approved or leaving: stored, but investigate the
   team sync), `sar.intake.failed` (database), `sar.intake.member_email_failed`.
 - **Member email:** the first delivery of an alert, and of each update (all-clear,
-  retracted), emails every team member a notice with no name or location, linking
+  retracted), emails the team's admins and dispatchers a notice with no name or location, linking
   to `/sar/<orgId>/alerts`. "Also send help" from a user who hadn't added the team
   says so. Drills, the second node's copy (same `alertId` and `kind`) and
   duplicate notices don't email.
@@ -484,14 +492,11 @@ under the CPA — treat every request as covering it.
    Tell each listed team to delete what it received [COUNSEL: notice wording], and
    note the teams in the completion note. Needs AvServ's `sar_feed` and `account_lookup` route
    groups on `svc-key-portal-1`; rows past AvServ's retention period are already gone.
-4. **Record completion** so the queue stays truthful:
-
-   ```sql
-   UPDATE deletion_requests
-   SET status = 'completed', completed_at = now(),
-       note = '<what was erased, where>'
-   WHERE id = '<request-id>';
-   ```
+4. **Record completion** so the queue stays truthful: on
+   `/admin/deletion-requests`, **Mark completed** with a note of what was
+   erased, where, and which teams were told (at least 10 characters). It sets
+   `completed_at`, appends your email and the time to the note, and takes the
+   request off the queue. Only a confirmed request can be completed.
 
 5. **Reply to the requester** from the support mailbox confirming completion.
    The reply must go out within the 45-day window even if the answer is "we

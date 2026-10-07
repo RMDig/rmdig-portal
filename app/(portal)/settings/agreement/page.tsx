@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import Markdown from "react-markdown";
 
 import { AgreementForm } from "./AgreementForm";
@@ -10,6 +9,7 @@ import { presentedAgreement } from "@/lib/agreement";
 import { classifyAgreementError, reportAgreementFailure } from "@/lib/agreement/errors";
 import { normalizeName, passesAlertNameRule } from "@/lib/agreement/names";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { type AvaiAccount, getAccount } from "@/lib/avserv/agreement";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 export default async function AgreementPage() {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   const userId = session.user.id;
 

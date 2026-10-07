@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { TermsView } from "@/components/sar/TermsView";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgTerms } from "@/lib/db/schema";
@@ -17,7 +18,7 @@ export const metadata = { title: "Team terms — rmdig" };
 export default async function TermsPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   if (!/^[0-9a-f-]{36}$/i.test(orgId) || !(await canManageOrg(session.user.id, orgId))) redirect("/dashboard");
 
   const [org] = await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);

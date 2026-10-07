@@ -55,6 +55,7 @@ function ActionButton({
   label,
   pending,
   note,
+  noteRequired = false,
 }: {
   formAction: (fd: FormData) => void;
   orgId: string;
@@ -62,6 +63,7 @@ function ActionButton({
   label: string;
   pending: boolean;
   note?: string;
+  noteRequired?: boolean;
 }) {
   return (
     <form action={formAction} className="space-y-2">
@@ -71,6 +73,7 @@ function ActionButton({
         <textarea
           name="note"
           rows={2}
+          required={noteRequired}
           placeholder={note}
           className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
         />
@@ -89,7 +92,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
   const submitted = new Date(org.submittedAt);
 
   return (
-    <li className="space-y-4 px-4 py-5">
+    <li id={`org-${org.id}`} className="scroll-mt-20 space-y-4 px-4 py-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-medium">{org.name}</h3>
         <span className="text-muted-foreground text-sm">
@@ -151,10 +154,21 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
 
       {org.status === "pending" ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-          {/* Approve — no note required. */}
-          <form action={formAction}>
+          {/* Approve — staff-only note, required for a patrol (the call-back). */}
+          <form action={formAction} className="flex-1 space-y-2">
             <input type="hidden" name="orgId" value={org.id} />
             <input type="hidden" name="decision" value="approve" />
+            <textarea
+              name="note"
+              rows={2}
+              required={org.orgType === "ski_patrol"}
+              placeholder={
+                org.orgType === "ski_patrol"
+                  ? "Who you spoke to at the ski area, and the number you called (staff only)"
+                  : "Note (optional, staff only)"
+              }
+              className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
+            />
             <Button type="submit" disabled={pending}>
               Approve
             </Button>
@@ -209,7 +223,15 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
             <ActionButton formAction={formAction} orgId={org.id} decision="mark_leaving" label="Mark leaving" pending={pending} />
           ) : null}
           {org.status === "approved" && org.orgType === "ski_patrol" ? (
-            <ActionButton formAction={formAction} orgId={org.id} decision="reverify" label="Mark re-verified (12 months)" pending={pending} />
+            <ActionButton
+              formAction={formAction}
+              orgId={org.id}
+              decision="reverify"
+              label="Mark re-verified (12 months)"
+              pending={pending}
+              note="Who you spoke to at the ski area, and the number you called (required)"
+              noteRequired
+            />
           ) : null}
           {org.status === "leaving" || org.status === "suspended" ? (
             <ActionButton formAction={formAction} orgId={org.id} decision="withdraw" label="Withdraw" pending={pending} />

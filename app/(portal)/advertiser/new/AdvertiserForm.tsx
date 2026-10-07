@@ -20,7 +20,7 @@ export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boo
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
   useEffect(() => {
-    if (state?.ok) router.push(`/advertiser/${state.advertiserId}/members`);
+    if (state?.ok) router.push(`/advertiser/${state.advertiserId}/creatives`);
   }, [state, router]);
 
   return (

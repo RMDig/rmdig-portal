@@ -9,7 +9,6 @@ import {
   orgMemberships,
   sarOrgs,
   sarOrgStatusLog,
-  userPlatformRoles,
   users,
 } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail, sendSarOrgSubmittedEmail } from "@/lib/email/send";
@@ -18,6 +17,7 @@ import { isUniqueViolation } from "@/lib/db/errors";
 import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { createSarOrgSchema } from "@/lib/sar/schema";
+import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
 
 // Server action behind /sar/new (rmdig-ai docs/plans/06 §"SAR org onboarding").
@@ -166,25 +166,22 @@ async function notifyOnSubmission(
   }
 
   const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const reviewUrl = `${baseUrl}/admin/sar-approvals`;
+  const reviewUrl = `${baseUrl}/admin/sar-approvals#org-${orgId}`;
 
-  let admins: { email: string }[];
+  // Everyone who can approve SAR orgs (admins and reviewers), not just admins.
+  let staff: string[];
   try {
-    admins = await db
-      .select({ email: users.email })
-      .from(userPlatformRoles)
-      .innerJoin(users, eq(users.id, userPlatformRoles.userId))
-      .where(eq(userPlatformRoles.role, "rmdig_admin"));
+    staff = await staffEmails();
   } catch (err) {
-    logger.error({ event: "sar.create.admin_lookup_failed", orgId, err });
+    logger.error({ event: "sar.create.staff_lookup_failed", orgId, err });
     return;
   }
 
-  for (const admin of admins) {
+  for (const email of staff) {
     try {
-      await sendSarOrgPendingReviewEmail(admin.email, { orgName, submitterEmail, reviewUrl });
+      await sendSarOrgPendingReviewEmail(email, { orgName, submitterEmail, reviewUrl });
     } catch (err) {
-      logger.error({ event: "sar.create.admin_email_failed", orgId, to: admin.email, err });
+      logger.error({ event: "sar.create.staff_email_failed", orgId, to: email, err });
     }
   }
 }

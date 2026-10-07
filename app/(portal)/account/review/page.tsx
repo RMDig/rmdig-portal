@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { ReviewRequestForm } from "./ReviewRequestForm";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { listRestrictions, type Restriction } from "@/lib/avserv/restrictions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -43,7 +43,7 @@ export default async function AccountReviewPage({
 }) {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   const userId = session.user.id;
   const { restriction } = await searchParams;

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { isPlatformStaff } from "@/lib/auth/roles";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -24,7 +25,7 @@ export default async function RestrictionReviewsPage({
 }) {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   if (!(await isPlatformStaff(session.user.id))) {
     redirect("/dashboard");

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { orgInvitations, orgMemberships, sarOrgs, users } from "@/lib/db/schema";
@@ -23,7 +24,7 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
   const { orgId } = await params;
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   // Org-admin only — re-checked here, never trusting the nav (docs/plans/06).
   if (!(await canManageOrg(session.user.id, orgId))) {

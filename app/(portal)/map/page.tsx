@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { layersFor } from "@/lib/map/layers";
 import { advertiserIdsFor, allOrgRows, dispatchOrgsFor, memberOrgRows, targetRows } from "@/lib/map/queries";
@@ -21,7 +22,7 @@ export const metadata = { title: "Map — rmdig" };
 // Team admins and dispatchers also get their team's RED layer (lib/map/red-read).
 export default async function MapPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   const userId = session.user.id;
   // Next renders this page alongside the layout's MFA redirect, and this page
   // reads alerts from AvServ (which logs the disclosure) and logs the view.
