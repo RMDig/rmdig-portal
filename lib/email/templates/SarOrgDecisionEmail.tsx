@@ -5,6 +5,7 @@ import {
   Heading,
   Hr,
   Html,
+  Link,
   Preview,
   Section,
   Text,
@@ -18,7 +19,15 @@ export interface SarOrgDecisionEmailProps {
   // The operator's note. Required copy for rejected / changes_requested; ignored
   // for approved.
   note?: string;
+  /** Where to go next: the team (approved) or the application (changes requested). */
+  actionUrl?: string;
 }
+
+const ACTION_LABEL: Record<SarOrgDecision, string | null> = {
+  approved: "Open your team",
+  rejected: null,
+  changes_requested: "Edit your application",
+};
 
 const COPY: Record<SarOrgDecision, { heading: string; preview: string; body: string }> = {
   approved: {
@@ -40,9 +49,10 @@ const COPY: Record<SarOrgDecision, { heading: string; preview: string; body: str
 
 // One template for all three review outcomes — the copy and whether the note
 // block renders are driven by `decision`.
-export default function SarOrgDecisionEmail({ orgName, decision, note }: SarOrgDecisionEmailProps) {
+export default function SarOrgDecisionEmail({ orgName, decision, note, actionUrl }: SarOrgDecisionEmailProps) {
   const copy = COPY[decision];
   const showNote = decision !== "approved" && !!note;
+  const actionLabel = ACTION_LABEL[decision];
   return (
     <Html>
       <Head />
@@ -56,6 +66,13 @@ export default function SarOrgDecisionEmail({ orgName, decision, note }: SarOrgD
           {showNote ? (
             <Section style={noteBox}>
               <Text style={noteText}>{note}</Text>
+            </Section>
+          ) : null}
+          {actionUrl && actionLabel ? (
+            <Section style={buttonContainer}>
+              <Link href={actionUrl} style={button}>
+                {actionLabel}
+              </Link>
             </Section>
           ) : null}
           <Hr style={hr} />
@@ -86,5 +103,16 @@ const noteBox = {
   borderLeft: "3px solid #d4d4d4",
 };
 const noteText = { fontSize: "15px", lineHeight: "22px", color: "#404040", margin: "0", whiteSpace: "pre-wrap" as const };
+const buttonContainer = { textAlign: "center" as const, margin: "32px 0" };
+const button = {
+  display: "inline-block",
+  padding: "12px 24px",
+  backgroundColor: "#171717",
+  color: "#ffffff",
+  borderRadius: "6px",
+  fontSize: "16px",
+  fontWeight: "500",
+  textDecoration: "none",
+};
 const hr = { borderColor: "#e5e5e5", margin: "32px 0" };
 const muted = { fontSize: "14px", lineHeight: "20px", color: "#737373" };

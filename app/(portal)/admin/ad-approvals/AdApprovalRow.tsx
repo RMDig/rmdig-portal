@@ -157,7 +157,7 @@ export function AdApprovalRow({ creative }: { creative: PendingCreative }) {
             <textarea
               name="note"
               rows={2}
-              placeholder="Reason for suspending (optional, recorded in the audit log)"
+              placeholder="Reason for suspending (optional; emailed to the advertiser and shown on their ad)"
               className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
             />
             <Button type="submit" variant="outline" disabled={pending}>

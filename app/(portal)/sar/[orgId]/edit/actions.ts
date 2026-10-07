@@ -8,11 +8,11 @@ import { ProofDocError, uploadProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { updateSarOrgSchema } from "@/lib/sar/schema";
+import { portalUrl } from "@/lib/email/links";
 
 // Resubmitting a pending application (docs/plans/33 §4, portal 2). Only the
 // org's admins, only while it's pending: an approved org's area or details
@@ -116,7 +116,7 @@ export async function updateSarOrgAction(
 class StatusChanged extends Error {}
 
 async function notifyStaff(orgId: string, orgName: string, submitterEmail: string): Promise<void> {
-  const reviewUrl = `${env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin/sar-approvals#org-${orgId}`;
+  const reviewUrl = portalUrl(`/admin/sar-approvals#org-${orgId}`);
   // Everyone who can approve SAR orgs (admins and reviewers), not just admins.
   let staff: string[];
   try {

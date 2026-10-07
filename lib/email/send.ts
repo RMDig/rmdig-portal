@@ -106,8 +106,8 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   });
 }
 
-export async function sendSarOrgSubmittedEmail(to: string, orgName: string): Promise<void> {
-  const html = await render(SarOrgSubmittedEmail({ orgName }));
+export async function sendSarOrgSubmittedEmail(to: string, orgName: string, statusUrl: string): Promise<void> {
+  const html = await render(SarOrgSubmittedEmail({ orgName, statusUrl }));
 
   await deliver({
     kind: "sar_submitted",
@@ -141,7 +141,7 @@ const DECISION_SUBJECT: Record<SarOrgDecision, string> = {
 
 export async function sendSarOrgDecisionEmail(
   to: string,
-  params: { orgName: string; decision: SarOrgDecision; note?: string },
+  params: { orgName: string; decision: SarOrgDecision; note?: string; actionUrl?: string },
 ): Promise<void> {
   const html = await render(SarOrgDecisionEmail(params));
 
@@ -208,11 +208,12 @@ const AD_DECISION_SUBJECT: Record<AdCreativeDecision, string> = {
   approved: "Your ad creative is approved",
   rejected: "An update on your ad creative",
   changes_requested: "Your ad creative needs changes",
+  suspended: "Your ad creative is paused",
 };
 
 export async function sendAdCreativeDecisionEmail(
   to: string,
-  params: { advertiserName: string; headline: string; decision: AdCreativeDecision; note?: string },
+  params: { advertiserName: string; headline: string; decision: AdCreativeDecision; note?: string; creativeUrl: string; published?: boolean },
 ): Promise<void> {
   const html = await render(AdCreativeDecisionEmail(params));
 
@@ -258,7 +259,7 @@ export async function sendDataDeletionReceivedEmail(
 
 export async function sendDataDeletionAdminEmail(
   to: string,
-  params: { requesterEmail: string; requestId: string; confirmedAtIso: string },
+  params: { requesterEmail: string; requestId: string; confirmedAtIso: string; dueIso: string; queueUrl: string },
 ): Promise<void> {
   const html = await render(DataDeletionAdminEmail(params));
 
@@ -321,7 +322,7 @@ export async function sendSarTermsPendingReviewEmail(
 
 export async function sendSarTermsDecisionEmail(
   to: string,
-  params: { orgName: string; decision: SarTermsDecision; version?: number; note?: string },
+  params: { orgName: string; decision: SarTermsDecision; version?: number; note?: string; termsUrl: string },
 ): Promise<void> {
   const html = await render(SarTermsDecisionEmail(params));
   await deliver({

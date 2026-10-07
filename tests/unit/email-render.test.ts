@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import OrgInviteEmail from "@/lib/email/templates/OrgInviteEmail";
 import ResetPasswordEmail from "@/lib/email/templates/ResetPasswordEmail";
 import RestrictionReviewUpheldEmail from "@/lib/email/templates/RestrictionReviewUpheldEmail";
+import AdCreativeDecisionEmail from "@/lib/email/templates/AdCreativeDecisionEmail";
+import DataDeletionAdminEmail from "@/lib/email/templates/DataDeletionAdminEmail";
 import SarOrgDecisionEmail from "@/lib/email/templates/SarOrgDecisionEmail";
+import SarTermsDecisionEmail from "@/lib/email/templates/SarTermsDecisionEmail";
 import SarOrgPendingReviewEmail from "@/lib/email/templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "@/lib/email/templates/SarOrgSubmittedEmail";
 import VerifyEmail from "@/lib/email/templates/VerifyEmail";
@@ -50,8 +53,9 @@ describe("email templates render to HTML", () => {
     expect(html).toMatch(/reset/i);
   });
 
-  it("SarOrgSubmittedEmail names the org", async () => {
-    const html = await render(SarOrgSubmittedEmail({ orgName: "San Juan County SAR" }));
+  it("SarOrgSubmittedEmail names the org and links to the application", async () => {
+    const html = await render(SarOrgSubmittedEmail({ orgName: "San Juan County SAR", statusUrl: "https://rmdig.ai/sar/pending" }));
+    expect(html).toContain("https://rmdig.ai/sar/pending");
     expect(html).toContain("San Juan County SAR");
     expect(html).toMatch(/received/i);
   });
@@ -98,6 +102,60 @@ describe("email templates render to HTML", () => {
       }),
     );
     expect(html).toContain("Please attach your county letter.");
+  });
+
+  it("SarOrgDecisionEmail links approved teams to their team and change requests to the application", async () => {
+    const team = "https://rmdig.ai/sar/o1/members";
+    const approved = await render(SarOrgDecisionEmail({ orgName: "San Juan SAR", decision: "approved", actionUrl: team }));
+    expect(approved).toContain(team);
+    expect(approved).toContain("Open your team");
+    const edit = "https://rmdig.ai/sar/o1/edit";
+    const changes = await render(SarOrgDecisionEmail({ orgName: "San Juan SAR", decision: "changes_requested", note: "x", actionUrl: edit }));
+    expect(changes).toContain(edit);
+    expect(changes).toContain("Edit your application");
+  });
+
+  it("AdCreativeDecisionEmail says 'published' only once the ad reached the app, and links to the creative", async () => {
+    const url = "https://rmdig.ai/advertiser/a1/creatives/c1";
+    const base = { advertiserName: "Demo Outfitters", headline: "Wax up", creativeUrl: url };
+    const live = await render(AdCreativeDecisionEmail({ ...base, decision: "approved", published: true }));
+    expect(live).toContain("published to the app");
+    expect(live).toContain(url);
+    const notYet = await render(AdCreativeDecisionEmail({ ...base, decision: "approved", published: false }));
+    expect(notYet).not.toContain("published to the app");
+    expect(notYet.replace(/&#x27;|&apos;/g, "'")).toContain("It isn't in the app yet");
+    const edit = await render(AdCreativeDecisionEmail({ ...base, creativeUrl: `${url}/edit`, decision: "changes_requested", note: "Shorter headline." }));
+    expect(edit).toContain(`${url}/edit`);
+    expect(edit).toContain("Edit your creative");
+  });
+
+  it("AdCreativeDecisionEmail tells the advertiser a suspended ad is out of the app, with staff's note", async () => {
+    const html = await render(
+      AdCreativeDecisionEmail({ advertiserName: "Demo Outfitters", headline: "Wax up", decision: "suspended", note: "Link is broken.", creativeUrl: "https://rmdig.ai/x" }),
+    );
+    expect(html).toContain("taken out of the app");
+    expect(html).toContain("Link is broken.");
+  });
+
+  it("SarTermsDecisionEmail links to the team's terms", async () => {
+    const url = "https://rmdig.ai/sar/o1/terms";
+    const html = await render(SarTermsDecisionEmail({ orgName: "San Juan SAR", decision: "published", version: 2, termsUrl: url }));
+    expect(html).toContain(url);
+  });
+
+  it("DataDeletionAdminEmail gives the deadline and links to the queue, not SQL", async () => {
+    const html = await render(
+      DataDeletionAdminEmail({
+        requesterEmail: "a@b.co",
+        requestId: "r1",
+        confirmedAtIso: "2026-10-01T00:00:00.000Z",
+        dueIso: "2026-11-15T00:00:00.000Z",
+        queueUrl: "https://rmdig.ai/admin/deletion-requests",
+      }),
+    );
+    expect(html).toContain("2026-11-15");
+    expect(html).toContain("https://rmdig.ai/admin/deletion-requests");
+    expect(html).not.toContain("completed_at");
   });
 
   it("OrgInviteEmail carries the invite link and role", async () => {

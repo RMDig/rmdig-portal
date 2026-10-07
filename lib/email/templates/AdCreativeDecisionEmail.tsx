@@ -5,27 +5,33 @@ import {
   Heading,
   Hr,
   Html,
+  Link,
   Preview,
   Section,
   Text,
 } from "@react-email/components";
 
-export type AdCreativeDecision = "approved" | "rejected" | "changes_requested";
+export type AdCreativeDecision = "approved" | "rejected" | "changes_requested" | "suspended";
 
 export interface AdCreativeDecisionEmailProps {
   advertiserName: string;
   headline: string;
   decision: AdCreativeDecision;
-  // The operator's note. Required copy for rejected / changes_requested; ignored
-  // for approved.
+  // The operator's note. Required copy for rejected / changes_requested,
+  // optional for suspended; ignored for approved.
   note?: string;
+  /** The creative's page in the portal (its edit page for changes requested). */
+  creativeUrl: string;
+  /** Approved only: whether it reached the app. Publishing can fail and be
+   *  retried, so the email never says "in the app" before it is. */
+  published?: boolean;
 }
 
 const COPY: Record<AdCreativeDecision, { heading: string; preview: string; body: string }> = {
   approved: {
     heading: "Your ad creative is approved",
     preview: "Your ad creative was approved",
-    body: "has been approved and will appear in the app.",
+    body: "is approved and published to the app.",
   },
   rejected: {
     heading: "An update on your ad creative",
@@ -37,6 +43,11 @@ const COPY: Record<AdCreativeDecision, { heading: string; preview: string; body:
     preview: "Your ad creative needs changes",
     body: "needs some changes before we can approve it. See the note below, then update and resubmit.",
   },
+  suspended: {
+    heading: "Your ad creative is paused",
+    preview: "Your ad creative was taken out of the app",
+    body: "has been taken out of the app. Any note from our team is below.",
+  },
 };
 
 // One template for all three review outcomes — copy + whether the note renders are
@@ -46,8 +57,12 @@ export default function AdCreativeDecisionEmail({
   headline,
   decision,
   note,
+  creativeUrl,
+  published,
 }: AdCreativeDecisionEmailProps) {
   const copy = COPY[decision];
+  const sentence =
+    decision === "approved" && !published ? "is approved. It isn't in the app yet; we'll publish it shortly." : copy.body;
   const showNote = decision !== "approved" && !!note;
   return (
     <Html>
@@ -58,13 +73,18 @@ export default function AdCreativeDecisionEmail({
           <Heading style={heading}>{copy.heading}</Heading>
           <Text style={paragraph}>
             Your creative “<strong>{headline}</strong>” for <strong>{advertiserName}</strong>{" "}
-            {copy.body}
+            {sentence}
           </Text>
           {showNote ? (
             <Section style={noteBox}>
               <Text style={noteText}>{note}</Text>
             </Section>
           ) : null}
+          <Section style={buttonContainer}>
+            <Link href={creativeUrl} style={button}>
+              {decision === "changes_requested" ? "Edit your creative" : "View your creative"}
+            </Link>
+          </Section>
           <Hr style={hr} />
           <Text style={muted}>
             You&apos;re receiving this because you manage advertising for {advertiserName} on rmdig.
@@ -98,6 +118,17 @@ const noteText = {
   color: "#404040",
   margin: "0",
   whiteSpace: "pre-wrap" as const,
+};
+const buttonContainer = { textAlign: "center" as const, margin: "32px 0" };
+const button = {
+  display: "inline-block",
+  padding: "12px 24px",
+  backgroundColor: "#171717",
+  color: "#ffffff",
+  borderRadius: "6px",
+  fontSize: "16px",
+  fontWeight: "500",
+  textDecoration: "none",
 };
 const hr = { borderColor: "#e5e5e5", margin: "32px 0" };
 const muted = { fontSize: "14px", lineHeight: "20px", color: "#737373" };

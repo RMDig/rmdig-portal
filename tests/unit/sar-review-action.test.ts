@@ -128,6 +128,7 @@ describe("reviewSarOrgAction", () => {
       orgName: "San Juan SAR",
       decision: "approved",
       note: undefined,
+      actionUrl: expect.stringMatching(new RegExp(`/sar/${ORG_ID}/members$`)),
     });
   });
 
@@ -138,6 +139,7 @@ describe("reviewSarOrgAction", () => {
       orgName: "San Juan SAR",
       decision: "rejected",
       note: "Couldn't verify your registration.",
+      actionUrl: undefined,
     });
   });
 
@@ -148,6 +150,7 @@ describe("reviewSarOrgAction", () => {
       orgName: "San Juan SAR",
       decision: "changes_requested",
       note: "Please add your county letter.",
+      actionUrl: expect.stringMatching(new RegExp(`/sar/${ORG_ID}/edit$`)),
     });
   });
 

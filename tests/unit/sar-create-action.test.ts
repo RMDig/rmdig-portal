@@ -155,7 +155,7 @@ describe("createSarOrgAction", () => {
       expect.objectContaining({ type: "Polygon" }),
       expect.anything(),
     );
-    expect(sendSarOrgSubmittedEmail).toHaveBeenCalledWith("submitter@sar.org", "San Juan County SAR");
+    expect(sendSarOrgSubmittedEmail).toHaveBeenCalledWith("submitter@sar.org", "San Juan County SAR", expect.stringMatching(/\/sar\/pending$/));
     expect(sendSarOrgPendingReviewEmail).toHaveBeenCalledWith(
       "admin@rmdig.ai",
       expect.objectContaining({ orgName: "San Juan County SAR" }),

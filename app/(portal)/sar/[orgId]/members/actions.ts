@@ -8,11 +8,11 @@ import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { orgInvitations, sarOrgs } from "@/lib/db/schema";
 import { sendOrgInviteEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { inviteMemberSchema } from "@/lib/sar/invite";
 import { generateInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
+import { portalUrl } from "@/lib/email/links";
 
 // Invite a member to a SAR org (rmdig-ai docs/plans/06 §"Member invitation").
 // Org-admin gated (re-checked here, never trusting the page), and only for an
@@ -101,9 +101,7 @@ export async function createInvitationAction(
     expiresAt: expires,
     createdByUserId: userId,
   });
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const inviteUrl = `${baseUrl}/invite/${token}`;
+  const inviteUrl = portalUrl(`/invite/${token}`);
 
   // Email the invite, but don't fail the action if mail is down — the inviter
   // gets the link back to share directly. Log loudly.

@@ -10,9 +10,9 @@ import { AvServContractError } from "@/lib/avserv/request";
 import { db } from "@/lib/db";
 import { restrictionReviewLog, restrictionReviewRequests, users } from "@/lib/db/schema";
 import { sendRestrictionReviewUpheldEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { reviewDecisionSchema, scopeLabel, staffActor } from "@/lib/restrictions/review";
+import { portalUrl } from "@/lib/email/links";
 
 // Staff decisions on a review request (docs/plans/32; AvServ contract
 // restrictions.md). AvServ owns the restriction; the portal owns the request
@@ -138,12 +138,11 @@ export async function decideReviewAction(
   revalidatePath("/account/review");
 
   if (decision === "uphold" && restriction) {
-    const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
     try {
       await sendRestrictionReviewUpheldEmail(request.userEmail, {
         feature: scopeLabel(restriction.scope),
         userReason: restriction.userReason,
-        reviewUrl: `${baseUrl}/account/review?restriction=${restriction.id}`,
+        reviewUrl: portalUrl(`/account/review?restriction=${restriction.id}`),
       });
     } catch (err) {
       // The decision stands (the row is the record); staff are told so they can

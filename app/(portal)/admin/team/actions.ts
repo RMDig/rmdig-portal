@@ -15,10 +15,10 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendPlatformInviteEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { generateInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
+import { portalUrl } from "@/lib/email/links";
 
 // Staff management (/admin/team). Granting or revoking a platform role is the
 // highest-privilege mutation in the portal, so beyond the rmdig_admin session
@@ -139,11 +139,9 @@ export async function createPlatformInviteAction(
     logger.error({ event: "admin.team.invite_insert_failed", email, role, err });
     return { ok: false, error: "Couldn't create the invitation. Try again in a moment." };
   }
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
   try {
     await sendPlatformInviteEmail(email, {
-      inviteUrl: `${baseUrl}/admin-invite/${token}`,
+      inviteUrl: portalUrl(`/admin-invite/${token}`),
       roleLabel: PLATFORM_ROLE_LABEL[role],
     });
   } catch (err) {

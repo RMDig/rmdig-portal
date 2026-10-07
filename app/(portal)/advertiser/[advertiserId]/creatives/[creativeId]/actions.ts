@@ -15,8 +15,8 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendAdCreativePendingReviewEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { portalUrl } from "@/lib/email/links";
 
 // Submit a creative for operator review (AD-P5, docs/plans/30 §5). Advertiser
 // member gated (re-checked, never trusting the page). Valid only from `draft` or
@@ -105,8 +105,7 @@ async function notifyOperators(
   advertiserName: string,
   headline: string,
 ): Promise<void> {
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const reviewUrl = `${baseUrl}/admin/ad-approvals`;
+  const reviewUrl = portalUrl(`/admin/ad-approvals`);
 
   // Reviewers are platform staff: rmdig_admin OR rmdig_reviewer (the reviewer role
   // was broadened to cover creative approval, schema comment + docs/plans/30 §3).

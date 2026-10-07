@@ -37,7 +37,7 @@ const samples: { file: string; element: ReactElement }[] = [
   },
   {
     file: "sar-submitted.html",
-    element: SarOrgSubmittedEmail({ orgName: "San Juan County SAR" }),
+    element: SarOrgSubmittedEmail({ orgName: "San Juan County SAR", statusUrl: "https://rmdig.ai/sar/pending" }),
   },
   {
     file: "sar-pending-review.html",
@@ -49,7 +49,7 @@ const samples: { file: string; element: ReactElement }[] = [
   },
   {
     file: "sar-approved.html",
-    element: SarOrgDecisionEmail({ orgName: "San Juan County SAR", decision: "approved" }),
+    element: SarOrgDecisionEmail({ orgName: "San Juan County SAR", decision: "approved", actionUrl: "https://rmdig.ai/sar/00000000-0000-4000-8000-000000000000/members" }),
   },
   {
     file: "sar-rejected.html",

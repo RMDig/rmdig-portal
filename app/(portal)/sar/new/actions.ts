@@ -12,13 +12,13 @@ import {
   users,
 } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail, sendSarOrgSubmittedEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { createSarOrgSchema } from "@/lib/sar/schema";
 import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
+import { portalUrl } from "@/lib/email/links";
 
 // Server action behind /sar/new (rmdig-ai docs/plans/06 §"SAR org onboarding").
 // A signed-in, email-verified user submits an org application: it persists as a
@@ -160,13 +160,11 @@ async function notifyOnSubmission(
   submitterEmail: string,
 ): Promise<void> {
   try {
-    await sendSarOrgSubmittedEmail(submitterEmail, orgName);
+    await sendSarOrgSubmittedEmail(submitterEmail, orgName, portalUrl("/sar/pending"));
   } catch (err) {
     logger.error({ event: "sar.create.submitter_email_failed", orgId, err });
   }
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const reviewUrl = `${baseUrl}/admin/sar-approvals#org-${orgId}`;
+  const reviewUrl = portalUrl(`/admin/sar-approvals#org-${orgId}`);
 
   // Everyone who can approve SAR orgs (admins and reviewers), not just admins.
   let staff: string[];

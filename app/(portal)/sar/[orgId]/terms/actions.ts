@@ -8,9 +8,9 @@ import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgTerms, userPlatformRoles, users } from "@/lib/db/schema";
 import { sendSarTermsPendingReviewEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { capabilitySettings, termsDraftSchema, termsWordingProblems, type WordingProblem } from "@/lib/sar/terms-rules";
+import { portalUrl } from "@/lib/email/links";
 
 // A SAR team's admins write their terms and choose their services
 // (docs/plans/33). Saving keeps one open draft per org; submitting sends it to
@@ -94,7 +94,7 @@ export async function saveTermsAction(
 }
 
 async function notifyStaff(orgId: string, orgName: string): Promise<void> {
-  const reviewUrl = `${env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin/sar-terms`;
+  const reviewUrl = portalUrl(`/admin/sar-terms`);
   let admins: { email: string }[];
   try {
     admins = await db

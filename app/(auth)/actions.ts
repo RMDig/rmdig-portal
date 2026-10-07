@@ -14,9 +14,9 @@ import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
+import { portalUrl } from "@/lib/email/links";
 
 // ----- Schemas -----
 
@@ -82,8 +82,7 @@ async function issueVerification(email: string, next: string | null): Promise<vo
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await db.insert(verificationTokens).values({ identifier: email, token, expires });
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const verifyUrl = `${baseUrl}/api/verify?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
+  const verifyUrl = portalUrl(`/api/verify?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`);
   await sendVerificationEmail(email, verifyUrl);
 }
 
@@ -333,9 +332,7 @@ export async function requestPasswordResetAction(
   // One live token per user: drop any prior ones before issuing a new one.
   await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
   await db.insert(passwordResetTokens).values({ userId: user.id, tokenHash, expires });
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+  const resetUrl = portalUrl(`/reset-password?token=${token}`);
 
   try {
     await sendPasswordResetEmail(email, resetUrl);
