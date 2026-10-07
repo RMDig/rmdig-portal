@@ -9,7 +9,8 @@ import { logger } from "@/lib/logger";
 // Daily (vercel.json crons): the Admin → AvServ checks, without anyone
 // clicking, so a broken signing key, a lost route group or a failing node is
 // caught within a day. Reads as portal-user:cron and skips the email lookup
-// (the one probe AvServ logs). Any failure answers 503 and goes to Sentry.
+// (the one probe AvServ logs). Any failure answers 503 and goes to Sentry;
+// a node-health warning goes to Sentry as a warning.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -21,12 +22,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ code: "no_avserv_nodes" }, { status: 503 });
   }
   const results = await runAvServChecks("cron", { emailLookup: false });
-  const failed = results.filter((r) => !r.ok).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
+  const failed = results.filter((r) => !r.ok && !r.warn).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
+  // A node-health warning (low disk, a stale cleanup) is reported, not failed:
+  // AvServ pages the operator itself when a disk fails.
+  const warned = results.filter((r) => r.warn).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
+  if (warned.length) {
+    logger.warn({ event: "cron.avserv_checks.warned", warned });
+    Sentry.captureMessage(`AvServ node health warnings: ${warned.join("; ")}`, "warning");
+  }
   if (failed.length) {
     logger.error({ event: "cron.avserv_checks.failed", failed });
     Sentry.captureMessage(`AvServ checks failed: ${failed.join("; ")}`, "error");
     return NextResponse.json({ ok: false, failed, results }, { status: 503 });
   }
-  logger.info({ event: "cron.avserv_checks.done", checks: results.length });
-  return NextResponse.json({ ok: true, results });
+  logger.info({ event: "cron.avserv_checks.done", checks: results.length, warnings: warned.length });
+  return NextResponse.json({ ok: true, warned, results });
 }

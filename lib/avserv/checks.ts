@@ -1,4 +1,5 @@
 import { lookupAccountsByEmail } from "./account-lookup";
+import { describeHealthCheck, readNodeHealth } from "./node-health";
 import { AvServError } from "./request";
 import { readRedFeed } from "./sar-feeds";
 import { ackSarAlert, avservNodes, getSarTeam, type AvServNode } from "./sar-teams";
@@ -21,6 +22,30 @@ export interface CheckResult {
   ok: boolean;
   /** What the node answered, in AvServ's words (a code, or "ok"). */
   answer: string;
+  /** Not a failure but worth a look: a node-health check AvServ marks warn
+   *  (low disk, a stale cleanup) or can't read (unknown). */
+  warn?: boolean;
+}
+
+const HEALTH_GROUP = "node_health";
+
+/** Node health as rows: the overall verdict, then one row per check (disk
+ *  headroom, the daily cleanup). A call that fails is one failed row. */
+async function nodeHealthRows(node: AvServNode): Promise<CheckResult[]> {
+  const r = await readNodeHealth(node);
+  const row = (check: string, status: string, answer: string): CheckResult => ({
+    check,
+    group: HEALTH_GROUP,
+    node: node.name,
+    ok: status === "ok",
+    warn: status === "warn" || status === "unknown",
+    answer,
+  });
+  if (!r.ok) return [{ check: "Node health", group: HEALTH_GROUP, node: node.name, ok: false, answer: r.code }];
+  return [
+    row("Node health", r.health.status, r.health.status),
+    ...r.health.checks.map((c) => row(c.label, c.status, describeHealthCheck(c))),
+  ];
 }
 
 type Probe = { check: string; group: string; run: (node: AvServNode, reader: string) => Promise<{ ok: boolean; answer: string }> };
@@ -80,21 +105,27 @@ function codeOf(err: unknown): string {
   return err instanceof AvServError && err.code ? err.code : err instanceof Error ? err.message : String(err);
 }
 
-/** Every probe on every configured node, in parallel. Never throws for a node's
- *  answer; a probe that throws (e.g. a signing-key fault) is reported as such.
+/** Every probe on every configured node, in parallel, then each node's health.
+ *  Never throws for a node's answer; a probe that throws (e.g. a signing-key
+ *  fault) is reported as such.
  *  The daily cron leaves out the email lookup, the one probe AvServ logs. */
 export async function runAvServChecks(readerUserId: string, opts: { emailLookup?: boolean } = {}): Promise<CheckResult[]> {
   const nodes = avservNodes();
   const probes = opts.emailLookup === false ? PROBES.filter((p) => p.group !== "account_lookup") : PROBES;
   const runs = nodes.flatMap((node) =>
-    probes.map(async (p): Promise<CheckResult> => {
+    probes.map(async (p): Promise<CheckResult[]> => {
       try {
         const r = await p.run(node, readerUserId);
-        return { check: p.check, group: p.group, node: node.name, ...r };
+        return [{ check: p.check, group: p.group, node: node.name, ...r }];
       } catch (err) {
-        return { check: p.check, group: p.group, node: node.name, ok: false, answer: codeOf(err) };
+        return [{ check: p.check, group: p.group, node: node.name, ok: false, answer: codeOf(err) }];
       }
     }),
   );
-  return Promise.all(runs);
+  const health = nodes.map((node) =>
+    nodeHealthRows(node).catch((err): CheckResult[] => [
+      { check: "Node health", group: HEALTH_GROUP, node: node.name, ok: false, answer: codeOf(err) },
+    ]),
+  );
+  return (await Promise.all([...runs, ...health])).flat();
 }

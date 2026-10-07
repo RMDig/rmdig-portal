@@ -43,4 +43,16 @@ describe("GET /api/cron/avserv-checks", () => {
     expect((await call()).status).toBe(503);
     expect((await GET(new Request("https://rmdig.ai/api/cron/avserv-checks"))).status).toBe(401);
   });
+
+  it("reports a node-health warning to Sentry as a warning without failing the run", async () => {
+    h.run.mockResolvedValue([
+      { check: "Team sync", group: "sar_sync", node: "a2", ok: true, answer: "ok" },
+      { check: "Docker VM disk", group: "node_health", node: "a2", ok: false, warn: true, answer: "15.2% free" },
+    ]);
+    const res = await call();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, warned: ["a2: Docker VM disk: 15.2% free"] });
+    expect(h.capture).toHaveBeenCalledWith(expect.stringContaining("Docker VM disk"), "warning");
+    expect(h.log.warn).toHaveBeenCalledWith(expect.objectContaining({ event: "cron.avserv_checks.warned" }));
+  });
 });
