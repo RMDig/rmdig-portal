@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { getPlatformRoles, PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,7 @@ export default async function AdminPage() {
   // enforces it too so a direct URL can't reach admin tools.
   const session = await auth();
   if (!session?.user) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   const roles = await getPlatformRoles(session.user.id);
   if (roles.length === 0) {

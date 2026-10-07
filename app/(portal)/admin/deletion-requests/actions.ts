@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq, inArray } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
@@ -9,7 +10,7 @@ import { lookupAccountsByEmail, mergeAccountMatches, type AccountMatch } from "@
 import { readShareLog } from "@/lib/avserv/share-log";
 import { avservNodes } from "@/lib/avserv/sar-teams";
 import { db } from "@/lib/db";
-import { deletionRequests, sarOrgs } from "@/lib/db/schema";
+import { deletionRequests, sarOrgs, users } from "@/lib/db/schema";
 import { summarizeShareLog, type ShareLogSummary } from "@/lib/deletion/share-log";
 import { logger } from "@/lib/logger";
 
@@ -102,4 +103,36 @@ export async function lookupAccountsAction(_prev: AccountLookup | null, formData
     matches: merged.matches.length,
   });
   return { ok: true, ...merged };
+}
+
+export type MarkCompleted = { ok: true } | { ok: false; error: string };
+
+const CompleteInput = z.object({
+  requestId: z.string().uuid(),
+  note: z.string().trim().min(10, "Say what was erased, and where (at least a short sentence).").max(2000),
+});
+
+/** Close a confirmed deletion request once the runbook's steps are done:
+ *  what was erased and where, recorded with who did it and when. Replaces the
+ *  production UPDATE the runbook used to need. */
+export async function markDeletionCompletedAction(_prev: MarkCompleted | null, formData: FormData): Promise<MarkCompleted> {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  if (!(await hasPlatformRole(actor.userId, "rmdig_admin"))) {
+    return { ok: false, error: "Only a platform administrator can close a deletion request." };
+  }
+  const parsed = CompleteInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const { requestId, note } = parsed.data;
+  const [staff] = await db.select({ email: users.email }).from(users).where(eq(users.id, actor.userId)).limit(1);
+  const now = new Date();
+  const updated = await db
+    .update(deletionRequests)
+    .set({ status: "completed", completedAt: now, note: `${note}\n— ${staff?.email ?? actor.userId}, ${now.toISOString()}` })
+    .where(and(eq(deletionRequests.id, requestId), eq(deletionRequests.status, "confirmed")))
+    .returning({ id: deletionRequests.id });
+  if (updated.length === 0) return { ok: false, error: "That request isn't in the confirmed queue." };
+  logger.info({ event: "deletion.completed", requestId, staffId: actor.userId });
+  revalidatePath("/admin/deletion-requests");
+  return { ok: true };
 }

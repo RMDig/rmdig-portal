@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AdSlotPreview } from "@/components/advertiser/AdSlotPreview";
-import { TargetPicker } from "@/components/advertiser/TargetPicker";
+import { TargetPicker, type InitialTarget } from "@/components/advertiser/TargetPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
   type BuyableSlot,
 } from "@/lib/advertiser/creative-schema";
 import type { GeoUnit } from "@/lib/geo/types";
+import { updateCreativeAction } from "../[creativeId]/edit/actions";
 import { createCreativeAction } from "./actions";
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -21,27 +22,47 @@ function FieldError({ errors }: { errors?: string[] }) {
   return <p className="text-xs text-red-700 dark:text-red-400">{errors.join(", ")}</p>;
 }
 
+export interface CreativeInitial {
+  campaignName: string;
+  slot: BuyableSlot;
+  headline: string;
+  body: string;
+  altText: string;
+  clickUrl: string | null;
+  target: InitialTarget;
+}
+
+// Creates a creative, or (with creativeId + initial) edits a draft or
+// sent-back one. Either way, saving opens the creative's page.
 export function CreativeForm({
   advertiserId,
   states,
+  creativeId,
+  initial,
 }: {
   advertiserId: string;
   states: GeoUnit[];
+  creativeId?: string;
+  initial?: CreativeInitial;
 }) {
   const router = useRouter();
-  const action = createCreativeAction.bind(null, advertiserId);
+  const action = creativeId
+    ? updateCreativeAction.bind(null, advertiserId, creativeId)
+    : createCreativeAction.bind(null, advertiserId);
   const [state, formAction, pending] = useActionState(action, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
-  // Local mirror of the fields so the in-slot preview renders live as you type.
-  const [slot, setSlot] = useState<BuyableSlot>("post_checkin");
-  const [headline, setHeadline] = useState("");
-  const [body, setBody] = useState("");
-  const [clickUrl, setClickUrl] = useState("");
-  const [altText, setAltText] = useState("");
+  // Controlled, so a rejected save keeps what was typed (React 19 resets
+  // uncontrolled fields after a form action), and the preview renders live.
+  const [campaignName, setCampaignName] = useState(initial?.campaignName ?? "");
+  const [slot, setSlot] = useState<BuyableSlot>(initial?.slot ?? "post_checkin");
+  const [headline, setHeadline] = useState(initial?.headline ?? "");
+  const [body, setBody] = useState(initial?.body ?? "");
+  const [clickUrl, setClickUrl] = useState(initial?.clickUrl ?? "");
+  const [altText, setAltText] = useState(initial?.altText ?? "");
 
   useEffect(() => {
-    if (state?.ok) router.push(`/advertiser/${advertiserId}/creatives`);
+    if (state?.ok) router.push(`/advertiser/${advertiserId}/creatives/${state.creativeId}`);
   }, [state, advertiserId, router]);
 
   return (
@@ -54,6 +75,8 @@ export function CreativeForm({
           <Input
             id="campaignName"
             name="campaignName"
+            value={campaignName}
+            onChange={(e) => setCampaignName(e.target.value)}
             placeholder="e.g. Spring 2026 awareness"
             required
             aria-invalid={!!fieldErrors?.campaignName}
@@ -143,7 +166,7 @@ export function CreativeForm({
         </div>
       </section>
 
-      <TargetPicker states={states} />
+      <TargetPicker states={states} initial={initial?.target} />
       <FieldError errors={fieldErrors?.target} />
 
       {state && !state.ok && !fieldErrors ? (
@@ -151,7 +174,7 @@ export function CreativeForm({
       ) : null}
 
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save draft"}
+        {pending ? "Saving…" : creativeId ? "Save changes" : "Save draft"}
       </Button>
     </form>
 

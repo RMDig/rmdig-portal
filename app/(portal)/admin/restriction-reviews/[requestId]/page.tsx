@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { DecisionForm } from "./DecisionForm";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { isPlatformStaff } from "@/lib/auth/roles";
 import { listRestrictions, type Restriction } from "@/lib/avserv/restrictions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,7 @@ export default async function RestrictionReviewDetailPage({
 }) {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   const staffId = session.user.id;
   if (!(await isPlatformStaff(staffId))) {

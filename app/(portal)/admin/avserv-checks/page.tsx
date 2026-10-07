@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { PROBE_EMAIL } from "@/lib/avserv/checks";
 
@@ -13,7 +14,7 @@ export const metadata = { title: "AvServ checks — rmdig admin" };
 // after a node release or a key change, and before a drill.
 export default async function AvServChecksPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   if (!(await hasPlatformRole(session.user.id, "rmdig_admin"))) redirect("/admin");
   return (
     <div className="space-y-6">

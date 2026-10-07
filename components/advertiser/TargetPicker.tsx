@@ -47,17 +47,25 @@ function unitLabel(level: AdminLevel, u: GeoUnit): string {
   return level === "state" ? u.name : `${u.name}, ${u.usps}`;
 }
 
-export function TargetPicker({ states }: { states: GeoUnit[] }) {
-  const [mode, setMode] = useState<Mode>("national");
-  const [radius, setRadius] = useState(DEFAULT_RADIUS);
+/** A creative's existing targeting, when editing it. */
+export type InitialTarget =
+  | { kind: "national" }
+  | { kind: "radius"; lat: number; lon: number; mi: number }
+  | { kind: "admin"; level: AdminLevel; units: GeoUnit[] };
+
+export function TargetPicker({ states, initial }: { states: GeoUnit[]; initial?: InitialTarget }) {
+  const [mode, setMode] = useState<Mode>(initial?.kind === "admin" ? initial.level : (initial?.kind ?? "national"));
+  const [radius, setRadius] = useState(initial?.kind === "radius" ? { lat: initial.lat, lon: initial.lon, mi: initial.mi } : DEFAULT_RADIUS);
 
   // Admin selection: the chosen units (deduped by fips) for the current admin level.
   // Cleared when switching to a different level so a county can't linger under "state".
-  const [selected, setSelected] = useState<GeoUnit[]>([]);
+  const [selected, setSelected] = useState<GeoUnit[]>(initial?.kind === "admin" ? initial.units : []);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState(""); // USPS state filter for county/place
   const [remoteResults, setRemoteResults] = useState<GeoUnit[]>([]); // county/place fetch
   const [searching, setSearching] = useState(false);
+  // A failed search says so (CLAUDE.md §3.2), never shows as "no places".
+  const [searchFailed, setSearchFailed] = useState(false);
 
   const isAdmin = mode === "state" || mode === "county" || mode === "place";
   const level = isAdmin ? (mode as AdminLevel) : null;
@@ -95,15 +103,22 @@ export function TargetPicker({ states }: { states: GeoUnit[] }) {
     const id = ++reqId.current;
     const t = setTimeout(() => {
       setSearching(true);
+      setSearchFailed(false);
       const params = new URLSearchParams({ level, q: query.trim() });
       if (scope) params.set("state", scope);
       fetch(`/api/geo/search?${params.toString()}`)
-        .then((r) => (r.ok ? r.json() : { results: [] }))
-        .then((data: { results: GeoUnit[] }) => {
+        .then((r) => {
+          if (!r.ok) throw new Error(`search answered ${r.status}`);
+          return r.json() as Promise<{ results: GeoUnit[] }>;
+        })
+        .then((data) => {
           if (id === reqId.current) setRemoteResults(data.results ?? []);
         })
         .catch(() => {
-          if (id === reqId.current) setRemoteResults([]);
+          if (id === reqId.current) {
+            setRemoteResults([]);
+            setSearchFailed(true);
+          }
         })
         .finally(() => {
           if (id === reqId.current) setSearching(false);
@@ -122,7 +137,7 @@ export function TargetPicker({ states }: { states: GeoUnit[] }) {
         ? `Within ${radius.mi} mi of ${radius.lat.toFixed(2)}, ${radius.lon.toFixed(2)}.`
         : selected.length === 0
           ? "No areas selected yet — this is required to target by area."
-          : `${selected.length} ${mode}${selected.length === 1 ? "" : mode === "county" ? " (counties)" : "s"} selected.`;
+          : `${selected.length} ${selected.length === 1 ? mode : mode === "county" ? "counties" : `${mode}s`} selected.`;
 
   return (
     <section className="space-y-4">
@@ -273,11 +288,15 @@ export function TargetPicker({ states }: { states: GeoUnit[] }) {
             </ul>
           ) : searching ? (
             <p className="text-muted-foreground text-xs">Searching…</p>
+          ) : searchFailed ? (
+            <p className="text-xs text-red-700 dark:text-red-400">Search isn&apos;t working right now. Try again in a moment.</p>
           ) : level !== "state" && query.trim() === "" && scope === "" ? (
             <p className="text-muted-foreground text-xs">
-              Type to search, or pick a state to browse its {level}s.
+              Type to search, or pick a state to browse its {level === "county" ? "counties" : `${level}s`}.
             </p>
-          ) : null}
+          ) : (
+            <p className="text-muted-foreground text-xs">No matches.</p>
+          )}
         </div>
       ) : null}
 

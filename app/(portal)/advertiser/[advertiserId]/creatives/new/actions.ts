@@ -6,9 +6,7 @@ import { portalActor } from "@/lib/auth/portal-actor";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives, advertiserAccounts } from "@/lib/db/schema";
-import { createCreativeSchema } from "@/lib/advertiser/creative-schema";
-import { adTargetToColumns, parseTargetFromFormData } from "@/lib/advertiser/target";
-import { allFipsExist } from "@/lib/geo/lookup";
+import { parseCreativeForm } from "@/lib/advertiser/creative-form";
 import { logger } from "@/lib/logger";
 
 // Author a text creative under an advertiser (AD-P3, docs/plans/30 §5). Any team
@@ -45,35 +43,9 @@ export async function createCreativeAction(
     return { ok: false, error: "This advertiser account is suspended; you can't author creatives." };
   }
 
-  const parsed = createCreativeSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Please fix the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
-  const data = parsed.data;
-
-  // Parse + validate the targeting (doc 31 §3). national is the default; radius/admin
-  // are validated against the same Zod model the DB CHECK mirrors. For admin we also
-  // confirm every FIPS exists in the bundled Census data — never trust the client.
-  const target = parseTargetFromFormData(formData);
-  if (!target.success) {
-    return {
-      ok: false,
-      error: "Please fix the targeting.",
-      fieldErrors: { target: [target.error.issues[0]?.message ?? "Invalid targeting."] },
-    };
-  }
-  if (target.data.kind === "admin" && !allFipsExist(target.data.level, target.data.fips)) {
-    return {
-      ok: false,
-      error: "Please fix the targeting.",
-      fieldErrors: { target: ["Some selected areas weren't recognized — re-pick them."] },
-    };
-  }
-  const targetColumns = adTargetToColumns(target.data);
+  const form = parseCreativeForm(formData);
+  if (!form.ok) return form;
+  const { data, targetColumns } = form;
 
   // Find-or-create the campaign by name under this advertiser, then insert the
   // draft creative — atomically, so a creative never lands without its campaign.

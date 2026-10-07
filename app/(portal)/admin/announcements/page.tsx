@@ -16,6 +16,7 @@ import {
   type Viewer,
 } from "@/lib/announcements/announcements";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { announcements } from "@/lib/db/schema";
@@ -44,7 +45,7 @@ export default async function AnnouncementsPage({
   searchParams: Promise<{ preview?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   if (!(await hasPlatformRole(session.user.id, "rmdig_admin"))) redirect("/admin");
 
   const { preview } = await searchParams;

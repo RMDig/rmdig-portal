@@ -9,3 +9,11 @@ export const CREATIVE_STATUS_LABEL: Record<string, string> = {
   rejected: "Not approved",
   suspended: "Suspended",
 };
+
+/** The label an advertiser sees. Staff asking for changes puts a creative back
+ *  in `draft` with a note, which must not read the same as a draft that was
+ *  never submitted. */
+export function creativeStatusLabel(status: string, reviewNote: string | null | undefined): string {
+  if (status === "draft" && reviewNote) return "Changes requested";
+  return CREATIVE_STATUS_LABEL[status] ?? status;
+}

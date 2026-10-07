@@ -19,6 +19,7 @@ import PatrolReverifyStaffEmail, { type PatrolReverifyStaffEmailProps } from "./
 import PatrolReverifyTeamEmail, { type PatrolReverifyTeamEmailProps } from "./templates/PatrolReverifyTeamEmail";
 import PlatformInviteEmail from "./templates/PlatformInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
+import RestrictionReviewRequestedEmail from "./templates/RestrictionReviewRequestedEmail";
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
@@ -369,4 +370,9 @@ export async function sendPatrolReverifyTeamEmail(to: string, params: PatrolReve
     html,
     log: { stage: params.stage },
   });
+}
+
+export async function sendRestrictionReviewRequestedEmail(to: string, reviewUrl: string): Promise<void> {
+  const html = await render(RestrictionReviewRequestedEmail({ reviewUrl }));
+  await deliver({ kind: "restriction_review_requested", label: "restriction-review-requested", to, subject: "A restriction review is waiting", html });
 }

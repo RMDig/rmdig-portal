@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMountain } from "@/lib/announcements/announcements";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { deletionRequests, users } from "@/lib/db/schema";
 import { cpaDaysLeft } from "@/lib/deletion/share-log";
 
+import { MarkCompletedForm } from "./MarkCompletedForm";
 import { ShareLogLookupForm } from "./ShareLogLookup";
 
 export const metadata = { title: "Deletion requests — rmdig admin" };
@@ -19,7 +21,7 @@ export const metadata = { title: "Deletion requests — rmdig admin" };
 // operator steps.
 export default async function DeletionRequestsPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   if (!(await hasPlatformRole(session.user.id, "rmdig_admin"))) redirect("/admin");
 
   const queue = await db
@@ -68,6 +70,9 @@ export default async function DeletionRequestsPage() {
                   No portal account is linked to this email. Find its AvAI accounts above, or use the account id from the AvServ deletion step.
                 </p>
               ) : null}
+              <div className="mt-4">
+                <MarkCompletedForm requestId={q.id} />
+              </div>
             </CardContent>
           </Card>
         );

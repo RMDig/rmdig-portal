@@ -3,13 +3,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { AdSlotPreview } from "@/components/advertiser/AdSlotPreview";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives } from "@/lib/db/schema";
 import { describeTarget } from "@/lib/geo/lookup";
-import { CREATIVE_STATUS_LABEL } from "@/lib/advertiser/creative-status";
+import { creativeStatusLabel } from "@/lib/advertiser/creative-status";
 import { BUYABLE_SLOTS, SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
 import { SubmitCreativeButton } from "./SubmitCreativeButton";
 
@@ -25,7 +26,7 @@ export default async function CreativeDetailPage({
   const { advertiserId, creativeId } = await params;
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   if (!(await isAdvertiserMember(session.user.id, advertiserId))) {
     redirect("/dashboard");
@@ -68,7 +69,7 @@ export default async function CreativeDetailPage({
           <h1 className="text-2xl font-semibold tracking-tight">{creative.headline}</h1>
           <p className="text-muted-foreground mt-1">
             {creative.campaignName} · {SLOT_LABEL[creative.slot as BuyableSlot] ?? creative.slot} ·{" "}
-            {CREATIVE_STATUS_LABEL[creative.status] ?? creative.status}
+            {creativeStatusLabel(creative.status, creative.reviewNote)}
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -76,7 +77,7 @@ export default async function CreativeDetailPage({
         </Button>
       </div>
 
-      {(creative.status === "rejected" || creative.status === "draft") && creative.reviewNote ? (
+      {(creative.status === "rejected" || creative.status === "draft" || creative.status === "suspended") && creative.reviewNote ? (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
           <strong>Reviewer note:</strong> {creative.reviewNote}
         </div>
@@ -85,24 +86,30 @@ export default async function CreativeDetailPage({
       {creative.status === "draft" || creative.status === "rejected" ? (
         <div className="space-y-2 rounded-md border p-4">
           <p className="text-sm">
-            This creative is a {CREATIVE_STATUS_LABEL[creative.status]?.toLowerCase()}. Submit it for
-            review — the operator approves every creative before it appears in the app.
+            {creative.reviewNote
+              ? "Make the changes the reviewer asked for, then resubmit. Our team approves every creative before it appears in the app."
+              : "Submit it for review when it's ready. Our team approves every creative before it appears in the app."}
           </p>
-          <SubmitCreativeButton
-            advertiserId={advertiserId}
-            creativeId={creative.id}
-            label={creative.status === "rejected" ? "Resubmit for review" : "Submit for review"}
-          />
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/advertiser/${advertiserId}/creatives/${creative.id}/edit`}>Edit</Link>
+            </Button>
+            <SubmitCreativeButton
+              advertiserId={advertiserId}
+              creativeId={creative.id}
+              label={creative.reviewNote || creative.status === "rejected" ? "Resubmit for review" : "Submit for review"}
+            />
+          </div>
         </div>
       ) : creative.status === "pending" ? (
         <p className="rounded-md border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-200">
-          Under review. We&apos;ll email you when the operator makes a decision.
+          Under review. We&apos;ll email you when our team makes a decision.
         </p>
       ) : creative.status === "approved" ? (
         <p className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200">
           {creative.publishedAt
             ? "Approved and live in the app."
-            : "Approved — going live shortly."}
+            : "Approved. It isn't in the app yet; we'll publish it."}
         </p>
       ) : creative.status === "suspended" ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">

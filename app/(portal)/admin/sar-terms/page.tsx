@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { TermsView } from "@/components/sar/TermsView";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgTerms } from "@/lib/db/schema";
@@ -45,7 +46,7 @@ async function loadQueue() {
 
 export default async function SarTermsReviewPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  if (!session?.user?.id) return redirectToSignIn();
   if (!(await hasPlatformRole(session.user.id, "rmdig_admin"))) redirect("/admin");
 
   const submitted = await loadQueue();

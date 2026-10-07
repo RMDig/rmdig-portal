@@ -4,10 +4,13 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { portalActor } from "@/lib/auth/portal-actor";
+import { staffEmails } from "@/lib/auth/staff-recipients";
 import { listRestrictions } from "@/lib/avserv/restrictions";
 import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { restrictionReviewLog, restrictionReviewRequests, users } from "@/lib/db/schema";
+import { sendRestrictionReviewRequestedEmail } from "@/lib/email/send";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
 import { reviewableRestrictions, reviewRequestSchema } from "@/lib/restrictions/review";
@@ -98,8 +101,9 @@ export async function submitReviewRequestAction(
     };
   }
 
+  let requestId: string;
   try {
-    await db.transaction(async (tx) => {
+    requestId = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(restrictionReviewRequests)
         .values({ userId, avservAccountId: accountId, restrictionId, submissionKey, message })
@@ -108,6 +112,7 @@ export async function submitReviewRequestAction(
       await tx
         .insert(restrictionReviewLog)
         .values({ requestId: row.id, action: "submitted", actorUserId: userId });
+      return row.id;
     });
   } catch (err) {
     if (isUniqueViolation(err)) {
@@ -126,8 +131,31 @@ export async function submitReviewRequestAction(
   }
 
   // The message is the user's free text: never logged.
-  logger.info({ event: "restriction_review.submitted", userId, restrictionId });
+  logger.info({ event: "restriction_review.submitted", userId, restrictionId, requestId });
+  await notifyStaff(requestId);
   revalidatePath("/account/review");
   revalidatePath("/admin/restriction-reviews");
   return { ok: true, replayed: false };
+}
+
+// Staff hear about a new request (it used to wait until someone opened the
+// queue). The request row is the record: a failed email is logged loudly and
+// never fails the user's submit.
+async function notifyStaff(requestId: string): Promise<void> {
+  const reviewUrl = `${env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin/restriction-reviews/${requestId}`;
+  let staff: string[];
+  try {
+    staff = await staffEmails();
+  } catch (err) {
+    logger.error({ event: "restriction_review.staff_lookup_failed", requestId, err });
+    return;
+  }
+  if (staff.length === 0) logger.error({ event: "restriction_review.no_staff_to_notify", requestId });
+  for (const email of staff) {
+    try {
+      await sendRestrictionReviewRequestedEmail(email, reviewUrl);
+    } catch (err) {
+      logger.error({ event: "restriction_review.staff_email_failed", requestId, to: email, err });
+    }
+  }
 }

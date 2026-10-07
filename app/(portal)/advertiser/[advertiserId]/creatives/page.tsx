@@ -3,11 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives, advertiserAccounts } from "@/lib/db/schema";
-import { CREATIVE_STATUS_LABEL } from "@/lib/advertiser/creative-status";
+import { creativeStatusLabel } from "@/lib/advertiser/creative-status";
 import { SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
 
 export const metadata = {
@@ -22,7 +23,7 @@ export default async function CreativesPage({
   const { advertiserId } = await params;
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
   if (!(await isAdvertiserMember(session.user.id, advertiserId))) {
     redirect("/dashboard");
@@ -43,6 +44,7 @@ export default async function CreativesPage({
       headline: adCreatives.headline,
       slot: adCreatives.slot,
       status: adCreatives.status,
+      reviewNote: adCreatives.reviewNote,
       campaignName: adCampaigns.name,
       createdAt: adCreatives.createdAt,
     })
@@ -83,7 +85,7 @@ export default async function CreativesPage({
                 </p>
               </Link>
               <span className="text-muted-foreground shrink-0 text-sm">
-                {CREATIVE_STATUS_LABEL[c.status] ?? c.status}
+                {creativeStatusLabel(c.status, c.reviewNote)}
               </span>
             </li>
           ))}

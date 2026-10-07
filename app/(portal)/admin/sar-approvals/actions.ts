@@ -83,10 +83,12 @@ const reviewSchema = z
   .object({
     orgId: z.string().uuid("Unknown organization."),
     decision: z.enum(["approve", "reject", "request_changes", "suspend", "reactivate", "mark_leaving", "withdraw", "reverify"]),
-    note: z.string().trim().max(2000).optional(),
+    // An empty textarea is no note, not an empty one in the log.
+    note: z.string().trim().max(2000).optional().transform((v) => v || undefined),
   })
-  // A rejection or change request must tell the submitter why; the others don't
-  // require a note (suspend's reason is optional, approve/reactivate need none).
+  // A rejection or change request must tell the submitter why. Approving or
+  // re-verifying a ski patrol needs a note too (checked once the org type is
+  // known); otherwise the note is optional and only goes in the status log.
   .refine((v) => (v.decision !== "reject" && v.decision !== "request_changes") || !!v.note, {
     message: "Add a note for the submitter.",
     path: ["note"],
@@ -131,6 +133,15 @@ export async function reviewSarOrgAction(
   }
   if (decision === "reverify" && org.orgType !== "ski_patrol") {
     return { ok: false, error: "Only ski patrols are re-verified." };
+  }
+  // A patrol is verified by calling the ski area (runbook "SAR org approval"
+  // step 4); the note in the status log is the record of that call.
+  if ((decision === "approve" || decision === "reverify") && org.orgType === "ski_patrol" && !note) {
+    return {
+      ok: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: { note: ["Note the call to the ski area: who you spoke to and the number you used."] },
+    };
   }
   if (decision === "withdraw") {
     const blocked = await openBindingsBlocker(orgId);
@@ -203,7 +214,8 @@ export async function reviewSarOrgAction(
       await sendSarOrgDecisionEmail(org.submitterEmail, {
         orgName: org.name,
         decision: transition.emailDecision,
-        note,
+        // An approval note is staff-only (it records the verification call).
+        note: decision === "approve" ? undefined : note,
       });
     } catch (err) {
       logger.error({ event: "sar.review.email_failed", orgId, err });

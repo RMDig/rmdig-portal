@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "../db";
@@ -143,11 +143,13 @@ async function notifyMembers(payload: IntakePayload, teamName: string): Promise<
     .where(and(eq(sarIntakeMessages.alertId, payload.alertId), eq(sarIntakeMessages.kind, payload.kind)))
     .limit(2);
   if (copies.length > 1) return;
+  // Only the roles that can open the alerts page and act on it (owner
+  // decision 2026-10-06): a responder couldn't follow the email's link.
   const members = await db
     .select({ email: users.email })
     .from(orgMemberships)
     .innerJoin(users, eq(users.id, orgMemberships.userId))
-    .where(eq(orgMemberships.orgId, payload.teamId));
+    .where(and(eq(orgMemberships.orgId, payload.teamId), inArray(orgMemberships.role, ["admin", "dispatcher"])));
   const alertsUrl = `${env.NEXTAUTH_URL ?? "https://rmdig.ai"}/sar/${payload.teamId}/alerts`;
   const results = await Promise.allSettled(
     members.map((m) => sendSarAlertNotifyEmail(m.email, {

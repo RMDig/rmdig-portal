@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { DisplayNameCard, PasswordCard } from "./AccountCards";
@@ -24,7 +24,7 @@ export default async function SettingsPage() {
   // The portal layout gates auth; re-read for the typed id and account fields.
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   const [user] = await db

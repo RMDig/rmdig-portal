@@ -6,9 +6,10 @@ import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { ProofDocError, uploadProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
-import { sarOrgs, sarOrgStatusLog, userPlatformRoles, users } from "@/lib/db/schema";
+import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail } from "@/lib/email/send";
 import { env } from "@/lib/env";
+import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { updateSarOrgSchema } from "@/lib/sar/schema";
@@ -115,23 +116,20 @@ export async function updateSarOrgAction(
 class StatusChanged extends Error {}
 
 async function notifyStaff(orgId: string, orgName: string, submitterEmail: string): Promise<void> {
-  const reviewUrl = `${env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin/sar-approvals`;
-  let admins: { email: string }[];
+  const reviewUrl = `${env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin/sar-approvals#org-${orgId}`;
+  // Everyone who can approve SAR orgs (admins and reviewers), not just admins.
+  let staff: string[];
   try {
-    admins = await db
-      .select({ email: users.email })
-      .from(userPlatformRoles)
-      .innerJoin(users, eq(users.id, userPlatformRoles.userId))
-      .where(eq(userPlatformRoles.role, "rmdig_admin"));
+    staff = await staffEmails();
   } catch (err) {
-    logger.error({ event: "sar.resubmit.admin_lookup_failed", orgId, err });
+    logger.error({ event: "sar.resubmit.staff_lookup_failed", orgId, err });
     return;
   }
-  for (const admin of admins) {
+  for (const email of staff) {
     try {
-      await sendSarOrgPendingReviewEmail(admin.email, { orgName, submitterEmail, reviewUrl });
+      await sendSarOrgPendingReviewEmail(email, { orgName, submitterEmail, reviewUrl });
     } catch (err) {
-      logger.error({ event: "sar.resubmit.admin_email_failed", orgId, to: admin.email, err });
+      logger.error({ event: "sar.resubmit.staff_email_failed", orgId, to: email, err });
     }
   }
 }

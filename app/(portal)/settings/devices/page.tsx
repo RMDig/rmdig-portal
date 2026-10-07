@@ -1,10 +1,10 @@
 import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { DevicesList } from "./DevicesList";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { listDevices, type LinkedDevice } from "@/lib/avserv/client";
 import { isAvServOutage } from "@/lib/avserv/request";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ export default async function DevicesPage() {
   // The portal layout gates auth; re-read for the typed id and the account map.
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   const [user] = await db

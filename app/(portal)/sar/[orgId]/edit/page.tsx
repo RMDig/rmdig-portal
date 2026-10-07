@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarOrgs } from "@/lib/db/schema";
@@ -19,7 +20,7 @@ export default async function EditOrgPage({ params }: { params: Promise<{ orgId:
   const { orgId } = await params;
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId) redirect("/sign-in");
+  if (!userId) return redirectToSignIn();
   if (!/^[0-9a-f-]{36}$/i.test(orgId) || !(await canManageOrg(userId, orgId))) redirect("/dashboard");
 
   const [org] = await db.select().from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);

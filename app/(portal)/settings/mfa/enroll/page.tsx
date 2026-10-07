@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import QRCode from "qrcode";
 
 import { auth } from "@/lib/auth";
+import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import {
   decryptSecret,
   encryptSecret,
@@ -22,7 +22,7 @@ export const metadata = {
 export default async function MfaEnrollPage() {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   const [user] = await db
@@ -36,7 +36,7 @@ export default async function MfaEnrollPage() {
     .limit(1);
 
   if (!user) {
-    redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   // Already on — nothing to enroll. Manage it from Settings instead.

@@ -19,6 +19,8 @@ const h = vi.hoisted(() => ({
   liftRestriction: vi.fn(),
   rateAllowed: true,
   sendUpheld: vi.fn(),
+  sendRequested: vi.fn(),
+  staffEmails: ["ops@rmdig.ai", "reviewer@rmdig.ai"] as string[],
   revalidatePath: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -67,7 +69,9 @@ vi.mock("@/lib/avserv/restrictions", () => ({
 vi.mock("@/lib/rate-limit", () => ({
   incrementRateLimit: () => Promise.resolve({ allowed: h.rateAllowed }),
 }));
-vi.mock("@/lib/email/send", () => ({ sendRestrictionReviewUpheldEmail: h.sendUpheld }));
+vi.mock("@/lib/email/send", () => ({ sendRestrictionReviewUpheldEmail: h.sendUpheld, sendRestrictionReviewRequestedEmail: h.sendRequested }));
+vi.mock("@/lib/auth/staff-recipients", () => ({ staffEmails: () => Promise.resolve(h.staffEmails) }));
+vi.mock("@/lib/env", () => ({ env: { NEXTAUTH_URL: "https://rmdig.ai" } }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath }));
 
@@ -134,6 +138,24 @@ describe("submitReviewRequestAction", () => {
     expect(h.inserts[1]!.values).toMatchObject({ action: "submitted", actorUserId: "u1" });
     // The user's free text is never logged.
     expect(JSON.stringify(h.log.info.mock.calls)).not.toMatch(/rough road/);
+  });
+
+  it("emails every staff member a link to the new request, with none of the user's message", async () => {
+    h.selects = [[], [{ avservAccountId: ACCOUNT }]];
+    h.sendRequested.mockResolvedValue(undefined);
+    expect(await submitReviewRequestAction(null, form())).toEqual({ ok: true, replayed: false });
+    expect(h.sendRequested).toHaveBeenCalledTimes(2);
+    const [to, url] = h.sendRequested.mock.calls[0]!;
+    expect(to).toBe("ops@rmdig.ai");
+    expect(url).toMatch(/^https:\/\/rmdig\.ai\/admin\/restriction-reviews\/[\w-]+$/);
+    expect(JSON.stringify(h.sendRequested.mock.calls)).not.toMatch(/rough road/);
+  });
+
+  it("keeps the request when the staff email fails, logging it loudly", async () => {
+    h.selects = [[], [{ avservAccountId: ACCOUNT }]];
+    h.sendRequested.mockRejectedValue(new Error("resend down"));
+    expect(await submitReviewRequestAction(null, form())).toEqual({ ok: true, replayed: false });
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "restriction_review.staff_email_failed" }));
   });
 
   it("replays a double submit as the same request without touching AvServ", async () => {
