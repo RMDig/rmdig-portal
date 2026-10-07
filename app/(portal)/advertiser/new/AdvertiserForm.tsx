@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createAdvertiserAccountAction } from "./actions";
+import { useSubmittedValues } from "@/components/forms/use-submitted-values";
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors?.length) return null;
@@ -18,18 +19,20 @@ export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boo
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createAdvertiserAccountAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  // What was typed survives a rejected submit (React resets the form).
+  const { values, capture } = useSubmittedValues({ name: "", websiteUrl: "", contactName: "", contactEmail: "" });
 
   useEffect(() => {
     if (state?.ok) router.push(`/advertiser/${state.advertiserId}/creatives`);
   }, [state, router]);
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form action={formAction} onSubmit={capture} className="space-y-8">
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Advertiser</h2>
         <div className="space-y-2">
           <Label htmlFor="name">Business / organization name</Label>
-          <Input id="name" name="name" required aria-invalid={!!fieldErrors?.name} />
+          <Input id="name" name="name" required defaultValue={values.name} aria-invalid={!!fieldErrors?.name} />
           <FieldError errors={fieldErrors?.name} />
         </div>
         <div className="space-y-2">
@@ -37,6 +40,7 @@ export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boo
           <Input
             id="websiteUrl"
             name="websiteUrl"
+            defaultValue={values.websiteUrl}
             type="url"
             placeholder="https://example.com"
             aria-invalid={!!fieldErrors?.websiteUrl}
@@ -52,6 +56,7 @@ export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boo
           <Input
             id="contactName"
             name="contactName"
+            defaultValue={values.contactName}
             required
             aria-invalid={!!fieldErrors?.contactName}
           />
@@ -62,6 +67,7 @@ export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boo
           <Input
             id="contactEmail"
             name="contactEmail"
+            defaultValue={values.contactEmail}
             type="email"
             required
             aria-invalid={!!fieldErrors?.contactEmail}
@@ -73,7 +79,7 @@ export function AdvertiserForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boo
 
       <section className="space-y-3">
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
-          <strong>Terms under review by counsel.</strong> Every ad creative is manually reviewed
+          <strong>Terms under review by counsel.</strong> Every ad is manually reviewed
           before it can appear in the app. By continuing, you confirm you&apos;re authorized to
           represent this advertiser and that the information is accurate.
         </div>

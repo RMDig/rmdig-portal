@@ -14,6 +14,7 @@ import {
 } from "@/lib/announcements/announcements";
 
 import { createAnnouncementAction } from "./actions";
+import { useSubmittedValues } from "@/components/forms/use-submitted-values";
 
 // New announcement, with the banner previewed as you type. Inputs are
 // uncontrolled with capture-on-submit, so React 19's post-action reset doesn't
@@ -22,11 +23,14 @@ export function AnnouncementForm() {
   const [state, formAction, pending] = useActionState(createAnnouncementAction, null);
   const [draft, setDraft] = useState({ message: "", severity: "info" as Severity });
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  // Audience and times survive a rejected submit too (message and type are in `draft`).
+  const { values, capture } = useSubmittedValues({ audiences: ["everyone"], startsAt: "", endsAt: "" });
   const flagged = forbiddenPhrasesIn(draft.message);
 
   return (
     <form
       action={formAction}
+      onSubmit={capture}
       onChange={(e) => {
         const f = new FormData(e.currentTarget);
         setDraft({ message: String(f.get("message") ?? ""), severity: (f.get("severity") as Severity) ?? "info" });
@@ -66,7 +70,7 @@ export function AnnouncementForm() {
         <div className="flex flex-wrap gap-4 text-sm">
           {AUDIENCES.map((a) => (
             <label key={a} className="flex items-center gap-2">
-              <input type="checkbox" name="audiences" value={a} defaultChecked={a === "everyone"} />
+              <input type="checkbox" name="audiences" value={a} defaultChecked={values.audiences.includes(a)} />
               {AUDIENCE_LABEL[a]}
             </label>
           ))}
@@ -77,11 +81,11 @@ export function AnnouncementForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="ann-start">Starts (Mountain time, empty = now)</Label>
-          <input id="ann-start" name="startsAt" type="datetime-local" className="w-full rounded-md border bg-transparent p-2 text-sm" />
+          <input id="ann-start" name="startsAt" type="datetime-local" defaultValue={values.startsAt} className="w-full rounded-md border bg-transparent p-2 text-sm" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ann-end">Ends (Mountain time, empty = until ended)</Label>
-          <input id="ann-end" name="endsAt" type="datetime-local" className="w-full rounded-md border bg-transparent p-2 text-sm" />
+          <input id="ann-end" name="endsAt" type="datetime-local" defaultValue={values.endsAt} className="w-full rounded-md border bg-transparent p-2 text-sm" />
           {fieldErrors?.endsAt ? <p className="text-sm text-red-600">{fieldErrors.endsAt[0]}</p> : null}
         </div>
       </div>

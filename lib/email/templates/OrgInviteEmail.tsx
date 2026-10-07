@@ -10,19 +10,14 @@ import {
   Section,
   Text,
 } from "@react-email/components";
+import { TEAM_ROLE_PHRASE, type TeamRole } from "../../labels";
 
 export interface OrgInviteEmailProps {
   orgName: string;
   inviteUrl: string;
-  role: string;
+  role: TeamRole;
   expiresInDays: number;
 }
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "an admin",
-  dispatcher: "a dispatcher",
-  responder: "a responder",
-};
 
 // Invitation to join a SAR org. The link carries the one-time token; accepting
 // adds the recipient to the org with the named role.
@@ -41,7 +36,7 @@ export default function OrgInviteEmail({
           <Heading style={heading}>Join {orgName}</Heading>
           <Text style={paragraph}>
             You&apos;ve been invited to join <strong>{orgName}</strong> as{" "}
-            {ROLE_LABEL[role] ?? `a ${role}`} on rmdig.
+            {TEAM_ROLE_PHRASE[role]} on rmdig.
           </Text>
           <Section style={buttonContainer}>
             <Link href={inviteUrl} style={button}>

@@ -23,7 +23,7 @@ describe("teamTabs", () => {
 
 describe("advertiserTabs", () => {
   it("shows Team to the account's admins only", () => {
-    expect(labels(advertiserTabs("a1", "admin"))).toEqual(["Creatives", "Team"]);
-    expect(advertiserTabs("a1", "editor")).toEqual([{ href: "/advertiser/a1/creatives", label: "Creatives" }]);
+    expect(labels(advertiserTabs("a1", "admin"))).toEqual(["Ads", "Team"]);
+    expect(advertiserTabs("a1", "editor")).toEqual([{ href: "/advertiser/a1/creatives", label: "Ads" }]);
   });
 });

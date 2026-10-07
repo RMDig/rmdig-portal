@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 
 import { runChecksAction, type ChecksOutcome } from "./actions";
+import { formatMountain } from "@/lib/format/time";
 
 export function ChecksRunner() {
   const [state, action, pending] = useActionState<ChecksOutcome | null, FormData>(runChecksAction, null);
@@ -59,7 +60,7 @@ export function ChecksRunner() {
               </tbody>
             </table>
           </div>
-          <p className="text-muted-foreground text-xs">Run at {new Date(state.at).toLocaleString()}.</p>
+          <p className="text-muted-foreground text-xs">Run at {formatMountain(new Date(state.at))}.</p>
         </>
       ) : null}
     </div>

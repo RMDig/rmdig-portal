@@ -10,18 +10,14 @@ import {
   Section,
   Text,
 } from "@react-email/components";
+import { ADVERTISER_ROLE_PHRASE, type AdvertiserRole } from "../../labels";
 
 export interface AdvertiserInviteEmailProps {
   advertiserName: string;
   inviteUrl: string;
-  role: string;
+  role: AdvertiserRole;
   expiresInDays: number;
 }
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "an admin",
-  editor: "an editor",
-};
 
 // Invitation to join an advertiser account (docs/plans/30 §3). The link carries
 // the one-time token; accepting adds the recipient with the named role.
@@ -40,7 +36,7 @@ export default function AdvertiserInviteEmail({
           <Heading style={heading}>Join {advertiserName}</Heading>
           <Text style={paragraph}>
             You&apos;ve been invited to manage advertising for <strong>{advertiserName}</strong> as{" "}
-            {ROLE_LABEL[role] ?? `a ${role}`} on rmdig.
+            {ADVERTISER_ROLE_PHRASE[role]} on rmdig.
           </Text>
           <Section style={buttonContainer}>
             <Link href={inviteUrl} style={button}>

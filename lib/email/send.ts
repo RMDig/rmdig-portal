@@ -28,6 +28,7 @@ import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
 import SarTermsDecisionEmail, { type SarTermsDecision } from "./templates/SarTermsDecisionEmail";
 import SarTermsPendingReviewEmail from "./templates/SarTermsPendingReviewEmail";
 import VerifyEmail from "./templates/VerifyEmail";
+import type { AdvertiserRole, TeamRole } from "../labels";
 
 // Lazy so importing this module never depends on the key being present —
 // RESEND_API_KEY is optional in the env schema (a deploy without it must still
@@ -157,7 +158,7 @@ export async function sendSarOrgDecisionEmail(
 
 export async function sendOrgInviteEmail(
   to: string,
-  params: { orgName: string; inviteUrl: string; role: string },
+  params: { orgName: string; inviteUrl: string; role: TeamRole },
 ): Promise<void> {
   const html = await render(
     OrgInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
@@ -174,7 +175,7 @@ export async function sendOrgInviteEmail(
 
 export async function sendAdvertiserInviteEmail(
   to: string,
-  params: { advertiserName: string; inviteUrl: string; role: string },
+  params: { advertiserName: string; inviteUrl: string; role: AdvertiserRole },
 ): Promise<void> {
   const html = await render(
     AdvertiserInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
@@ -199,16 +200,16 @@ export async function sendAdCreativePendingReviewEmail(
     kind: "ad_pending_review",
     label: "ad-pending-review",
     to,
-    subject: `Ad creative awaiting review: ${params.headline}`,
+    subject: `Ad awaiting review: ${params.headline}`,
     html,
   });
 }
 
 const AD_DECISION_SUBJECT: Record<AdCreativeDecision, string> = {
-  approved: "Your ad creative is approved",
-  rejected: "An update on your ad creative",
-  changes_requested: "Your ad creative needs changes",
-  suspended: "Your ad creative is paused",
+  approved: "Your ad is approved",
+  rejected: "An update on your ad",
+  changes_requested: "Your ad needs changes",
+  suspended: "Your ad is paused",
 };
 
 export async function sendAdCreativeDecisionEmail(

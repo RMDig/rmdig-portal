@@ -18,6 +18,7 @@ import {
   SERVICE_AREA_HELP,
 } from "../SarOrgFields";
 import { createSarOrgAction } from "./actions";
+import { useSubmittedValues } from "@/components/forms/use-submitted-values";
 
 export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
   const router = useRouter();
@@ -27,20 +28,22 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
   const [region, setRegion] = useState<DrawnPolygon | null>(null);
   const onRegionChange = useCallback((p: DrawnPolygon | null) => setRegion(p), []);
   const [orgType, setOrgType] = useState("sar_team");
+  // What was typed survives a rejected submit (React resets the form).
+  const { values, capture } = useSubmittedValues(EMPTY_ORG_FIELDS);
 
   useEffect(() => {
     if (state?.ok) router.push("/sar/pending");
   }, [state, router]);
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form action={formAction} onSubmit={capture} className="space-y-8">
       <input type="hidden" name="region" value={region ? JSON.stringify(region) : ""} />
 
-      <OrgDetailsFields initial={EMPTY_ORG_FIELDS} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
+      <OrgDetailsFields initial={values} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Primary contact</h2>
-        <ContactFields initial={EMPTY_ORG_FIELDS} fieldErrors={fieldErrors} />
+        <ContactFields initial={values} fieldErrors={fieldErrors} />
         <VerifiedPhoneField enabled={phoneVerifyEnabled} fieldErrors={fieldErrors} />
       </section>
 
@@ -71,6 +74,7 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
           <Input
             id="regionName"
             name="regionName"
+            defaultValue={values.regionName}
             placeholder="e.g. San Juan County, CO"
             aria-invalid={!!fieldErrors?.regionName}
           />

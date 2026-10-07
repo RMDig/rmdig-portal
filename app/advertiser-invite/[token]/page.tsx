@@ -8,14 +8,10 @@ import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserInvitations } from "@/lib/db/schema";
 import { hashInviteToken } from "@/lib/sar/invitations";
 import { AcceptInvite } from "./AcceptInvite";
+import { ADVERTISER_ROLE_PHRASE } from "@/lib/labels";
 
 export const metadata = {
   title: "Accept advertiser invitation — rmdig",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "an admin",
-  editor: "an editor",
 };
 
 export default async function AdvertiserInvitePage({
@@ -62,7 +58,7 @@ export default async function AdvertiserInvitePage({
           <h1 className="text-2xl font-semibold tracking-tight">Join {invite.advertiserName}</h1>
           <p className="text-muted-foreground">
             You&apos;ve been invited to manage advertising for{" "}
-            <strong>{invite.advertiserName}</strong> as {ROLE_LABEL[invite.role] ?? invite.role}.
+            <strong>{invite.advertiserName}</strong> as {ADVERTISER_ROLE_PHRASE[invite.role]}.
             Sign in or create an account to accept. You&apos;ll come back here afterwards.
           </p>
           <div className="flex gap-3">
@@ -79,7 +75,7 @@ export default async function AdvertiserInvitePage({
           <h1 className="text-2xl font-semibold tracking-tight">Join {invite.advertiserName}</h1>
           <p className="text-muted-foreground">
             You&apos;re signed in as {session.user.email}. Accept to join{" "}
-            <strong>{invite.advertiserName}</strong> as {ROLE_LABEL[invite.role] ?? invite.role}.
+            <strong>{invite.advertiserName}</strong> as {ADVERTISER_ROLE_PHRASE[invite.role]}.
           </p>
           <AcceptInvite token={token} />
         </div>

@@ -9,7 +9,6 @@ import {
   AUDIENCE_LABEL,
   AUDIENCES,
   audiencesOf,
-  formatMountain,
   phaseOf,
   shownTo,
   type Audience,
@@ -23,6 +22,7 @@ import { announcements } from "@/lib/db/schema";
 
 import { endAnnouncementAction } from "./actions";
 import { AnnouncementForm } from "./AnnouncementForm";
+import { formatMountain } from "@/lib/format/time";
 
 export const metadata = { title: "Announcements — rmdig admin" };
 

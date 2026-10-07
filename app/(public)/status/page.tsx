@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { formatMountain } from "@/lib/announcements/announcements";
+import { formatMountain } from "@/lib/format/time";
 import { env } from "@/lib/env";
 import { pageMetadata } from "@/lib/seo";
 import { checkNodes, nodeBases, overall } from "@/lib/status/check";

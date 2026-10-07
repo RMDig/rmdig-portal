@@ -4,11 +4,11 @@ import {
   audiencesOf,
   createAnnouncementSchema,
   forbiddenPhrasesIn,
-  formatMountain,
   mountainLocalToDate,
   phaseOf,
   shownTo,
 } from "@/lib/announcements/announcements";
+import { formatMountain } from "@/lib/format/time";
 
 describe("audiencesOf", () => {
   it("puts a user with no roles in everyone + explorer", () => {

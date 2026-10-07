@@ -27,12 +27,12 @@ export default function AdCreativePendingReviewEmail({
   return (
     <Html>
       <Head />
-      <Preview>An ad creative is awaiting review: {headline}</Preview>
+      <Preview>An ad is awaiting review: {headline}</Preview>
       <Body style={body}>
         <Container style={container}>
-          <Heading style={heading}>New ad creative awaiting review</Heading>
+          <Heading style={heading}>New ad awaiting review</Heading>
           <Text style={paragraph}>
-            <strong>{advertiserName}</strong> submitted the creative “<strong>{headline}</strong>”
+            <strong>{advertiserName}</strong> submitted the ad “<strong>{headline}</strong>”
             for review. No creative reaches the app until it&apos;s approved.
           </Text>
           <Section style={buttonContainer}>

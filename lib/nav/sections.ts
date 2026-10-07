@@ -22,7 +22,7 @@ export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responde
 export function advertiserTabs(advertiserId: string, role: "admin" | "editor"): SectionTab[] {
   const base = `/advertiser/${advertiserId}`;
   return [
-    { href: `${base}/creatives`, label: "Creatives" },
+    { href: `${base}/creatives`, label: "Ads" },
     ...(role === "admin" ? [{ href: `${base}/members`, label: "Team" }] : []),
   ];
 }

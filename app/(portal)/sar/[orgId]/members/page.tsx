@@ -8,15 +8,10 @@ import { db } from "@/lib/db";
 import { orgInvitations, orgMemberships, sarOrgs, users } from "@/lib/db/schema";
 import { InviteForm } from "./InviteForm";
 import { MemberControls, RevokeInvite } from "./MemberControls";
+import { TEAM_ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = {
   title: "Members — rmdig",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Admin",
-  dispatcher: "Dispatcher",
-  responder: "Responder",
 };
 
 export default async function MembersPage({ params }: { params: Promise<{ orgId: string }> }) {
@@ -76,7 +71,7 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
         <>
           {org.status === "pending" ? (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
-              Your organization is under review. You can invite teammates and finish setting
+              Your team is under review. You can invite teammates and finish setting
               up now.
             </p>
           ) : null}
@@ -84,7 +79,7 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
         </>
       ) : (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
-          Your organization is {org.status}, so inviting members is unavailable.
+          Your team is {TEAM_STATUS_LABEL[org.status].toLowerCase()}, so you can&apos;t invite members.
         </p>
       )}
 
@@ -116,7 +111,7 @@ export default async function MembersPage({ params }: { params: Promise<{ orgId:
               <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div>
                   <span>{p.email}</span>
-                  <p className="text-muted-foreground text-xs">Invited as {ROLE_LABEL[p.role] ?? p.role}</p>
+                  <p className="text-muted-foreground text-xs">Invited as {TEAM_ROLE_LABEL[p.role]}</p>
                 </div>
                 <RevokeInvite orgId={orgId} invitationId={p.id} />
               </li>

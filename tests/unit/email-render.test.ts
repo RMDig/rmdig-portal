@@ -126,7 +126,7 @@ describe("email templates render to HTML", () => {
     expect(notYet.replace(/&#x27;|&apos;/g, "'")).toContain("It isn't in the app yet");
     const edit = await render(AdCreativeDecisionEmail({ ...base, creativeUrl: `${url}/edit`, decision: "changes_requested", note: "Shorter headline." }));
     expect(edit).toContain(`${url}/edit`);
-    expect(edit).toContain("Edit your creative");
+    expect(edit).toContain("Edit your ad");
   });
 
   it("AdCreativeDecisionEmail tells the advertiser a suspended ad is out of the app, with staff's note", async () => {

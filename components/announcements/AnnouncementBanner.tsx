@@ -1,4 +1,5 @@
-import { formatMountain, SEVERITY_LABEL, type Severity } from "@/lib/announcements/announcements";
+import { SEVERITY_LABEL, type Severity } from "@/lib/announcements/announcements";
+import { formatMountain } from "@/lib/format/time";
 
 // One staff announcement as a full-width bar under the portal header. Used by
 // the portal layout and by the admin preview, so staff see exactly what each

@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatMountainDate } from "@/lib/format/time";
 
 // Read-only presentation of the devices linked to the user's AvServ account
 // (P-B3). Server component — no interactivity; unlink is intentionally NOT here
@@ -15,11 +16,7 @@ import {
 function formatDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "unknown";
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return formatMountainDate(date);
 }
 
 export function DevicesList({ devices }: { devices: LinkedDevice[] }) {
@@ -29,7 +26,7 @@ export function DevicesList({ devices }: { devices: LinkedDevice[] }) {
         <CardTitle>Linked devices</CardTitle>
         <CardDescription>
           Devices currently linked to your account. To link a new one, generate a code below
-          and enter it in AvApp.
+          and enter it in the AvAI app.
         </CardDescription>
       </CardHeader>
       <CardContent>

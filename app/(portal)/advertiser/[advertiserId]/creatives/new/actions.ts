@@ -40,7 +40,7 @@ export async function createCreativeAction(
     return { ok: false, error: "That advertiser account no longer exists." };
   }
   if (advertiser.status !== "active") {
-    return { ok: false, error: "This advertiser account is suspended; you can't author creatives." };
+    return { ok: false, error: "This advertiser account is suspended; you can't create ads." };
   }
 
   const form = parseCreativeForm(formData);
@@ -93,7 +93,7 @@ export async function createCreativeAction(
     });
   } catch (err) {
     logger.error({ event: "advertiser.creative.create_failed", userId, advertiserId, err });
-    return { ok: false, error: "Couldn't save the creative. Try again in a moment." };
+    return { ok: false, error: "Couldn't save the ad. Try again in a moment." };
   }
 
   logger.info({ event: "advertiser.creative.created", userId, advertiserId, creativeId });

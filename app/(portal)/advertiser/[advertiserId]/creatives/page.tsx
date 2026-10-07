@@ -57,19 +57,19 @@ export default async function CreativesPage({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Creatives</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Ads</h1>
           <p className="text-muted-foreground mt-1">Your ads. Each is reviewed by our team before it appears in the app.</p>
         </div>
         {advertiser.status === "active" ? (
           <Button asChild size="sm">
-            <Link href={`/advertiser/${advertiserId}/creatives/new`}>New creative</Link>
+            <Link href={`/advertiser/${advertiserId}/creatives/new`}>New ad</Link>
           </Button>
         ) : null}
       </div>
 
       {creatives.length === 0 ? (
         <p className="text-muted-foreground rounded-md border border-dashed px-4 py-8 text-center text-sm">
-          No creatives yet. Create one to preview it and submit it for review.
+          No ads yet. Create one to preview it and submit it for review.
         </p>
       ) : (
         <ul className="divide-y rounded-md border">

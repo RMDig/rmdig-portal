@@ -1,3 +1,4 @@
+import { TEAM_STATUS_LABEL } from "../labels";
 import { circleRing, ringsBounds, type Bounds, type LonLat } from "./geometry";
 
 // The layer model behind /map (docs/plans/33). Pure: the page's server
@@ -72,12 +73,12 @@ export interface OrgRow {
 // Plain status words only. No routing claim (nothing routes alerts to SAR orgs
 // yet), and never "coverage" or "monitored": SAR teams aren't watching anyone.
 const ORG_STYLE: Record<OrgStatus, { color: string; dashed: boolean; label: string }> = {
-  approved: { color: "#2563eb", dashed: false, label: "Approved" },
-  pending: { color: "#6b7280", dashed: true, label: "Under review" },
-  suspended: { color: "#d97706", dashed: true, label: "Suspended" },
-  leaving: { color: "#6b7280", dashed: true, label: "Leaving the program" },
-  withdrawn: { color: "#9ca3af", dashed: true, label: "Withdrawn" },
-  rejected: { color: "#9ca3af", dashed: true, label: "Not approved" },
+  approved: { color: "#2563eb", dashed: false, label: TEAM_STATUS_LABEL.approved },
+  pending: { color: "#6b7280", dashed: true, label: TEAM_STATUS_LABEL.pending },
+  suspended: { color: "#d97706", dashed: true, label: TEAM_STATUS_LABEL.suspended },
+  leaving: { color: "#6b7280", dashed: true, label: TEAM_STATUS_LABEL.leaving },
+  withdrawn: { color: "#9ca3af", dashed: true, label: TEAM_STATUS_LABEL.withdrawn },
+  rejected: { color: "#9ca3af", dashed: true, label: TEAM_STATUS_LABEL.rejected },
 };
 
 function orgItem(o: OrgRow): LayerItem {

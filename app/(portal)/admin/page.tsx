@@ -76,7 +76,7 @@ export default async function AdminPage() {
         <CardHeader>
           <CardTitle>SAR approvals</CardTitle>
           <CardDescription>
-            Review pending search-and-rescue organization applications and approve, reject, or
+            Review pending search &amp; rescue team applications and approve, reject, or
             request changes.
           </CardDescription>
         </CardHeader>
@@ -92,7 +92,7 @@ export default async function AdminPage() {
         <CardHeader>
           <CardTitle>Ad approvals</CardTitle>
           <CardDescription>
-            Review submitted ad creatives and approve, reject, or request changes. No creative
+            Review submitted ads and approve, reject, or request changes. No ad
             reaches the app until you approve it.
           </CardDescription>
         </CardHeader>
@@ -193,7 +193,7 @@ export default async function AdminPage() {
       {isAdmin ? (
         <Card>
           <CardHeader>
-            <CardTitle>Team</CardTitle>
+            <CardTitle>Staff</CardTitle>
             <CardDescription>
               Invite new administrators or reviewers and manage who holds staff roles.
               Grants and revocations require your password and are audit-logged.
@@ -201,7 +201,7 @@ export default async function AdminPage() {
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link href="/admin/team">Manage team</Link>
+              <Link href="/admin/team">Manage staff</Link>
             </Button>
           </CardContent>
         </Card>

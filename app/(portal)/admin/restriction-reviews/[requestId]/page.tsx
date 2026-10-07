@@ -13,6 +13,8 @@ import { db } from "@/lib/db";
 import { restrictionReviewLog, restrictionReviewRequests, users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { scopeLabel } from "@/lib/restrictions/review";
+import { formatMountain } from "@/lib/format/time";
+import { RESTRICTION_REVIEW_ACTION_LABEL, RESTRICTION_REVIEW_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = {
   title: "Restriction review — rmdig",
@@ -90,7 +92,7 @@ export default async function RestrictionReviewDetailPage({
         <CardHeader>
           <CardTitle>From {request.email}</CardTitle>
           <CardDescription>
-            Asked {request.createdAt.toLocaleString()} · status {request.status}
+            Asked {formatMountain(request.createdAt)} · {RESTRICTION_REVIEW_STATUS_LABEL[request.status]}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -165,7 +167,7 @@ export default async function RestrictionReviewDetailPage({
           <ul className="space-y-2 text-sm">
             {log.map((e, i) => (
               <li key={i}>
-                <span className="font-medium">{e.action}</span> · {e.createdAt.toLocaleString()} ·{" "}
+                <span className="font-medium">{RESTRICTION_REVIEW_ACTION_LABEL[e.action]}</span> · {formatMountain(e.createdAt)} ·{" "}
                 {e.actor ?? "(deleted user)"}
                 {e.note ? <span className="block whitespace-pre-wrap">{e.note}</span> : null}
               </li>

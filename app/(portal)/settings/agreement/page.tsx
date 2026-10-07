@@ -14,6 +14,7 @@ import { type AvaiAccount, getAccount } from "@/lib/avserv/agreement";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { formatMountainDate } from "@/lib/format/time";
 
 export const metadata = {
   title: "AvAI user agreement — rmdig",
@@ -113,11 +114,7 @@ export default async function AgreementPage() {
       {settled && acceptance ? (
         <p className="rounded-md border border-green-300 bg-green-50 p-3 text-sm dark:border-green-800 dark:bg-green-950">
           You accepted this agreement ({presented.version}) on{" "}
-          {new Date(acceptance.acceptedAt).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })}
+          {formatMountainDate(new Date(acceptance.acceptedAt))}
           .
         </p>
       ) : null}

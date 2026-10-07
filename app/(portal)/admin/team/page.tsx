@@ -18,9 +18,10 @@ import {
   users,
 } from "@/lib/db/schema";
 import { CancelInviteButton, InviteStaffForm, RevokeRoleForm } from "./TeamForms";
+import { formatMountainDate } from "@/lib/format/time";
 
 export const metadata = {
-  title: "Team — rmdig admin",
+  title: "Staff — rmdig admin",
 };
 
 export default async function AdminTeamPage() {
@@ -62,14 +63,14 @@ export default async function AdminTeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Staff</h1>
         <p className="text-muted-foreground mt-1">
           Platform staff — administrators and reviewers.
         </p>
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Staff</h2>
+        <h2 className="text-lg font-medium">Current staff</h2>
         <ul className="divide-y rounded-md border">
           {members.map((m) => (
             <li
@@ -80,7 +81,7 @@ export default async function AdminTeamPage() {
                 <p className="font-medium">{m.displayName ?? m.email}</p>
                 <p className="text-muted-foreground text-sm">
                   {m.email} · {PLATFORM_ROLE_LABEL[m.role]} · since{" "}
-                  {m.since.toLocaleDateString()}
+                  {formatMountainDate(m.since)}
                 </p>
               </div>
               <RevokeRoleForm targetUserId={m.userId} role={m.role} />
@@ -106,7 +107,7 @@ export default async function AdminTeamPage() {
                       {PLATFORM_ROLE_LABEL[i.role]} ·{" "}
                       {i.expiresAt < now
                         ? "expired"
-                        : `expires ${i.expiresAt.toLocaleDateString()}`}
+                        : `expires ${formatMountainDate(i.expiresAt)}`}
                     </p>
                   </div>
                   <CancelInviteButton inviteId={i.id} />
@@ -141,7 +142,7 @@ export default async function AdminTeamPage() {
                   {entry.targetEmail}
                 </span>
                 <span className="text-muted-foreground">
-                  {entry.createdAt.toLocaleDateString()}
+                  {formatMountainDate(entry.createdAt)}
                 </span>
               </li>
             ))}

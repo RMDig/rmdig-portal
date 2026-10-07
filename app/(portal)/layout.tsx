@@ -80,7 +80,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <span>
               {pendingNames.join(", ")}{" "}
               is under review. You can keep setting up your
-              organization and inviting teammates while we review it.
+              team and inviting teammates while we review it.
             </span>
             <Link href="/sar/pending" className="font-medium whitespace-nowrap underline">
               Review status

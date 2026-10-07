@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { lookupAccountsAction, lookupShareLogAction, type AccountLookup, type ShareLogLookup } from "./actions";
+import { formatMountainDate } from "@/lib/format/time";
 
 const FIELD_LABEL: Record<string, string> = {
   userDisplayName: "name",
@@ -16,7 +17,7 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { timeZone: "America/Denver", month: "short", day: "numeric", year: "numeric" });
+  return formatMountainDate(new Date(iso));
 }
 
 export function ShareLogLookupForm({ requestId, suggestedAccountId }: { requestId: string; suggestedAccountId: string | null }) {

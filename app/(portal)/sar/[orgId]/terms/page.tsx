@@ -10,6 +10,8 @@ import { sarOrgs, sarOrgTerms } from "@/lib/db/schema";
 import type { CapabilityName } from "@/lib/sar/terms-rules";
 
 import { TermsEditor } from "./TermsEditor";
+import { formatMountainDate } from "@/lib/format/time";
+import { TEAM_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = { title: "Team terms — rmdig" };
 
@@ -47,7 +49,7 @@ export default async function TermsPage({ params }: { params: Promise<{ orgId: s
         {current ? (
           <>
             <p className="text-muted-foreground text-sm">
-              Version {current.version}, published {current.publishedAt?.toLocaleDateString()}
+              Version {current.version}, published {current.publishedAt ? formatMountainDate(current.publishedAt) : null}
               {current.requiresReacceptance === false ? " (only removed services; earlier acceptances carry forward)" : ""}.
             </p>
             <TermsView body={current.body} capabilities={current.capabilities} />
@@ -78,7 +80,7 @@ export default async function TermsPage({ params }: { params: Promise<{ orgId: s
           />
         </section>
       ) : (
-        <p className="text-muted-foreground text-sm">Terms can&apos;t be changed while your organization is {org.status}.</p>
+        <p className="text-muted-foreground text-sm">Terms can&apos;t be changed while your team is {TEAM_STATUS_LABEL[org.status].toLowerCase()}.</p>
       )}
 
       {published.length > 1 ? (
@@ -87,7 +89,7 @@ export default async function TermsPage({ params }: { params: Promise<{ orgId: s
           <ul className="text-muted-foreground space-y-1 text-sm">
             {published.slice(1).map((v) => (
               <li key={v.id}>
-                Version {v.version}, published {v.publishedAt?.toLocaleDateString()}
+                Version {v.version}, published {v.publishedAt ? formatMountainDate(v.publishedAt) : null}
               </li>
             ))}
           </ul>

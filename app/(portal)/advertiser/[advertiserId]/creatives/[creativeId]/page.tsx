@@ -73,7 +73,7 @@ export default async function CreativeDetailPage({
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/advertiser/${advertiserId}/creatives`}>Back to creatives</Link>
+          <Link href={`/advertiser/${advertiserId}/creatives`}>Back to ads</Link>
         </Button>
       </div>
 
@@ -87,8 +87,8 @@ export default async function CreativeDetailPage({
         <div className="space-y-2 rounded-md border p-4">
           <p className="text-sm">
             {creative.reviewNote
-              ? "Make the changes the reviewer asked for, then resubmit. Our team approves every creative before it appears in the app."
-              : "Submit it for review when it's ready. Our team approves every creative before it appears in the app."}
+              ? "Make the changes the reviewer asked for, then resubmit. Our team approves every ad before it appears in the app."
+              : "Submit it for review when it's ready. Our team approves every ad before it appears in the app."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">

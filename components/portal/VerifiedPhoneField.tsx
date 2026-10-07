@@ -98,7 +98,7 @@ export function VerifiedPhoneField({
           aria-invalid={!!fieldErrors?.phoneCode}
         />
         <p className="text-muted-foreground text-xs">
-          We verify a phone number for each organization — it&apos;s how we reach you
+          We verify a phone number for each team — it&apos;s how we reach you
           during review.
         </p>
         <FieldError errors={fieldErrors?.phoneCode} />

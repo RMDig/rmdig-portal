@@ -10,7 +10,7 @@ import { listStates } from "@/lib/geo/lookup";
 import { CreativeForm } from "./CreativeForm";
 
 export const metadata = {
-  title: "New creative — rmdig",
+  title: "New ad — rmdig",
 };
 
 export default async function NewCreativePage({
@@ -40,7 +40,7 @@ export default async function NewCreativePage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New creative</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">New ad</h1>
         <p className="text-muted-foreground mt-1">
           {advertiser.name} · text ad. Save a draft, preview it, then submit it for review. It only
           appears in the app after the operator approves it.
