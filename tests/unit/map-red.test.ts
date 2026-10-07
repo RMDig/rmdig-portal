@@ -88,6 +88,27 @@ describe("redLayer", () => {
     expect(layer.link).toEqual({ href: "/sar/org-1/alerts", label: "Open the Alerts page" });
   });
 
+  it("gives each alert a short summary naming the team, and groups it by status", () => {
+    const layer = redLayer(ORG, mergeRedFeeds([ok("a2", [base, { ...base, itemId: "done", status: "retracted" }])]), NOW);
+    expect(layer.items.map((i) => [i.group, i.summary, i.at])).toEqual([
+      ["open-alert", "Open · last location 30 min ago · Summit SAR", base.openedAt],
+      ["closed-alert", "Retracted by the user · last location 30 min ago · Summit SAR", base.openedAt],
+    ]);
+    const noTime = redLayer(ORG, mergeRedFeeds([ok("a2", [{ ...base, lastFix: { lat: 39.6, lon: -106, accuracyMeters: null, at: null } }])]), NOW);
+    expect(noTime.items[0]!.summary).toBe("Open · last location time unknown · Summit SAR");
+  });
+
+  it("draws closed alerts in a colour no service area uses, and pictures each shape in the legend", () => {
+    const layer = redLayer(ORG, mergeRedFeeds([ok("a2", [{ ...base, status: "resolved" }])]), NOW);
+    expect(layer.items[0]!.color).not.toBe("#6b7280");
+    expect(layer.legend.map((l) => [l.glyph, l.label])).toEqual([
+      ["dot", "Open alert: last location sent"],
+      ["ring", "Location accuracy"],
+      ["line", "Planned route"],
+      ["hollow-dot", "Alert resolved or retracted"],
+    ]);
+  });
+
   it("says when one node is missing, and what to do when nothing loads", () => {
     expect(redLayer(ORG, mergeRedFeeds([ok("a2", []), down("avserv-3.rmdig.ai")]), NOW).notice).toMatch(/avserv-3\.rmdig\.ai/);
     const failed = redLayer(ORG, mergeRedFeeds([down("a2"), down("a3")]), NOW);

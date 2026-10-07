@@ -169,7 +169,10 @@ export default async function PortalLayout({ children }: { children: React.React
         </div>
       ) : null}
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+      {/* The map takes the whole width; every other page keeps the reading column. */}
+      <main className={`mx-auto w-full flex-1 px-4 ${pathname === "/map" ? "max-w-screen-2xl py-4" : "max-w-5xl py-8"}`}>
+        {children}
+      </main>
     </div>
   );
 }

@@ -46,7 +46,7 @@ function publicSourceFiles(): string[] {
   }
   // The signed-in map's page and panel (its legend strings are checked in
   // tests/unit/map-layers.test.ts).
-  for (const f of ["page.tsx", "MapView.tsx"]) files.push(join(process.cwd(), "app", "(portal)", "map", f));
+  for (const f of ["page.tsx", "MapView.tsx", "MapLegend.tsx"]) files.push(join(process.cwd(), "app", "(portal)", "map", f));
   // SAR team terms: the editor's guidance and the shared view users' terms
   // render through (docs/plans/33).
   files.push(

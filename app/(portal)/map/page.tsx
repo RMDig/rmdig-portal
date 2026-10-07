@@ -50,16 +50,10 @@ export default async function MapPage() {
   })];
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Map</h1>
-        <p className="text-muted-foreground mt-1">
-          Your organization&apos;s service area and your ad targets in one place. To change an area,
-          use the form where you set it.
-          {red.length > 0
-            ? " Alert locations are the last ones the user's phone sent and may be old. In an emergency, call 911."
-            : null}
-        </p>
+        <p className="text-muted-foreground text-sm">View only. To change an area, use the form where you set it.</p>
       </div>
       {layers.length === 0 ? (
         <div className="text-muted-foreground space-y-2 rounded-md border p-6 text-sm">

@@ -61,7 +61,9 @@ export function mergeRedFeeds(results: RedFeedResult[]): MergedRed {
 const KIND_LABEL = { overdue: "Missed check-in", send_help: "Send Help", incident: "Incident" } as const;
 const STATUS_LABEL = { open: "Open", resolved: "Resolved", retracted: "Retracted by the user" } as const;
 const OPEN = "#dc2626";
-const CLOSED = "#6b7280";
+// Darker than the grey of an org under review, and drawn unfilled with a
+// hollow dot, so a closed alert never reads as a service area.
+const CLOSED = "#1e293b";
 // An accuracy circle is drawn at least this big so a precise fix stays visible.
 const MIN_RADIUS_M = 30;
 
@@ -72,24 +74,28 @@ function ago(iso: string, now: Date): string {
   return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
 }
 
-function redItem(orgId: string, a: RedItem, now: Date): LayerItem {
+function redItem(org: { id: string; name: string }, a: RedItem, now: Date): LayerItem {
   const fix = a.lastFix;
   const point: LonLat | null = fix ? [fix.lon, fix.lat] : null;
   const rings = fix ? [circleRing(fix.lon, fix.lat, Math.max(fix.accuracyMeters ?? 0, MIN_RADIUS_M) / 1609.344)] : null;
   const lines = a.plannedRoute?.coordinates ?? null;
+  const noFix = a.status === "open" ? "No location received" : "Location no longer shown";
+  const age = fix?.at ? ago(fix.at, now) : "fix time unknown";
   const where = fix
-    ? `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)}${fix.accuracyMeters != null ? ` (±${Math.round(fix.accuracyMeters)} m)` : ""}, ${fix.at ? ago(fix.at, now) : "fix time unknown"}`
-    : a.status === "open"
-      ? "No location received"
-      : "Location no longer shown";
+    ? `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)}${fix.accuracyMeters != null ? ` (±${Math.round(fix.accuracyMeters)} m)` : ""}, ${age}`
+    : noFix;
   const parts = [STATUS_LABEL[a.status], where];
   if (a.expectedReturnAt) parts.push(`expected back ${formatMountain(new Date(a.expectedReturnAt))}`);
   if (a.deliveries.length > 1) parts.push(`delivered ${a.deliveries.length} times, one alert`);
   if (a.ack) parts.push("marked received");
   return {
-    id: `red:${orgId}:${a.itemId}`,
+    id: `red:${org.id}:${a.itemId}`,
+    group: a.status === "open" ? "open-alert" : "closed-alert",
     label: `${KIND_LABEL[a.kind]}: ${alertUserName(a.userDisplayName)}`,
+    // Open alerts from every team are listed together, so name the team.
+    summary: [STATUS_LABEL[a.status], fix ? (fix.at ? `last location ${age}` : "last location time unknown") : noFix, org.name].join(" · "),
     detail: parts.join(" · "),
+    at: a.openedAt,
     rings,
     point,
     lines,
@@ -107,10 +113,12 @@ export function redLayer(org: { id: string; name: string }, merged: MergedRed, n
     id: `red:${org.id}`,
     label: `${org.name}: alerts sent to your team`,
     status: merged.status === "error" ? "error" : "ready",
-    items: merged.items.map((a) => redItem(org.id, a, now)),
+    items: merged.items.map((a) => redItem(org, a, now)),
     legend: [
-      { color: OPEN, dashed: false, label: "Open alert: last location (dot), its accuracy (circle) and planned route (line)" },
-      { color: CLOSED, dashed: true, label: "Resolved or retracted" },
+      { glyph: "dot", color: OPEN, dashed: false, label: "Open alert: last location sent" },
+      { glyph: "ring", color: OPEN, dashed: false, label: "Location accuracy" },
+      { glyph: "line", color: OPEN, dashed: false, label: "Planned route" },
+      { glyph: "hollow-dot", color: CLOSED, dashed: true, label: "Alert resolved or retracted" },
     ],
     emptyText: "No alerts have been sent to your team.",
     notice:
