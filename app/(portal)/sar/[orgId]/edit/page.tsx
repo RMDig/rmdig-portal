@@ -29,7 +29,7 @@ export default async function EditOrgPage({ params }: { params: Promise<{ orgId:
   if (org.status !== "pending") {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Application</h1>
         <p className="text-muted-foreground">
           Only an application under review can be edited. To change an approved organization, contact
           support.
@@ -46,7 +46,6 @@ export default async function EditOrgPage({ params }: { params: Promise<{ orgId:
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Edit your application</h1>
-        <p className="text-muted-foreground mt-1">{org.name}</p>
       </div>
       {org.reviewNote ? (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">

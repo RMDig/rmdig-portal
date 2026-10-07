@@ -33,6 +33,8 @@ const STATUS_LABEL: Record<string, string> = {
   approved: "Approved",
   rejected: "Not approved",
   suspended: "Suspended",
+  leaving: "Leaving the program",
+  withdrawn: "Withdrawn",
 };
 const ADVERTISER_ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -42,6 +44,13 @@ const ADVERTISER_STATUS_LABEL: Record<string, string> = {
   active: "Active",
   suspended: "Suspended",
 };
+
+// What most people come to the portal for: the app account they use AvAI with.
+const ACCOUNT_LINKS = [
+  { href: "/settings/agreement", title: "AvAI user agreement", body: "The agreement for using the AvAI app, and whether you've accepted it." },
+  { href: "/settings/devices", title: "Devices", body: "Link a phone to your account, and see the phones already linked." },
+  { href: "/settings", title: "Settings", body: "Your name, password, two-factor authentication and data." },
+] as const;
 
 export default async function DashboardPage() {
   // Layout already redirects unauthenticated users; this is a typed re-read.
@@ -103,8 +112,11 @@ export default async function DashboardPage() {
         : null;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Signed in as {session?.user?.email}.</p>
+      </div>
       {nudge ? (
         <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-900/10">
           <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
@@ -118,27 +130,36 @@ export default async function DashboardPage() {
           </CardHeader>
         </Card>
       ) : null}
-      <p className="text-muted-foreground">Signed in as {session?.user?.email}.</p>
 
       {orgs.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-medium">Your organizations</h2>
+          <h2 className="text-lg font-medium">Your search &amp; rescue teams</h2>
           <ul className="divide-y rounded-md border">
-            {orgs.map((o) => (
-              <li key={o.orgId} className="flex items-center justify-between gap-4 px-4 py-3">
-                <div>
-                  <p className="font-medium">{o.name}</p>
-                  <p className="text-muted-foreground text-sm">
-                    {ROLE_LABEL[o.role] ?? o.role} · {STATUS_LABEL[o.status] ?? o.status}
-                  </p>
-                </div>
-                {o.role === "admin" ? (
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/sar/${o.orgId}/members`}>Manage members</Link>
-                  </Button>
-                ) : null}
-              </li>
-            ))}
+            {orgs.map((o) => {
+              // Each role's way in: admins run the team, dispatchers see alerts.
+              const open =
+                o.role === "admin"
+                  ? { href: `/sar/${o.orgId}/members`, label: "Open team" }
+                  : o.role === "dispatcher"
+                    ? { href: `/sar/${o.orgId}/alerts`, label: "Alerts" }
+                    : null;
+              return (
+                <li key={o.orgId} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <div>
+                    <p className="font-medium">{o.name}</p>
+                    <p className="text-muted-foreground text-sm">
+                      {ROLE_LABEL[o.role] ?? o.role} · {STATUS_LABEL[o.status] ?? o.status}
+                      {o.role === "responder" ? " · Your team's admins and dispatchers see its alerts" : null}
+                    </p>
+                  </div>
+                  {open ? (
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={open.href}>{open.label}</Link>
+                    </Button>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
@@ -148,63 +169,75 @@ export default async function DashboardPage() {
           <h2 className="text-lg font-medium">Your advertiser accounts</h2>
           <ul className="divide-y rounded-md border">
             {advertisers.map((a) => (
-              <li
-                key={a.advertiserId}
-                className="flex items-center justify-between gap-4 px-4 py-3"
-              >
+              <li key={a.advertiserId} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div>
                   <p className="font-medium">{a.name}</p>
                   <p className="text-muted-foreground text-sm">
-                    {ADVERTISER_ROLE_LABEL[a.role] ?? a.role} ·{" "}
-                    {ADVERTISER_STATUS_LABEL[a.status] ?? a.status}
+                    {ADVERTISER_ROLE_LABEL[a.role] ?? a.role} · {ADVERTISER_STATUS_LABEL[a.status] ?? a.status}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/advertiser/${a.advertiserId}/creatives`}>Creatives</Link>
-                  </Button>
-                  {a.role === "admin" ? (
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/advertiser/${a.advertiserId}/members`}>Manage team</Link>
-                    </Button>
-                  ) : null}
-                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/advertiser/${a.advertiserId}/creatives`}>Open account</Link>
+                </Button>
               </li>
             ))}
           </ul>
         </section>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Search &amp; rescue organizations</CardTitle>
-          <CardDescription>
-            Run a SAR team? Register your organization and draw your service area. Our staff
-            review every application before approval.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild>
-            <Link href="/sar/new">Register a SAR organization</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Your AvAI account</h2>
+        <ul className="divide-y rounded-md border">
+          {ACCOUNT_LINKS.map((l) => (
+            <li key={l.href}>
+              <Link href={l.href} className="hover:bg-muted/50 flex items-center justify-between gap-4 px-4 py-3">
+                <span>
+                  <span className="block font-medium">{l.title}</span>
+                  <span className="text-muted-foreground block text-sm">{l.body}</span>
+                </span>
+                <span aria-hidden className="text-muted-foreground">
+                  →
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Advertise on AvAI</CardTitle>
-          <CardDescription>
-            Sponsor ads help fund the platform while keeping the app free. Create an advertiser
-            account to author creatives and submit them for review. Every creative is manually
-            reviewed before it appears in the app.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild>
-            <Link href="/advertiser/new">Create an advertiser account</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">More on rmdig</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Search &amp; rescue organizations</CardTitle>
+              <CardDescription>
+                Run a SAR team? Register your organization and draw your service area. Our staff
+                review every application before approval.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline">
+                <Link href="/sar/new">Register a SAR organization</Link>
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Advertise on AvAI</CardTitle>
+              <CardDescription>
+                Sponsor ads help fund the platform while keeping the app free. Create an advertiser
+                account to author creatives and submit them for review. Every creative is manually
+                reviewed before it appears in the app.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline">
+                <Link href="/advertiser/new">Create an advertiser account</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }

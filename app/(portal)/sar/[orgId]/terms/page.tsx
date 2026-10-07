@@ -35,7 +35,7 @@ export default async function TermsPage({ params }: { params: Promise<{ orgId: s
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}: team terms</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Team terms</h1>
         <p className="text-muted-foreground mt-1">
           The terms users accept when they add your team, and the services you provide through AvAI. rmdig staff
           review every version before it&apos;s published.

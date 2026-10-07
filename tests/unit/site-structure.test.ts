@@ -38,28 +38,44 @@ describe("routes", () => {
 });
 
 describe("headers", () => {
+  const flat = (...p: string[]) => readFileSync(join(process.cwd(), ...p), "utf8").replace(/\s+/g, " ");
+  const header = flat("components", "nav", "SiteHeader.tsx");
+  const footer = flat("components", "nav", "SiteFooter.tsx");
   const publicLayout = read("layout.tsx");
-  const portalLayout = readFileSync(join(process.cwd(), "app", "(portal)", "layout.tsx"), "utf8").replace(/\s+/g, " ");
+  const portalLayout = flat("app", "(portal)", "layout.tsx");
+
+  it("are one shared header and footer on public and portal pages, so the tabs don't change between them", () => {
+    expect(publicLayout).toContain('<SiteHeader viewer="probe" />');
+    expect(portalLayout).toContain("<SiteHeader viewer={viewer}");
+    for (const src of [publicLayout, portalLayout]) expect(src).toContain("<SiteFooter />");
+  });
 
   it("show Services and Research instead of Models, Data and Methods", () => {
-    for (const src of [publicLayout, portalLayout]) {
-      expect(src).toContain('href="/services"');
-      expect(src).toContain('href="/research"');
-      expect(src).not.toContain('href="/research/models"');
-      expect(src).not.toMatch(/>\s*Methods\s*</);
-    }
+    expect(header).toContain('href: "/services"');
+    expect(header).toContain('href: "/research"');
+    expect(header).not.toContain("/research/models");
+    expect(header).not.toMatch(/>\s*Methods\s*</);
   });
 
-  it("move GitHub and Hugging Face out of the header (Research tabs and the public footer keep them)", () => {
-    expect(portalLayout).not.toContain("github.com/RMDig");
-    expect(publicLayout).not.toContain('aria-label="RMDig on GitHub"');
-    expect(publicLayout).toContain("{GITHUB_URL}");
+  it("move GitHub and Hugging Face out of the header (Research tabs and the footer keep them)", () => {
+    expect(header).not.toContain("github.com/RMDig");
+    expect(header).not.toContain("GITHUB_URL");
+    expect(footer).toContain("{GITHUB_URL}");
   });
 
-  it("show Settings as a labelled gear left of Sign out in the portal", () => {
-    const gear = portalLayout.indexOf('aria-label="Settings"');
+  it("show Settings as a labelled gear left of Sign out", () => {
+    const gear = header.indexOf('aria-label="Settings"');
     expect(gear).toBeGreaterThan(-1);
-    expect(gear).toBeLessThan(portalLayout.indexOf("<SignOutButton />"));
+    expect(gear).toBeLessThan(header.indexOf("{signOut ??"));
+    expect(portalLayout).toContain("signOut={<SignOutButton />}");
+  });
+
+  it("keep the public pages free of auth and the database (CLAUDE.md §3.7): the header asks /api/nav instead", () => {
+    for (const f of [["components", "nav", "SiteHeader.tsx"], ["components", "nav", "SiteFooter.tsx"], ["lib", "nav", "types.ts"], ["app", "(public)", "layout.tsx"]]) {
+      const src = flat(...f);
+      expect(src, f.join("/")).not.toMatch(/from "@\/lib\/(auth|db)|from "@\/lib\/nav\/viewer"/);
+    }
+    expect(header).toContain('fetch("/api/nav")');
   });
 });
 

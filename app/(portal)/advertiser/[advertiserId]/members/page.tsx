@@ -72,8 +72,8 @@ export default async function AdvertiserMembersPage({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{advertiser.name}</h1>
-        <p className="text-muted-foreground mt-1">Team and invitations.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
+        <p className="text-muted-foreground mt-1">Who can work on this account, and open invitations.</p>
       </div>
 
       {advertiser.status === "active" ? (

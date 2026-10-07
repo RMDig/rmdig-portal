@@ -57,8 +57,8 @@ export default async function CreativesPage({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{advertiser.name}</h1>
-          <p className="text-muted-foreground mt-1">Creatives.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Creatives</h1>
+          <p className="text-muted-foreground mt-1">Your ads. Each is reviewed by our team before it appears in the app.</p>
         </div>
         {advertiser.status === "active" ? (
           <Button asChild size="sm">
