@@ -9,9 +9,9 @@ import { db } from "@/lib/db";
 import { advertiserAccounts, advertiserInvitations } from "@/lib/db/schema";
 import { inviteAdvertiserMemberSchema } from "@/lib/advertiser/schema";
 import { sendAdvertiserInviteEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { generateInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
+import { portalUrl } from "@/lib/email/links";
 
 // Invite a member to an advertiser account (docs/plans/30 §3). Advertiser-admin
 // gated (re-checked here, never trusting the page). Unlike SAR orgs there is no
@@ -79,9 +79,7 @@ export async function createAdvertiserInvitationAction(
     expiresAt: expires,
     createdByUserId: userId,
   });
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const inviteUrl = `${baseUrl}/advertiser-invite/${token}`;
+  const inviteUrl = portalUrl(`/advertiser-invite/${token}`);
 
   // Email the invite, but don't fail the action if mail is down — the inviter gets
   // the link back to share directly. Log loudly.

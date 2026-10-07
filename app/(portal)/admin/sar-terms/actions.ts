@@ -8,6 +8,7 @@ import { portalActor } from "@/lib/auth/portal-actor";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs, sarOrgTerms, users } from "@/lib/db/schema";
+import { portalUrl } from "@/lib/email/links";
 import { sendSarTermsDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { syncSarOrg } from "@/lib/sar/sync";
@@ -134,7 +135,7 @@ async function notifyOrgAdmins(
   }
   for (const a of admins) {
     try {
-      await sendSarTermsDecisionEmail(a.email, params);
+      await sendSarTermsDecisionEmail(a.email, { ...params, termsUrl: portalUrl(`/sar/${orgId}/terms`) });
     } catch (err) {
       logger.error({ event: "sar.terms.decision_email_failed", orgId, to: a.email, err });
     }

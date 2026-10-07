@@ -3,9 +3,9 @@ import { and, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import { db } from "../db";
 import { orgMemberships, sarOrgs, sarReverifyReminders, userPlatformRoles, users } from "../db/schema";
 import { sendPatrolReverifyStaffEmail, sendPatrolReverifyTeamEmail } from "../email/send";
-import { env } from "../env";
 import { logger } from "../logger";
 import { LOOKAHEAD_DAYS, patrolAdminsNotified, reminderStage } from "./reverify";
+import { portalUrl } from "../email/links";
 
 // The daily patrol re-verification run (app/api/cron/patrol-reverify). Each
 // stage is claimed in sar_reverify_reminders before sending, so overlapping
@@ -24,7 +24,6 @@ function formatDate(d: Date): string {
 }
 
 export async function runReverifyReminders(now: Date): Promise<ReverifyRunSummary> {
-  const base = env.NEXTAUTH_URL ?? "http://localhost:3000";
   const horizon = new Date(now.getTime() + LOOKAHEAD_DAYS * 86_400_000);
   const patrols = await db
     .select({ id: sarOrgs.id, name: sarOrgs.name, reverifyBy: sarOrgs.reverifyBy, contactPhone: sarOrgs.contactPhone })
@@ -74,11 +73,11 @@ export async function runReverifyReminders(now: Date): Promise<ReverifyRunSummar
           stage,
           reverifyBy: deadline,
           contactPhone: p.contactPhone,
-          reviewUrl: `${base}/admin/sar-approvals`,
+          reviewUrl: portalUrl(`/admin/sar-approvals`),
         }),
       ),
       ...admins.map((a) => () =>
-        sendPatrolReverifyTeamEmail(a.email, { orgName: p.name, stage, reverifyBy: deadline, supportUrl: `${base}/support` }),
+        sendPatrolReverifyTeamEmail(a.email, { orgName: p.name, stage, reverifyBy: deadline, supportUrl: portalUrl(`/support`) }),
       ),
     ];
     let ok = 0;

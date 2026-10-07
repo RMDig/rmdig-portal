@@ -16,6 +16,7 @@ import {
   advertiserAccounts,
 } from "@/lib/db/schema";
 import { type AdCreativeDecision } from "@/lib/email/templates/AdCreativeDecisionEmail";
+import { portalUrl } from "@/lib/email/links";
 import { sendAdCreativeDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 
@@ -80,8 +81,8 @@ async function unpublishAndClear(creativeId: string, ref: string | null): Promis
 // eligible for the signed manifest (publish wiring lands in AD-P6). Gated to
 // platform staff (rmdig_admin or the broadened rmdig_reviewer), re-checked here.
 // Each decision is valid only from a specific current status; it flips status,
-// appends to the append-only ad_creative_status_log, and (for the three review
-// decisions) emails the advertiser's contact.
+// appends to the append-only ad_creative_status_log, and (for every decision
+// but reactivate) emails the advertiser's contact.
 
 export type ReviewResult =
   | { ok: true }
@@ -105,7 +106,8 @@ const TRANSITIONS: Record<
     emailDecision: "changes_requested",
   },
   // Pull an already-approved creative — drops it from the next manifest (AD-P6).
-  suspend: { from: "approved", to: "suspended", action: "suspended", emailDecision: null },
+  // The advertiser is told, so a paused ad is never a surprise.
+  suspend: { from: "approved", to: "suspended", action: "suspended", emailDecision: "suspended" },
   // Send a suspended creative back for re-review.
   reactivate: { from: "suspended", to: "pending", action: "reactivated", emailDecision: null },
 };
@@ -161,6 +163,7 @@ export async function reviewCreativeAction(
       targetAdminFips: adCreatives.targetAdminFips,
       advertiserName: advertiserAccounts.name,
       advertiserEmail: advertiserAccounts.contactEmail,
+      advertiserId: adCampaigns.advertiserId,
     })
     .from(adCreatives)
     .innerJoin(adCampaigns, eq(adCampaigns.id, adCreatives.campaignId))
@@ -234,8 +237,9 @@ export async function reviewCreativeAction(
   //  - suspend  → unpublish (drops it from the next manifest; clears the stamps)
   // reject / request_changes / reactivate move out of a live state without ever
   // having an active ref to pull (reactivate comes from suspended, already pulled).
+  let published = false;
   if (decision === "approve") {
-    await publishAndRecord({
+    published = await publishAndRecord({
       id: creativeId,
       slot: creative.slot,
       headline: creative.headline,
@@ -253,7 +257,7 @@ export async function reviewCreativeAction(
     await unpublishAndClear(creativeId, creative.avservCreativeRef);
   }
 
-  // Notify the advertiser for the three review decisions, outside the transaction
+  // Notify the advertiser of every decision but reactivate, outside the transaction
   // (a mail hiccup must not undo a recorded decision). Failures logged, not fatal.
   if (transition.emailDecision) {
     try {
@@ -262,6 +266,10 @@ export async function reviewCreativeAction(
         headline: creative.headline,
         decision: transition.emailDecision,
         note,
+        published,
+        creativeUrl: portalUrl(
+          `/advertiser/${creative.advertiserId}/creatives/${creativeId}${transition.emailDecision === "changes_requested" ? "/edit" : ""}`,
+        ),
       });
     } catch (err) {
       logger.error({ event: "ad.review.email_failed", creativeId, err });

@@ -6,13 +6,13 @@ import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { deletionRequests } from "@/lib/db/schema";
 import { sendDataDeletionConfirmEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import {
   DELETION_TOKEN_TTL_HOURS,
   generateDeletionToken,
 } from "@/lib/legal/deletion-tokens";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
+import { portalUrl } from "@/lib/email/links";
 
 // Colorado Privacy Act deletion-request intake (AvApp doc 24 §1.4). Public and
 // unauthenticated ON PURPOSE: requests can come from AvAI app users or
@@ -90,9 +90,7 @@ export async function requestDataDeletionAction(
     logger.error({ event: "deletion.request.insert_failed", email, err });
     return { ok: false, error: "Couldn't record your request. Try again in a moment." };
   }
-
-  const baseUrl = env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const confirmUrl = `${baseUrl}/account/delete/confirm?token=${token}`;
+  const confirmUrl = portalUrl(`/account/delete/confirm?token=${token}`);
 
   try {
     await sendDataDeletionConfirmEmail(email, {

@@ -10,6 +10,8 @@ import {
 } from "@/lib/email/send";
 import { hashDeletionToken } from "@/lib/legal/deletion-tokens";
 import { logger } from "@/lib/logger";
+import { CPA_DAYS } from "@/lib/deletion/share-log";
+import { portalUrl } from "@/lib/email/links";
 
 export const metadata: Metadata = {
   title: "Confirm deletion request — rmdig / AvAI",
@@ -105,6 +107,8 @@ async function notifyOnConfirmation(
         requesterEmail: email,
         requestId,
         confirmedAtIso: confirmedAt.toISOString(),
+        dueIso: new Date(confirmedAt.getTime() + CPA_DAYS * 86_400_000).toISOString(),
+        queueUrl: portalUrl("/admin/deletion-requests"),
       });
     } catch (err) {
       logger.error({

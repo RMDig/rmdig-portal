@@ -9,6 +9,7 @@ import { isPlatformStaff } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { type SarOrgDecision } from "@/lib/email/templates/SarOrgDecisionEmail";
+import { portalUrl } from "@/lib/email/links";
 import { sendSarOrgDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { avservNodes, getSarTeam } from "@/lib/avserv/sar-teams";
@@ -216,6 +217,12 @@ export async function reviewSarOrgAction(
         decision: transition.emailDecision,
         // An approval note is staff-only (it records the verification call).
         note: decision === "approve" ? undefined : note,
+        actionUrl:
+          transition.emailDecision === "approved"
+            ? portalUrl(`/sar/${orgId}/members`)
+            : transition.emailDecision === "changes_requested"
+              ? portalUrl(`/sar/${orgId}/edit`)
+              : undefined,
       });
     } catch (err) {
       logger.error({ event: "sar.review.email_failed", orgId, err });

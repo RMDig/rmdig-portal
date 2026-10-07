@@ -10,10 +10,10 @@ import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { restrictionReviewLog, restrictionReviewRequests, users } from "@/lib/db/schema";
 import { sendRestrictionReviewRequestedEmail } from "@/lib/email/send";
-import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
 import { reviewableRestrictions, reviewRequestSchema } from "@/lib/restrictions/review";
+import { portalUrl } from "@/lib/email/links";
 
 // A user asks staff to review a restriction on their AvAI account
 // (docs/plans/32; AvServ contract restrictions.md §8). The restriction must be
@@ -142,7 +142,7 @@ export async function submitReviewRequestAction(
 // queue). The request row is the record: a failed email is logged loudly and
 // never fails the user's submit.
 async function notifyStaff(requestId: string): Promise<void> {
-  const reviewUrl = `${env.NEXTAUTH_URL ?? "http://localhost:3000"}/admin/restriction-reviews/${requestId}`;
+  const reviewUrl = portalUrl(`/admin/restriction-reviews/${requestId}`);
   let staff: string[];
   try {
     staff = await staffEmails();
