@@ -55,7 +55,14 @@ describe("layer builders", () => {
       ["Org b", "Under review · no service area on file", true],
     ]);
     expect(layer.items[1]!.bounds).toBeNull();
-    expect(layer.legend.map((l) => l.label)).toEqual(["Approved", "Under review"]);
+    expect(layer.legend).toEqual([
+      { glyph: "area", color: "#2563eb", dashed: false, label: "Service area: approved" },
+      { glyph: "area", color: "#6b7280", dashed: true, label: "Service area: under review" },
+    ]);
+    expect(layer.items.map((i) => [i.group, i.summary])).toEqual([
+      ["area", "Approved"],
+      ["area", "Under review · no service area on file"],
+    ]);
   });
 
   it("leaves rejected orgs out of the staff overview", () => {

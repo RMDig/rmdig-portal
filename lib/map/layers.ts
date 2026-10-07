@@ -8,10 +8,30 @@ import { circleRing, ringsBounds, type Bounds, type LonLat } from "./geometry";
 
 export type LayerStatus = "ready" | "loading" | "error";
 
+/** Where an item sits in the panel's list and in the map's draw order: open
+ *  alerts first and on top, then closed ones, service areas, ad targets. */
+export type ItemGroup = "open-alert" | "closed-alert" | "area" | "target";
+
+/** The legend's picture of a shape, drawn as it looks on the map. */
+export type Glyph = "dot" | "hollow-dot" | "ring" | "line" | "area";
+
+export interface LegendEntry {
+  glyph: Glyph;
+  color: string;
+  dashed: boolean;
+  label: string;
+}
+
 export interface LayerItem {
   id: string;
+  group: ItemGroup;
   label: string;
+  /** One short line for the list. */
+  summary: string;
+  /** Everything we know, in words: shown for the selected item and in its popup. */
   detail: string;
+  /** When an alert opened (ISO), so open alerts from several teams list newest first. */
+  at?: string;
   /** Polygon rings to draw, if the item has a shape on the map. */
   rings: number[][][] | null;
   /** A point to mark (e.g. an alert's last location). */
@@ -29,8 +49,8 @@ export interface MapLayer {
   label: string;
   status: LayerStatus;
   items: LayerItem[];
-  /** Shown in the legend and the panel, in plain words. */
-  legend: Array<{ color: string; dashed: boolean; label: string }>;
+  /** Shown in the panel's one legend, in plain words. */
+  legend: LegendEntry[];
   emptyText: string;
   /** A warning shown above a layer that loaded only in part. */
   notice?: string;
@@ -62,10 +82,13 @@ const ORG_STYLE: Record<OrgStatus, { color: string; dashed: boolean; label: stri
 
 function orgItem(o: OrgRow): LayerItem {
   const s = ORG_STYLE[o.status];
+  const detail = o.coordinates ? s.label : `${s.label} · no service area on file`;
   return {
     id: `org:${o.id}`,
+    group: "area",
     label: o.name,
-    detail: o.coordinates ? s.label : `${s.label} · no service area on file`,
+    summary: detail,
+    detail,
     rings: o.coordinates,
     bounds: o.coordinates ? ringsBounds(o.coordinates) : null,
     color: s.color,
@@ -73,11 +96,14 @@ function orgItem(o: OrgRow): LayerItem {
   };
 }
 
-function legendFor(rows: OrgRow[]) {
+function legendFor(rows: OrgRow[]): LegendEntry[] {
   const seen = new Set(rows.map((r) => r.status));
   return (Object.keys(ORG_STYLE) as OrgStatus[])
     .filter((k) => seen.has(k))
-    .map((k) => ORG_STYLE[k]);
+    .map((k) => {
+      const s = ORG_STYLE[k];
+      return { glyph: "area", color: s.color, dashed: s.dashed, label: `Service area: ${s.label.toLowerCase()}` };
+    });
 }
 
 export function memberOrgLayer(rows: OrgRow[]): MapLayer {
@@ -125,10 +151,13 @@ export function targetLayer(rows: TargetRow[]): MapLayer {
     status: "ready",
     items: rows.map((t) => {
       const rings = t.radius ? [circleRing(t.radius.lon, t.radius.lat, t.radius.mi)] : null;
+      const detail = rings ? `${t.description} · ${t.status}` : `${t.description} · ${t.status} · area not drawn`;
       return {
         id: `creative:${t.id}`,
+        group: "target",
         label: t.headline,
-        detail: rings ? `${t.description} · ${t.status}` : `${t.description} · ${t.status} · area not drawn`,
+        summary: detail,
+        detail,
         rings,
         bounds: rings ? ringsBounds(rings) : null,
         color: TARGET_COLOR,
@@ -136,8 +165,8 @@ export function targetLayer(rows: TargetRow[]): MapLayer {
       };
     }),
     legend: [
-      { color: TARGET_COLOR, dashed: false, label: "Approved ad target" },
-      { color: TARGET_COLOR, dashed: true, label: "Not yet approved" },
+      { glyph: "ring", color: TARGET_COLOR, dashed: false, label: "Ad target: approved" },
+      { glyph: "ring", color: TARGET_COLOR, dashed: true, label: "Ad target: not yet approved" },
     ],
     emptyText: "No ads yet.",
   };
