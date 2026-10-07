@@ -94,7 +94,7 @@ export default async function SarApprovalsPage() {
 
       {rows.length === 0 ? (
         <p className="text-muted-foreground rounded-md border px-4 py-8 text-center text-sm">
-          No organizations to review right now.
+          No teams to review right now.
         </p>
       ) : (
         <ul className="divide-y rounded-md border">

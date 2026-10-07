@@ -36,10 +36,10 @@ export async function updateCreativeAction(
     .innerJoin(advertiserAccounts, eq(advertiserAccounts.id, adCampaigns.advertiserId))
     .where(eq(adCreatives.id, creativeId))
     .limit(1);
-  if (!row || row.advertiserId !== advertiserId) return { ok: false, error: "That creative no longer exists." };
-  if (row.advertiserStatus !== "active") return { ok: false, error: "This advertiser account is suspended; you can't edit creatives." };
+  if (!row || row.advertiserId !== advertiserId) return { ok: false, error: "That ad no longer exists." };
+  if (row.advertiserStatus !== "active") return { ok: false, error: "This advertiser account is suspended; you can't edit ads." };
   if (!EDITABLE.has(row.status)) {
-    return { ok: false, error: "Only a draft or a creative sent back for changes can be edited." };
+    return { ok: false, error: "Only a draft or an ad sent back for changes can be edited." };
   }
 
   const form = parseCreativeForm(formData);

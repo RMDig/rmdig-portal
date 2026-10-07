@@ -2,7 +2,7 @@ import { asc, eq, inArray, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatMountain } from "@/lib/announcements/announcements";
+import { formatMountain } from "@/lib/format/time";
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { hasPlatformRole } from "@/lib/auth/roles";

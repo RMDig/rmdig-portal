@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPreviewMap";
 import { Button } from "@/components/ui/button";
 import { resyncSarOrgAction, reviewSarOrgAction } from "./actions";
+import { formatMountain, formatMountainDate } from "@/lib/format/time";
 
 // Operating-status labels (value mirrors the operating_status enum). Inlined to
 // keep this client component free of the server-only db import.
@@ -97,7 +98,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
         <h3 className="text-lg font-medium">{org.name}</h3>
         <span className="text-muted-foreground text-sm">
           {STATUS_BADGE[org.status] ?? org.status} · submitted{" "}
-          {Number.isNaN(submitted.getTime()) ? "" : submitted.toLocaleDateString()}
+          {Number.isNaN(submitted.getTime()) ? "" : formatMountainDate(submitted)}
         </span>
       </div>
 
@@ -245,7 +246,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
       {org.status !== "pending" ? (
         <div className="space-y-1 text-sm">
           {org.orgType === "ski_patrol" && org.reverifyBy ? (
-            <p className="text-muted-foreground">Re-verify by {new Date(org.reverifyBy).toLocaleDateString()}.</p>
+            <p className="text-muted-foreground">Re-verify by {formatMountainDate(new Date(org.reverifyBy))}.</p>
           ) : null}
           <p className="font-medium">AvServ sync</p>
           {org.sync.length === 0 ? (
@@ -255,7 +256,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
               {org.sync.map((s) => (
                 <li key={s.node} className={s.outcome === "error" ? "text-red-700 dark:text-red-400" : undefined}>
                   {s.node}: revision {s.revision}, {s.detail}
-                  {s.syncedAt ? ` · last accepted ${new Date(s.syncedAt).toLocaleString()}` : ""}
+                  {s.syncedAt ? ` · last accepted ${formatMountain(new Date(s.syncedAt))}` : ""}
                 </li>
               ))}
             </ul>

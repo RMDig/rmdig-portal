@@ -11,6 +11,8 @@ import { sarOrgs, sarOrgTerms } from "@/lib/db/schema";
 import { termsWordingProblems } from "@/lib/sar/terms-rules";
 
 import { TermsDecisionForm } from "./TermsDecisionForm";
+import { formatMountain } from "@/lib/format/time";
+import { TEAM_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = { title: "Team terms review — rmdig admin" };
 
@@ -83,7 +85,7 @@ export default async function SarTermsReviewPage() {
               <CardHeader>
                 <CardTitle>{s.orgName}</CardTitle>
                 <CardDescription>
-                  Organization {s.orgStatus} · submitted {s.submittedAt?.toLocaleString()} ·{" "}
+                  Team {TEAM_STATUS_LABEL[s.orgStatus].toLowerCase()} · submitted {s.submittedAt ? formatMountain(s.submittedAt) : "(not yet)"} ·{" "}
                   {s.status === "submitted"
                     ? `would publish as version ${(prev ?? 0) + 1}`
                     : s.status === "published"

@@ -26,7 +26,7 @@ const OPERATING_STATUS_OPTIONS: { value: string; label: string }[] = [
 
 export type FieldErrors = Record<string, string[] | undefined> | undefined;
 
-export interface OrgFieldValues {
+export type OrgFieldValues = {
   orgType: string;
   name: string;
   description: string;
@@ -35,7 +35,7 @@ export interface OrgFieldValues {
   contactName: string;
   contactEmail: string;
   regionName: string;
-}
+};
 
 export const EMPTY_ORG_FIELDS: OrgFieldValues = {
   orgType: "sar_team",

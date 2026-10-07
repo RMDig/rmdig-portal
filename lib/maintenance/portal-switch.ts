@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { formatMountain } from "../format/time";
 import { STATUS_PAGE_URL } from "../status-page";
 
 // The planned-maintenance switch for the portal (docs/runbook.md "Portal
@@ -72,19 +73,10 @@ const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The static maintenance page. Mountain time, since that's where AvAI runs
- *  and where the operator writes the window. */
+ *  and where the operator writes the window. lib/format/time is pure, so it's
+ *  safe in the Edge bundle (CLAUDE.md §3.6). */
 export function maintenancePage(sw: MaintenanceSwitch): string {
-  const until = sw.endsAt
-    ? new Date(sw.endsAt).toLocaleString("en-US", {
-        timeZone: "America/Denver",
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        timeZoneName: "short",
-      })
-    : null;
+  const until = sw.endsAt ? formatMountain(new Date(sw.endsAt)) : null;
   const body = sw.message ?? "We're updating the portal and will be back shortly.";
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

@@ -18,31 +18,10 @@ import {
   sarOrgs,
   users,
 } from "@/lib/db/schema";
+import { ADVERTISER_ROLE_LABEL, ADVERTISER_STATUS_LABEL, TEAM_ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = {
   title: "Dashboard — rmdig",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Admin",
-  dispatcher: "Dispatcher",
-  responder: "Responder",
-};
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Under review",
-  approved: "Approved",
-  rejected: "Not approved",
-  suspended: "Suspended",
-  leaving: "Leaving the program",
-  withdrawn: "Withdrawn",
-};
-const ADVERTISER_ROLE_LABEL: Record<string, string> = {
-  admin: "Admin",
-  editor: "Editor",
-};
-const ADVERTISER_STATUS_LABEL: Record<string, string> = {
-  active: "Active",
-  suspended: "Suspended",
 };
 
 // What most people come to the portal for: the app account they use AvAI with.
@@ -97,15 +76,15 @@ export default async function DashboardPage() {
   const nudge =
     me?.signupIntent === "sar" && orgs.length === 0
       ? {
-          title: "Set up your Search & Rescue organization",
+          title: "Set up your search & rescue team",
           body: "Register your team — service region, contact info, and proof of operating status. Your application goes to our review queue, and you can invite teammates while it's reviewed.",
           href: "/sar/new",
-          cta: "Register your SAR organization",
+          cta: "Register your team",
         }
       : me?.signupIntent === "advertiser" && advertisers.length === 0
         ? {
             title: "Set up your advertiser account",
-            body: "Create your advertiser account, then author campaigns and creatives. Every creative is manually reviewed before it appears in the app.",
+            body: "Create your advertiser account, then write your ads. Every ad is manually reviewed before it appears in the app.",
             href: "/advertiser/new",
             cta: "Create advertiser account",
           }
@@ -148,7 +127,7 @@ export default async function DashboardPage() {
                   <div>
                     <p className="font-medium">{o.name}</p>
                     <p className="text-muted-foreground text-sm">
-                      {ROLE_LABEL[o.role] ?? o.role} · {STATUS_LABEL[o.status] ?? o.status}
+                      {TEAM_ROLE_LABEL[o.role]} · {TEAM_STATUS_LABEL[o.status]}
                       {o.role === "responder" ? " · Your team's admins and dispatchers see its alerts" : null}
                     </p>
                   </div>
@@ -173,7 +152,7 @@ export default async function DashboardPage() {
                 <div>
                   <p className="font-medium">{a.name}</p>
                   <p className="text-muted-foreground text-sm">
-                    {ADVERTISER_ROLE_LABEL[a.role] ?? a.role} · {ADVERTISER_STATUS_LABEL[a.status] ?? a.status}
+                    {ADVERTISER_ROLE_LABEL[a.role]} · {ADVERTISER_STATUS_LABEL[a.status]}
                   </p>
                 </div>
                 <Button asChild variant="outline" size="sm">
@@ -209,15 +188,15 @@ export default async function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Search &amp; rescue organizations</CardTitle>
+              <CardTitle>Search &amp; rescue teams</CardTitle>
               <CardDescription>
-                Run a SAR team? Register your organization and draw your service area. Our staff
+                Run a search &amp; rescue team? Register it and draw your service area. Our staff
                 review every application before approval.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild variant="outline">
-                <Link href="/sar/new">Register a SAR organization</Link>
+                <Link href="/sar/new">Register a team</Link>
               </Button>
             </CardContent>
           </Card>
@@ -226,8 +205,8 @@ export default async function DashboardPage() {
               <CardTitle>Advertise on AvAI</CardTitle>
               <CardDescription>
                 Sponsor ads help fund the platform while keeping the app free. Create an advertiser
-                account to author creatives and submit them for review. Every creative is manually
-                reviewed before it appears in the app.
+                account to write ads and submit them for review. Every ad is manually reviewed
+                before it appears in the app.
               </CardDescription>
             </CardHeader>
             <CardContent>

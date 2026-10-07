@@ -61,7 +61,7 @@ export default async function MapPage() {
           <p>
             Search &amp; rescue teams:{" "}
             <Link href="/sar/new" className="font-medium underline">
-              register your organization
+              register your team
             </Link>{" "}
             to set a service area.
           </p>

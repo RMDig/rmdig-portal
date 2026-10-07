@@ -13,7 +13,7 @@ import { listStates, lookupAdmin } from "@/lib/geo/lookup";
 
 import { CreativeForm } from "../../new/CreativeForm";
 
-export const metadata = { title: "Edit creative — rmdig" };
+export const metadata = { title: "Edit ad — rmdig" };
 
 // Edit a draft or a creative sent back for changes; anything else goes back
 // to its page (updateCreativeAction re-checks).
@@ -63,7 +63,7 @@ export default async function EditCreativePage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Edit creative</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Edit ad</h1>
         {c.reviewNote ? (
           <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
             <strong>Reviewer note:</strong> {c.reviewNote}

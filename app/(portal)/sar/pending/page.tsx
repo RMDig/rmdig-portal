@@ -5,16 +5,10 @@ import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { sarOrgs } from "@/lib/db/schema";
+import { TEAM_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = {
   title: "Application under review — rmdig",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Under review",
-  approved: "Approved",
-  rejected: "Not approved",
-  suspended: "Suspended",
 };
 
 export default async function SarPendingPage() {
@@ -46,7 +40,7 @@ export default async function SarPendingPage() {
               <div className="flex items-center justify-between gap-4">
                 <span className="font-medium">{org.name}</span>
                 <span className="text-muted-foreground text-sm">
-                  {STATUS_LABEL[org.status] ?? org.status}
+                  {TEAM_STATUS_LABEL[org.status]}
                 </span>
               </div>
               {org.status === "pending" && org.reviewNote ? (

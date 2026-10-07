@@ -114,7 +114,7 @@ const TRANSITIONS: Record<
 
 const reviewSchema = z
   .object({
-    creativeId: z.string().uuid("Unknown creative."),
+    creativeId: z.string().uuid("Unknown ad."),
     decision: z.enum(["approve", "reject", "request_changes", "suspend", "reactivate"]),
     note: z.string().trim().max(2000).optional(),
   })
@@ -171,7 +171,7 @@ export async function reviewCreativeAction(
     .where(eq(adCreatives.id, creativeId))
     .limit(1);
   if (!creative) {
-    return { ok: false, error: "That creative no longer exists." };
+    return { ok: false, error: "That ad no longer exists." };
   }
   if (creative.status !== transition.from) {
     return {
@@ -318,18 +318,18 @@ export async function publishApprovedCreativeAction(
     .where(eq(adCreatives.id, creativeId))
     .limit(1);
   if (!creative) {
-    return { ok: false, error: "That creative no longer exists." };
+    return { ok: false, error: "That ad no longer exists." };
   }
   if (creative.status !== "approved") {
     return { ok: false, error: `Only an approved creative can be published (this one is ${creative.status}).` };
   }
   if (creative.publishedAt) {
-    return { ok: false, error: "This creative is already live." };
+    return { ok: false, error: "This ad is already live." };
   }
 
   const published = await publishAndRecord(creative);
   if (!published) {
-    return { ok: false, error: "AvServ didn't accept the creative. Try again in a moment." };
+    return { ok: false, error: "AvServ didn't accept the ad. Try again in a moment." };
   }
 
   logger.info({ event: "ad.publish.retry_success", userId: actor.userId, creativeId });

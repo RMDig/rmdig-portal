@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatMountainDate } from "@/lib/format/time";
 
 // The user's AvAI account as AvServ holds it (contract account_agreement.md rev
 // 2 §3.1, read over §4's GET): setup state, the names, and acceptances. AvServ
@@ -21,7 +22,7 @@ function formatDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? iso
-    : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    : formatMountainDate(date);
 }
 
 export async function AvaiAccountCard({

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CREATIVE_STATUS_LABEL } from "@/lib/advertiser/creative-status";
 import { BUYABLE_SLOTS, SLOT_LABEL, type BuyableSlot } from "@/lib/advertiser/creative-schema";
 import { publishApprovedCreativeAction, reviewCreativeAction } from "./actions";
+import { formatMountainDate } from "@/lib/format/time";
 
 export interface PendingCreative {
   id: string;
@@ -40,7 +41,7 @@ export function AdApprovalRow({ creative }: { creative: PendingCreative }) {
         <span className="text-muted-foreground text-sm">
           {CREATIVE_STATUS_LABEL[creative.status] ?? creative.status}
           {submitted && !Number.isNaN(submitted.getTime())
-            ? ` · submitted ${submitted.toLocaleDateString()}`
+            ? ` · submitted ${formatMountainDate(submitted)}`
             : ""}
         </span>
       </div>

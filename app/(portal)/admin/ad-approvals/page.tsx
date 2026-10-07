@@ -91,14 +91,14 @@ export default async function AdApprovalsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Ad approvals</h1>
         <p className="text-muted-foreground mt-1">
-          {pendingCount} creative{pendingCount === 1 ? "" : "s"} awaiting review
+          {pendingCount} ad{pendingCount === 1 ? "" : "s"} awaiting review
           {rows.length > pendingCount ? ` · ${rows.length - pendingCount} approved or suspended` : ""}.
         </p>
       </div>
 
       {rows.length === 0 ? (
         <p className="text-muted-foreground rounded-md border px-4 py-8 text-center text-sm">
-          No creatives to review right now.
+          No ads to review right now.
         </p>
       ) : (
         <ul className="divide-y rounded-md border">

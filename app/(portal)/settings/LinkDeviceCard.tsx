@@ -11,11 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatMountain } from "@/lib/format/time";
 
 function formatExpiry(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "soon";
-  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return formatMountain(date);
 }
 
 export function LinkDeviceCard() {
@@ -26,7 +27,7 @@ export function LinkDeviceCard() {
       <CardHeader>
         <CardTitle>Link a device</CardTitle>
         <CardDescription>
-          Generate a one-time code, then enter it in the AvApp on your device to link it to
+          Generate a one-time code, then enter it in the AvAI app on your device to link it to
           your account. The code expires in 10 minutes.
         </CardDescription>
       </CardHeader>
@@ -39,7 +40,7 @@ export function LinkDeviceCard() {
               </span>
             </div>
             <p className="text-muted-foreground text-sm">
-              Enter this code in AvApp before {formatExpiry(state.expiresAt)}. Generate a new
+              Enter this code in the AvAI app before {formatExpiry(state.expiresAt)}. Generate a new
               one if it expires.
             </p>
           </div>

@@ -12,14 +12,10 @@ import {
   users,
 } from "@/lib/db/schema";
 import { InviteForm } from "./InviteForm";
+import { ADVERTISER_ROLE_LABEL } from "@/lib/labels";
 
 export const metadata = {
   title: "Advertiser team — rmdig",
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Admin",
-  editor: "Editor",
 };
 
 export default async function AdvertiserMembersPage({
@@ -90,7 +86,7 @@ export default async function AdvertiserMembersPage({
           {members.map((m) => (
             <li key={m.email} className="flex items-center justify-between px-4 py-3">
               <span>{m.displayName ?? m.email}</span>
-              <span className="text-muted-foreground text-sm">{ROLE_LABEL[m.role] ?? m.role}</span>
+              <span className="text-muted-foreground text-sm">{ADVERTISER_ROLE_LABEL[m.role]}</span>
             </li>
           ))}
         </ul>
@@ -104,7 +100,7 @@ export default async function AdvertiserMembersPage({
               <li key={p.email} className="flex items-center justify-between px-4 py-3">
                 <span>{p.email}</span>
                 <span className="text-muted-foreground text-sm">
-                  Invited as {ROLE_LABEL[p.role] ?? p.role}
+                  Invited as {ADVERTISER_ROLE_LABEL[p.role]}
                 </span>
               </li>
             ))}

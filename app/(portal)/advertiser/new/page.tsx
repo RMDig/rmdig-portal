@@ -16,8 +16,8 @@ export default function AdvertiserNewPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Create an advertiser account</h1>
         <p className="text-muted-foreground mt-1">
           Sponsor ads help fund the platform while keeping the app free. Tell us who you are — then
-          you can author creatives and submit them for review. Every creative is manually reviewed
-          before it appears in the app.
+          you can write ads and submit them for review. Every ad is manually reviewed before it
+          appears in the app.
         </p>
       </div>
       <AdvertiserForm phoneVerifyEnabled={phoneVerificationEnabled()} />

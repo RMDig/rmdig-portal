@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { formatMountain } from "@/lib/announcements/announcements";
+import { formatMountain } from "@/lib/format/time";
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { userMfaGate } from "@/lib/auth/mfa-gate";

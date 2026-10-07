@@ -13,6 +13,7 @@ import { restrictionReviewRequests, users } from "@/lib/db/schema";
 import { SUPPORT_EMAIL } from "@/lib/legal/compliance-copy";
 import { logger } from "@/lib/logger";
 import { reviewableRestrictions, scopeLabel } from "@/lib/restrictions/review";
+import { formatMountainDate } from "@/lib/format/time";
 
 export const metadata = {
   title: "Account review — rmdig",
@@ -33,7 +34,7 @@ function formatDate(iso: string | null): string | null {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? iso
-    : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    : formatMountainDate(date);
 }
 
 export default async function AccountReviewPage({

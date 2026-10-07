@@ -11,13 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { useSubmittedValues } from "@/components/forms/use-submitted-values";
 
 export function InviteStaffForm() {
   const [state, formAction, pending] = useActionState(createPlatformInviteAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+  // A rejected invite keeps the address and role (never the password); a
+  // sent one clears for the next.
+  const { values, capture } = useSubmittedValues({ email: "", role: "rmdig_reviewer" });
+  const kept = state?.ok ? { email: "", role: "rmdig_reviewer" } : values;
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} onSubmit={capture} className="space-y-4">
       {state?.ok ? (
         <p className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-900 dark:bg-green-900/20 dark:text-green-200">
           Invitation sent.
@@ -31,6 +36,7 @@ export function InviteStaffForm() {
             name="email"
             type="email"
             required
+            defaultValue={kept.email}
             aria-invalid={!!fieldErrors?.email}
           />
           {fieldErrors?.email ? (
@@ -44,7 +50,7 @@ export function InviteStaffForm() {
           <select
             id="invite-role"
             name="role"
-            defaultValue="rmdig_reviewer"
+            defaultValue={kept.role}
             className="border-input bg-transparent dark:bg-input/30 flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring md:text-sm"
           >
             <option value="rmdig_reviewer">Reviewer — approval queues only</option>

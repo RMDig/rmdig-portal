@@ -1,5 +1,5 @@
 import type { RedFeedResult, RedItem } from "../avserv/sar-feeds";
-import { formatMountain } from "../announcements/announcements";
+import { formatMountain } from "../format/time";
 import { alertUserName } from "../sar/intake";
 import { circleRing, ringsBounds, type LonLat } from "./geometry";
 import type { LayerItem, MapLayer } from "./layers";

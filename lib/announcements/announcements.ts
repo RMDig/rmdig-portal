@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { announcementAudience, announcementSeverity } from "../db/schema";
 import { FORBIDDEN_PUBLIC_PHRASES } from "../legal/compliance-copy";
+import { ZONE } from "../format/time";
 
 // Pure rules for portal announcements: who sees one, when it's live, and what
 // staff may write. lib/announcements/queries.ts and the admin actions feed
@@ -73,7 +74,6 @@ export function forbiddenPhrasesIn(message: string): string[] {
 
 // The admin form takes wall-clock times in Mountain time (datetime-local has
 // no zone); AvAI and its operator run on Mountain time.
-const ZONE = "America/Denver";
 
 function zoneOffsetMs(at: Date): number {
   const parts = Object.fromEntries(
@@ -105,17 +105,6 @@ export function mountainLocalToDate(local: string): Date {
   return new Date(guess);
 }
 
-export function formatMountain(d: Date): string {
-  return d.toLocaleString("en-US", {
-    timeZone: ZONE,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
-}
 
 const localDateTime = z
   .string()

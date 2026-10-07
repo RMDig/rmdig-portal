@@ -18,6 +18,7 @@ import {
   type OrgFieldValues,
 } from "../../SarOrgFields";
 import { updateSarOrgAction } from "./actions";
+import { useSubmittedValues } from "@/components/forms/use-submitted-values";
 
 // Edit and resubmit a pending application. Inputs are uncontrolled with
 // defaultValue, so a rejected submit keeps what was typed. The area and proof
@@ -36,6 +37,8 @@ export function EditOrgForm({
   const [state, formAction, pending] = useActionState(updateSarOrgAction.bind(null, orgId), null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
   const [orgType, setOrgType] = useState(initial.orgType);
+  // Edits survive a rejected resubmit instead of snapping back to the saved values.
+  const { values, capture } = useSubmittedValues(initial);
   const [redraw, setRedraw] = useState(region === null);
   const [newRegion, setNewRegion] = useState<DrawnPolygon | null>(null);
   const onRegionChange = useCallback((p: DrawnPolygon | null) => setNewRegion(p), []);
@@ -54,14 +57,14 @@ export function EditOrgForm({
   }
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form action={formAction} onSubmit={capture} className="space-y-8">
       <input type="hidden" name="region" value={redraw && newRegion ? JSON.stringify(newRegion) : ""} />
 
-      <OrgDetailsFields initial={initial} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
+      <OrgDetailsFields initial={values} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Primary contact</h2>
-        <ContactFields initial={initial} fieldErrors={fieldErrors} />
+        <ContactFields initial={values} fieldErrors={fieldErrors} />
         <p className="text-muted-foreground text-sm">
           Phone: {contactPhone ?? "none on file"}. To change a verified phone number, contact support.
         </p>
@@ -89,7 +92,7 @@ export function EditOrgForm({
         )}
         <div className="space-y-2">
           <Label htmlFor="regionName">Region name (optional)</Label>
-          <Input id="regionName" name="regionName" defaultValue={initial.regionName} />
+          <Input id="regionName" name="regionName" defaultValue={values.regionName} />
           <FieldError errors={fieldErrors?.regionName} />
         </div>
         <FieldError errors={fieldErrors?.region} />

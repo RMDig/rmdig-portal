@@ -55,7 +55,7 @@ export async function submitCreativeForReviewAction(
     .where(eq(adCreatives.id, creativeId))
     .limit(1);
   if (!row || row.advertiserId !== advertiserId) {
-    return { ok: false, error: "That creative no longer exists." };
+    return { ok: false, error: "That ad no longer exists." };
   }
   if (row.advertiserStatus !== "active") {
     return { ok: false, error: "This advertiser account is suspended." };
@@ -65,7 +65,7 @@ export async function submitCreativeForReviewAction(
       ok: false,
       error:
         row.status === "pending"
-          ? "This creative is already under review."
+          ? "This ad is already under review."
           : `A ${row.status} creative can't be submitted.`,
     };
   }
@@ -86,7 +86,7 @@ export async function submitCreativeForReviewAction(
     });
   } catch (err) {
     logger.error({ event: "advertiser.creative.submit_failed", userId, creativeId, err });
-    return { ok: false, error: "Couldn't submit the creative. Try again in a moment." };
+    return { ok: false, error: "Couldn't submit the ad. Try again in a moment." };
   }
 
   logger.info({ event: "advertiser.creative.submitted", userId, advertiserId, creativeId });

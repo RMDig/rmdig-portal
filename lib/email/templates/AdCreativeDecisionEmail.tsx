@@ -29,23 +29,23 @@ export interface AdCreativeDecisionEmailProps {
 
 const COPY: Record<AdCreativeDecision, { heading: string; preview: string; body: string }> = {
   approved: {
-    heading: "Your ad creative is approved",
-    preview: "Your ad creative was approved",
+    heading: "Your ad is approved",
+    preview: "Your ad was approved",
     body: "is approved and published to the app.",
   },
   rejected: {
-    heading: "An update on your ad creative",
-    preview: "An update on your ad creative",
+    heading: "An update on your ad",
+    preview: "An update on your ad",
     body: "was not approved. See the note below for details.",
   },
   changes_requested: {
     heading: "We need a few changes",
-    preview: "Your ad creative needs changes",
+    preview: "Your ad needs changes",
     body: "needs some changes before we can approve it. See the note below, then update and resubmit.",
   },
   suspended: {
-    heading: "Your ad creative is paused",
-    preview: "Your ad creative was taken out of the app",
+    heading: "Your ad is paused",
+    preview: "Your ad was taken out of the app",
     body: "has been taken out of the app. Any note from our team is below.",
   },
 };
@@ -82,7 +82,7 @@ export default function AdCreativeDecisionEmail({
           ) : null}
           <Section style={buttonContainer}>
             <Link href={creativeUrl} style={button}>
-              {decision === "changes_requested" ? "Edit your creative" : "View your creative"}
+              {decision === "changes_requested" ? "Edit your ad" : "View your ad"}
             </Link>
           </Section>
           <Hr style={hr} />

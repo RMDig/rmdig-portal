@@ -8,6 +8,8 @@ import { isPlatformStaff } from "@/lib/auth/roles";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { restrictionReviewRequests, restrictionReviewStatus, users } from "@/lib/db/schema";
+import { formatMountain } from "@/lib/format/time";
+import { RESTRICTION_REVIEW_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = {
   title: "Restriction reviews — rmdig",
@@ -95,8 +97,8 @@ export default async function RestrictionReviewsPage({
               >
                 <span className="font-medium">{r.email}</span>
                 <span className="text-muted-foreground text-sm">
-                  {r.status} · asked {r.createdAt.toLocaleString()}
-                  {r.decidedAt ? ` · decided ${r.decidedAt.toLocaleString()}` : ""}
+                  {RESTRICTION_REVIEW_STATUS_LABEL[r.status]} · asked {formatMountain(r.createdAt)}
+                  {r.decidedAt ? ` · decided ${formatMountain(r.decidedAt)}` : ""}
                 </span>
               </Link>
             </li>

@@ -111,7 +111,7 @@ export async function clearAvservAccountId(email: string): Promise<void> {
 /** The mint-code success state shows the code plus this copy; shape-agnostic so
  *  it works against both the mock's deterministic code and a real AvServ code. */
 export async function expectMintedCodeVisible(page: Page): Promise<void> {
-  await expect(page.getByText(/Enter this code in AvApp before/i)).toBeVisible();
+  await expect(page.getByText(/Enter this code in the AvAI app before/i)).toBeVisible();
 }
 
 /** Seed an APPROVED SAR org owned (admin) by `ownerEmail`, returning its id —
