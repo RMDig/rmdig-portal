@@ -13,9 +13,12 @@ import { Label } from "@/components/ui/label";
 export function MfaEnrollForm({
   qrDataUrl,
   secret,
+  next,
 }: {
   qrDataUrl: string;
   secret: string;
+  /** Where the user was headed when two-factor was required, already checked by safeReturnTo. */
+  next: string | null;
 }) {
   const [state, formAction, pending] = useActionState(confirmMfaEnrollmentAction, null);
 
@@ -27,8 +30,8 @@ export function MfaEnrollForm({
           Two-factor authentication is on.
         </p>
         <RecoveryCodes codes={state.recoveryCodes} />
-        <Link href="/settings" className="text-foreground text-sm font-medium underline">
-          Done — back to settings
+        <Link href={next ?? "/settings"} className="text-foreground text-sm font-medium underline">
+          {next ? "I've saved my codes, continue" : "Done — back to settings"}
         </Link>
       </div>
     );

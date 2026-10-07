@@ -13,7 +13,7 @@ import { env } from "@/lib/env";
 export async function userMfaGate(userId: string): Promise<{ gate: MfaGate; roles: PlatformRole[] }> {
   const [roles, [row], orgAdminRows] = await Promise.all([
     getPlatformRoles(userId),
-    db.select({ mfaEnabledAt: users.mfaEnabledAt }).from(users).where(eq(users.id, userId)).limit(1),
+    db.select({ mfaEnabledAt: users.mfaEnabledAt, passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).limit(1),
     db
       .select({ orgId: orgMemberships.orgId })
       .from(orgMemberships)
@@ -25,6 +25,7 @@ export async function userMfaGate(userId: string): Promise<{ gate: MfaGate; role
     mfaEnabled: !!row?.mfaEnabledAt,
     isStaff: roles.length > 0,
     isOrgAdmin: orgAdminRows.length > 0,
+    hasPassword: !!row?.passwordHash,
   });
   return { gate, roles };
 }

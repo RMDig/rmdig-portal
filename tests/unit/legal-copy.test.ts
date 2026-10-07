@@ -58,6 +58,14 @@ function publicSourceFiles(): string[] {
     // The RED layer's labels, legend, notice and error text on /map.
     join(process.cwd(), "lib", "map", "red.ts"),
   );
+  // The shared header and footer render on every public page; the sign-in
+  // pages' layout and the dashboard are seen by every new account.
+  files.push(
+    join(process.cwd(), "components", "nav", "SiteHeader.tsx"),
+    join(process.cwd(), "components", "nav", "SiteFooter.tsx"),
+    join(process.cwd(), "app", "(auth)", "layout.tsx"),
+    join(process.cwd(), "app", "(portal)", "dashboard", "page.tsx"),
+  );
   // Error and not-found pages render for public visitors too.
   files.push(join(process.cwd(), "app", "error.tsx"), join(process.cwd(), "app", "not-found.tsx"));
   const templates = join(process.cwd(), "lib", "email", "templates");

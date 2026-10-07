@@ -1,3 +1,4 @@
+import { count, eq, min } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -12,6 +13,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { db } from "@/lib/db";
+import { adCreatives, deletionRequests, restrictionReviewRequests, sarOrgs, sarOrgTerms } from "@/lib/db/schema";
+import { cpaDaysLeft } from "@/lib/deletion/share-log";
+
+// How much is waiting in each queue, so the hub says where to look first.
+function Waiting({ n, detail }: { n: number; detail?: string }) {
+  if (n === 0) return <p className="text-muted-foreground text-sm">Nothing waiting.</p>;
+  return (
+    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+      {n} waiting{detail ? ` · ${detail}` : ""}
+    </p>
+  );
+}
+
+const total = (rows: Array<{ n: number }>) => rows[0]?.n ?? 0;
 
 export const metadata = {
   title: "Admin — rmdig",
@@ -31,6 +47,22 @@ export default async function AdminPage() {
   }
   const isAdmin = roles.includes("rmdig_admin");
 
+  const [sarPending, adsPending, reviewsOpen, termsSubmitted, [deletions]] = await Promise.all([
+    db.select({ n: count() }).from(sarOrgs).where(eq(sarOrgs.status, "pending")),
+    db.select({ n: count() }).from(adCreatives).where(eq(adCreatives.status, "pending")),
+    db.select({ n: count() }).from(restrictionReviewRequests).where(eq(restrictionReviewRequests.status, "open")),
+    isAdmin ? db.select({ n: count() }).from(sarOrgTerms).where(eq(sarOrgTerms.status, "submitted")) : Promise.resolve([]),
+    isAdmin
+      ? db
+          .select({ n: count(), oldest: min(deletionRequests.confirmedAt) })
+          .from(deletionRequests)
+          .where(eq(deletionRequests.status, "confirmed"))
+      : Promise.resolve([undefined]),
+  ]);
+  // The Colorado Privacy Act clock runs from confirmation: show the nearest deadline.
+  const left = deletions?.oldest ? cpaDaysLeft(new Date(deletions.oldest), new Date()) : null;
+  const deletionDetail = left === null ? undefined : left >= 0 ? `next due in ${left} days` : `oldest ${-left} days overdue`;
+
   return (
     <div className="space-y-6">
       <div>
@@ -48,7 +80,8 @@ export default async function AdminPage() {
             request changes.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <Waiting n={total(sarPending)} />
           <Button asChild>
             <Link href="/admin/sar-approvals">Open the approvals queue</Link>
           </Button>
@@ -63,7 +96,8 @@ export default async function AdminPage() {
             reaches the app until you approve it.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <Waiting n={total(adsPending)} />
           <Button asChild>
             <Link href="/admin/ad-approvals">Open the ad-approvals queue</Link>
           </Button>
@@ -78,7 +112,8 @@ export default async function AdminPage() {
             a note for the audit log.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <Waiting n={total(reviewsOpen)} />
           <Button asChild>
             <Link href="/admin/restriction-reviews">Open the review queue</Link>
           </Button>
@@ -94,7 +129,8 @@ export default async function AdminPage() {
               submitted version.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <Waiting n={total(termsSubmitted)} />
             <Button asChild>
               <Link href="/admin/sar-terms">Review team terms</Link>
             </Button>
@@ -128,7 +164,8 @@ export default async function AdminPage() {
               rescue teams received each account&apos;s data.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            <Waiting n={deletions?.n ?? 0} detail={deletionDetail} />
             <Button asChild>
               <Link href="/admin/deletion-requests">Open the deletion queue</Link>
             </Button>

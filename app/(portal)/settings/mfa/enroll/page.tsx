@@ -3,6 +3,8 @@ import Link from "next/link";
 import QRCode from "qrcode";
 
 import { auth } from "@/lib/auth";
+import { userMfaGate } from "@/lib/auth/mfa-gate";
+import { safeReturnTo } from "@/lib/auth/return-to";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import {
   decryptSecret,
@@ -19,7 +21,9 @@ export const metadata = {
   title: "Set up two-factor — rmdig",
 };
 
-export default async function MfaEnrollPage() {
+export default async function MfaEnrollPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  // Where the user was going when the portal sent them here, if anywhere.
+  const next = safeReturnTo((await searchParams).next);
   const session = await auth();
   if (!session?.user?.id) {
     return redirectToSignIn();
@@ -50,8 +54,8 @@ export default async function MfaEnrollPage() {
           <p className="text-muted-foreground text-sm">
             Two-factor authentication is already enabled on your account.
           </p>
-          <Link href="/settings" className="text-foreground text-sm font-medium underline">
-            Back to settings
+          <Link href={next ?? "/settings"} className="text-foreground text-sm font-medium underline">
+            {next ? "Continue" : "Back to settings"}
           </Link>
         </CardContent>
       </Card>
@@ -72,14 +76,25 @@ export default async function MfaEnrollPage() {
   }
 
   const qrDataUrl = await QRCode.toDataURL(totpKeyUri(user.email, secret));
+  // Sent here because their role needs it: say why, rather than an
+  // unexplained detour (a new team's admin arrives straight from applying).
+  const { gate, roles } = await userMfaGate(session.user.id);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Set up two-factor authentication</CardTitle>
       </CardHeader>
-      <CardContent>
-        <MfaEnrollForm qrDataUrl={qrDataUrl} secret={secret} />
+      <CardContent className="space-y-6">
+        {gate === "required" ? (
+          <p className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-200">
+            {roles.length > 0
+              ? "rmdig staff accounts need two-factor authentication before using the portal."
+              : "Your account needs two-factor authentication before you continue. Search & rescue team admins need it because they manage their team's members and terms. It takes about a minute."}
+            {next ? " You'll go straight back to where you were afterwards." : null}
+          </p>
+        ) : null}
+        <MfaEnrollForm qrDataUrl={qrDataUrl} secret={secret} next={next} />
       </CardContent>
     </Card>
   );

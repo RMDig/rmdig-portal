@@ -75,7 +75,7 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{org.name}: alerts</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Alerts</h1>
         <p className="text-muted-foreground mt-1">
           Alerts AvAI sent to your team. Locations are the last ones the user&apos;s phone sent and may be old. In an
           emergency, call 911.

@@ -34,6 +34,13 @@ describe("evaluateMfaGate", () => {
     );
   });
 
+  it("doesn't nag a Google-only account, whose sign-in never asks for the code, but still requires staff and team admins", () => {
+    expect(evaluateMfaGate({ enforcement: "admin_only", mfaEnabled: false, isStaff: false, isOrgAdmin: false, hasPassword: false })).toBe("ok");
+    expect(evaluateMfaGate({ enforcement: "admin_only", mfaEnabled: false, isStaff: true, isOrgAdmin: false, hasPassword: false })).toBe("required");
+    expect(evaluateMfaGate({ enforcement: "admin_only", mfaEnabled: false, isStaff: false, isOrgAdmin: true, hasPassword: false })).toBe("required");
+    expect(evaluateMfaGate({ enforcement: "all", mfaEnabled: false, isStaff: false, isOrgAdmin: false, hasPassword: false })).toBe("required");
+  });
+
   it("requires SAR org admins to enroll under admin_only, like staff", () => {
     expect(evaluateMfaGate({ enforcement: "admin_only", mfaEnabled: false, isStaff: false, isOrgAdmin: true })).toBe("required");
     expect(evaluateMfaGate({ enforcement: "admin_only", mfaEnabled: true, isStaff: false, isOrgAdmin: true })).toBe("ok");

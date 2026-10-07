@@ -23,15 +23,19 @@ export interface MfaGateInput {
   isStaff: boolean;
   /** Admin of at least one SAR organization. */
   isOrgAdmin: boolean;
+  /** Signs in with a password. A Google-only account's sign-in never asks for
+   *  the portal's code (Google's own two-step covers it, P1.2), so nagging it
+   *  to enroll would ask for a step that does nothing. Defaults to true. */
+  hasPassword?: boolean;
 }
 
-export function evaluateMfaGate({ enforcement, mfaEnabled, isStaff, isOrgAdmin }: MfaGateInput): MfaGate {
+export function evaluateMfaGate({ enforcement, mfaEnabled, isStaff, isOrgAdmin, hasPassword = true }: MfaGateInput): MfaGate {
   if (mfaEnabled) return "ok";
   switch (enforcement) {
     case "all":
       return "required";
     case "admin_only":
-      return isStaff || isOrgAdmin ? "required" : "nag";
+      return isStaff || isOrgAdmin ? "required" : hasPassword ? "nag" : "ok";
     case "optional":
       return "ok";
   }
