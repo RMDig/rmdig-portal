@@ -13,11 +13,13 @@ const h = vi.hoisted(() => ({
   send: vi.fn(),
   info: vi.fn(),
   error: vi.fn(),
+  capture: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({ env: h.env }));
 vi.mock("../../lib/env", () => ({ env: h.env }));
 vi.mock("../../lib/logger", () => ({ logger: { info: h.info, error: h.error, warn: vi.fn() } }));
+vi.mock("@sentry/nextjs", () => ({ captureException: h.capture }));
 vi.mock("resend", () => ({
   Resend: class {
     emails = { send: h.send };
@@ -79,5 +81,23 @@ describe("email delivery by environment", () => {
       "Resend rejected verification email: domain not verified",
     );
     expect(h.error).toHaveBeenCalledWith(expect.objectContaining({ event: "email.verification.failed" }));
+    expect(h.capture).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ tags: { event: "email.verification.failed", email_kind: "verification" } }));
+  });
+
+  it("reports every failure to Sentry, not just a Resend refusal: no key, or no answer", async () => {
+    h.env.VERCEL_ENV = "production";
+    delete h.env.RESEND_API_KEY;
+    await expect(sendVerificationEmail("user@example.com", "https://rmdig.ai/verify")).rejects.toThrow(/RESEND_API_KEY/);
+    h.env.RESEND_API_KEY = "re_test";
+    h.send.mockRejectedValue(new Error("socket hang up"));
+    await expect(sendVerificationEmail("user@example.com", "https://rmdig.ai/verify")).rejects.toThrow("socket hang up");
+    expect(h.capture).toHaveBeenCalledTimes(2);
+  });
+
+  it("doesn't report a successful or preview-logged send", async () => {
+    await sendVerificationEmail("user@example.com", "https://rmdig.ai/verify");
+    h.env.VERCEL_ENV = "preview";
+    await sendVerificationEmail("user@example.com", "https://rmdig.ai/verify");
+    expect(h.capture).not.toHaveBeenCalled();
   });
 });

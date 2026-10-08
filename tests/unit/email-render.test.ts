@@ -6,6 +6,7 @@ import ResetPasswordEmail from "@/lib/email/templates/ResetPasswordEmail";
 import RestrictionReviewUpheldEmail from "@/lib/email/templates/RestrictionReviewUpheldEmail";
 import AdCreativeDecisionEmail from "@/lib/email/templates/AdCreativeDecisionEmail";
 import DataDeletionAdminEmail from "@/lib/email/templates/DataDeletionAdminEmail";
+import DeletionClockEmail from "@/lib/email/templates/DeletionClockEmail";
 import SarOrgDecisionEmail from "@/lib/email/templates/SarOrgDecisionEmail";
 import SarTermsDecisionEmail from "@/lib/email/templates/SarTermsDecisionEmail";
 import SarOrgPendingReviewEmail from "@/lib/email/templates/SarOrgPendingReviewEmail";
@@ -19,6 +20,25 @@ import VerifyEmail from "@/lib/email/templates/VerifyEmail";
 // `pnpm email:dev` preview.
 
 describe("email templates render to HTML", () => {
+  it("DeletionClockEmail lists each request's reference and time left, never the requester", async () => {
+    const html = await render(
+      DeletionClockEmail({
+        escalated: true,
+        items: [
+          { requestId: "req-1", confirmedAtIso: "2026-08-20T00:00:00.000Z", dueIso: "2026-10-04T00:00:00.000Z", daysLeft: -3 },
+          { requestId: "req-2", confirmedAtIso: "2026-09-01T00:00:00.000Z", dueIso: "2026-10-16T00:00:00.000Z", daysLeft: 9 },
+        ],
+        queueUrl: "https://rmdig.ai/admin/deletion-requests",
+      }),
+    );
+    expect(html).toContain("req-1");
+    expect(html).toContain("past the deadline");
+    expect(html).toContain("9 days left");
+    expect(html).toContain("https://rmdig.ai/admin/deletion-requests");
+    expect(html).toMatch(/near their deadline/);
+    expect(html).not.toMatch(/@/);
+  });
+
   it("RestrictionReviewUpheldEmail carries the user reason, the review link, and what still works", async () => {
     const url = "https://rmdig.ai/account/review?restriction=33333333-3333-4333-8333-333333333333";
     const html = await render(

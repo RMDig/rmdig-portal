@@ -199,3 +199,17 @@ describe("failover to AVSERV_FAILOVER_BASE_URL (real path)", () => {
     expect(urls(fetchMock)).toEqual(["https://avserv.example/v1/internal/accounts"]);
   });
 });
+
+describe("unpublishCreative (real path)", () => {
+  it("treats AvServ's creative_not_found as already unpublished", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(404, { code: "creative_not_found", error: "no such creative" })));
+    const { unpublishCreative } = await import("@/lib/avserv/client");
+    await expect(unpublishCreative("crv_1")).resolves.toBeUndefined();
+  });
+
+  it("fails loud on a 404 without that code: the route itself is missing", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("404 page not found", { status: 404, headers: { "content-type": "text/plain" } })));
+    const { unpublishCreative } = await import("@/lib/avserv/client");
+    await expect(unpublishCreative("crv_1")).rejects.toMatchObject({ status: 404, code: "route_not_found" });
+  });
+});
