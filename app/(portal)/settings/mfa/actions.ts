@@ -13,6 +13,7 @@ import { verifySecondFactor } from "@/lib/auth/mfa-verify";
 import { db } from "@/lib/db";
 import { mfaRecoveryCodes, users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { incrementRateLimit } from "@/lib/rate-limit";
 
 // MFA management actions (P1.2 PR-B). The login-time challenge is PR-C; these
 // cover enrollment confirmation and post-enrollment management.
@@ -21,6 +22,24 @@ export type MfaActionResult =
   | { ok: true }
   | { ok: true; recoveryCodes: string[] }
   | { ok: false; error: string };
+
+// Disable and regenerate each take a second factor on an already-open session.
+// Without a cap, someone at an unattended signed-in browser could guess TOTP
+// codes until one landed and then turn MFA off. One bucket per user covers both
+// actions; every attempt counts (a real user does this rarely).
+const MFA_MANAGE_RATE_LIMIT = { limit: 5, windowSec: 15 * 60 };
+const MFA_MANAGE_LIMITED: MfaActionResult = {
+  ok: false,
+  error: "Too many attempts. Wait 15 minutes and try again.",
+};
+
+async function mfaManageAllowed(userId: string, action: "disable" | "regenerate"): Promise<boolean> {
+  const rl = await incrementRateLimit(`mfa-manage:${userId}`, MFA_MANAGE_RATE_LIMIT);
+  if (!rl.allowed) {
+    logger.warn({ event: "mfa.manage_rate_limited", userId, action, attempts: rl.attempts });
+  }
+  return rl.allowed;
+}
 
 // Replace a user's recovery codes with a fresh set, returning the plaintext to
 // show once. Caller is responsible for authorization.
@@ -94,6 +113,8 @@ export async function disableMfaAction(
     return { ok: false, error: "Two-factor authentication isn't enabled." };
   }
 
+  if (!(await mfaManageAllowed(userId, "disable"))) return MFA_MANAGE_LIMITED;
+
   const ok = await verifySecondFactor(userId, decryptSecret(user.secret), code);
   if (!ok) {
     return { ok: false, error: "That code didn't match. Try again." };
@@ -130,6 +151,8 @@ export async function regenerateRecoveryCodesAction(
   if (!user?.enabledAt || !user.secret) {
     return { ok: false, error: "Two-factor authentication isn't enabled." };
   }
+
+  if (!(await mfaManageAllowed(userId, "regenerate"))) return MFA_MANAGE_LIMITED;
 
   const ok = await verifySecondFactor(userId, decryptSecret(user.secret), code);
   if (!ok) {

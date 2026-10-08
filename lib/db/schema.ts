@@ -122,9 +122,10 @@ export const verificationTokens = pgTable(
   (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })],
 );
 
-// Sign-in rate limiting. Key is typically "signin:<email>". Window starts at
-// the first failed attempt; each subsequent failure increments attempts. After
-// 15 minutes the window resets. Bootstrap section §P1.1: 5 fails / 15 min / email.
+// Fixed-window rate limits (lib/rate-limit.ts), one row per key, e.g.
+// "signin:<email>:<ip>" or "signup-ip:<ip>". The window starts at the first
+// counted attempt and resets once windowSec has passed. Credentials sign-in's
+// buckets are described in lib/auth/credentials-authorize.ts.
 export const rateLimits = pgTable("rate_limits", {
   key: text("key").primaryKey(),
   attempts: integer("attempts").notNull().default(0),
