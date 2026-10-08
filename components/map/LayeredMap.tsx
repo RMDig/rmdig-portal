@@ -6,6 +6,7 @@ import type { ExpressionSpecification, GeoJSONSource, Map as MaplibreMap, Popup 
 import { useEffect, useRef } from "react";
 
 import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
+import { loadMaplibre } from "@/components/map/load-maplibre";
 import { unionBounds, type Bounds } from "@/lib/map/geometry";
 import type { ItemGroup, LayerItem } from "@/lib/map/layers";
 
@@ -77,7 +78,7 @@ export default function LayeredMap({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const maplibregl = await loadMaplibre();
       if (cancelled || !containerRef.current) return;
       const map = new maplibregl.Map({
         container: containerRef.current,

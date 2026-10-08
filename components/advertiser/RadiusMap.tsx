@@ -6,6 +6,7 @@ import type { GeoJSONSource, Map as MaplibreMap, Marker } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
 import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
+import { loadMaplibre } from "@/components/map/load-maplibre";
 import { circleRing } from "@/lib/map/geometry";
 
 // A radius ad target's editable geometry: a draggable center pin + a mileage circle
@@ -51,7 +52,7 @@ export default function RadiusMap({ lat, lon, mi, onCenterChange }: RadiusMapPro
     let cancelled = false;
 
     void (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const maplibregl = await loadMaplibre();
       if (cancelled || !containerRef.current) return;
 
       const { lat: lat0, lon: lon0, mi: mi0 } = stateRef.current;
