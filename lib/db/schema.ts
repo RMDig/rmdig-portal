@@ -141,7 +141,10 @@ export const rateLimits = pgTable("rate_limits", {
 // decision 2026-06-16) the advertiser creative-approval queue (docs/plans/30 §3).
 // Modeled as a join table rather than a column so the set grows without a
 // migration and a user can hold both.
-export const platformRole = pgEnum("platform_role", ["rmdig_admin", "rmdig_reviewer"]);
+// rmdig_sar_approver is the only role that can decide SAR orgs (approve,
+// reject, lifecycle) — CLAUDE.md §0. Only rmdig_admin grants it. rmdig_reviewer
+// keeps the ad-approval queue only.
+export const platformRole = pgEnum("platform_role", ["rmdig_admin", "rmdig_reviewer", "rmdig_sar_approver"]);
 
 export const userPlatformRoles = pgTable(
   "user_platform_roles",
@@ -329,11 +332,19 @@ export const sarOrgs = pgTable("sar_orgs", {
   // AvServ team sync (AvServ sar_team_sync.md). Bumped on every change that
   // is sent; AvServ keeps the highest revision on every node.
   syncRevision: integer("sync_revision").default(0).notNull(),
+  // What staff review (CLAUDE.md §0): bumped by every applicant edit and every
+  // staff decision. The review form carries the value the reviewer saw, and a
+  // decision applies only if it still matches, so nobody approves an
+  // application they haven't seen.
+  reviewRevision: integer("review_revision").default(0).notNull(),
   leavingNoticeAt: timestamp("leaving_notice_at", { withTimezone: true }),
   // Ski patrols: verified on approval and every 12 months after.
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   reverifyBy: timestamp("reverify_by", { withTimezone: true }),
 },
+  // Its evidence (status log, intake messages, acks, view logs, membership
+  // log, terms) references it ON DELETE RESTRICT: an org with history can't
+  // be deleted, only withdrawn (runbook "Removing a SAR org").
   (t) => [
     // The operator approvals queue lists pending orgs; index the status it filters on.
     index("sar_orgs_status_idx").on(t.status),
@@ -410,7 +421,7 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
     .notNull()
-    .references(() => sarOrgs.id, { onDelete: "cascade" }),
+    .references(() => sarOrgs.id, { onDelete: "restrict" }),
   action: sarOrgAction("action").notNull(),
   fromStatus: sarOrgStatus("from_status"),
   toStatus: sarOrgStatus("to_status").notNull(),
@@ -463,7 +474,7 @@ export const sarIntakeMessages = pgTable(
     alertId: text("alert_id").notNull(),
     orgId: uuid("org_id")
       .notNull()
-      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
     kind: text("kind").notNull(),
     capability: text("capability"),
     node: text("node").notNull(),
@@ -475,6 +486,44 @@ export const sarIntakeMessages = pgTable(
   (t) => [index("sar_intake_messages_org_alert_idx").on(t.orgId, t.alertId)],
 );
 
+// The team email for one alert or update (lib/sar/alert-notify.ts). Both
+// AvServ nodes deliver every message, so the first copy to arrive claims the
+// email here with a unique (org, alert, kind) insert: exactly one claimant
+// sends, whatever the timing. The row records the attempt state so a failed or
+// interrupted send is retried (by the other node's copy, or the daily
+// sar-alert-notify cron) and given up loudly after a bounded number of tries.
+// leased_until fences concurrent attempts; delivered_user_ids keeps a retry
+// from emailing a member twice. Deleted with the intake message that claimed
+// it (retention), so it never outlives the alert.
+export const sarAlertNotifyStatus = ["pending", "sent", "failed", "abandoned", "superseded"] as const;
+
+export const sarAlertNotifications = pgTable(
+  "sar_alert_notifications",
+  {
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    alertId: text("alert_id").notNull(),
+    kind: text("kind").notNull(),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => sarIntakeMessages.messageId, { onDelete: "cascade" }),
+    status: text("status", { enum: sarAlertNotifyStatus }).notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    leasedUntil: timestamp("leased_until", { withTimezone: true }),
+    deliveredUserIds: uuid("delivered_user_ids").array().notNull().default(sql`'{}'::uuid[]`),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.orgId, t.alertId, t.kind] }),
+    // The retry sweep reads only what is still owed.
+    index("sar_alert_notifications_open_idx").on(t.status).where(sql`status IN ('pending', 'failed')`),
+  ],
+);
+
 // A team member marked an alert received (AvServ contacts_delete_and_sar_ack.md
 // §2). Means "received", never "responding"; it suppresses nothing. First ack
 // per team and alert wins, as in AvServ.
@@ -483,7 +532,7 @@ export const sarAlertAcks = pgTable(
   {
     orgId: uuid("org_id")
       .notNull()
-      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
     alertId: text("alert_id").notNull(),
     ackedByUserId: uuid("acked_by_user_id").references(() => users.id, { onDelete: "set null" }),
     ackedAt: timestamp("acked_at", { withTimezone: true }).notNull(),
@@ -499,7 +548,7 @@ export const sarAlertViewLog = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id")
       .notNull()
-      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     alertIds: text("alert_ids").array().notNull(),
     viewedAt: timestamp("viewed_at", { withTimezone: true }).defaultNow().notNull(),
@@ -532,7 +581,7 @@ export const sarMapViewLog = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id")
       .notNull()
-      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     itemIds: text("item_ids").array().notNull(),
     nodes: text("nodes").array().notNull(),
@@ -559,7 +608,7 @@ export const orgMembershipLog = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id")
       .notNull()
-      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
     action: orgMembershipAction("action").notNull(),
     subjectUserId: uuid("subject_user_id").references(() => users.id, { onDelete: "set null" }),
     subjectEmail: text("subject_email").notNull(),
@@ -591,7 +640,7 @@ export const sarOrgTerms = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id")
       .notNull()
-      .references(() => sarOrgs.id, { onDelete: "cascade" }),
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
     // Assigned at publish: 1, 2, 3… per org. Null while draft/submitted/rejected.
     version: integer("version"),
     body: text("body").notNull(),
