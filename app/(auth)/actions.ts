@@ -1,7 +1,5 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-
 import bcrypt from "bcryptjs";
 import { and, eq, gt } from "drizzle-orm";
 import { AuthError, CredentialsSignin } from "next-auth";
@@ -9,6 +7,7 @@ import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
 import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
+import { generateVerificationToken } from "@/lib/auth/verification-tokens";
 import { safeReturnTo } from "@/lib/auth/return-to";
 import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
@@ -79,9 +78,9 @@ const VERIFY_RESEND_RATE_LIMIT = { limit: 3, windowSec: 60 * 60 };
  *  user to where they were headed, e.g. an invite. Throws if the send fails. */
 async function issueVerification(email: string, next: string | null): Promise<void> {
   await db.delete(verificationTokens).where(eq(verificationTokens.identifier, email));
-  const token = randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  await db.insert(verificationTokens).values({ identifier: email, token, expires });
+  // Only the hash is stored; the plaintext exists only in the emailed link.
+  const { token, tokenHash, expires } = generateVerificationToken();
+  await db.insert(verificationTokens).values({ identifier: email, token: tokenHash, expires });
   const verifyUrl = portalUrl(`/api/verify?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`);
   await sendVerificationEmail(email, verifyUrl);
 }

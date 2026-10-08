@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { users, verificationTokens } from "@/lib/db/schema";
 import { safeReturnTo } from "@/lib/auth/return-to";
+import { hashVerificationToken } from "@/lib/auth/verification-tokens";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -21,13 +22,15 @@ export async function GET(req: Request): Promise<Response> {
     redirect(`/sign-in?error=invalid-link${nextParam}`);
   }
 
+  // The table holds only SHA-256 hashes (lib/auth/verification-tokens.ts).
+  const tokenHash = hashVerificationToken(token);
   const [vt] = await db
     .select()
     .from(verificationTokens)
     .where(
       and(
         eq(verificationTokens.identifier, email),
-        eq(verificationTokens.token, token),
+        eq(verificationTokens.token, tokenHash),
       ),
     )
     .limit(1);
@@ -54,7 +57,7 @@ export async function GET(req: Request): Promise<Response> {
     .where(
       and(
         eq(verificationTokens.identifier, email),
-        eq(verificationTokens.token, token),
+        eq(verificationTokens.token, tokenHash),
       ),
     );
 
