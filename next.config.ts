@@ -5,12 +5,19 @@ import type { NextConfig } from "next";
 // these don't prevent application bugs, but they shrink the blast radius of
 // many class-of-bug exploits (clickjacking, MIME sniffing, referrer leaks).
 //
-// Notably NOT included yet:
-// - Content-Security-Policy: needs per-route care (Next.js inline boot scripts,
-//   Sentry endpoints, Vercel Live preview comments, MapLibre tile servers).
-//   Tracked as P1.5 polish work.
-// - Strict-Transport-Security: only set in production — local dev runs http.
+// Content-Security-Policy is a baseline only: the three directives below are
+// safe against every route (none of them restricts what the page may load or
+// run). A full policy with a nonce-based script-src needs per-route care
+// (Next.js inline boot scripts, Sentry endpoints, Vercel Live preview
+// comments, MapLibre tile servers and workers) and follows separately
+// (beta blocker plan, B6). frame-ancestors is the CSP successor of
+// X-Frame-Options; both are sent for older browsers.
+//
+// Strict-Transport-Security is only set in production — local dev runs http.
+const baselineContentSecurityPolicy = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: baselineContentSecurityPolicy },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

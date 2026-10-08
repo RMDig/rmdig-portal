@@ -7,6 +7,7 @@ import type { TerraDraw } from "terra-draw";
 import { useEffect, useRef } from "react";
 
 import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
+import { loadMaplibre } from "@/components/map/load-maplibre";
 
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +43,7 @@ export default function RegionDrawMap({ onRegionChange, hasRegion }: RegionDrawM
     let cancelled = false;
 
     void (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const maplibregl = await loadMaplibre();
       const { TerraDraw, TerraDrawPolygonMode } = await import("terra-draw");
       const { TerraDrawMapLibreGLAdapter } = await import("terra-draw-maplibre-gl-adapter");
       if (cancelled || !containerRef.current) return;

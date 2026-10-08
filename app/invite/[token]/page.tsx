@@ -23,6 +23,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     .select({
       orgId: orgInvitations.orgId,
       orgName: sarOrgs.name,
+      email: orgInvitations.email,
       role: orgInvitations.role,
     })
     .from(orgInvitations)
@@ -54,7 +55,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <h1 className="text-2xl font-semibold tracking-tight">Join {invite.orgName}</h1>
           <p className="text-muted-foreground">
             You&apos;ve been invited to join <strong>{invite.orgName}</strong> as{" "}
-            {TEAM_ROLE_PHRASE[invite.role]}. Sign in or create an account to accept. You&apos;ll come back here afterwards.
+            {TEAM_ROLE_PHRASE[invite.role]}. Sign in or create an account with{" "}
+            <strong>{invite.email}</strong> to accept. You&apos;ll come back here afterwards.
           </p>
           <div className="flex gap-3">
             <Button asChild>
@@ -69,7 +71,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight">Join {invite.orgName}</h1>
           <p className="text-muted-foreground">
-            You&apos;re signed in as {session.user.email}. Accept to join{" "}
+            You&apos;re signed in as {session.user.email}. This invitation was issued to{" "}
+            <strong>{invite.email}</strong>; accept with that account to join{" "}
             <strong>{invite.orgName}</strong> as {TEAM_ROLE_PHRASE[invite.role]}.
           </p>
           <AcceptInvite token={token} />

@@ -8,6 +8,9 @@ const h = vi.hoisted(() => ({
   updates: [] as Array<Record<string, unknown>>,
   deletes: [] as string[],
   inserts: [] as unknown[],
+  rlAllowed: true,
+  rlKeys: [] as string[],
+  secondFactorCalls: 0,
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -52,7 +55,16 @@ vi.mock("@/lib/auth/mfa", () => ({
   hashRecoveryCode: (c: string) => `hash(${c})`,
 }));
 vi.mock("@/lib/auth/mfa-verify", () => ({
-  verifySecondFactor: () => Promise.resolve(h.secondFactorValid),
+  verifySecondFactor: () => {
+    h.secondFactorCalls++;
+    return Promise.resolve(h.secondFactorValid);
+  },
+}));
+vi.mock("@/lib/rate-limit", () => ({
+  incrementRateLimit: (key: string) => {
+    h.rlKeys.push(key);
+    return Promise.resolve({ allowed: h.rlAllowed, attempts: 6, resetAt: new Date() });
+  },
 }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
@@ -77,6 +89,9 @@ beforeEach(() => {
   h.updates = [];
   h.deletes = [];
   h.inserts = [];
+  h.rlAllowed = true;
+  h.rlKeys = [];
+  h.secondFactorCalls = 0;
 });
 
 describe("confirmMfaEnrollmentAction", () => {
@@ -166,5 +181,46 @@ describe("regenerateRecoveryCodesAction", () => {
     }
     expect(h.deletes).toContain("rc");
     expect(h.inserts).toHaveLength(1);
+  });
+});
+
+describe("second-factor attempt limit on disable / regenerate", () => {
+  const enabled = () => {
+    h.selectResult = [{ secret: "enc", enabledAt: new Date() }];
+  };
+
+  it("counts both actions against one per-user bucket", async () => {
+    enabled();
+    await disableMfaAction(null, form("123456"));
+    await regenerateRecoveryCodesAction(null, form("123456"));
+    expect(h.rlKeys).toEqual(["mfa-manage:u1", "mfa-manage:u1"]);
+  });
+
+  it("refuses disable over the limit without checking the code or changing anything", async () => {
+    enabled();
+    h.rlAllowed = false;
+    const res = await disableMfaAction(null, form("123456"));
+    expect(res).toEqual({ ok: false, error: expect.stringMatching(/Too many attempts/) });
+    expect(h.secondFactorCalls).toBe(0);
+    expect(h.updates).toEqual([]);
+    expect(h.deletes).toEqual([]);
+    expect(h.log.warn).toHaveBeenCalledWith(expect.objectContaining({ event: "mfa.manage_rate_limited", action: "disable" }));
+  });
+
+  it("refuses regenerate over the limit without issuing codes", async () => {
+    enabled();
+    h.rlAllowed = false;
+    const res = await regenerateRecoveryCodesAction(null, form("123456"));
+    expect(res.ok).toBe(false);
+    expect(h.secondFactorCalls).toBe(0);
+    expect(h.inserts).toEqual([]);
+  });
+
+  it("doesn't spend an attempt when MFA isn't enabled or the caller is signed out", async () => {
+    h.selectResult = [{ secret: null, enabledAt: null }];
+    await disableMfaAction(null, form("123456"));
+    h.sessionUserId = undefined;
+    await regenerateRecoveryCodesAction(null, form("123456"));
+    expect(h.rlKeys).toEqual([]);
   });
 });

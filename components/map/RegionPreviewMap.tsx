@@ -6,6 +6,7 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 
 import { basemapStyle, attachBasemapFallback } from "@/components/map/basemap";
+import { loadMaplibre } from "@/components/map/load-maplibre";
 import { ringsBounds } from "@/lib/map/geometry";
 
 export interface PreviewPolygon {
@@ -28,7 +29,7 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
     let cancelled = false;
 
     void (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const maplibregl = await loadMaplibre();
       if (cancelled || !containerRef.current) return;
       map = new maplibregl.Map({
         container: containerRef.current,

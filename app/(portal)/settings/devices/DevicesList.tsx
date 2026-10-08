@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { shortDeviceId } from "@/lib/format/device-id";
 import { formatMountainDate } from "@/lib/format/time";
 
 // Read-only presentation of the devices linked to the user's AvServ account
@@ -45,7 +46,7 @@ export function DevicesList({ devices }: { devices: LinkedDevice[] }) {
                       <span className="text-muted-foreground font-normal"> · v{d.appVersion}</span>
                     ) : null}
                   </p>
-                  <p className="text-muted-foreground font-mono text-xs">{d.deviceId}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{shortDeviceId(d.deviceId)}</p>
                 </div>
                 <div className="text-muted-foreground text-right text-xs">
                   <p>Last seen {formatDate(d.lastSeenAt)}</p>

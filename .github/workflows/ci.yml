@@ -6,6 +6,13 @@ on:
   push:
     branches: [main]
 
+# Least privilege for the workflow token: every job only reads the repo. A job
+# that needs more must say so in its own `permissions:` block. Third-party
+# actions are pinned to commit SHAs (tag in the trailing comment) so a moved or
+# compromised tag can't change what runs with our secrets.
+permissions:
+  contents: read
+
 # Cancel older runs on the same ref (PR pushes). Don't cancel on main pushes —
 # we want every merge build to complete so Vercel and CI agree.
 concurrency:
@@ -20,18 +27,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Reads the packageManager field in package.json so the version matches
       # what we use locally (pnpm 11.1.2). No version drift between dev and CI.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       # Node 22 LTS — pnpm 11 requires Node 22+. The CLAUDE_BOOTSTRAP.md
       # spec of "Node 20 LTS" predates Node 20's EOL; treat 22 as the new
       # baseline. Local dev tested on 25.x as well.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -44,6 +51,12 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # The vitest suite (pure: no DB, no network; CLAUDE.md §4.3), including
+      # the §0 public-copy scan and the compliance-copy twin pins. Stays inside
+      # this job so its required-check name doesn't change.
+      - name: Unit tests
+        run: pnpm test
 
       # docs/plans/31 §6: the pinned AvAI user agreement (text, assent line,
       # attestations) must match what AvServ publishes. PR mode fails on any
@@ -75,17 +88,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # The guard diffs against the PR base to see whether it touches
           # lib/db/migrations/.
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -111,13 +124,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -133,7 +146,7 @@ jobs:
       # regardless of outcome. db_url_with_pooler is the pooled connection string.
       - name: Create Neon branch
         id: neon
-        uses: neondatabase/create-branch-action@v5
+        uses: neondatabase/create-branch-action@34f619c41c6e67b4f2f13f1c6eae90827a5f2cf4 # v5
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
           parent: ${{ vars.NEON_PARENT_BRANCH || 'vercel-dev' }}
@@ -166,7 +179,7 @@ jobs:
 
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
           path: playwright-report/
@@ -176,7 +189,7 @@ jobs:
       # don't accumulate per-PR branches in the Neon project.
       - name: Delete Neon branch
         if: always()
-        uses: neondatabase/delete-branch-action@v3
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
           branch: e2e-ci-pr-${{ github.event.number }}
