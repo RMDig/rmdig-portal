@@ -60,36 +60,40 @@ precisely so this can't happen by accident).
 
 ## Grant a platform role
 
-Platform roles (`rmdig_admin`, `rmdig_reviewer`) gate the `/admin` area. The user
-must have **signed up first** (the script promotes an existing account).
+Platform roles gate the `/admin` area:
+
+| Role | Can |
+|---|---|
+| `rmdig_admin` | everything operator-side: staff, terms review, deletion requests, announcements, AvServ checks, ad approvals. Not SAR decisions on its own. |
+| `rmdig_sar_approver` | the SAR approvals queue and every decision in it: approve, reject, request changes, suspend, leaving, withdraw, reactivate, re-verify a patrol, resync, view proof documents. Gets the new-application and patrol re-verification emails. |
+| `rmdig_reviewer` | ad approvals only (plus restriction reviews, open to all staff). |
+
+Only an `rmdig_admin` grants or revokes roles, on **Admin → Team**
+(`/admin/team`): an invitation by email that the person accepts by link (their
+signed-in email must match), confirmed with the admin's password and logged in
+`platform_role_log`. The last `rmdig_admin` and the last `rmdig_sar_approver`
+can't be revoked. Migration 0024 made every `rmdig_admin` at the time a SAR
+approver too (logged as a grant with no actor); an admin added later gets the
+approver role only by invitation. An approver can't approve or re-verify an
+org they submitted or belong to (any membership role), so keep at least two
+approvers who aren't members of the same team.
+
+Break-glass, when no admin can sign in (the user must have **signed up
+first**; idempotent):
 
 ```bash
-# rmdig_admin — full operator (idempotent, safe to re-run):
 DATABASE_URL=<prod-url> pnpm db:seed-admin you@example.com
 ```
 
-`db:seed-admin` only grants `rmdig_admin`. To grant the narrower
-`rmdig_reviewer` (SAR approvals only), insert the row directly:
-
-```sql
-INSERT INTO user_platform_roles (user_id, role)
-SELECT id, 'rmdig_reviewer' FROM users WHERE email = 'reviewer@example.com'
-ON CONFLICT DO NOTHING;
-```
-
-To revoke a role: `DELETE FROM user_platform_roles WHERE user_id = (SELECT id FROM users WHERE email = '…') AND role = '…';`
-
-Everyone holding either role gets the queue emails: a new or resubmitted SAR
-application (linking to its row on `/admin/sar-approvals`) and a new
-restriction review request (linking to `/admin/restriction-reviews/<id>`; the
-email carries no user text, so read the request in the portal).
+`db:seed-admin` grants `rmdig_admin` only. That admin then invites themselves
+as SAR approver on `/admin/team` if needed.
 
 ## Review a SAR org application
 
 SAR org applications are reviewed in the UI — no SQL needed. Each new or
-resubmitted application emails all staff with a link to its row.
+resubmitted application emails every SAR approver with a link to its row.
 
-1. Sign in as a user with `rmdig_admin` or `rmdig_reviewer`.
+1. Sign in as a user with `rmdig_sar_approver` (see "Grant a platform role").
 2. Go to **Admin → SAR approvals** (`/admin/sar-approvals`).
 3. Each pending org shows its submitter, its kind (search & rescue team or
    ski-area patrol), its operating status, a service-area map, and "View document"
@@ -115,6 +119,12 @@ resubmitted application emails all staff with a link to its row.
 Every action appends to `sar_org_status_log` (append-only audit) and is attributed
 to you. Manual approval is non-negotiable — safety-of-life alerts must never route
 to an unverified org.
+
+A decision applies only to the version you're looking at: if the applicant
+edits the application, or another reviewer decides it, after your page loaded,
+your decision is refused with "This organization changed after you opened the
+page". Reload and review again. You can't approve (or re-verify) an
+organization you submitted or are a member of; another approver has to.
 
 ## SAR team sync to AvServ
 
@@ -306,12 +316,36 @@ maintenance switch.
 - **Logs:** `sar.intake.rejected` (signature), `sar.intake.unknown_team`,
   `sar.intake.team_not_active` (an
   alert for a team that isn't approved or leaving: stored, but investigate the
-  team sync), `sar.intake.failed` (database), `sar.intake.member_email_failed`.
-- **Member email:** the first delivery of an alert, and of each update (all-clear,
-  retracted), emails the team's admins and dispatchers a notice with no name or location, linking
-  to `/sar/<orgId>/alerts`. "Also send help" from a user who hadn't added the team
-  says so. Drills, the second node's copy (same `alertId` and `kind`) and
-  duplicate notices don't email.
+  team sync), `sar.intake.failed` (database). `team_not_active`,
+  `fields_dropped`, `failed` and unset keys (`sar.intake.not_configured`) also
+  go to Sentry.
+- **Member email** (`lib/sar/alert-notify.ts`): each alert, and each update
+  (all-clear, retracted), emails the team's admins and dispatchers once: a notice
+  with no name or location, linking to `/sar/<orgId>/alerts`. "Also send help"
+  from a user who hadn't added the team says so. Drills and duplicate notices
+  don't email. Whichever node's copy arrives first claims the email in
+  `sar_alert_notifications` (one row per team, alert and kind) and sends it; the
+  other copy doesn't. A send that fails stays owed (`status = failed`, the
+  error in `last_error`, members already emailed in `delivered_user_ids`) and is
+  retried, for the members who missed it, by the other node's copy when it
+  arrives and by the daily cron `/api/cron/sar-alert-notify` (12:00 UTC). An
+  attempt that died mid-send is retried once its 6-minute lease is up. After 4
+  attempts it is `abandoned` and Sentry gets `sar.notify.abandoned`; a late
+  retry of an alert that has since ended is `superseded` (the all-clear email
+  tells the team). Every failed send is in Sentry (`email.sar_alert_notify.failed`).
+  The alert itself is on the alerts page whatever happens to the email. To see
+  what's owed:
+
+  ```sql
+  SELECT org_id, alert_id, kind, status, attempts, last_error, created_at
+  FROM sar_alert_notifications WHERE status IN ('pending', 'failed', 'abandoned')
+  ORDER BY created_at DESC;
+  ```
+
+  Retry now with
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai/api/cron/sar-alert-notify`.
+  The cron is daily because Vercel's Hobby plan allows no more; on Pro, make it
+  every 10 minutes (`vercel.json` and `lib/cron/jobs.ts` together).
 - **Alerts page:** team admins and dispatchers only. Each view is logged in
   `sar_alert_view_log` (who saw which alerts, and when).
 - **Mark received:** sends an ack to each node that delivered the alert, and is
@@ -388,6 +422,18 @@ The script clears the TOTP secret + enrollment and drops their recovery codes
 (exactly the self-service "disable MFA" path). The user re-enrolls at
 `/settings/mfa/enroll` on next sign-in (and is nagged/required to per
 `MFA_ENFORCEMENT`).
+
+## Removing a SAR org
+
+A SAR org is never deleted once it has history. Withdraw it from the approvals
+queue instead (**Mark leaving**, then **Withdraw** once no node has check-outs
+bound to it): AvServ stops routing to it and the record stays. The evidence
+tables (`sar_org_status_log`, `sar_intake_messages`, `sar_alert_acks`,
+`sar_alert_view_log`, `sar_map_view_log`, `org_membership_log`,
+`sar_org_terms`, `sar_alert_notifications`) reference `sar_orgs` with
+`ON DELETE RESTRICT`, so `DELETE FROM sar_orgs` fails while any of it exists.
+Those rows leave only through their own retention (`/api/cron/sar-retention`).
+A pending application that never got anywhere is rejected, not deleted.
 
 ## Suspend / reactivate a SAR org
 
@@ -483,8 +529,13 @@ under the CPA — treat every request as covering it.
    accounts, MFA rows, memberships, tokens cascade. Caveat: rows the user
    *created* for org-shaped entities (`sar_orgs.created_by_user_id`,
    `advertiser_accounts.created_by_user_id`, invitation `created_by_user_id`)
-   have plain FKs and will block the delete. If they own such rows, decide per
-   entity (transfer or delete the org) before deleting the user.
+   have plain FKs and will block the delete. If they own such rows, transfer
+   them before deleting the user: for a SAR org, point
+   `sar_orgs.created_by_user_id` at another of the org's admins (or a staff
+   account) and remove the user's membership. **Never delete a SAR org row** to
+   get past this: its status log, alerts, acks, view logs, membership log and
+   terms are evidence and reference it `ON DELETE RESTRICT`, so the delete fails
+   (see "Removing a SAR org").
 3. **AvServ data.** Delete the account's checkout history, heartbeat rows, and
    emergency-contact details on AvServ (operator process; no S2S deletion
    endpoint yet — track as an AvServ work item).
@@ -503,6 +554,12 @@ under the CPA — treat every request as covering it.
    Tell each listed team to delete what it received [COUNSEL: notice wording], and
    note the teams in the completion note. Needs AvServ's `sar_feed` and `account_lookup` route
    groups on `svc-key-portal-1`; rows past AvServ's retention period are already gone.
+   The CPA clock is also watched daily (`/api/cron/deletion-clock`, 16:00 UTC,
+   `lib/deletion/clock.ts`): a confirmed request 30 or more days old and not
+   completed is a Sentry warning (`deletion.clock.warning`) and an email to
+   every `rmdig_admin`; at 40 days it's a Sentry error
+   (`deletion.clock.escalated`). It repeats daily until the request is marked
+   completed.
 4. **Record completion** so the queue stays truthful: on
    `/admin/deletion-requests`, **Mark completed** with a note of what was
    erased, where, and which teams were told (at least 10 characters). It sets
@@ -794,6 +851,43 @@ Banners on signed-in portal pages: `/admin/announcements` (**rmdig_admin only**)
 - Announcements live in the portal database, so they can't announce the
   database being down. For that, use the maintenance switch (above) and the
   status page.
+
+## Scheduled jobs and Sentry monitors
+
+`vercel.json` schedules every cron, and `lib/cron/jobs.ts` names each one's
+Sentry cron monitor (a unit test keeps the two in step). All are daily (Vercel's
+Hobby plan allows no more) and run within the scheduled hour, so each monitor
+allows 90 minutes before it calls a run missed.
+
+| Route | UTC | Monitor | Does |
+|---|---|---|---|
+| `/api/cron/sar-retention` | 09:30 | `portal-sar-retention` | SAR alert retention |
+| `/api/cron/sar-alert-notify` | 12:00 | `portal-sar-alert-notify` | retries owed SAR team emails |
+| `/api/cron/avserv-checks` | 14:00 | `portal-avserv-checks` | Admin → AvServ checks |
+| `/api/cron/patrol-reverify` | 15:00 | `portal-patrol-reverify` | ski patrol re-verification reminders |
+| `/api/cron/deletion-clock` | 16:00 | `portal-deletion-clock` | CPA 45-day clock warnings |
+
+Each run checks in with Sentry (`lib/cron/run.ts`): a run that throws, or
+reports a failure, is a failed check-in plus an issue; a run that never
+happens (lost `CRON_SECRET`, a dropped `vercel.json` entry, a broken deploy) is
+a missed check-in. Monitors are created on the first check-in; in Sentry →
+Crons, set each one's alert to notify you. An unset `CRON_SECRET` also sends
+`cron.<job>.unconfigured` to Sentry. Run any of them by hand with
+`curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai<route>`.
+
+Email failures anywhere in the portal reach Sentry from `lib/email/send.ts`
+(`email.<kind>.failed`), whatever the caller does with them.
+
+## Unfinished surfaces (feature flags)
+
+The advertiser portal (`/advertiser/*`, `/advertiser-invite`, Admin → Ad
+approvals) and restriction reviews (`/account/review`, Admin → Restriction
+reviews) call AvServ endpoints that don't exist yet, so they're off:
+`FEATURE_ADVERTISER_PORTAL` and `FEATURE_RESTRICTION_REVIEW` (Vercel env,
+`on` | `off`, unset = `off`). Off, their pages 404 (`/account/review` says to
+write to support), their server actions refuse, and the dashboard, sign-up and
+admin hub don't offer them. Turn one on only after AvServ ships its routes and
+the Admin → AvServ checks pass against them; redeploy after changing it.
 
 ## Outages and rollback
 
