@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  org: [{ status: "pending", name: "San Juan SAR", submitterEmail: "sub@sar.org" }] as Array<{
+  org: [] as Array<{
     orgType?: string;
     status: string;
     name: string;
     submitterEmail: string;
+    createdByUserId: string;
+    reviewRevision: number;
   }>,
   staff: true,
+  // The reviewer's role in the org under review, if any.
+  memberRole: null as string | null,
   updates: [] as unknown[],
+  // Rows the guarded UPDATE matches: [] when the status or revision moved on.
+  updateRows: [{ id: "org" }] as unknown[],
+  bumpedRevision: [] as boolean[],
   logs: [] as unknown[],
   sync: vi.fn(() => Promise.resolve([])),
   nodeViews: [] as Array<{ openBindings: number } | null | Error>,
@@ -16,7 +23,17 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => {
   const tx = {
-    update: () => ({ set: (v: unknown) => ({ where: () => { h.updates.push(v); return Promise.resolve(); } }) }),
+    update: () => ({
+      set: ({ reviewRevision, ...v }: Record<string, unknown>) => ({
+        where: () => ({
+          returning: () => {
+            h.bumpedRevision.push(reviewRevision !== undefined);
+            if (h.updateRows.length > 0) h.updates.push(v);
+            return Promise.resolve(h.updateRows);
+          },
+        }),
+      }),
+    }),
     insert: () => ({ values: (v: unknown) => { h.logs.push(v); return Promise.resolve(); } }),
   };
   const selChain: Record<string, unknown> = {
@@ -34,7 +51,9 @@ vi.mock("@/lib/db", () => {
 });
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
-vi.mock("@/lib/auth/roles", () => ({ isPlatformStaff: vi.fn(() => Promise.resolve(h.staff)) }));
+// h.staff: whether the caller holds rmdig_sar_approver, the queue's only gate.
+vi.mock("@/lib/auth/roles", () => ({ isSarApprover: vi.fn(() => Promise.resolve(h.staff)) }));
+vi.mock("@/lib/auth/org-roles", () => ({ getOrgRole: vi.fn(() => Promise.resolve(h.memberRole)) }));
 vi.mock("@/lib/email/send", () => ({ sendSarOrgDecisionEmail: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -50,14 +69,20 @@ vi.mock("@/lib/avserv/sar-teams", () => ({
 import { auth } from "@/lib/auth";
 import { sendSarOrgDecisionEmail } from "@/lib/email/send";
 
-import { reviewSarOrgAction } from "@/app/(portal)/admin/sar-approvals/actions";
+import { resyncSarOrgAction, reviewSarOrgAction } from "@/app/(portal)/admin/sar-approvals/actions";
 
 const authMock = vi.mocked(auth);
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
 
-function fd(decision: string, note?: string): FormData {
+const REVISION = 3;
+const pendingOrg = (o: Partial<(typeof h.org)[number]> = {}) => [
+  { status: "pending", name: "San Juan SAR", submitterEmail: "sub@sar.org", createdByUserId: "submitter-1", reviewRevision: REVISION, ...o },
+];
+
+function fd(decision: string, note?: string, revision: number = REVISION): FormData {
   const f = new FormData();
   f.set("orgId", ORG_ID);
+  f.set("revision", String(revision));
   f.set("decision", decision);
   if (note !== undefined) f.set("note", note);
   return f;
@@ -68,8 +93,11 @@ beforeEach(() => {
   h.updates = [];
   h.logs = [];
   h.nodeViews = [];
-  h.org = [{ status: "pending", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
+  h.org = pendingOrg();
+  h.updateRows = [{ id: "org" }];
+  h.bumpedRevision = [];
   h.staff = true;
+  h.memberRole = null;
   authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
 });
 
@@ -79,7 +107,7 @@ describe("reviewSarOrgAction", () => {
     expect((await reviewSarOrgAction(null, fd("approve"))).ok).toBe(false);
   });
 
-  it("rejects a non-staff caller", async () => {
+  it("rejects a caller without rmdig_sar_approver (an admin or ad reviewer alone can't decide SAR orgs)", async () => {
     h.staff = false;
     const res = await reviewSarOrgAction(null, fd("approve"));
     expect(res.ok).toBe(false);
@@ -94,21 +122,21 @@ describe("reviewSarOrgAction", () => {
   });
 
   it("refuses a transition from the wrong status (approve a non-pending org)", async () => {
-    h.org = [{ status: "approved", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
+    h.org = pendingOrg({ status: "approved" });
     const res = await reviewSarOrgAction(null, fd("approve"));
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/can't approve|approved/i);
   });
 
   it("suspends an approved org without emailing", async () => {
-    h.org = [{ status: "approved", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
+    h.org = pendingOrg({ status: "approved" });
     const res = await reviewSarOrgAction(null, fd("suspend"));
     expect(res.ok).toBe(true);
     expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
   });
 
   it("reactivates a suspended org without emailing", async () => {
-    h.org = [{ status: "suspended", name: "San Juan SAR", submitterEmail: "sub@sar.org" }];
+    h.org = pendingOrg({ status: "suspended" });
     const res = await reviewSarOrgAction(null, fd("reactivate"));
     expect(res.ok).toBe(true);
     expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
@@ -154,8 +182,64 @@ describe("reviewSarOrgAction", () => {
     });
   });
 
+  describe("only what the reviewer saw is decided (CLAUDE.md §0)", () => {
+    it("requires the revision the page showed", async () => {
+      const f = fd("approve");
+      f.delete("revision");
+      expect((await reviewSarOrgAction(null, f)).ok).toBe(false);
+      expect(h.updates).toEqual([]);
+    });
+
+    it("refuses a decision on an application edited since the page loaded", async () => {
+      h.org = pendingOrg({ reviewRevision: REVISION + 1 });
+      const res = await reviewSarOrgAction(null, fd("approve"));
+      expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/changed after you opened the page/) });
+      expect(h.updates).toEqual([]);
+      expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+      expect(h.sync).not.toHaveBeenCalled();
+    });
+
+    it("fails loudly, writing nothing, when the guarded UPDATE matches no row (edited or decided in between)", async () => {
+      h.updateRows = [];
+      const res = await reviewSarOrgAction(null, fd("approve"));
+      expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/changed after you opened the page/) });
+      expect(h.logs).toEqual([]);
+      expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+      expect(h.sync).not.toHaveBeenCalled();
+    });
+
+    it("bumps the revision with every decision, so a second tab's stale form can't follow", async () => {
+      expect(await reviewSarOrgAction(null, fd("request_changes", "Add the county letter."))).toEqual({ ok: true });
+      expect(h.bumpedRevision).toEqual([true]);
+    });
+
+    it("refuses to let an approver approve, or re-verify, an organization they submitted", async () => {
+      h.org = pendingOrg({ createdByUserId: "admin-1" });
+      const res = await reviewSarOrgAction(null, fd("approve"));
+      expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/You submitted this organization/) });
+      h.org = pendingOrg({ createdByUserId: "admin-1", status: "approved", orgType: "ski_patrol" });
+      expect(await reviewSarOrgAction(null, fd("reverify", "Called the area."))).toMatchObject({ ok: false });
+      expect(h.updates).toEqual([]);
+      expect(h.sync).not.toHaveBeenCalled();
+    });
+
+    it("refuses to let a member of the org (any role) approve or re-verify it", async () => {
+      for (const role of ["admin", "dispatcher", "responder"]) {
+        h.memberRole = role;
+        h.org = pendingOrg();
+        expect(await reviewSarOrgAction(null, fd("approve"))).toMatchObject({ ok: false, error: expect.stringMatching(/member of this organization/) });
+        h.org = pendingOrg({ status: "approved", orgType: "ski_patrol" });
+        expect(await reviewSarOrgAction(null, fd("reverify", "Called the area."))).toMatchObject({ ok: false });
+      }
+      expect(h.updates).toEqual([]);
+      // Rejecting or suspending isn't vouching for the org, so it stays open to them.
+      h.org = pendingOrg();
+      expect(await reviewSarOrgAction(null, fd("reject", "No proof."))).toEqual({ ok: true });
+    });
+  });
+
   describe("AvServ sync and the program lifecycle (docs/plans/33)", () => {
-    const at = (status: string, orgType = "sar_team") => [{ status, name: "San Juan SAR", orgType, submitterEmail: "sub@sar.org" }];
+    const at = (status: string, orgType = "sar_team") => pendingOrg({ status, orgType });
 
     it("syncs after approve, stamping a patrol's verification dates, and never after reject", async () => {
       h.org = at("pending", "ski_patrol");
@@ -240,5 +324,32 @@ describe("reviewSarOrgAction", () => {
       h.sync.mockRejectedValueOnce(new Error("boom"));
       expect(await reviewSarOrgAction(null, fd("suspend"))).toEqual({ ok: true });
     });
+  });
+});
+
+describe("resyncSarOrgAction", () => {
+  const resync = (orgId = ORG_ID) => {
+    const f = new FormData();
+    f.set("orgId", orgId);
+    return resyncSarOrgAction(f);
+  };
+
+  it("resends the org's current state to AvServ for staff", async () => {
+    await expect(resync()).resolves.toBeUndefined();
+    expect(h.sync).toHaveBeenCalledWith(ORG_ID);
+  });
+
+  it("refuses a signed-out caller and a non-staff one, without syncing", async () => {
+    authMock.mockResolvedValue(null as never);
+    await expect(resync()).rejects.toThrow();
+    authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
+    h.staff = false;
+    await expect(resync()).rejects.toThrow(/access/);
+    expect(h.sync).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed org id", async () => {
+    await expect(resync("not-a-uuid")).rejects.toThrow();
+    expect(h.sync).not.toHaveBeenCalled();
   });
 });

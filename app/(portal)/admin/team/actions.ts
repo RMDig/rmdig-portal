@@ -24,7 +24,9 @@ import { portalUrl } from "@/lib/email/links";
 // highest-privilege mutation in the portal, so beyond the rmdig_admin session
 // requirement every grant/revoke demands the ACTOR'S password again (operator
 // decision 2026-07-26) — a hijacked session alone can't mint admins. Every
-// transition lands in the append-only platform_role_log.
+// transition lands in the append-only platform_role_log. rmdig_sar_approver,
+// the only role that decides SAR orgs (CLAUDE.md §0), is granted and revoked
+// here like the others: by an rmdig_admin, with a password, logged.
 
 export type TeamActionResult =
   | { ok: true }
@@ -61,7 +63,7 @@ async function verifyActorPassword(userId: string, password: string): Promise<st
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254),
-  role: z.enum(["rmdig_admin", "rmdig_reviewer"]),
+  role: z.enum(["rmdig_admin", "rmdig_reviewer", "rmdig_sar_approver"]),
   currentPassword: z.string().min(1, "Enter your password to confirm"),
 });
 
@@ -198,7 +200,7 @@ export async function cancelPlatformInviteAction(
 
 const revokeSchema = z.object({
   targetUserId: z.string().uuid(),
-  role: z.enum(["rmdig_admin", "rmdig_reviewer"]),
+  role: z.enum(["rmdig_admin", "rmdig_reviewer", "rmdig_sar_approver"]),
   currentPassword: z.string().min(1, "Enter your password to confirm"),
 });
 
@@ -236,6 +238,17 @@ export async function revokePlatformRoleAction(
       .where(eq(userPlatformRoles.role, "rmdig_admin"));
     if (admins.length <= 1) {
       return { ok: false, error: "You can't revoke the last platform administrator." };
+    }
+  }
+  // Nor the last SAR approver: no one could decide a SAR application, or
+  // suspend a team, until an admin invited another.
+  if (role === "rmdig_sar_approver") {
+    const approvers = await db
+      .select({ userId: userPlatformRoles.userId })
+      .from(userPlatformRoles)
+      .where(eq(userPlatformRoles.role, "rmdig_sar_approver"));
+    if (approvers.length <= 1) {
+      return { ok: false, error: "You can't revoke the last SAR approver. Invite another one first." };
     }
   }
 

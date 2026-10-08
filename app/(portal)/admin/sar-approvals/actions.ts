@@ -1,26 +1,34 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
-import { isPlatformStaff } from "@/lib/auth/roles";
+import { getOrgRole } from "@/lib/auth/org-roles";
+import { isSarApprover } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { type SarOrgDecision } from "@/lib/email/templates/SarOrgDecisionEmail";
 import { portalUrl } from "@/lib/email/links";
 import { sendSarOrgDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 import { avservNodes, getSarTeam } from "@/lib/avserv/sar-teams";
 import { syncSarOrg } from "@/lib/sar/sync";
 
 // Operator decisions on a SAR org (rmdig-ai docs/plans/06 — the status state
-// machine). Gated to platform staff, re-checked here. Each decision is valid
+// machine). Gated to rmdig_sar_approver (lib/auth/roles.ts), re-checked here. Each decision is valid
 // only from a specific current status; it flips status, appends to the
 // append-only sar_org_status_log, and (for the three review decisions) emails
 // the submitter. suspend/reactivate are operator-lifecycle actions on an
 // already-approved org and don't email (rare, communicated out of band).
+//
+// A decision applies only to what the reviewer saw (CLAUDE.md §0): the form
+// carries the org's review_revision, and the UPDATE matches both that and the
+// from-status, bumping the revision. An application edited, or decided by
+// someone else, since the page loaded changes nothing and says so. Nobody
+// approves or re-verifies an organization they submitted or are a member of.
 
 export type ReviewResult =
   | { ok: true }
@@ -83,6 +91,8 @@ function plusMonths(d: Date, months: number): Date {
 const reviewSchema = z
   .object({
     orgId: z.string().uuid("Unknown organization."),
+    // The review_revision the page showed (a hidden field on every form).
+    revision: z.coerce.number().int().min(0),
     decision: z.enum(["approve", "reject", "request_changes", "suspend", "reactivate", "mark_leaving", "withdraw", "reverify"]),
     // An empty textarea is no note, not an empty one in the log.
     note: z.string().trim().max(2000).optional().transform((v) => v || undefined),
@@ -102,7 +112,7 @@ export async function reviewSarOrgAction(
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const userId = actor.userId;
-  if (!(await isPlatformStaff(userId))) {
+  if (!(await isSarApprover(userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
 
@@ -114,11 +124,18 @@ export async function reviewSarOrgAction(
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
   }
-  const { orgId, decision, note } = parsed.data;
+  const { orgId, decision, note, revision } = parsed.data;
   const transition = TRANSITIONS[decision];
 
   const [org] = await db
-    .select({ status: sarOrgs.status, name: sarOrgs.name, orgType: sarOrgs.orgType, submitterEmail: users.email })
+    .select({
+      status: sarOrgs.status,
+      name: sarOrgs.name,
+      orgType: sarOrgs.orgType,
+      submitterEmail: users.email,
+      createdByUserId: sarOrgs.createdByUserId,
+      reviewRevision: sarOrgs.reviewRevision,
+    })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
     .where(eq(sarOrgs.id, orgId))
@@ -131,6 +148,23 @@ export async function reviewSarOrgAction(
       ok: false,
       error: `Can't ${decision.replace("_", " ")} an organization that's ${org.status}.`,
     };
+  }
+  if (org.reviewRevision !== revision) {
+    return { ok: false, error: STALE_ERROR };
+  }
+  // Verification is someone else's call: nobody vouches for an org they
+  // submitted or belong to (any role).
+  if (decision === "approve" || decision === "reverify") {
+    const conflict =
+      org.createdByUserId === userId
+        ? "You submitted this organization, so another approver has to review it."
+        : (await getOrgRole(userId, orgId))
+          ? "You're a member of this organization, so another approver has to review it."
+          : null;
+    if (conflict) {
+      logger.warn({ event: "sar.review.conflict_refused", userId, orgId, decision });
+      return { ok: false, error: conflict };
+    }
   }
   if (decision === "reverify" && org.orgType !== "ski_patrol") {
     return { ok: false, error: "Only ski patrols are re-verified." };
@@ -150,48 +184,16 @@ export async function reviewSarOrgAction(
   }
   const now = new Date();
 
+  const changes = decisionChanges(decision, { now, userId, note, patrol: org.orgType === "ski_patrol" });
+
   try {
     await db.transaction(async (tx) => {
-      if (decision === "approve") {
-        // Patrols are verified at approval and every 12 months after.
-        const patrol = org.orgType === "ski_patrol";
-        await tx
-          .update(sarOrgs)
-          .set({
-            status: "approved",
-            approvedAt: now,
-            approvedByUserId: userId,
-            reviewNote: null,
-            verifiedAt: patrol ? now : null,
-            reverifyBy: patrol ? plusMonths(now, PATROL_REVERIFY_MONTHS) : null,
-          })
-          .where(eq(sarOrgs.id, orgId));
-      } else if (decision === "mark_leaving") {
-        await tx.update(sarOrgs).set({ status: "leaving", leavingNoticeAt: now }).where(eq(sarOrgs.id, orgId));
-      } else if (decision === "withdraw") {
-        await tx.update(sarOrgs).set({ status: "withdrawn" }).where(eq(sarOrgs.id, orgId));
-      } else if (decision === "reverify") {
-        await tx
-          .update(sarOrgs)
-          .set({ verifiedAt: now, reverifyBy: plusMonths(now, PATROL_REVERIFY_MONTHS) })
-          .where(eq(sarOrgs.id, orgId));
-      } else if (decision === "reactivate") {
-        // Back to pending for re-review; clear the prior approval stamp.
-        await tx
-          .update(sarOrgs)
-          .set({ status: "pending", approvedAt: null, approvedByUserId: null, reviewNote: null })
-          .where(eq(sarOrgs.id, orgId));
-      } else if (decision === "reject") {
-        await tx.update(sarOrgs).set({ status: "rejected", reviewNote: note }).where(eq(sarOrgs.id, orgId));
-      } else if (decision === "suspend") {
-        await tx
-          .update(sarOrgs)
-          .set({ status: "suspended", reviewNote: note ?? null })
-          .where(eq(sarOrgs.id, orgId));
-      } else {
-        // request_changes — status stays pending, note carries the ask.
-        await tx.update(sarOrgs).set({ reviewNote: note }).where(eq(sarOrgs.id, orgId));
-      }
+      const updated = await tx
+        .update(sarOrgs)
+        .set({ ...changes, reviewRevision: sql`${sarOrgs.reviewRevision} + 1` })
+        .where(and(eq(sarOrgs.id, orgId), eq(sarOrgs.status, org.status), eq(sarOrgs.reviewRevision, revision)))
+        .returning({ id: sarOrgs.id });
+      if (updated.length === 0) throw new DecisionStale();
       await tx.insert(sarOrgStatusLog).values({
         orgId,
         action: transition.action,
@@ -202,6 +204,10 @@ export async function reviewSarOrgAction(
       });
     });
   } catch (err) {
+    if (err instanceof DecisionStale) {
+      logger.warn({ event: "sar.review.stale", userId, orgId, decision, revision });
+      return { ok: false, error: STALE_ERROR };
+    }
     logger.error({ event: "sar.review.tx_failed", userId, orgId, decision, err });
     return { ok: false, error: "Couldn't record the decision. Try again in a moment." };
   }
@@ -235,13 +241,53 @@ export async function reviewSarOrgAction(
     try {
       await syncSarOrg(orgId);
     } catch (err) {
-      logger.error({ event: "sar.sync.failed", orgId, decision, err });
+      reportError("sar.sync.failed", err, { orgId, decision });
     }
   }
 
   revalidatePath("/admin/sar-approvals");
   return { ok: true };
 }
+
+/** What a decision writes to the org row, besides bumping review_revision.
+ *  request_changes and reverify leave the status as it is. */
+function decisionChanges(
+  decision: Decision,
+  c: { now: Date; userId: string; note: string | undefined; patrol: boolean },
+): Partial<typeof sarOrgs.$inferInsert> {
+  switch (decision) {
+    case "approve":
+      return {
+        status: "approved",
+        approvedAt: c.now,
+        approvedByUserId: c.userId,
+        reviewNote: null,
+        // Patrols are verified at approval and every 12 months after.
+        verifiedAt: c.patrol ? c.now : null,
+        reverifyBy: c.patrol ? plusMonths(c.now, PATROL_REVERIFY_MONTHS) : null,
+      };
+    case "mark_leaving":
+      return { status: "leaving", leavingNoticeAt: c.now };
+    case "withdraw":
+      return { status: "withdrawn" };
+    case "reverify":
+      return { verifiedAt: c.now, reverifyBy: plusMonths(c.now, PATROL_REVERIFY_MONTHS) };
+    case "reactivate":
+      // Back to pending for re-review; clear the prior approval stamp.
+      return { status: "pending", approvedAt: null, approvedByUserId: null, reviewNote: null };
+    case "reject":
+      return { status: "rejected", reviewNote: c.note };
+    case "suspend":
+      return { status: "suspended", reviewNote: c.note ?? null };
+    case "request_changes":
+      // Status stays pending; the note carries the ask.
+      return { reviewNote: c.note };
+  }
+}
+
+class DecisionStale extends Error {}
+const STALE_ERROR =
+  "This organization changed after you opened the page (an edit, or another reviewer's decision). Reload and review it again.";
 
 /** A reason withdrawal must wait, or null only when every node reports 0
  *  open bindings (sar_team_sync.md §2.5). A leaving team keeps receiving
@@ -278,7 +324,7 @@ export async function resyncSarOrgAction(formData: FormData): Promise<void> {
   const actor = await portalActor();
   if (!actor.ok) throw new Error(actor.error);
   const userId = actor.userId;
-  if (!(await isPlatformStaff(userId))) throw new Error("You don't have access to the approvals queue.");
+  if (!(await isSarApprover(userId))) throw new Error("You don't have access to the approvals queue.");
   const orgId = z.string().uuid().parse(formData.get("orgId"));
   await syncSarOrg(orgId);
   logger.info({ event: "sar.sync.resync", userId, orgId });

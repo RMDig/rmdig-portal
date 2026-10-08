@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
-import { getPlatformRoles } from "@/lib/auth/roles";
+import { getOrgMemberships } from "@/lib/auth/org-roles";
+import { isSarApprover } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
 import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
@@ -25,10 +26,11 @@ export default async function SarApprovalsPage() {
   if (!session?.user) {
     return redirectToSignIn();
   }
-  const roles = await getPlatformRoles(session.user.id);
-  if (roles.length === 0) {
-    redirect("/dashboard");
+  // The queue is the SAR approvers' alone (CLAUDE.md §0; lib/auth/roles.ts).
+  if (!(await isSarApprover(session.user.id))) {
+    redirect("/admin");
   }
+  const myOrgs = new Set((await getOrgMemberships(session.user.id)).map((m) => m.orgId));
 
   const reviewable = await db
     .select({
@@ -42,6 +44,8 @@ export default async function SarApprovalsPage() {
       operatingStatusOther: sarOrgs.operatingStatusOther,
       regionName: sarOrgs.regionName,
       reverifyBy: sarOrgs.reverifyBy,
+      reviewRevision: sarOrgs.reviewRevision,
+      createdByUserId: sarOrgs.createdByUserId,
     })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
@@ -54,8 +58,11 @@ export default async function SarApprovalsPage() {
     ? await db.select().from(sarOrgSync).where(inArray(sarOrgSync.orgId, reviewable.map((o) => o.id)))
     : [];
   const rows: PendingOrg[] = await Promise.all(
-    reviewable.map(async (o) => ({
+    reviewable.map(async ({ createdByUserId, ...o }) => ({
       ...o,
+      // The action refuses it too; this only explains the missing button.
+      conflictOfInterest:
+        createdByUserId === session.user.id ? ("submitted" as const) : myOrgs.has(o.id) ? ("member" as const) : null,
       submittedAt: o.submittedAt.toISOString(),
       reverifyBy: o.reverifyBy?.toISOString() ?? null,
       region: await getRegionAsGeoJson(o.id),

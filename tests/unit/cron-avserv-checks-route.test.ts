@@ -9,7 +9,12 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/env", () => ({ env: h.env }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
-vi.mock("@sentry/nextjs", () => ({ captureMessage: h.capture }));
+vi.mock("@sentry/nextjs", () => ({
+  captureMessage: h.capture,
+  captureException: vi.fn(),
+  withMonitor: (_slug: string, cb: () => unknown) => cb(),
+  flush: () => Promise.resolve(true),
+}));
 vi.mock("@/lib/avserv/sar-teams", () => ({ avservNodes: () => h.nodes }));
 vi.mock("@/lib/avserv/checks", () => ({ runAvServChecks: h.run }));
 

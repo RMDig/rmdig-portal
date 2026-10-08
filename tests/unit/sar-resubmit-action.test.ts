@@ -115,6 +115,8 @@ describe("updateSarOrgAction", () => {
     await expect(updateSarOrgAction(ORG, null, form())).resolves.toEqual({ ok: true });
     expect(h.updates[0]).toMatchObject({ orgType: "ski_patrol", name: "Summit Patrol", reviewNote: null });
     expect(h.updates[0]).not.toHaveProperty("proofDocUrl");
+    // A reviewer with the old version open can't approve it (CLAUDE.md §0).
+    expect(h.updates[0]).toHaveProperty("reviewRevision");
     expect(h.setRegion).not.toHaveBeenCalled();
     expect(h.upload).not.toHaveBeenCalled();
     expect(h.inserts[0]).toMatchObject({ orgId: ORG, action: "resubmitted", fromStatus: "pending", toStatus: "pending", actorUserId: "admin-1" });

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
-import { getPlatformRoles, PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
+import { AD_REVIEW_ROLES, getPlatformRoles, PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,6 +16,7 @@ import {
 import { db } from "@/lib/db";
 import { adCreatives, deletionRequests, restrictionReviewRequests, sarOrgs, sarOrgTerms } from "@/lib/db/schema";
 import { cpaDaysLeft } from "@/lib/deletion/share-log";
+import { featureEnabled } from "@/lib/features";
 
 // How much is waiting in each queue, so the hub says where to look first.
 function Waiting({ n, detail }: { n: number; detail?: string }) {
@@ -46,11 +47,18 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
   const isAdmin = roles.includes("rmdig_admin");
+  const isSarApprover = roles.includes("rmdig_sar_approver");
+  const canReviewAds = roles.some((r) => AD_REVIEW_ROLES.includes(r));
+  // Queues for surfaces switched off until AvServ ships them (lib/features.ts).
+  const adsOn = featureEnabled("advertiser_portal");
+  const reviewsOn = featureEnabled("restriction_review");
 
   const [sarPending, adsPending, reviewsOpen, termsSubmitted, [deletions]] = await Promise.all([
-    db.select({ n: count() }).from(sarOrgs).where(eq(sarOrgs.status, "pending")),
-    db.select({ n: count() }).from(adCreatives).where(eq(adCreatives.status, "pending")),
-    db.select({ n: count() }).from(restrictionReviewRequests).where(eq(restrictionReviewRequests.status, "open")),
+    isSarApprover ? db.select({ n: count() }).from(sarOrgs).where(eq(sarOrgs.status, "pending")) : Promise.resolve([]),
+    adsOn && canReviewAds ? db.select({ n: count() }).from(adCreatives).where(eq(adCreatives.status, "pending")) : Promise.resolve([]),
+    reviewsOn
+      ? db.select({ n: count() }).from(restrictionReviewRequests).where(eq(restrictionReviewRequests.status, "open"))
+      : Promise.resolve([]),
     isAdmin ? db.select({ n: count() }).from(sarOrgTerms).where(eq(sarOrgTerms.status, "submitted")) : Promise.resolve([]),
     isAdmin
       ? db
@@ -72,53 +80,59 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>SAR approvals</CardTitle>
-          <CardDescription>
-            Review pending search &amp; rescue team applications and approve, reject, or
-            request changes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Waiting n={total(sarPending)} />
-          <Button asChild>
-            <Link href="/admin/sar-approvals">Open the approvals queue</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {isSarApprover ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>SAR approvals</CardTitle>
+            <CardDescription>
+              Review pending search &amp; rescue team applications and approve, reject, or
+              request changes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Waiting n={total(sarPending)} />
+            <Button asChild>
+              <Link href="/admin/sar-approvals">Open the approvals queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ad approvals</CardTitle>
-          <CardDescription>
-            Review submitted ads and approve, reject, or request changes. No ad
-            reaches the app until you approve it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Waiting n={total(adsPending)} />
-          <Button asChild>
-            <Link href="/admin/ad-approvals">Open the ad-approvals queue</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {adsOn && canReviewAds ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ad approvals</CardTitle>
+            <CardDescription>
+              Review submitted ads and approve, reject, or request changes. No ad
+              reaches the app until you approve it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Waiting n={total(adsPending)} />
+            <Button asChild>
+              <Link href="/admin/ad-approvals">Open the ad-approvals queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Restriction reviews</CardTitle>
-          <CardDescription>
-            Users asking us to review a restriction on their AvAI account. Lift or uphold, with
-            a note for the audit log.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Waiting n={total(reviewsOpen)} />
-          <Button asChild>
-            <Link href="/admin/restriction-reviews">Open the review queue</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {reviewsOn ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Restriction reviews</CardTitle>
+            <CardDescription>
+              Users asking us to review a restriction on their AvAI account. Lift or uphold, with
+              a note for the audit log.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Waiting n={total(reviewsOpen)} />
+            <Button asChild>
+              <Link href="/admin/restriction-reviews">Open the review queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {isAdmin ? (
         <Card>

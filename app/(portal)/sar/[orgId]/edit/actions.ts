@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageOrg } from "@/lib/auth/org-roles";
@@ -8,8 +8,10 @@ import { ProofDocError, uploadProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { sendSarOrgPendingReviewEmail } from "@/lib/email/send";
+import { SAR_APPROVER_ROLE } from "@/lib/auth/roles";
 import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
+import { reportError, reportProblem } from "@/lib/report-error";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { updateSarOrgSchema } from "@/lib/sar/schema";
 import { portalUrl } from "@/lib/email/links";
@@ -86,6 +88,8 @@ export async function updateSarOrgAction(
           operatingStatusOther: data.operatingStatusOther ?? null,
           reviewNote: null,
           ...(proofDocUrl ? { proofDocUrl } : {}),
+          // A reviewer with the old version open can't decide on it any more.
+          reviewRevision: sql`${sarOrgs.reviewRevision} + 1`,
         })
         // Re-checked inside the write so a concurrent approval can't be overwritten.
         .where(and(eq(sarOrgs.id, orgId), eq(sarOrgs.status, "pending")))
@@ -117,14 +121,15 @@ class StatusChanged extends Error {}
 
 async function notifyStaff(orgId: string, orgName: string, submitterEmail: string): Promise<void> {
   const reviewUrl = portalUrl(`/admin/sar-approvals#org-${orgId}`);
-  // Everyone who can approve SAR orgs (admins and reviewers), not just admins.
+  // Everyone who can decide SAR orgs: the SAR approvers.
   let staff: string[];
   try {
-    staff = await staffEmails();
+    staff = await staffEmails([SAR_APPROVER_ROLE]);
   } catch (err) {
-    logger.error({ event: "sar.resubmit.staff_lookup_failed", orgId, err });
+    reportError("sar.resubmit.staff_lookup_failed", err, { orgId });
     return;
   }
+  if (staff.length === 0) reportProblem("sar.resubmit.no_staff_to_notify", "No rmdig staff to tell about a resubmitted SAR application", { orgId });
   for (const email of staff) {
     try {
       await sendSarOrgPendingReviewEmail(email, { orgName, submitterEmail, reviewUrl });

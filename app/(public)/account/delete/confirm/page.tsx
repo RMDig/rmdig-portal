@@ -10,6 +10,7 @@ import {
 } from "@/lib/email/send";
 import { hashDeletionToken } from "@/lib/legal/deletion-tokens";
 import { logger } from "@/lib/logger";
+import { reportError, reportProblem } from "@/lib/report-error";
 import { CPA_DAYS } from "@/lib/deletion/share-log";
 import { portalUrl } from "@/lib/email/links";
 
@@ -97,8 +98,13 @@ async function notifyOnConfirmation(
       .innerJoin(users, eq(users.id, userPlatformRoles.userId))
       .where(eq(userPlatformRoles.role, "rmdig_admin"));
   } catch (err) {
-    logger.error({ event: "deletion.confirm.admin_lookup_failed", requestId, err });
+    // Nobody is told the CPA clock started; the deletion-clock cron still
+    // flags the request at 30 days.
+    reportError("deletion.confirm.admin_lookup_failed", err, { requestId });
     return;
+  }
+  if (admins.length === 0) {
+    reportProblem("deletion.confirm.no_admins", "No rmdig admin to tell about a confirmed deletion request", { requestId });
   }
 
   for (const admin of admins) {
@@ -111,6 +117,7 @@ async function notifyOnConfirmation(
         queueUrl: portalUrl("/admin/deletion-requests"),
       });
     } catch (err) {
+      // lib/email/send has already reported it to Sentry.
       logger.error({
         event: "deletion.confirm.admin_email_failed",
         requestId,

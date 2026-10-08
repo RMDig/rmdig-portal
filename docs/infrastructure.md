@@ -33,13 +33,14 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | Var | `.env.local` | Vercel: Production | Vercel: Preview | Vercel: Development | Sensitive in Vercel? |
 |---|---|---|---|---|---|
 | `DATABASE_URL` | dev-branch URL (**currently points at production — move it**) | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | auto | yes |
-| `NEXTAUTH_URL` | `http://localhost:3000` | `https://app.rmdig.ai` | unset (Auth.js auto-detects) | — | no |
+| `NEXTAUTH_URL` | `http://localhost:3000` | `https://app.rmdig.ai` (**required**: the server refuses to boot in production without it; every emailed link is built from it) | unset (Auth.js auto-detects) | — | no |
 | `NEXTAUTH_SECRET` | hex string | hex | **its own value** (was missing until the previews PR, so preview sign-in failed) | hex | yes |
 | `GOOGLE_CLIENT_ID` | yes | yes | yes | yes | no |
 | `GOOGLE_CLIENT_SECRET` | yes | yes | yes | — (sensitive blocks Dev) | yes |
 | `RESEND_API_KEY` | yes | yes | yes | — | yes |
 | `RESEND_FROM_EMAIL` | `noreply@rmdig.ai` | same | same | same | no |
 | `SENTRY_DSN` | optional | yes | yes | yes | no |
+| `NEXT_PUBLIC_SENTRY_DSN` | optional | **unset as of 2026-10-07: set it to the `SENTRY_DSN` value** to turn on browser error reporting (inlined at build, so redeploy) | same | — | no |
 | `SENTRY_ORG` | — | `rocky-mountain-digerati` | same | same | no |
 | `SENTRY_PROJECT` | — | `rmdig-portal` | same | same | no |
 | `SENTRY_AUTH_TOKEN` | **never** | yes | yes | — (CI-only) | yes |
@@ -53,6 +54,12 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | `BLOB_READ_WRITE_TOKEN` | local fallback | — | — | — | yes |
 | `MFA_ENCRYPTION_KEY` | hex | hex | **its own value** | — | yes |
 | `PREVIEW_EMAIL_RECIPIENTS` | — | — | empty, or testers who should get real email | — | no |
+| `AVSERV_SAR_INTAKE_KEYS` | — | yes: `keyId:secret,…`, one pair per AvServ node (runbook "SAR alert intake") | — | — | yes |
+| `CRON_SECRET` | — | yes (`openssl rand -hex 32`); unset, every cron answers 503 and reports to Sentry | — | — | yes |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | — | **unset as of 2026-10-07**, so org-creation phone verification is off (all three set = on) | — | — | `TWILIO_AUTH_TOKEN` yes |
+| `NEXT_PUBLIC_MAPTILER_KEY` | — (OpenStreetMap tiles) | yes | yes | — | no (public, origin-restricted) |
+| `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | — | unset: the Apple provider isn't wired into `lib/auth` yet | — | — | `APPLE_PRIVATE_KEY` yes |
+| `FEATURE_ADVERTISER_PORTAL`, `FEATURE_RESTRICTION_REVIEW` | `off` | unset → `off` (`lib/features.ts`); `on` only once AvServ ships the endpoints | unset → `off` | — | no |
 
 `.env.local` is gitignored. `.env.example` documents the contract.
 

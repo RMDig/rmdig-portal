@@ -3,38 +3,33 @@ import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // POST /api/sar/intake against sar_portal_intake.md §3: 2xx/409 delivered,
-// other 4xx permanent, 5xx retryable. Stored before answering 2xx; member
-// email never changes the answer.
+// other 4xx permanent, 5xx retryable. Stored before answering 2xx; the team
+// email (lib/sar/alert-notify, tested in sar-alert-notify.test.ts) follows
+// and never changes the answer.
 
 const SECRET = "s".repeat(64);
 const h = vi.hoisted(() => ({
   env: { AVSERV_SAR_INTAKE_KEYS: "", NEXTAUTH_URL: "https://rmdig.ai" } as Record<string, string | undefined>,
   team: [{ name: "Summit SAR", status: "approved" }] as unknown[],
   inserted: [{ messageId: "m1" }] as unknown[],
-  copies: [{ id: "m1" }] as unknown[],
-  members: [{ email: "lead@sar.org" }, { email: "disp@sar.org" }] as unknown[],
   insertedValues: [] as unknown[],
   dbError: null as unknown,
-  email: vi.fn(),
+  notify: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  capture: vi.fn(),
+  captureMessage: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({ env: h.env }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
-vi.mock("@/lib/email/send", () => ({ sendSarAlertNotifyEmail: h.email }));
+vi.mock("@sentry/nextjs", () => ({ captureException: h.capture, captureMessage: h.captureMessage }));
+vi.mock("@/lib/sar/alert-notify", () => ({ notifyOnIntake: h.notify }));
 vi.mock("@/lib/db", () => {
-  let n = 0;
   const select = () => {
-    const idx = n++;
-    const result = () => {
-      if (h.dbError) return Promise.reject(h.dbError);
-      // 1st: team lookup; then (for alerts) copies lookup; then members.
-      return Promise.resolve(idx % 3 === 0 ? h.team : idx % 3 === 1 ? h.copies : h.members);
-    };
+    const result = () => (h.dbError ? Promise.reject(h.dbError) : Promise.resolve(h.team));
     const c: Record<string, unknown> = {};
     for (const m of ["from", "innerJoin", "where"]) c[m] = () => c;
     c.limit = () => result();
-    c.then = (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => result().then(res, rej);
     return c;
   };
   return {
@@ -50,14 +45,12 @@ vi.mock("@/lib/db", () => {
           }),
         }),
       }),
-      __reset: () => (n = 0),
     },
   };
 });
 
 import { POST as POST_DRILL } from "@/app/api/sar/intake/drill/route";
 import { POST } from "@/app/api/sar/intake/route";
-import { db } from "@/lib/db";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
 const payload = (o: Record<string, unknown> = {}) => ({
@@ -92,59 +85,35 @@ function request(body: object, o: { keyId?: string; t?: number; secret?: string;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  (db as unknown as { __reset: () => void }).__reset();
   h.env.AVSERV_SAR_INTAKE_KEYS = `sarintake-avserv-2-1:${SECRET}`;
   h.team = [{ name: "Summit SAR", status: "approved" }];
   h.inserted = [{ messageId: "m1" }];
-  h.copies = [{ id: "m1" }];
   h.insertedValues = [];
   h.dbError = null;
-  h.email.mockResolvedValue(undefined);
+  h.notify.mockResolvedValue(undefined);
 });
 
 describe("POST /api/sar/intake", () => {
-  it("stores a signed alert, answers 200 and emails every member (no details in the email)", async () => {
+  it("stores a signed alert, answers 200 and hands it to the team email", async () => {
     const res = await POST(request(payload()));
     expect(res.status).toBe(200);
     expect(h.insertedValues[0]).toMatchObject({ messageId: "m1", alertId: "sub:team", orgId: ORG, kind: "overdue", node: "avserv-2", drill: false });
-    expect(h.email).toHaveBeenCalledTimes(2);
-    expect(h.email).toHaveBeenCalledWith("lead@sar.org", { teamName: "Summit SAR", kind: "overdue", fromAreaUser: false, alertsUrl: `https://rmdig.ai/sar/${ORG}/alerts` });
+    expect(h.notify).toHaveBeenCalledTimes(1);
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1", alertId: "sub:team", teamId: ORG, kind: "overdue" }));
   });
 
-  it("answers 409 duplicate for a repeated messageId (AvServ treats it as delivered)", async () => {
+  it("answers 409 duplicate for a repeated messageId without emailing (AvServ treats it as delivered)", async () => {
     h.inserted = [];
     const res = await POST(request(payload()));
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ code: "duplicate" });
-    expect(h.email).not.toHaveBeenCalled();
+    expect(h.notify).not.toHaveBeenCalled();
   });
 
-  it("doesn't email again for the other node's copy, or for drills and duplicate notices", async () => {
-    h.copies = [{ id: "m1" }, { id: "m2" }];
+  it("reports an alert for a team that isn't active to Sentry, and still stores it", async () => {
+    h.team = [{ name: "Summit SAR", status: "suspended" }];
     expect((await POST(request(payload()))).status).toBe(200);
-    expect(h.email).not.toHaveBeenCalled();
-    h.copies = [{ id: "m1" }];
-    expect((await POST_DRILL(request(payload({ drill: true })))).status).toBe(200);
-    expect((await POST(request(payload({ kind: "duplicate_disclaimer", alert: { refersTo: "sub:team", deliveries: 2 } })))).status).toBe(200);
-    expect(h.email).not.toHaveBeenCalled();
-  });
-
-  it("emails each update once too: the other node's copy of an all-clear doesn't email again", async () => {
-    const clear = payload({ messageId: "m5", kind: "all_clear", capability: null, alert: { refersTo: "sub:team", at: "2026-10-04T11:00:00Z" } });
-    h.inserted = [{ messageId: "m5" }];
-    h.copies = [{ id: "m5" }];
-    expect((await POST(request(clear))).status).toBe(200);
-    expect(h.email).toHaveBeenCalledWith("lead@sar.org", expect.objectContaining({ kind: "all_clear" }));
-    h.email.mockClear();
-    h.copies = [{ id: "m5" }, { id: "m6" }];
-    expect((await POST(request({ ...clear, messageId: "m6" }))).status).toBe(200);
-    expect(h.email).not.toHaveBeenCalled();
-  });
-
-  it("says when Send Help came from a user in the area who hadn't added the team", async () => {
-    const area = payload({ kind: "send_help", capability: "send_help_area", alert: { helpRequestId: "h", userDisplayName: "Pat", lastFix: null, note: null, checkoutId: null, openedAt: "2026-10-04T10:00:00Z" } });
-    expect((await POST(request(area))).status).toBe(200);
-    expect(h.email).toHaveBeenCalledWith("lead@sar.org", expect.objectContaining({ kind: "send_help", fromAreaUser: true }));
+    expect(h.captureMessage).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ tags: { event: "sar.intake.team_not_active" } }));
   });
 
   it("keeps drills and live alerts apart: each URL refuses the other kind (permanent 4xx)", async () => {
@@ -161,7 +130,6 @@ describe("POST /api/sar/intake", () => {
   it("stores a drill from the drill URL as a drill, emailing no one", async () => {
     expect((await POST_DRILL(request(payload({ drill: true })))).status).toBe(200);
     expect(h.insertedValues[0]).toMatchObject({ messageId: "m1", drill: true });
-    expect(h.email).not.toHaveBeenCalled();
   });
 
   it("accepts an alert whose fix has no time (stored, emailed), and one with a broken detail, logging the drop", async () => {
@@ -169,7 +137,6 @@ describe("POST /api/sar/intake", () => {
     expect((await POST(request(noTime))).status).toBe(200);
     expect(h.insertedValues[0]).toMatchObject({ messageId: "m1" });
     h.inserted = [{ messageId: "m2" }];
-    h.copies = [{ id: "m2" }];
     const broken = payload({ messageId: "m2", alert: { checkoutId: "c", userDisplayName: "Pat", lastFix: { lat: "x" }, plannedRoute: null, expectedReturnAt: "2026-10-04T09:00:00Z", alertedAt: "2026-10-04T10:00:00Z" } });
     expect((await POST(request(broken))).status).toBe(200);
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.intake.fields_dropped", fields: ["lastFix"] }));
@@ -198,9 +165,16 @@ describe("POST /api/sar/intake", () => {
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.intake.failed" }));
   });
 
-  it("still answers 200 when member email fails, and logs it", async () => {
-    h.email.mockRejectedValue(new Error("resend down"));
-    expect((await POST(request(payload()))).status).toBe(200);
-    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.intake.member_email_failed" }));
+  it("answers 500 and reports to Sentry when the store fails (AvServ retries)", async () => {
+    h.dbError = new Error("connection reset");
+    expect((await POST(request(payload()))).status).toBe(500);
+    expect(h.capture).toHaveBeenCalledWith(h.dbError, expect.objectContaining({ tags: { event: "sar.intake.failed" } }));
+    expect(h.notify).not.toHaveBeenCalled();
+  });
+
+  it("reports missing intake keys to Sentry, not just the log", async () => {
+    h.env.AVSERV_SAR_INTAKE_KEYS = "";
+    expect((await POST(request(payload()))).status).toBe(503);
+    expect(h.captureMessage).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ tags: { event: "sar.intake.not_configured" } }));
   });
 });

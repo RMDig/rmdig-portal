@@ -1,9 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
-import { NextResponse } from "next/server";
 
 import { runAvServChecks } from "@/lib/avserv/checks";
 import { avservNodes } from "@/lib/avserv/sar-teams";
-import { cronAuthFailure } from "@/lib/cron/auth";
+import { runCron } from "@/lib/cron/run";
 import { logger } from "@/lib/logger";
 
 // Daily (vercel.json crons): the Admin → AvServ checks, without anyone
@@ -14,27 +13,28 @@ import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  const denied = cronAuthFailure(req, "avserv_checks");
-  if (denied) return denied;
-  if (avservNodes().length === 0) {
-    logger.error({ event: "cron.avserv_checks.no_nodes" });
-    return NextResponse.json({ code: "no_avserv_nodes" }, { status: 503 });
-  }
-  const results = await runAvServChecks("cron", { emailLookup: false });
-  const failed = results.filter((r) => !r.ok && !r.warn).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
-  // A node-health warning (low disk, a stale cleanup) is reported, not failed:
-  // AvServ pages the operator itself when a disk fails.
-  const warned = results.filter((r) => r.warn).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
-  if (warned.length) {
-    logger.warn({ event: "cron.avserv_checks.warned", warned });
-    Sentry.captureMessage(`AvServ node health warnings: ${warned.join("; ")}`, "warning");
-  }
-  if (failed.length) {
-    logger.error({ event: "cron.avserv_checks.failed", failed });
-    Sentry.captureMessage(`AvServ checks failed: ${failed.join("; ")}`, "error");
-    return NextResponse.json({ ok: false, failed, results }, { status: 503 });
-  }
-  logger.info({ event: "cron.avserv_checks.done", checks: results.length, warnings: warned.length });
-  return NextResponse.json({ ok: true, warned, results });
+export function GET(req: Request) {
+  return runCron(req, "avserv_checks", async () => {
+    if (avservNodes().length === 0) {
+      logger.error({ event: "cron.avserv_checks.no_nodes" });
+      Sentry.captureMessage("AvServ checks: no AvServ nodes are configured", "error");
+      return { ok: false, body: { code: "no_avserv_nodes" } };
+    }
+    const results = await runAvServChecks("cron", { emailLookup: false });
+    const failed = results.filter((r) => !r.ok && !r.warn).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
+    // A node-health warning (low disk, a stale cleanup) is reported, not failed:
+    // AvServ pages the operator itself when a disk fails.
+    const warned = results.filter((r) => r.warn).map((r) => `${r.node}: ${r.check}: ${r.answer}`);
+    if (warned.length) {
+      logger.warn({ event: "cron.avserv_checks.warned", warned });
+      Sentry.captureMessage(`AvServ node health warnings: ${warned.join("; ")}`, "warning");
+    }
+    if (failed.length) {
+      logger.error({ event: "cron.avserv_checks.failed", failed });
+      Sentry.captureMessage(`AvServ checks failed: ${failed.join("; ")}`, "error");
+      return { ok: false, body: { ok: false, failed, results } };
+    }
+    logger.info({ event: "cron.avserv_checks.done", checks: results.length, warnings: warned.length });
+    return { ok: true, body: { ok: true, warned, results } };
+  });
 }

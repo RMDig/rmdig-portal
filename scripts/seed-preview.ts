@@ -69,7 +69,11 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
 
     await db
       .insert(userPlatformRoles)
-      .values({ userId: id("admin"), role: "rmdig_admin" })
+      .values([
+        { userId: id("admin"), role: "rmdig_admin" },
+        // SAR decisions need the separate approver role (lib/auth/roles.ts).
+        { userId: id("admin"), role: "rmdig_sar_approver" },
+      ])
       .onConflictDoNothing();
 
     const advEmail = personas.find((p) => p.tag === "advertiser")!.email;
@@ -120,7 +124,13 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
         .onConflictDoNothing();
       const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
       if (!row) throw new Error(`seed: ${email} missing after insert`);
-      await db.insert(userPlatformRoles).values({ userId: row.id, role: "rmdig_admin" }).onConflictDoNothing();
+      await db
+        .insert(userPlatformRoles)
+        .values([
+          { userId: row.id, role: "rmdig_admin" },
+          { userId: row.id, role: "rmdig_sar_approver" },
+        ])
+        .onConflictDoNothing();
     }
 
     for (const p of personas) console.log(`✓ ${p.tag.padEnd(10)} ${p.email}`);

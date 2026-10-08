@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
-import { isPlatformStaff } from "@/lib/auth/roles";
+import { isSarApprover } from "@/lib/auth/roles";
 import { getProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
 import { sarOrgs } from "@/lib/db/schema";
@@ -19,7 +19,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
 export async function GET(_req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const session = await auth();
   const staffId = session?.user?.id;
-  if (!staffId || !(await isPlatformStaff(staffId))) {
+  if (!staffId || !(await isSarApprover(staffId))) {
     return new NextResponse("Not found", { status: 404 });
   }
 

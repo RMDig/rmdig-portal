@@ -3,6 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { portalActor } from "@/lib/auth/portal-actor";
 import { staffEmails } from "@/lib/auth/staff-recipients";
 import { listRestrictions } from "@/lib/avserv/restrictions";
@@ -11,6 +12,7 @@ import { isUniqueViolation } from "@/lib/db/errors";
 import { restrictionReviewLog, restrictionReviewRequests, users } from "@/lib/db/schema";
 import { sendRestrictionReviewRequestedEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
+import { reportError, reportProblem } from "@/lib/report-error";
 import { incrementRateLimit } from "@/lib/rate-limit";
 import { reviewableRestrictions, reviewRequestSchema } from "@/lib/restrictions/review";
 import { portalUrl } from "@/lib/email/links";
@@ -35,6 +37,7 @@ export async function submitReviewRequestAction(
   _prev: ReviewRequestResult | null,
   formData: FormData,
 ): Promise<ReviewRequestResult> {
+  if (!featureEnabled("restriction_review")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const userId = actor.userId;
@@ -147,10 +150,10 @@ async function notifyStaff(requestId: string): Promise<void> {
   try {
     staff = await staffEmails();
   } catch (err) {
-    logger.error({ event: "restriction_review.staff_lookup_failed", requestId, err });
+    reportError("restriction_review.staff_lookup_failed", err, { requestId });
     return;
   }
-  if (staff.length === 0) logger.error({ event: "restriction_review.no_staff_to_notify", requestId });
+  if (staff.length === 0) reportProblem("restriction_review.no_staff_to_notify", "No rmdig staff to tell about a restriction review request", { requestId });
   for (const email of staff) {
     try {
       await sendRestrictionReviewRequestedEmail(email, reviewUrl);

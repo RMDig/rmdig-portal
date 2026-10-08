@@ -11,14 +11,16 @@ import { previewSafetyProblems } from "./preview-guard";
 // static analysis don't have the full secret set). Production deploys validate
 // because Vercel injects the full env before the server starts.
 
-const Env = z.object({
+export const Env = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
   // Postgres (Neon, pooled). lib/db/index.ts is tuned for the -pooler suffix.
   DATABASE_URL: z.string().url(),
 
-  // Auth.js v5. NEXTAUTH_URL is optional on Vercel (Auth.js auto-detects via
-  // VERCEL_URL). NEXTAUTH_SECRET must be at least 32 hex chars.
+  // Auth.js v5. NEXTAUTH_SECRET must be at least 32 hex chars. NEXTAUTH_URL
+  // is also the base of every emailed link (lib/email/links.ts), so production
+  // requires it (refined below): unset, links would point at localhost.
+  // Previews leave it unset and Auth.js auto-detects via VERCEL_URL.
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32),
 
@@ -106,6 +108,14 @@ const Env = z.object({
   // calls (vercel.json crons). Unset: the cron routes answer 503 and log.
   CRON_SECRET: z.string().min(32).optional(),
 
+  // Surfaces that are built but wait on AvServ endpoints that don't exist yet
+  // (lib/features.ts). "off" (the default) hides them: their pages 404 and
+  // their actions refuse. Turn one on only once AvServ ships its routes.
+  // ADVERTISER_PORTAL: /advertiser/*, /advertiser-invite, admin ad approvals.
+  // RESTRICTION_REVIEW: /account/review and admin restriction reviews.
+  FEATURE_ADVERTISER_PORTAL: z.enum(["on", "off"]).default("off"),
+  FEATURE_RESTRICTION_REVIEW: z.enum(["on", "off"]).default("off"),
+
   // Runtime knob for the MFA enforcement gate (lib/auth middleware uses this).
   MFA_ENFORCEMENT: z.enum(["optional", "admin_only", "all"]).default("admin_only"),
 
@@ -125,6 +135,14 @@ const Env = z.object({
   // Preview only: comma-separated addresses that still receive real email, for
   // testing a template end to end. Unset means previews send nothing.
   PREVIEW_EMAIL_RECIPIENTS: z.string().optional(),
+}).superRefine((v, ctx) => {
+  if (v.VERCEL_ENV === "production" && !v.NEXTAUTH_URL) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["NEXTAUTH_URL"],
+      message: "required in production: emailed links are built from it",
+    });
+  }
 });
 
 export type Env = z.infer<typeof Env>;

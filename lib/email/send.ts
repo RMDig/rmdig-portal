@@ -1,4 +1,5 @@
 import { render } from "@react-email/components";
+import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 
 import { RESET_TOKEN_TTL_MINUTES } from "../auth/reset-tokens";
@@ -13,6 +14,7 @@ import AdCreativePendingReviewEmail from "./templates/AdCreativePendingReviewEma
 import AdvertiserInviteEmail from "./templates/AdvertiserInviteEmail";
 import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
+import DeletionClockEmail, { type DeletionClockEmailProps } from "./templates/DeletionClockEmail";
 import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
 import PatrolReverifyStaffEmail, { type PatrolReverifyStaffEmailProps } from "./templates/PatrolReverifyStaffEmail";
@@ -49,38 +51,48 @@ function getResend(): Resend {
 // exercise the flows without mailing anyone by accident, and a listed tester
 // can still receive a new template end to end (runbook "Preview deployments").
 // The body is never logged; it can carry a sign-in or deletion token.
+//
+// Any failure (the template, an unconfigured key, Resend refusing or not
+// answering) is logged, sent to Sentry and rethrown, here and only here, so
+// every email in the portal is loud when it fails without each caller having
+// to remember to report it. Callers still decide what the user sees.
 async function deliver(m: {
   kind: string;
   label: string;
   to: string;
   subject: string;
-  html: string;
+  html: Promise<string>;
   log?: Record<string, unknown>;
 }): Promise<void> {
-  if (!shouldDeliverEmail(env.VERCEL_ENV, env.PREVIEW_EMAIL_RECIPIENTS, m.to)) {
-    logger.info({ event: `email.${m.kind}.preview_logged`, to: m.to, subject: m.subject, ...m.log });
-    return;
+  try {
+    // Awaited first, on every path, so a template that fails to render is
+    // caught here even on a preview that doesn't send.
+    const html = await m.html;
+    if (!shouldDeliverEmail(env.VERCEL_ENV, env.PREVIEW_EMAIL_RECIPIENTS, m.to)) {
+      logger.info({ event: `email.${m.kind}.preview_logged`, to: m.to, subject: m.subject, ...m.log });
+      return;
+    }
+
+    const { data, error } = await getResend().emails.send({
+      from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
+      to: m.to,
+      subject: m.subject,
+      html,
+    });
+    if (error) throw new Error(`Resend rejected ${m.label} email: ${error.message}`);
+    logger.info({ event: `email.${m.kind}.sent`, to: m.to, ...m.log, resendId: data?.id });
+  } catch (err) {
+    const event = `email.${m.kind}.failed`;
+    logger.error({ event, to: m.to, ...m.log, err });
+    Sentry.captureException(err, { tags: { event, email_kind: m.kind }, extra: { ...m.log } });
+    throw err;
   }
-
-  const { data, error } = await getResend().emails.send({
-    from: `rmdig <${env.RESEND_FROM_EMAIL}>`,
-    to: m.to,
-    subject: m.subject,
-    html: m.html,
-  });
-
-  if (error) {
-    logger.error({ event: `email.${m.kind}.failed`, to: m.to, ...m.log, error });
-    throw new Error(`Resend rejected ${m.label} email: ${error.message}`);
-  }
-
-  logger.info({ event: `email.${m.kind}.sent`, to: m.to, ...m.log, resendId: data?.id });
 }
 
 const VERIFY_EMAIL_EXPIRES_HOURS = 24;
 
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
-  const html = await render(
+  const html = render(
     VerifyEmail({ verifyUrl, expiresInHours: VERIFY_EMAIL_EXPIRES_HOURS }),
   );
 
@@ -94,7 +106,7 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
-  const html = await render(
+  const html = render(
     ResetPasswordEmail({ resetUrl, expiresInMinutes: RESET_TOKEN_TTL_MINUTES }),
   );
 
@@ -108,7 +120,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
 }
 
 export async function sendSarOrgSubmittedEmail(to: string, orgName: string, statusUrl: string): Promise<void> {
-  const html = await render(SarOrgSubmittedEmail({ orgName, statusUrl }));
+  const html = render(SarOrgSubmittedEmail({ orgName, statusUrl }));
 
   await deliver({
     kind: "sar_submitted",
@@ -123,7 +135,7 @@ export async function sendSarOrgPendingReviewEmail(
   to: string,
   params: { orgName: string; submitterEmail: string; reviewUrl: string },
 ): Promise<void> {
-  const html = await render(SarOrgPendingReviewEmail(params));
+  const html = render(SarOrgPendingReviewEmail(params));
 
   await deliver({
     kind: "sar_pending_review",
@@ -144,7 +156,7 @@ export async function sendSarOrgDecisionEmail(
   to: string,
   params: { orgName: string; decision: SarOrgDecision; note?: string; actionUrl?: string },
 ): Promise<void> {
-  const html = await render(SarOrgDecisionEmail(params));
+  const html = render(SarOrgDecisionEmail(params));
 
   await deliver({
     kind: "sar_decision",
@@ -160,7 +172,7 @@ export async function sendOrgInviteEmail(
   to: string,
   params: { orgName: string; inviteUrl: string; role: TeamRole },
 ): Promise<void> {
-  const html = await render(
+  const html = render(
     OrgInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
@@ -177,7 +189,7 @@ export async function sendAdvertiserInviteEmail(
   to: string,
   params: { advertiserName: string; inviteUrl: string; role: AdvertiserRole },
 ): Promise<void> {
-  const html = await render(
+  const html = render(
     AdvertiserInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
@@ -194,7 +206,7 @@ export async function sendAdCreativePendingReviewEmail(
   to: string,
   params: { advertiserName: string; headline: string; reviewUrl: string },
 ): Promise<void> {
-  const html = await render(AdCreativePendingReviewEmail(params));
+  const html = render(AdCreativePendingReviewEmail(params));
 
   await deliver({
     kind: "ad_pending_review",
@@ -216,7 +228,7 @@ export async function sendAdCreativeDecisionEmail(
   to: string,
   params: { advertiserName: string; headline: string; decision: AdCreativeDecision; note?: string; creativeUrl: string; published?: boolean },
 ): Promise<void> {
-  const html = await render(AdCreativeDecisionEmail(params));
+  const html = render(AdCreativeDecisionEmail(params));
 
   await deliver({
     kind: "ad_decision",
@@ -232,7 +244,7 @@ export async function sendDataDeletionConfirmEmail(
   to: string,
   params: { confirmUrl: string; expiresInHours: number },
 ): Promise<void> {
-  const html = await render(DataDeletionConfirmEmail(params));
+  const html = render(DataDeletionConfirmEmail(params));
 
   await deliver({
     kind: "deletion_confirm",
@@ -247,7 +259,7 @@ export async function sendDataDeletionReceivedEmail(
   to: string,
   params: { requestId: string },
 ): Promise<void> {
-  const html = await render(DataDeletionReceivedEmail(params));
+  const html = render(DataDeletionReceivedEmail(params));
 
   await deliver({
     kind: "deletion_received",
@@ -262,7 +274,7 @@ export async function sendDataDeletionAdminEmail(
   to: string,
   params: { requesterEmail: string; requestId: string; confirmedAtIso: string; dueIso: string; queueUrl: string },
 ): Promise<void> {
-  const html = await render(DataDeletionAdminEmail(params));
+  const html = render(DataDeletionAdminEmail(params));
 
   await deliver({
     kind: "deletion_admin",
@@ -273,11 +285,25 @@ export async function sendDataDeletionAdminEmail(
   });
 }
 
+export async function sendDeletionClockEmail(to: string, params: DeletionClockEmailProps): Promise<void> {
+  const html = render(DeletionClockEmail(params));
+  await deliver({
+    kind: "deletion_clock",
+    label: "deletion-clock",
+    to,
+    subject: params.escalated
+      ? "Data-deletion requests near their CPA deadline"
+      : "Data-deletion requests waiting 30+ days",
+    html,
+    log: { requests: params.items.length, escalated: params.escalated },
+  });
+}
+
 export async function sendPlatformInviteEmail(
   to: string,
   params: { inviteUrl: string; roleLabel: string },
 ): Promise<void> {
-  const html = await render(
+  const html = render(
     PlatformInviteEmail({ ...params, expiresInDays: INVITE_TOKEN_TTL_DAYS }),
   );
 
@@ -296,7 +322,7 @@ export async function sendRestrictionReviewUpheldEmail(
   to: string,
   params: { feature: string; userReason: string; reviewUrl: string },
 ): Promise<void> {
-  const html = await render(RestrictionReviewUpheldEmail(params));
+  const html = render(RestrictionReviewUpheldEmail(params));
 
   await deliver({
     kind: "restriction_review_upheld",
@@ -311,7 +337,7 @@ export async function sendSarTermsPendingReviewEmail(
   to: string,
   params: { orgName: string; reviewUrl: string },
 ): Promise<void> {
-  const html = await render(SarTermsPendingReviewEmail(params));
+  const html = render(SarTermsPendingReviewEmail(params));
   await deliver({
     kind: "sar_terms_pending_review",
     label: "SAR-terms-pending-review",
@@ -325,7 +351,7 @@ export async function sendSarTermsDecisionEmail(
   to: string,
   params: { orgName: string; decision: SarTermsDecision; version?: number; note?: string; termsUrl: string },
 ): Promise<void> {
-  const html = await render(SarTermsDecisionEmail(params));
+  const html = render(SarTermsDecisionEmail(params));
   await deliver({
     kind: "sar_terms_decision",
     label: "SAR-terms-decision",
@@ -340,7 +366,7 @@ export async function sendSarAlertNotifyEmail(
   to: string,
   params: { teamName: string; kind: SarAlertNotifyKind; fromAreaUser: boolean; alertsUrl: string },
 ): Promise<void> {
-  const html = await render(SarAlertNotifyEmail(params));
+  const html = render(SarAlertNotifyEmail(params));
   const subject: Record<SarAlertNotifyKind, string> = {
     overdue: `AvAI alert for ${params.teamName}: missed check-in`,
     send_help: `AvAI alert for ${params.teamName}: Send Help`,
@@ -351,7 +377,7 @@ export async function sendSarAlertNotifyEmail(
 }
 
 export async function sendPatrolReverifyStaffEmail(to: string, params: PatrolReverifyStaffEmailProps): Promise<void> {
-  const html = await render(PatrolReverifyStaffEmail(params));
+  const html = render(PatrolReverifyStaffEmail(params));
   await deliver({
     kind: "patrol_reverify_staff",
     label: "patrol-reverify-staff",
@@ -363,7 +389,7 @@ export async function sendPatrolReverifyStaffEmail(to: string, params: PatrolRev
 }
 
 export async function sendPatrolReverifyTeamEmail(to: string, params: PatrolReverifyTeamEmailProps): Promise<void> {
-  const html = await render(PatrolReverifyTeamEmail(params));
+  const html = render(PatrolReverifyTeamEmail(params));
   await deliver({
     kind: "patrol_reverify_team",
     label: "patrol-reverify-team",
@@ -375,6 +401,6 @@ export async function sendPatrolReverifyTeamEmail(to: string, params: PatrolReve
 }
 
 export async function sendRestrictionReviewRequestedEmail(to: string, reviewUrl: string): Promise<void> {
-  const html = await render(RestrictionReviewRequestedEmail({ reviewUrl }));
+  const html = render(RestrictionReviewRequestedEmail({ reviewUrl }));
   await deliver({ kind: "restriction_review_requested", label: "restriction-review-requested", to, subject: "A restriction review is waiting", html });
 }

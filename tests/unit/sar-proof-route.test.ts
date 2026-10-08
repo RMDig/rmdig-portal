@@ -12,7 +12,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: () => Promise.resolve(h.userId ? { user: { id: h.userId } } : null) }));
-vi.mock("@/lib/auth/roles", () => ({ isPlatformStaff: () => Promise.resolve(h.staff) }));
+// h.staff: holds rmdig_sar_approver, the only role that sees proof documents.
+vi.mock("@/lib/auth/roles", () => ({ isSarApprover: () => Promise.resolve(h.staff) }));
 vi.mock("@/lib/blob/upload", () => ({ getProofDoc: h.getProofDoc }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("@/lib/db", () => {

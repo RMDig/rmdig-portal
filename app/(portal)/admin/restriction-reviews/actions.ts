@@ -3,6 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { portalActor } from "@/lib/auth/portal-actor";
 import { isPlatformStaff } from "@/lib/auth/roles";
 import { liftRestriction, listRestrictions, type Restriction } from "@/lib/avserv/restrictions";
@@ -34,6 +35,7 @@ export async function decideReviewAction(
   _prev: ReviewDecisionResult | null,
   formData: FormData,
 ): Promise<ReviewDecisionResult> {
+  if (!featureEnabled("restriction_review")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const staffId = actor.userId;

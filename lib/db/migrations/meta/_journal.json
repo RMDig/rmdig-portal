@@ -169,6 +169,13 @@
       "when": 1791085056726,
       "tag": "0023_sar_reverify_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791417244455,
+      "tag": "0024_sar_alert_notify_and_evidence_restrict",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { db } from "../db";
 import { orgMemberships, sarOrgs, sarReverifyReminders, userPlatformRoles, users } from "../db/schema";
 import { sendPatrolReverifyStaffEmail, sendPatrolReverifyTeamEmail } from "../email/send";
 import { logger } from "../logger";
+import { reportProblem } from "../report-error";
 import { LOOKAHEAD_DAYS, patrolAdminsNotified, reminderStage } from "./reverify";
 import { portalUrl } from "../email/links";
 
@@ -43,8 +44,9 @@ export async function runReverifyReminders(now: Date): Promise<ReverifyRunSummar
     .select({ email: users.email })
     .from(userPlatformRoles)
     .innerJoin(users, eq(users.id, userPlatformRoles.userId))
-    .where(eq(userPlatformRoles.role, "rmdig_admin"));
-  if (staff.length === 0) logger.error({ event: "sar.reverify.no_staff_recipients" });
+    // Re-verifying a patrol is a SAR approver's call (lib/auth/roles.ts).
+    .where(eq(userPlatformRoles.role, "rmdig_sar_approver"));
+  if (staff.length === 0) reportProblem("sar.reverify.no_staff_recipients", "Patrol re-verification reminders have no SAR approver to go to");
 
   for (const p of patrols) {
     const reverifyBy = p.reverifyBy!;
@@ -87,6 +89,7 @@ export async function runReverifyReminders(now: Date): Promise<ReverifyRunSummar
         ok++;
       } catch (err) {
         summary.failed++;
+        // lib/email/send has already reported it to Sentry.
         logger.error({ event: "sar.reverify.email_failed", orgId: p.id, stage, err });
       }
     }

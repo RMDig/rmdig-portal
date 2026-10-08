@@ -45,6 +45,11 @@ export interface PendingOrg {
   regionName: string | null;
   region: PreviewPolygon | null;
   reverifyBy: string | null;
+  /** The review_revision this page shows; every decision sends it back. */
+  reviewRevision: number;
+  /** The signed-in approver submitted this org, or belongs to it, so can't
+   *  approve or re-verify it. */
+  conflictOfInterest: "submitted" | "member" | null;
   sync: NodeSync[];
 }
 
@@ -52,6 +57,7 @@ export interface PendingOrg {
 function ActionButton({
   formAction,
   orgId,
+  revision,
   decision,
   label,
   pending,
@@ -60,6 +66,7 @@ function ActionButton({
 }: {
   formAction: (fd: FormData) => void;
   orgId: string;
+  revision: number;
   decision: string;
   label: string;
   pending: boolean;
@@ -69,6 +76,7 @@ function ActionButton({
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="orgId" value={orgId} />
+      <input type="hidden" name="revision" value={revision} />
       <input type="hidden" name="decision" value={decision} />
       {note ? (
         <textarea
@@ -155,29 +163,41 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
 
       {org.status === "pending" ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-          {/* Approve — staff-only note, required for a patrol (the call-back). */}
-          <form action={formAction} className="flex-1 space-y-2">
-            <input type="hidden" name="orgId" value={org.id} />
-            <input type="hidden" name="decision" value="approve" />
-            <textarea
-              name="note"
-              rows={2}
-              required={org.orgType === "ski_patrol"}
-              placeholder={
-                org.orgType === "ski_patrol"
-                  ? "Who you spoke to at the ski area, and the number you called (staff only)"
-                  : "Note (optional, staff only)"
-              }
-              className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
-            />
-            <Button type="submit" disabled={pending}>
-              Approve
-            </Button>
-          </form>
+          {/* Approve — staff-only note, required for a patrol (the call-back).
+              Not offered on an org you submitted or belong to (the action
+              refuses it too). */}
+          {org.conflictOfInterest ? (
+            <p className="text-muted-foreground flex-1 text-sm">
+              {org.conflictOfInterest === "submitted"
+                ? "You submitted this organization, so another approver has to approve it."
+                : "You're a member of this organization, so another approver has to approve it."}
+            </p>
+          ) : (
+            <form action={formAction} className="flex-1 space-y-2">
+              <input type="hidden" name="orgId" value={org.id} />
+              <input type="hidden" name="revision" value={org.reviewRevision} />
+              <input type="hidden" name="decision" value="approve" />
+              <textarea
+                name="note"
+                rows={2}
+                required={org.orgType === "ski_patrol"}
+                placeholder={
+                  org.orgType === "ski_patrol"
+                    ? "Who you spoke to at the ski area, and the number you called (staff only)"
+                    : "Note (optional, staff only)"
+                }
+                className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
+              />
+              <Button type="submit" disabled={pending}>
+                Approve
+              </Button>
+            </form>
+          )}
 
           {/* Reject — reason required. */}
           <form action={formAction} className="flex-1 space-y-2">
             <input type="hidden" name="orgId" value={org.id} />
+            <input type="hidden" name="revision" value={org.reviewRevision} />
             <input type="hidden" name="decision" value="reject" />
             <textarea
               name="note"
@@ -193,6 +213,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
           {/* Request changes — note required; org stays pending. */}
           <form action={formAction} className="flex-1 space-y-2">
             <input type="hidden" name="orgId" value={org.id} />
+            <input type="hidden" name="revision" value={org.reviewRevision} />
             <input type="hidden" name="decision" value="request_changes" />
             <textarea
               name="note"
@@ -214,6 +235,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
             <ActionButton
               formAction={formAction}
               orgId={org.id}
+              revision={org.reviewRevision}
               decision="suspend"
               label="Suspend (stops alerts at once)"
               pending={pending}
@@ -221,12 +243,13 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
             />
           ) : null}
           {org.status === "approved" ? (
-            <ActionButton formAction={formAction} orgId={org.id} decision="mark_leaving" label="Mark leaving" pending={pending} />
+            <ActionButton formAction={formAction} orgId={org.id} revision={org.reviewRevision} decision="mark_leaving" label="Mark leaving" pending={pending} />
           ) : null}
-          {org.status === "approved" && org.orgType === "ski_patrol" ? (
+          {org.status === "approved" && org.orgType === "ski_patrol" && !org.conflictOfInterest ? (
             <ActionButton
               formAction={formAction}
               orgId={org.id}
+              revision={org.reviewRevision}
               decision="reverify"
               label="Mark re-verified (12 months)"
               pending={pending}
@@ -235,10 +258,10 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
             />
           ) : null}
           {org.status === "leaving" || org.status === "suspended" ? (
-            <ActionButton formAction={formAction} orgId={org.id} decision="withdraw" label="Withdraw" pending={pending} />
+            <ActionButton formAction={formAction} orgId={org.id} revision={org.reviewRevision} decision="withdraw" label="Withdraw" pending={pending} />
           ) : null}
           {org.status === "suspended" ? (
-            <ActionButton formAction={formAction} orgId={org.id} decision="reactivate" label="Reactivate (re-review)" pending={pending} />
+            <ActionButton formAction={formAction} orgId={org.id} revision={org.reviewRevision} decision="reactivate" label="Reactivate (re-review)" pending={pending} />
           ) : null}
         </div>
       )}

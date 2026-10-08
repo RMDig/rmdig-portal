@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 
@@ -56,7 +58,9 @@ export function commonStatusError(status: number): AvServError | null {
 /**
  * One signed internal-tier request. Network errors, timeouts and signing
  * failures (missing key on the real path) all surface as {@link AvServError}
- * with no status; the caller interprets every status itself.
+ * with no status; the caller interprets every status itself. Each request
+ * carries an x-request-id (AvServ logs it), named in the error when the node
+ * doesn't answer, so one portal failure can be found in AvServ's logs.
  */
 export async function avservFetch(
   baseUrl: string,
@@ -67,15 +71,16 @@ export async function avservFetch(
   // unreachable node, and must not be retried on the other node or shown as
   // an outage.
   const token = await signServiceJwt();
+  const requestId = randomUUID();
   try {
     return await fetch(`${baseUrl.replace(/\/$/, "")}${path}`, {
       method: init.method,
-      headers: { authorization: `Bearer ${token}`, ...init.headers },
+      headers: { authorization: `Bearer ${token}`, "x-request-id": requestId, ...init.headers },
       body: init.body,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
-    throw new AvServError(`AvServ request failed: ${(err as Error).message}`, undefined, "unreachable");
+    throw new AvServError(`AvServ request ${requestId} failed: ${(err as Error).message}`, undefined, "unreachable");
   }
 }
 

@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The surface is behind a FEATURE_* flag (lib/features.ts); on here, and off
+// in the test that checks the refusal.
+const feature = vi.hoisted(() => ({ on: true }));
+vi.mock("@/lib/features", () => ({
+  featureEnabled: () => feature.on,
+  FEATURE_OFF_ERROR: "This part of the portal isn't available yet.",
+}));
+
 // Editing a creative: only a draft or one sent back for changes, only by a
 // member of its advertiser, through the same validation as creating it.
 
@@ -51,6 +59,15 @@ beforeEach(() => {
 });
 
 describe("updateCreativeAction", () => {
+  it("refuses while the advertiser portal is switched off", async () => {
+    feature.on = false;
+    try {
+      expect(await updateCreativeAction("a", "c", null, new FormData())).toEqual({ ok: false, error: "This part of the portal isn't available yet." });
+    } finally {
+      feature.on = true;
+    }
+  });
+
   it("saves a draft or sent-back creative's new content and targeting", async () => {
     expect(await updateCreativeAction("adv1", "c1", null, form())).toEqual({ ok: true, creativeId: "c1" });
     expect(h.updates[0]).toMatchObject({ campaignId: "camp1", headline: "New beacons", targetKind: "national" });

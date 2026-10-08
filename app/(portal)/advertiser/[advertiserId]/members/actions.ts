@@ -3,6 +3,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { portalActor } from "@/lib/auth/portal-actor";
 import { canManageAdvertiser } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
@@ -29,6 +30,7 @@ export async function createAdvertiserInvitationAction(
   _prev: InviteResult | null,
   formData: FormData,
 ): Promise<InviteResult> {
+  if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const userId = actor.userId;

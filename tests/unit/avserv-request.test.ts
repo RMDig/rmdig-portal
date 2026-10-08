@@ -21,6 +21,20 @@ beforeEach(() => {
 });
 
 describe("avservFetch", () => {
+  it("sends a fresh x-request-id on every request, and names it when the node doesn't answer", async () => {
+    h.fetch.mockResolvedValue(new Response(null, { status: 204 }));
+    await avservFetch("https://avserv-2.example", "/x", { method: "GET" });
+    await avservFetch("https://avserv-2.example", "/x", { method: "GET" });
+    const ids = h.fetch.mock.calls.map((c) => (c[1] as { headers: Record<string, string> }).headers["x-request-id"]);
+    expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(ids[1]).not.toBe(ids[0]);
+
+    h.fetch.mockRejectedValue(new TypeError("fetch failed"));
+    const err = (await avservFetch("https://avserv-2.example", "/x", { method: "GET" }).catch((e: unknown) => e)) as Error;
+    const sent = (h.fetch.mock.calls.at(-1)![1] as { headers: Record<string, string> }).headers["x-request-id"]!;
+    expect(err.message).toContain(sent);
+  });
+
   it("tags a node that doesn't answer as unreachable", async () => {
     h.fetch.mockRejectedValue(new TypeError("fetch failed"));
     await expect(avservFetch("https://avserv-2.example", "/x", { method: "GET" })).rejects.toMatchObject({

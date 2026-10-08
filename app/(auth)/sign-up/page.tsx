@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { featureEnabled } from "@/lib/features";
 import { SignUpForm } from "./SignUpForm";
 
 export const metadata = {
@@ -26,7 +27,8 @@ export default function SignUpPage() {
       </CardHeader>
       <CardContent>
         <Suspense fallback={null}>
-          <SignUpForm />
+          {/* No advertiser choice while the advertiser portal is off (lib/features.ts). */}
+          <SignUpForm advertiserOption={featureEnabled("advertiser_portal")} />
         </Suspense>
       </CardContent>
     </Card>

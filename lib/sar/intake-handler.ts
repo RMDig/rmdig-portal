@@ -1,11 +1,12 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "../db";
-import { orgMemberships, sarIntakeMessages, sarOrgs, users } from "../db/schema";
-import { sendSarAlertNotifyEmail } from "../email/send";
+import { sarIntakeMessages, sarOrgs } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
+import { reportError, reportProblem } from "../report-error";
+import { notifyOnIntake } from "./alert-notify";
 import { type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
 
 // AvServ → portal SAR intake (AvServ sar_portal_intake.md), shared by the live
@@ -20,7 +21,7 @@ import { type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignatur
 // any other 4xx = permanent (AvServ doesn't retry, and pages). So: anything
 // wrong with the request is a 4xx, and only our own failures are 5xx. The
 // message is stored before answering 2xx; member emails follow and never
-// change the answer.
+// change the answer (lib/sar/alert-notify.ts claims, sends and retries them).
 
 const MAX_BODY_BYTES = 256 * 1024;
 
@@ -35,11 +36,11 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
   try {
     keys = parseIntakeKeys(env.AVSERV_SAR_INTAKE_KEYS);
   } catch (err) {
-    logger.error({ event: "sar.intake.keys_invalid", err });
+    reportError("sar.intake.keys_invalid", err);
     return reply(503, "intake_not_configured");
   }
   if (keys.size === 0) {
-    logger.error({ event: "sar.intake.not_configured" });
+    reportProblem("sar.intake.not_configured", "SAR intake has no AVSERV_SAR_INTAKE_KEYS: alerts are refused (503)");
     return reply(503, "intake_not_configured");
   }
 
@@ -67,7 +68,8 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
     if (parsed.dropped.length) {
       // Accepted without those details: off-contract from AvServ, so loud, but
       // never a reason to withhold the alert from the team.
-      logger.error({ event: "sar.intake.fields_dropped", node, messageId: payload.messageId, fields: parsed.dropped });
+      // AvServ hears 200, so only Sentry will tell anyone.
+      reportProblem("sar.intake.fields_dropped", "SAR intake dropped off-contract alert fields", { node, messageId: payload.messageId, fields: parsed.dropped });
     }
   } catch (err) {
     logger.warn({ event: "sar.intake.invalid_payload", node, err: (err as Error).message });
@@ -95,7 +97,7 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
     }
     if (team.status !== "approved" && team.status !== "leaving") {
       // AvServ shouldn't send to it; keep the record and say so loudly.
-      logger.error({ event: "sar.intake.team_not_active", teamId: payload.teamId, status: team.status });
+      reportProblem("sar.intake.team_not_active", "SAR intake received an alert for a team that isn't active", { teamId: payload.teamId, status: team.status });
     }
 
     const inserted = await db
@@ -117,49 +119,12 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
 
     logger.info({ event: "sar.intake.received", mode, teamId: payload.teamId, kind: payload.kind, node: payload.node });
     // Stored: from here the answer is 200 whatever happens to the emails, or
-    // AvServ would retry a message we already hold.
-    try {
-      await notifyMembers(payload, team.name);
-    } catch (err) {
-      logger.error({ event: "sar.intake.notify_failed", teamId: payload.teamId, messageId: payload.messageId, err });
-    }
+    // AvServ would retry a message we already hold. notifyOnIntake never
+    // throws; an email it can't send stays owed and is retried.
+    await notifyOnIntake(payload);
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {
-    logger.error({ event: "sar.intake.failed", messageId: payload.messageId, err });
+    reportError("sar.intake.failed", err, { messageId: payload.messageId });
     return reply(500, "intake_failed");
   }
-}
-
-// Members hear about alerts and their resolution; never about drills or
-// duplicate notices (the page shows those). A failed email is logged, never
-// turned into a non-2xx: the message is stored and visible in the portal.
-async function notifyMembers(payload: IntakePayload, teamName: string): Promise<void> {
-  if (payload.drill || payload.kind === "duplicate_disclaimer") return;
-  // Only the first delivery emails; the other node's copy of the same alert or
-  // update (same alertId and kind, sar_portal_intake.md) doesn't.
-  const copies = await db
-    .select({ id: sarIntakeMessages.messageId })
-    .from(sarIntakeMessages)
-    .where(and(eq(sarIntakeMessages.alertId, payload.alertId), eq(sarIntakeMessages.kind, payload.kind)))
-    .limit(2);
-  if (copies.length > 1) return;
-  // Only the roles that can open the alerts page and act on it (owner
-  // decision 2026-10-06): a responder couldn't follow the email's link.
-  const members = await db
-    .select({ email: users.email })
-    .from(orgMemberships)
-    .innerJoin(users, eq(users.id, orgMemberships.userId))
-    .where(and(eq(orgMemberships.orgId, payload.teamId), inArray(orgMemberships.role, ["admin", "dispatcher"])));
-  const alertsUrl = `${env.NEXTAUTH_URL ?? "https://rmdig.ai"}/sar/${payload.teamId}/alerts`;
-  const results = await Promise.allSettled(
-    members.map((m) => sendSarAlertNotifyEmail(m.email, {
-        teamName,
-        kind: payload.kind as "overdue" | "send_help" | "all_clear" | "disregard",
-        fromAreaUser: payload.capability === "send_help_area",
-        alertsUrl,
-      })),
-  );
-  results.forEach((r, i) => {
-    if (r.status === "rejected") logger.error({ event: "sar.intake.member_email_failed", teamId: payload.teamId, to: members[i]!.email, err: r.reason });
-  });
 }

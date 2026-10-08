@@ -7,7 +7,7 @@ import { E2E_PERSONAS } from "./helpers";
 import { userPlatformRoles, users } from "../../lib/db/schema";
 
 // Seed the E2E role personas (helpers.E2E_PERSONAS): the default member the
-// device-link/SAR-create suites log in as, plus a staff (rmdig_admin) reviewer
+// device-link/SAR-create suites log in as, plus a staff (rmdig_admin + rmdig_sar_approver) reviewer
 // and a second invitee user. Each is upserted verified with avserv_account_id
 // reset to NULL, so the device-link map-on-login assertion starts from scratch;
 // the staff persona also gets its platform-role row.
@@ -46,7 +46,7 @@ export default async function globalSetup(): Promise<void> {
   const db = drizzle(client, { schema: { users, userPlatformRoles } });
   try {
     const now = new Date();
-    for (const { user, platformRole } of E2E_PERSONAS) {
+    for (const { user, platformRoles } of E2E_PERSONAS) {
       const passwordHash = await bcrypt.hash(user.password, 10);
       const [row] = await db
         .insert(users)
@@ -68,11 +68,8 @@ export default async function globalSetup(): Promise<void> {
 
       // Grant the platform role for staff personas. Idempotent on the
       // (user_id, role) PK so re-runs don't duplicate.
-      if (platformRole && row) {
-        await db
-          .insert(userPlatformRoles)
-          .values({ userId: row.id, role: platformRole })
-          .onConflictDoNothing();
+      for (const role of row ? platformRoles : []) {
+        await db.insert(userPlatformRoles).values({ userId: row!.id, role }).onConflictDoNothing();
       }
     }
   } finally {

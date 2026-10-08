@@ -24,7 +24,7 @@ export const E2E_USER: E2eUser = {
   displayName: "E2E Device Link",
 } as const;
 
-/** rmdig_admin platform staff — for the SAR approvals queue. */
+/** rmdig_admin + rmdig_sar_approver platform staff — for the SAR approvals queue. */
 export const STAFF_USER: E2eUser = {
   email: "e2e-staff@rmdig.test",
   password: "E2e-staff-7k2p!Z",
@@ -48,11 +48,11 @@ export const RESTRICTED_USER: E2eUser = {
 } as const;
 
 /** The roster global-setup seeds, with the platform role (if any) to grant. */
-export const E2E_PERSONAS: { user: E2eUser; platformRole: "rmdig_admin" | null }[] = [
-  { user: E2E_USER, platformRole: null },
-  { user: STAFF_USER, platformRole: "rmdig_admin" },
-  { user: INVITEE_USER, platformRole: null },
-  { user: RESTRICTED_USER, platformRole: null },
+export const E2E_PERSONAS: { user: E2eUser; platformRoles: Array<"rmdig_admin" | "rmdig_sar_approver"> }[] = [
+  { user: E2E_USER, platformRoles: [] },
+  { user: STAFF_USER, platformRoles: ["rmdig_admin", "rmdig_sar_approver"] },
+  { user: INVITEE_USER, platformRoles: [] },
+  { user: RESTRICTED_USER, platformRoles: [] },
 ];
 
 /** Sign in via the real credentials form (single-factor; seeded users have no

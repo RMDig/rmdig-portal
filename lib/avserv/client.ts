@@ -436,9 +436,15 @@ export async function unpublishCreative(avservCreativeRef: string): Promise<void
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;
-  // 404 = AvServ already doesn't have it; treat as success (idempotent unpublish).
+  // A 404 means two things. With code creative_not_found, AvServ already
+  // doesn't hold the creative: success (unpublish is idempotent). Any other
+  // 404 (no JSON code, as from a node that doesn't serve this route at all)
+  // is a missing endpoint, and treating it as success would report a
+  // suspended creative as unpublished while it stays in the manifest.
   if (res.status === 404) {
-    return;
+    const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
+    if (body?.code === "creative_not_found") return;
+    throw new AvServError("AvServ answered 404 without creative_not_found: the unpublish route is missing", 404, "route_not_found");
   }
   if (!res.ok) {
     throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);

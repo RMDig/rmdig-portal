@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
-import { getPlatformRoles } from "@/lib/auth/roles";
+import { canReviewAds } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { adCampaigns, adCreatives, advertiserAccounts } from "@/lib/db/schema";
 import { describeTarget } from "@/lib/geo/lookup";
@@ -24,9 +24,8 @@ export default async function AdApprovalsPage() {
   if (!session?.user) {
     return redirectToSignIn();
   }
-  const roles = await getPlatformRoles(session.user.id);
-  if (roles.length === 0) {
-    redirect("/dashboard");
+  if (!(await canReviewAds(session.user.id))) {
+    redirect("/admin");
   }
 
   const reviewable = await db
