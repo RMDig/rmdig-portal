@@ -60,8 +60,10 @@ export default function SmsProgramPage() {
           <figure className="mt-4 flex flex-col items-center">
             {/* A static screenshot of the AvApp Add Contact screen (fixture
                 data), copied from AvApp main docs/screenshots/
-                add_contact_attestation.png (2026-10-01, 987465e: disclosure names
-                trips and automatic accident alerts; AvServ account contract §3.8). Never an HTML
+                add_contact_attestation.png (2026-10-01, 987465e; AvServ account
+                contract §3.8). That capture still shows the earlier disclosure
+                with "automatic accident alerts": retake it in the release that
+                ships the narrowed CONTACT_SMS_DISCLOSURE. Never an HTML
                 checkbox here: a form-like mock is reviewed as a web opt-in
                 form (Twilio 30925 lesson). */}
             <Image

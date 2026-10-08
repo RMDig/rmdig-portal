@@ -56,13 +56,15 @@ describe("Add Contact consent copy (AvApp compliance_copy.dart twins, contract Â
       "I confirm I have this person's permission to add them as my emergency contact, and for AvAI to text them about my trips and if I may need help.",
     );
     expect(CONTACT_SMS_DISCLOSURE).toBe(
-      "They'll get texts from AvAI about your trips, missed check-ins and emergencies, including automatic accident alerts. Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.",
+      "They'll get texts from AvAI about your trips, missed check-ins and emergencies. Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.",
     );
   });
 
-  it("the disclosure states the four elements the campaign's message flow names", () => {
+  it("the disclosure states the elements the campaign's message flow names, and no automatic alerts", () => {
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/your trips, missed check-ins and emergencies/);
-    expect(CONTACT_SMS_DISCLOSURE).toMatch(/automatic accident alerts/);
+    // No live campaign covers automatic accident alerts yet (restored only
+    // with the Incident Detection cutover, plan 38a, in both twins).
+    expect(CONTACT_SMS_DISCLOSURE).not.toMatch(/automatic|accident/i);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/Msg frequency varies/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/Msg & data rates may apply/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/reply STOP/);

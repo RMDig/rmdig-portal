@@ -23,10 +23,14 @@ export const DESIGNATION_NOTICE =
  * alt text, so a wording change there means a new screenshot and this string
  * in the same release.
  */
+// Narrowed 2026-10-07 (owner decision): "including automatic accident
+// alerts" is removed because no live campaign covers automatic alerts yet.
+// The wording is pending counsel. The clause comes back only with the
+// Incident Detection campaign cutover (plan 38a), in both twins (this and
+// AvApp kContactSmsDisclosure) and a new /sms screenshot, in the same release.
 export const CONTACT_SMS_DISCLOSURE =
-  "They'll get texts from AvAI about your trips, missed check-ins and emergencies, " +
-  "including automatic accident alerts. Msg frequency varies. Msg & data rates may apply. " +
-  "They can reply STOP to opt out.";
+  "They'll get texts from AvAI about your trips, missed check-ins and emergencies. " +
+  "Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.";
 
 /** The Add Contact checkbox label, twin of AvApp kContactPermissionAttestation. */
 export const CONTACT_PERMISSION_ATTESTATION =
