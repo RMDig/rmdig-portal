@@ -98,6 +98,6 @@ describe("runReverifyReminders", () => {
   it("logs loudly when there's no rmdig admin to tell", async () => {
     h.selects = [[patrol(20)], [], ADMINS];
     await runReverifyReminders(NOW);
-    expect(h.log.error).toHaveBeenCalledWith({ event: "sar.reverify.no_staff_recipients" });
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.reverify.no_staff_recipients" }));
   });
 });

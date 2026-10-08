@@ -35,7 +35,7 @@ export default function PatrolReverifyStaffEmail({ orgName, stage, reverifyBy, c
             Open SAR approvals
           </Button>
           <Hr style={hr} />
-          <Text style={muted}>You&apos;re receiving this because you&apos;re an rmdig administrator.</Text>
+          <Text style={muted}>You&apos;re receiving this because you&apos;re an rmdig SAR approver.</Text>
         </Container>
       </Body>
     </Html>

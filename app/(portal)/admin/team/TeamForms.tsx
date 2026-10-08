@@ -53,7 +53,8 @@ export function InviteStaffForm() {
             defaultValue={kept.role}
             className="border-input bg-transparent dark:bg-input/30 flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring md:text-sm"
           >
-            <option value="rmdig_reviewer">Reviewer — approval queues only</option>
+            <option value="rmdig_reviewer">Reviewer — ad approvals only</option>
+            <option value="rmdig_sar_approver">SAR Approver — search &amp; rescue approvals</option>
             <option value="rmdig_admin">Platform Administrator — full operator</option>
           </select>
         </div>

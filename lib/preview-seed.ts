@@ -31,7 +31,7 @@ export function previewPersonas(baseEmail: string): PreviewPersona[] {
 }
 
 /** `<base email> [--admin <email>]...`. Each --admin address becomes one more
- *  preview account with rmdig_admin, so you can sign in to previews as
+ *  preview account with rmdig_admin and rmdig_sar_approver, so you can sign in to previews as
  *  yourself. Previews never hold production accounts; this is a separate
  *  account that happens to share your address. */
 export function parseSeedArgs(argv: string[]): { base: string; extraAdmins: string[] } {

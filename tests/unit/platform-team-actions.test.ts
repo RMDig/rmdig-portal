@@ -62,7 +62,7 @@ vi.mock("@/lib/auth", () => ({ auth: () => Promise.resolve(h.session) }));
 vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/auth/roles", () => ({
   hasPlatformRole: () => Promise.resolve(h.isAdmin),
-  PLATFORM_ROLE_LABEL: { rmdig_admin: "Platform Administrator", rmdig_reviewer: "Reviewer" },
+  PLATFORM_ROLE_LABEL: { rmdig_admin: "Platform Administrator", rmdig_reviewer: "Reviewer", rmdig_sar_approver: "SAR Approver" },
 }));
 vi.mock("@/lib/db", () => ({
   get db() {
@@ -84,6 +84,7 @@ vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import {
+  cancelPlatformInviteAction,
   createPlatformInviteAction,
   revokePlatformRoleAction,
 } from "@/app/(portal)/admin/team/actions";
@@ -168,12 +169,55 @@ describe("createPlatformInviteAction", () => {
     expect(params.inviteUrl).not.toContain(String(invite.vals.tokenHash));
   });
 
+  it("lets only an admin invite a SAR approver, and names the role in the email", async () => {
+    const approverForm = () => form({ email: "sar@rmdig.ai", role: "rmdig_sar_approver", currentPassword: "correct-password" });
+    h.isAdmin = false;
+    expect(await createPlatformInviteAction(null, approverForm())).toMatchObject({ ok: false, error: expect.stringMatching(/administrator/) });
+    expect(h.inserted).toHaveLength(0);
+    h.isAdmin = true;
+    h.selectQueue = [[{ passwordHash: HASH }], [], []];
+    expect(await createPlatformInviteAction(null, approverForm())).toEqual({ ok: true });
+    expect(h.inserted.find((i) => i.table === "invites")?.vals.role).toBe("rmdig_sar_approver");
+    expect(h.sendInvite).toHaveBeenCalledWith("sar@rmdig.ai", expect.objectContaining({ roleLabel: "SAR Approver" }));
+  });
+
   it("surfaces an email failure instead of pretending success", async () => {
     h.selectQueue = [[{ passwordHash: HASH }], [], []];
     h.sendInvite.mockRejectedValueOnce(new Error("resend down"));
     const res = await createPlatformInviteAction(null, goodForm());
     expect(res?.ok).toBe(false);
     expect(h.log.error).toHaveBeenCalled();
+  });
+});
+
+describe("cancelPlatformInviteAction", () => {
+  const INVITE = "33333333-3333-4333-8333-333333333333";
+
+  it("deletes the invitation and logs who cancelled it", async () => {
+    h.deleteResult = [{ email: "new@rmdig.ai", role: "rmdig_reviewer" }];
+    expect(await cancelPlatformInviteAction({ ok: true }, form({ inviteId: INVITE }))).toEqual({ ok: true });
+    expect(h.deleted).toEqual([{ table: "invites", result: h.deleteResult }]);
+    expect(h.inserted).toContainEqual({
+      table: "log",
+      vals: { action: "invite_cancelled", role: "rmdig_reviewer", targetEmail: "new@rmdig.ai", actorUserId: "admin-1" },
+    });
+  });
+
+  it("refuses a non-admin and a signed-out caller, deleting nothing", async () => {
+    h.isAdmin = false;
+    expect(await cancelPlatformInviteAction({ ok: true }, form({ inviteId: INVITE }))).toMatchObject({ ok: false, error: expect.stringMatching(/administrator/) });
+    h.session = null;
+    expect(await cancelPlatformInviteAction({ ok: true }, form({ inviteId: INVITE }))).toMatchObject({ ok: false });
+    expect(h.deleted).toEqual([]);
+    expect(h.inserted).toEqual([]);
+  });
+
+  it("rejects a malformed id, and says when the invitation is already gone", async () => {
+    expect(await cancelPlatformInviteAction({ ok: true }, form({ inviteId: "nope" }))).toEqual({ ok: false, error: "Invalid invitation." });
+    expect(h.deleted).toEqual([]);
+    h.deleteResult = [];
+    expect(await cancelPlatformInviteAction({ ok: true }, form({ inviteId: INVITE }))).toEqual({ ok: false, error: "That invitation no longer exists." });
+    expect(h.inserted).toEqual([]);
   });
 });
 
@@ -204,6 +248,22 @@ describe("revokePlatformRoleAction", () => {
     expect(res).toEqual({ ok: true });
     expect(h.deleted.some((d) => d.table === "roles")).toBe(true);
     expect(h.inserted.find((i) => i.table === "log")?.vals.action).toBe("revoked");
+  });
+
+  it("blocks revoking the last SAR approver, and revokes one when another remains", async () => {
+    h.selectQueue = [[{ passwordHash: HASH }], [{ userId: "admin-1" }]];
+    expect(await revokePlatformRoleAction(null, goodForm("rmdig_sar_approver"))).toMatchObject({ ok: false, error: expect.stringMatching(/last SAR approver/) });
+    expect(h.deleted).toHaveLength(0);
+    h.selectQueue = [[{ passwordHash: HASH }], [{ userId: "admin-1" }, { userId: "a-2" }], [{ email: "old@rmdig.ai" }]];
+    h.deleteResult = [{ userId: "a-2" }];
+    expect(await revokePlatformRoleAction(null, goodForm("rmdig_sar_approver"))).toEqual({ ok: true });
+    expect(h.inserted.find((i) => i.table === "log")?.vals).toMatchObject({ action: "revoked", role: "rmdig_sar_approver" });
+  });
+
+  it("lets only an admin revoke a SAR approver", async () => {
+    h.isAdmin = false;
+    expect(await revokePlatformRoleAction(null, goodForm("rmdig_sar_approver"))).toMatchObject({ ok: false });
+    expect(h.deleted).toHaveLength(0);
   });
 
   it("reports when the target doesn't hold the role", async () => {

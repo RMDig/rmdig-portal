@@ -16,14 +16,16 @@ import { isUniqueViolation } from "@/lib/db/errors";
 import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { createSarOrgSchema } from "@/lib/sar/schema";
+import { SAR_APPROVER_ROLE } from "@/lib/auth/roles";
 import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
+import { reportError, reportProblem } from "@/lib/report-error";
 import { portalUrl } from "@/lib/email/links";
 
 // Server action behind /sar/new (rmdig-ai docs/plans/06 §"SAR org onboarding").
 // A signed-in, email-verified user submits an org application: it persists as a
 // `pending` sar_orgs row, makes the submitter the org `admin`, logs the
-// `submitted` transition, and emails the submitter + every rmdig_admin. The
+// `submitted` transition, and emails the submitter + every SAR approver. The
 // (portal) layout already gates auth/MFA; this action re-checks auth and
 // verification because a layout must never be trusted to gate a write
 // (docs/plans/06 §Permissions).
@@ -166,14 +168,15 @@ async function notifyOnSubmission(
   }
   const reviewUrl = portalUrl(`/admin/sar-approvals#org-${orgId}`);
 
-  // Everyone who can approve SAR orgs (admins and reviewers), not just admins.
+  // Everyone who can decide SAR orgs: the SAR approvers.
   let staff: string[];
   try {
-    staff = await staffEmails();
+    staff = await staffEmails([SAR_APPROVER_ROLE]);
   } catch (err) {
-    logger.error({ event: "sar.create.staff_lookup_failed", orgId, err });
+    reportError("sar.create.staff_lookup_failed", err, { orgId });
     return;
   }
+  if (staff.length === 0) reportProblem("sar.create.no_staff_to_notify", "No rmdig staff to tell about a new SAR application", { orgId });
 
   for (const email of staff) {
     try {
