@@ -49,7 +49,7 @@ from the Neon CLI instead:
 
 ```bash
 pnpm dlx neonctl connection-string production \
-  --project-id lingering-waterfall-99928244 --pooled
+  --project-id lingering-waterfall-99928244 --role-name neondb_owner --database-name neondb --pooled
 # then run one command against it, e.g.:
 DATABASE_URL="<that url>" pnpm db:migrate
 ```
@@ -463,12 +463,15 @@ again is safe. Confirm with `SELECT * FROM drizzle.__drizzle_migrations ORDER BY
 
 Get the URL in its own step and check it before using it — a `$(...)` around a
 command that fails (expired `neonctl auth`, a `pnpm dlx` install prompt) puts
-garbage in `DATABASE_URL`:
+garbage in `DATABASE_URL`. Run it from a checkout of the PR's branch:
+`db:migrate` applies the migrations in the current directory, so the main
+checkout on another branch silently skips the new one. The role is required
+because the branch also has `ci_migration_reader` (the migration guard):
 
 ```bash
-export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 --pooled)"
-case "$DATABASE_URL" in postgresql://*|postgres://*) echo "URL looks right";; *) echo "NOT a database URL, stop";; esac
-pnpm db:migrate
+export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 \
+  --role-name neondb_owner --database-name neondb --pooled)"
+case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) pnpm db:migrate;; *) echo "WRONG URL, not migrating";; esac
 unset DATABASE_URL
 ```
 
