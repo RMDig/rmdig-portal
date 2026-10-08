@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { portalActor } from "@/lib/auth/portal-actor";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
 import { db } from "@/lib/db";
@@ -24,6 +25,7 @@ export async function createCreativeAction(
   _prev: CreateCreativeResult | null,
   formData: FormData,
 ): Promise<CreateCreativeResult> {
+  if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const userId = actor.userId;

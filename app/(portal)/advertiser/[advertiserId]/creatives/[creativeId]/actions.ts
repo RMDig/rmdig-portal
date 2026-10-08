@@ -1,10 +1,12 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { portalActor } from "@/lib/auth/portal-actor";
 import { isAdvertiserMember } from "@/lib/auth/advertiser-roles";
+import { AD_REVIEW_ROLES } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import {
   adCampaigns,
@@ -32,6 +34,7 @@ export async function submitCreativeForReviewAction(
   _prev: SubmitResult | null,
   _formData: FormData,
 ): Promise<SubmitResult> {
+  if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const userId = actor.userId;
@@ -107,14 +110,15 @@ async function notifyOperators(
 ): Promise<void> {
   const reviewUrl = portalUrl(`/admin/ad-approvals`);
 
-  // Reviewers are platform staff: rmdig_admin OR rmdig_reviewer (the reviewer role
-  // was broadened to cover creative approval, schema comment + docs/plans/30 §3).
+  // Ad reviewers: rmdig_admin or rmdig_reviewer (AD_REVIEW_ROLES). A SAR
+  // approver alone doesn't review ads.
   let reviewers: { email: string }[];
   try {
     reviewers = await db
       .selectDistinct({ email: users.email })
       .from(userPlatformRoles)
-      .innerJoin(users, eq(users.id, userPlatformRoles.userId));
+      .innerJoin(users, eq(users.id, userPlatformRoles.userId))
+      .where(inArray(userPlatformRoles.role, AD_REVIEW_ROLES));
   } catch (err) {
     logger.error({ event: "advertiser.creative.reviewer_lookup_failed", creativeId, err });
     return;

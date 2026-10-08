@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 
-export function SignUpForm() {
+export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) {
   const router = useRouter();
   // Carried into the verification link so the user ends up where they were
   // headed (e.g. an invite); the server re-validates it.
@@ -40,7 +40,7 @@ export function SignUpForm() {
         >
           <option value="explorer">Explorer — I use the AvAI app</option>
           <option value="sar">Search &amp; Rescue — I represent a SAR team</option>
-          <option value="advertiser">Advertiser — I want to advertise on AvAI</option>
+          {advertiserOption ? <option value="advertiser">Advertiser — I want to advertise on AvAI</option> : null}
         </select>
       </div>
 

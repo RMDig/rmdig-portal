@@ -4,8 +4,9 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { portalActor } from "@/lib/auth/portal-actor";
-import { isPlatformStaff } from "@/lib/auth/roles";
+import { canReviewAds } from "@/lib/auth/roles";
 import { publishCreative, unpublishCreative } from "@/lib/avserv/client";
 import { columnsToAdTarget } from "@/lib/advertiser/target";
 import { db } from "@/lib/db";
@@ -19,6 +20,7 @@ import { type AdCreativeDecision } from "@/lib/email/templates/AdCreativeDecisio
 import { portalUrl } from "@/lib/email/links";
 import { sendAdCreativeDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 
 // Publish an approved creative to AvServ and record the returned ref + publishedAt.
 // Best-effort by contract (docs/plans/30 §9 invariant 5): on failure the creative
@@ -72,14 +74,14 @@ async function unpublishAndClear(creativeId: string, ref: string | null): Promis
       .set({ publishedAt: null, avservCreativeRef: null })
       .where(eq(adCreatives.id, creativeId));
   } catch (err) {
-    logger.error({ event: "ad.unpublish.failed", creativeId, err });
+    reportError("ad.unpublish.failed", err, { creativeId });
   }
 }
 
 // Operator decisions on an ad creative (AD-P5, docs/plans/30 §5/§6). Manual
 // approval is non-negotiable for a safety app — only `approved` creatives become
 // eligible for the signed manifest (publish wiring lands in AD-P6). Gated to
-// platform staff (rmdig_admin or the broadened rmdig_reviewer), re-checked here.
+// rmdig_admin or rmdig_reviewer (AD_REVIEW_ROLES), re-checked here.
 // Each decision is valid only from a specific current status; it flips status,
 // appends to the append-only ad_creative_status_log, and (for every decision
 // but reactivate) emails the advertiser's contact.
@@ -128,10 +130,11 @@ export async function reviewCreativeAction(
   _prev: ReviewResult | null,
   formData: FormData,
 ): Promise<ReviewResult> {
+  if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
   const userId = actor.userId;
-  if (!(await isPlatformStaff(userId))) {
+  if (!(await canReviewAds(userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
 
@@ -291,9 +294,10 @@ export async function publishApprovedCreativeAction(
   _prev: PublishResult | null,
   _formData: FormData,
 ): Promise<PublishResult> {
+  if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
-  if (!(await isPlatformStaff(actor.userId))) {
+  if (!(await canReviewAds(actor.userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
 

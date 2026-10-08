@@ -2,6 +2,7 @@
 
 import { and, eq, gt, isNull } from "drizzle-orm";
 
+import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { advertiserInvitations, advertiserMemberships } from "@/lib/db/schema";
@@ -23,6 +24,7 @@ export async function acceptAdvertiserInvitationAction(
   _prev: AcceptResult | null,
   _formData: FormData,
 ): Promise<AcceptResult> {
+  if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const session = await auth();
   if (!session?.user?.id) {
     return { ok: false, error: "Sign in or create an account, then open this link to accept." };

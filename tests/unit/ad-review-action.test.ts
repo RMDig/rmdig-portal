@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The surface is behind a FEATURE_* flag (lib/features.ts); on here, and off
+// in the test that checks the refusal.
+const feature = vi.hoisted(() => ({ on: true }));
+vi.mock("@/lib/features", () => ({
+  featureEnabled: () => feature.on,
+  FEATURE_OFF_ERROR: "This part of the portal isn't available yet.",
+}));
+
 // Staff decisions on an ad creative (docs/plans/30 §5/§6): who may decide,
 // what the advertiser is told, and that the email never says "in the app"
 // before the creative was published.
@@ -19,7 +27,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
-vi.mock("@/lib/auth/roles", () => ({ isPlatformStaff: () => Promise.resolve(h.staff) }));
+// h.staff: holds rmdig_admin or rmdig_reviewer (AD_REVIEW_ROLES).
+vi.mock("@/lib/auth/roles", () => ({ canReviewAds: () => Promise.resolve(h.staff) }));
 vi.mock("@/lib/avserv/client", () => ({ publishCreative: h.publish, unpublishCreative: h.unpublish }));
 vi.mock("@/lib/email/send", () => ({ sendAdCreativeDecisionEmail: h.email }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
@@ -74,6 +83,15 @@ beforeEach(() => {
 });
 
 describe("reviewCreativeAction", () => {
+  it("refuses while the advertiser portal is switched off, touching nothing", async () => {
+    feature.on = false;
+    try {
+      expect(await reviewCreativeAction(null, new FormData())).toEqual({ ok: false, error: "This part of the portal isn't available yet." });
+    } finally {
+      feature.on = true;
+    }
+  });
+
   it("refuses anyone who isn't staff, and a session without two-factor", async () => {
     h.staff = false;
     h.creative = [row("pending")];

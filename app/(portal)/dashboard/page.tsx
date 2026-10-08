@@ -18,6 +18,7 @@ import {
   sarOrgs,
   users,
 } from "@/lib/db/schema";
+import { featureEnabled } from "@/lib/features";
 import { ADVERTISER_ROLE_LABEL, ADVERTISER_STATUS_LABEL, TEAM_ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/labels";
 
 export const metadata = {
@@ -50,7 +51,10 @@ export default async function DashboardPage() {
         .orderBy(asc(sarOrgs.name))
     : [];
 
-  const advertisers = userId
+  // The advertiser portal is off until AvServ ships its endpoints
+  // (lib/features.ts): no list, no nudge, no "create" card while it is.
+  const advertiserPortal = featureEnabled("advertiser_portal");
+  const advertisers = userId && advertiserPortal
     ? await db
         .select({
           advertiserId: advertiserMemberships.advertiserId,
@@ -81,7 +85,7 @@ export default async function DashboardPage() {
           href: "/sar/new",
           cta: "Register your team",
         }
-      : me?.signupIntent === "advertiser" && advertisers.length === 0
+      : advertiserPortal && me?.signupIntent === "advertiser" && advertisers.length === 0
         ? {
             title: "Set up your advertiser account",
             body: "Create your advertiser account, then write your ads. Every ad is manually reviewed before it appears in the app.",
@@ -185,7 +189,7 @@ export default async function DashboardPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">More on rmdig</h2>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={advertiserPortal ? "grid gap-4 md:grid-cols-2" : "grid gap-4"}>
           <Card>
             <CardHeader>
               <CardTitle>Search &amp; rescue teams</CardTitle>
@@ -200,21 +204,23 @@ export default async function DashboardPage() {
               </Button>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Advertise on AvAI</CardTitle>
-              <CardDescription>
-                Sponsor ads help fund the platform while keeping the app free. Create an advertiser
-                account to write ads and submit them for review. Every ad is manually reviewed
-                before it appears in the app.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline">
-                <Link href="/advertiser/new">Create an advertiser account</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          {advertiserPortal ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Advertise on AvAI</CardTitle>
+                <CardDescription>
+                  Sponsor ads help fund the platform while keeping the app free. Create an advertiser
+                  account to write ads and submit them for review. Every ad is manually reviewed
+                  before it appears in the app.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="outline">
+                  <Link href="/advertiser/new">Create an advertiser account</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       </section>
     </div>

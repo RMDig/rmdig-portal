@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The surface is behind a FEATURE_* flag (lib/features.ts); on here, and off
+// in the test that checks the refusal.
+const feature = vi.hoisted(() => ({ on: true }));
+vi.mock("@/lib/features", () => ({
+  featureEnabled: () => feature.on,
+  FEATURE_OFF_ERROR: "This part of the portal isn't available yet.",
+}));
+
 import { AvServContractError } from "@/lib/avserv/request";
 import type { Restriction } from "@/lib/avserv/restrictions-types";
 
@@ -124,6 +132,17 @@ beforeEach(() => {
 
 
 describe("submitReviewRequestAction", () => {
+  it("refuses while restriction reviews are switched off (as does the decision)", async () => {
+    feature.on = false;
+    try {
+      const off = { ok: false, error: "This part of the portal isn't available yet." };
+      expect(await submitReviewRequestAction(null, new FormData())).toEqual(off);
+      expect(await decideReviewAction(null, new FormData())).toEqual(off);
+    } finally {
+      feature.on = true;
+    }
+  });
+
   const form = () => fd({ restrictionId: RID, submissionKey: KEY, message: "These were false alarms from a rough road." });
 
   it("records an open request plus its log row for a restriction in force on the user's account", async () => {
