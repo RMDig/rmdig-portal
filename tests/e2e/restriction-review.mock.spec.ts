@@ -47,7 +47,8 @@ test.describe("restriction review (mock AvServ)", () => {
     await page.getByLabel(/Note \(audit log/).fill("Reviewed: false alarms on a rough road.");
     await page.getByRole("button", { name: "Lift" }).click();
     await expect(page.getByText("Decision recorded.")).toBeVisible();
-    await expect(page.getByText(/status lifted/)).toBeVisible();
+    // The request header reads "Asked <when> · Lifted" (RESTRICTION_REVIEW_STATUS_LABEL).
+    await expect(page.getByText(/^Asked .* · Lifted$/)).toBeVisible();
 
     await signOut(page);
     await signInAs(page, RESTRICTED_USER);

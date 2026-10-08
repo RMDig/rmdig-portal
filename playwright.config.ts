@@ -62,6 +62,9 @@ export default defineConfig({
       // pinned, present the labelled test fixture so the accept flow is
       // exercisable. Honored only with AVSERV_BASE_URL=mock://* (lib/agreement).
       E2E_AGREEMENT_FIXTURE: "1",
+      // Restriction review is off by default (lib/features.ts, H14); the e2e
+      // server turns it on so restriction-review.mock keeps exercising it.
+      FEATURE_RESTRICTION_REVIEW: "on",
     },
   },
 });
