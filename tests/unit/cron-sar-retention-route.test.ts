@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ env: { CRON_SECRET: "" as string | undefined }, run: vi.fn(), log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+const h = vi.hoisted(() => ({
+  env: { CRON_SECRET: "" as string | undefined },
+  run: vi.fn(),
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  sentry: { captureException: vi.fn(), captureMessage: vi.fn(), withMonitor: vi.fn(), flush: vi.fn() },
+}));
 vi.mock("@/lib/env", () => ({ env: h.env }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@sentry/nextjs", () => h.sentry);
 vi.mock("@/lib/sar/retention", () => ({ runSarRetention: h.run }));
 
 import { GET } from "@/app/api/cron/sar-retention/route";
@@ -12,6 +18,8 @@ const call = (auth?: string) => GET(new Request("https://rmdig.ai/api/cron/sar-r
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.sentry.withMonitor.mockImplementation((_slug: string, cb: () => unknown) => cb());
+  h.sentry.flush.mockResolvedValue(true);
   h.env.CRON_SECRET = SECRET;
   h.run.mockResolvedValue({ positionsRemoved: 1, alertMessagesDeleted: 0, acksDeleted: 0, viewLogsDeleted: 0, staleOpenAlerts: 0 });
 });
@@ -26,12 +34,13 @@ describe("GET /api/cron/sar-retention", () => {
     expect((await call("Bearer nope")).status).toBe(401);
     h.env.CRON_SECRET = undefined;
     expect((await call(`Bearer ${SECRET}`)).status).toBe(503);
-    expect(h.log.error).toHaveBeenCalledWith({ event: "cron.sar_retention.unconfigured" });
+    expect(h.sentry.captureMessage).toHaveBeenCalledWith(expect.stringMatching(/CRON_SECRET/), expect.objectContaining({ tags: { event: "cron.sar_retention.unconfigured" } }));
     expect(h.run).not.toHaveBeenCalled();
   });
   it("answers 500 when the run fails", async () => {
     h.run.mockRejectedValue(new Error("db down"));
     expect((await call(`Bearer ${SECRET}`)).status).toBe(500);
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "cron.sar_retention.failed" }));
+    expect(h.sentry.captureException).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ tags: { event: "cron.sar_retention.failed" } }));
   });
 });

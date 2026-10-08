@@ -3,6 +3,8 @@
   "crons": [
     { "path": "/api/cron/patrol-reverify", "schedule": "0 15 * * *" },
     { "path": "/api/cron/sar-retention", "schedule": "30 9 * * *" },
-    { "path": "/api/cron/avserv-checks", "schedule": "0 14 * * *" }
+    { "path": "/api/cron/avserv-checks", "schedule": "0 14 * * *" },
+    { "path": "/api/cron/sar-alert-notify", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/deletion-clock", "schedule": "0 16 * * *" }
   ]
 }
