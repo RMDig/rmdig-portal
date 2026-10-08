@@ -11,6 +11,8 @@ import type { NavViewer } from "@/lib/nav/types";
 
 // The one site header, on public and portal pages alike, so a signed-in
 // user keeps the same tabs moving from the dashboard to Research and back.
+// Support lives in the footer (and the mobile menu), not the header bar, to
+// keep the bar narrow; Admin sits with the account controls, after Settings.
 //
 // The portal layout passes `viewer` from the session. The public layout
 // can't read the session (CLAUDE.md §3.7: those pages are store-submission
@@ -25,8 +27,6 @@ function tabsFor(viewer: NavViewer | null): Tab[] {
     ...(viewer?.hasMap ? [{ href: "/map", label: "Map" }] : []),
     { href: "/services", label: "Services" },
     { href: "/research", label: "Research" },
-    { href: "/support", label: "Support" },
-    ...(viewer?.isStaff ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 }
 
@@ -108,6 +108,15 @@ export function SiteHeader({
               >
                 <GearIcon />
               </Link>
+              {viewer.isStaff ? (
+                <Link
+                  href="/admin"
+                  aria-current={isActive(pathname, "/admin") ? "page" : undefined}
+                  className={`hidden md:block ${tabClass("/admin")}`}
+                >
+                  Admin
+                </Link>
+              ) : null}
               {signOut ?? (
                 <Link
                   href="/dashboard"

@@ -70,6 +70,21 @@ describe("headers", () => {
     expect(portalLayout).toContain("signOut={<SignOutButton />}");
   });
 
+  it("keep Support in the footer and mobile menu, not the header bar", () => {
+    expect(header).not.toContain('{ href: "/support", label: "Support" }');
+    expect(header).toContain('<Link href="/support">Support</Link>'); // mobile menu
+    expect(footer).toContain('href="/support"');
+  });
+
+  it("show Admin right of the Settings gear, only for staff", () => {
+    expect(header).not.toContain('{ href: "/admin", label: "Admin" }');
+    const gear = header.indexOf('aria-label="Settings"');
+    const admin = header.indexOf('href="/admin"');
+    expect(admin).toBeGreaterThan(gear);
+    expect(admin).toBeLessThan(header.indexOf("{signOut ??"));
+    expect(header).toContain("{viewer.isStaff ? ( <Link href=\"/admin\"");
+  });
+
   it("keep the public pages free of auth and the database (CLAUDE.md §3.7): the header asks /api/nav instead", () => {
     for (const f of [["components", "nav", "SiteHeader.tsx"], ["components", "nav", "SiteFooter.tsx"], ["lib", "nav", "types.ts"], ["app", "(public)", "layout.tsx"]]) {
       const src = flat(...f);
