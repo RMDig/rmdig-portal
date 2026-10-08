@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { eq } from "drizzle-orm";
 import NextAuth, { type DefaultSession } from "next-auth";
 import { encode as defaultJwtEncode } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
@@ -9,6 +8,7 @@ import Google from "next-auth/providers/google";
 
 import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
 import { authorizeCredentials } from "./auth/credentials-authorize";
+import { markOAuthUserVerified, secureOAuthEmailLink } from "./auth/oauth-link";
 import { db } from "./db";
 import { accounts, sessions, users, verificationTokens } from "./db/schema";
 import { env } from "./env";
@@ -80,8 +80,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
-      // Trust Google's email verification — we'll set emailVerified on first
-      // sign-in via the signIn callback.
+      // Trust Google's email verification and link into an existing row with
+      // the same email (owner decision D1). Safe only together with the signIn
+      // callback below, which strips an unverified row before the link.
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
@@ -115,20 +116,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async signIn({ user, account }) {
-      // OAuth providers (Google + later Apple) have already verified the email
-      // on their side. Mark our row as verified on first sign-in.
+      // OAuth providers (Google + later Apple) have verified the email on their
+      // side. Before the adapter links this sign-in into an existing row with
+      // the same email, make that row safe to hand over: an unverified row loses
+      // its password and sessions and becomes verified (beta blocker B1, see
+      // secureOAuthEmailLink). A first-time OAuth user has no row yet, so this
+      // is a no-op for them (events.linkAccount verifies their new row).
       if (account?.type === "oauth" && user.email) {
-        const [existing] = await db
-          .select({ emailVerified: users.emailVerified })
-          .from(users)
-          .where(eq(users.email, user.email))
-          .limit(1);
-        if (existing && !existing.emailVerified) {
-          await db
-            .update(users)
-            .set({ emailVerified: new Date() })
-            .where(eq(users.email, user.email));
-        }
+        await secureOAuthEmailLink(user.email);
       }
       return true;
     },
@@ -142,6 +137,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // idempotent — a transient AvServ outage just retries on the next login.
       if (user.id) {
         await mapUserToAvServAccountOnLogin(user.id);
+      }
+    },
+    async linkAccount({ user, account }) {
+      // A first-time OAuth user's row is created unverified; the provider has
+      // just proved the address. See markOAuthUserVerified.
+      if (account.type === "oauth" && user.id) {
+        await markOAuthUserVerified(user.id);
       }
     },
     async signOut() {
