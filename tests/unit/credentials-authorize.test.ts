@@ -56,12 +56,14 @@ vi.mock("@/lib/auth/mfa", () => ({ decryptSecret: (s: string) => s }));
 vi.mock("@/lib/auth/mfa-verify", () => ({ verifySecondFactor: () => Promise.resolve(h.secondFactorOk) }));
 
 import {
-  authorizeCredentials,
+  EmailUnverifiedError,
   MfaInvalidError,
   MfaRequiredError,
   SIGNIN_EMAIL_FAILURE_LIMIT,
   SIGNIN_IP_RATE_LIMIT,
   SIGNIN_SOURCE_RATE_LIMIT,
+  SignInRateLimitedError,
+  authorizeCredentials,
 } from "@/lib/auth/credentials-authorize";
 
 const EMAIL = "pat@example.org";
@@ -115,21 +117,21 @@ describe("authorizeCredentials throttling", () => {
 
   it("refuses loudly, before the user lookup, when the IP is over its limit", async () => {
     h.blocked.add("signin-ip");
-    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toThrow(/Too many/);
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toBeInstanceOf(SignInRateLimitedError);
     expect(h.dbReads).toBe(0);
     expect(h.log.warn).toHaveBeenCalledWith(expect.objectContaining({ event: "auth.credentials.ip_rate_limited" }));
   });
 
   it("refuses when this address is over its limit from this IP", async () => {
     h.blocked.add("signin");
-    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toThrow(/Too many/);
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toBeInstanceOf(SignInRateLimitedError);
     expect(h.dbReads).toBe(0);
   });
 
   it("refuses when the address-wide failure cap is reached, even from a fresh IP", async () => {
     h.failurePeekBlocked = true;
     h.ip = "203.0.113.200";
-    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toThrow(/Too many/);
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toBeInstanceOf(SignInRateLimitedError);
     expect(h.dbReads).toBe(0);
   });
 
@@ -161,7 +163,7 @@ describe("authorizeCredentials throttling", () => {
 
   it("does not count an unverified account's correct password as a failure", async () => {
     await verifiedUser({ emailVerified: null });
-    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toThrow(/verify your email/);
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD })).rejects.toBeInstanceOf(EmailUnverifiedError);
     expect(h.increments).not.toContain(failureKey);
   });
 

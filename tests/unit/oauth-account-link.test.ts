@@ -39,7 +39,7 @@ vi.mock("@/lib/client-ip", () => ({ clientIp: () => Promise.resolve("203.0.113.7
 vi.mock("@/lib/auth/mfa", () => ({ decryptSecret: (s: string) => s }));
 vi.mock("@/lib/auth/mfa-verify", () => ({ verifySecondFactor: () => Promise.resolve(false) }));
 
-import { authorizeCredentials } from "@/lib/auth/credentials-authorize";
+import { authorizeCredentials, EmailUnverifiedError } from "@/lib/auth/credentials-authorize";
 import { markOAuthUserVerified, secureOAuthEmailLink } from "@/lib/auth/oauth-link";
 
 import { createFakeDb } from "./helpers/fake-db";
@@ -82,7 +82,7 @@ describe("Google sign-in linking into an unverified credentials row (the attack)
 
   it("leaves the stranger's password unable to sign in once the victim links Google", async () => {
     // Before the link, the password is blocked only by verification.
-    await expect(authorizeCredentials({ email: VICTIM, password: ATTACKER_PASSWORD })).rejects.toThrow(/verify your email/);
+    await expect(authorizeCredentials({ email: VICTIM, password: ATTACKER_PASSWORD })).rejects.toBeInstanceOf(EmailUnverifiedError);
 
     // Step 2: the victim signs in with Google (the signIn callback runs this).
     await secureOAuthEmailLink(VICTIM);
