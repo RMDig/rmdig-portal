@@ -134,14 +134,15 @@ export async function createSarOrgAction(
     });
   } catch (err) {
     // The only unique index this insert can trip (besides the PK) is the
-    // per-phone one — surface it as a field error, not a generic failure.
+    // per-phone one, which counts live orgs only (rejected and withdrawn
+    // release their number) — surface it as a field error, not a generic failure.
     if (isUniqueViolation(err)) {
       logger.warn({ event: "sar.create.phone_in_use", userId });
       return {
         ok: false,
         error: "Please fix the highlighted fields.",
         fieldErrors: {
-          contactPhone: ["This phone number is already registered to another organization."],
+          contactPhone: ["This phone number is already used by another organization that is pending or active."],
         },
       };
     }
