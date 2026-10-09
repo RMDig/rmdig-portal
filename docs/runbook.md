@@ -25,6 +25,16 @@ by hand (below) before the next deploy. The dashboard saying "production" is not
 proof: on 2026-10-02 it said so while the re-created value reached a database
 without the portal schema, and every signed-in page failed until the re-pin.
 
+**Since 2026-10-08 the Neon store is disconnected from the Vercel project. Don't
+reconnect it.** Its Allowed Environments had drifted back to "All", so every
+preview build got a full copy of production. Switching it to Production-only
+re-created its variables under a `DATABASE` prefix, and from then on every new
+production build reached a database without the portal schema (`/readyz`:
+"schema behind"), even after a correct re-pin. Disconnecting deleted all of the
+integration's variables and kept the hand-pinned `DATABASE_URL`, which is the
+only database variable the portal reads. Previews use their own hand-set
+variables ("Preview deployments" below).
+
 ### Re-pin the production `DATABASE_URL`
 
 ```bash
@@ -34,14 +44,36 @@ case "$U" in *ep-crimson-thunder-aqloj3r3-pooler*) echo "host ok";; *) echo "WRO
 psql "$U" -tAc "select to_regclass('public.rate_limits')"   # must print rate_limits
 vercel env rm DATABASE_URL production -y
 printf '%s' "$U" | vercel env add DATABASE_URL production --sensitive --yes; unset U
-vercel env ls production | grep -E ' DATABASE_URL '        # must list it before you redeploy
-vercel redeploy <current production deployment URL> --target production
-curl -s https://rmdig.ai/readyz                               # must be "ready"
+vercel env ls production | grep -E ' DATABASE_URL '        # must list it before you deploy
 ```
+
+Then deploy it the safe way ("Test a production env change" below), never with
+a plain `vercel redeploy`, which puts an untested build straight onto rmdig.ai.
 
 For **Production**, don't pass a git-branch argument to `vercel env add`. With
 `""` it adds nothing and says nothing, and a redeploy then runs with no
 database URL at all (2026-10-02, about 20 min of 500s).
+
+### Test a production env change
+
+Any change to Production env vars reaches users only with the next build.
+Build one without putting it live, check it, then promote it:
+
+```bash
+git -C ~/Scripts/rmdig-portal worktree add /tmp/rmdig-main origin/main
+cp -R ~/Scripts/rmdig-portal/.vercel /tmp/rmdig-main/
+cd /tmp/rmdig-main && vercel deploy --prod --skip-domain     # prints the new deployment URL
+vercel curl https://<new-deployment-url>/readyz              # must be "ready", schema "ok"
+vercel promote https://<new-deployment-url>                  # only after that
+curl -s https://rmdig.ai/readyz
+cd ~ && git -C ~/Scripts/rmdig-portal worktree remove --force /tmp/rmdig-main
+```
+
+`/readyz` then reports `"commit":"unknown"` (a CLI build has no git metadata)
+until the next merge deploys. If a bad build does go live, restore the last good
+one with `vercel promote <its URL>`: on the Hobby plan `vercel rollback` only
+goes back one deployment, which after two bad builds is another bad one
+(2026-10-08).
 
 `vercel env pull --environment production` does NOT work for secrets anymore —
 integration vars are marked sensitive and pull as empty strings. Get the URL
@@ -475,6 +507,9 @@ case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) pnpm db:migrate;; 
 unset DATABASE_URL
 ```
 
+After the PR merges, migrate `preview-seed` too ("Preview deployments" →
+Housekeeping).
+
 ## Migration guard
 
 The CI job **"Migrations applied to production"** (`pnpm migrations:check-prod`,
@@ -749,14 +784,14 @@ data** and never reach the live AvServ:
    seed `preview-seed` and then reset `preview` from it.
 3. **Neon:** create the branch `preview` from `preview-seed`. Copy its **pooled**
    and **non-pooled** connection strings.
-4. **Vercel → Storage → the Neon database → Allowed Environments:** set it to
-   **Production** only. That stops the integration creating production copies for
-   previews and removes its Preview-scoped `DATABASE_URL*` / `POSTGRES_*` / `PG*`
-   variables. The integration **re-creates the Production variables** when you do
-   this, replacing the hand-pinned `DATABASE_URL`: re-pin it ("Re-pin the production
-   `DATABASE_URL`" above) before anything deploys. Do the same
-   for the **Blob store** (Production only), or previews upload SAR proofs into
-   the production store. Then delete the production project's `preview/*` branches
+4. **Vercel → Storage → the Neon database → Projects: disconnect it from
+   `rmdig-portal`** (done 2026-10-08; "Connecting to production" says why).
+   Restricting its Allowed Environments instead didn't hold, and re-created
+   variables that overrode the pinned `DATABASE_URL`. Disconnecting removes every
+   integration variable: check `vercel env ls production` still lists the
+   hand-pinned `DATABASE_URL`, and re-pin it if not. Keep the **Blob store**
+   connected but **Production** only, or previews upload SAR proofs into the
+   production store. Then delete the production project's `preview/*` branches
    (`neonctl branches delete <name> --project-id lingering-waterfall-99928244`);
    each one is a copy of production.
 5. **Vercel → Settings → Environment Variables**, scoped to **Preview only**, with
@@ -788,8 +823,14 @@ data** and never reach the live AvServ:
   drift (a migration error in the build log, or stale data), go to the Neon console,
   then `preview` → **Reset from parent**. The next preview build re-applies the
   open PR's migrations.
-- After a migration merges to `main`, migrate `preview-seed` too (step 2's
-  `db:migrate` line), so resets start current.
+- After a migration merges to `main`, migrate `preview-seed` too, from a checkout
+  that has the migration, so resets start current. It was skipped for 0015–0024,
+  and the seed then failed on the missing SAR approver role (2026-10-08):
+  ```bash
+  SEED="$(neonctl connection-string preview-seed --project-id icy-sunset-60687550 \
+    --org-id org-spring-grass-18611209)"
+  DATABASE_URL="${SEED:?}" pnpm db:migrate; unset SEED
+  ```
 - `vercel-dev` (the CI E2E parent) is a separate matter: it's still a branch of
   production, used only by CI.
 
