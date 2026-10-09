@@ -132,6 +132,10 @@ export const Env = z.object({
   // Set by Vercel. On "preview" the safety rules in lib/preview-guard apply:
   // no production database, a mock AvServ, and email logged instead of sent.
   VERCEL_ENV: z.enum(["production", "preview", "development"]).optional(),
+  // Set by Vercel: this deployment's own host, without a scheme. The base of a
+  // preview's emailed links (lib/email/links.ts), since previews have no
+  // NEXTAUTH_URL.
+  VERCEL_URL: z.string().optional(),
   // Preview only: comma-separated addresses that still receive real email, for
   // testing a template end to end. Unset means previews send nothing.
   PREVIEW_EMAIL_RECIPIENTS: z.string().optional(),
