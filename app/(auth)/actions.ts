@@ -8,7 +8,7 @@ import { z } from "zod";
 import { signIn, signOut } from "@/lib/auth";
 import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
 import { generateVerificationToken } from "@/lib/auth/verification-tokens";
-import { safeReturnTo } from "@/lib/auth/return-to";
+import { nextQuery, safeReturnTo } from "@/lib/auth/return-to";
 import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
@@ -283,6 +283,12 @@ export async function signInGoogleAction(formData: FormData): Promise<void> {
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/sign-in" });
+}
+
+// Sign out, then sign in again and come back to `next`: for a page that needs
+// a different account, such as an invitation issued to another email.
+export async function signOutAndContinueAction(formData: FormData): Promise<void> {
+  await signOut({ redirectTo: `/sign-in${nextQuery(safeReturnTo(formData.get("next")))}` });
 }
 
 // ----- Password reset: request -----

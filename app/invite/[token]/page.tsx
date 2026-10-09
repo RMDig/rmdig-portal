@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { auth } from "@/lib/auth";
 import { nextQuery } from "@/lib/auth/return-to";
+import { SwitchAccount } from "@/components/auth/SwitchAccount";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { orgInvitations, sarOrgs } from "@/lib/db/schema";
@@ -67,12 +68,23 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             </Button>
           </div>
         </div>
-      ) : (
+      ) : session.user.email?.toLowerCase() !== invite.email.toLowerCase() ? (
+        // Accepting is refused for any other account (acceptInviteAction), so
+        // offer the way to the right one instead of a button that can't work.
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight">Join {invite.orgName}</h1>
           <p className="text-muted-foreground">
             You&apos;re signed in as {session.user.email}. This invitation was issued to{" "}
-            <strong>{invite.email}</strong>; accept with that account to join{" "}
+            <strong>{invite.email}</strong>; sign in with that account to join{" "}
+            <strong>{invite.orgName}</strong> as {TEAM_ROLE_PHRASE[invite.role]}.
+          </p>
+          <SwitchAccount email={invite.email} returnTo={`/invite/${token}`} />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Join {invite.orgName}</h1>
+          <p className="text-muted-foreground">
+            You&apos;re signed in as {session.user.email}. Accept to join{" "}
             <strong>{invite.orgName}</strong> as {TEAM_ROLE_PHRASE[invite.role]}.
           </p>
           <AcceptInvite token={token} />

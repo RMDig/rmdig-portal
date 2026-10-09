@@ -4,6 +4,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { nextQuery } from "@/lib/auth/return-to";
 import { PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
+import { SwitchAccount } from "@/components/auth/SwitchAccount";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { platformRoleInvitations } from "@/lib/db/schema";
@@ -67,6 +68,16 @@ export default async function AdminInvitePage({
               <Link href={`/sign-up${nextQuery(`/admin-invite/${token}`)}`}>Create account</Link>
             </Button>
           </div>
+        </div>
+      ) : session.user.email?.toLowerCase() !== invite.email.toLowerCase() ? (
+        // acceptPlatformInviteAction refuses any other account.
+        <div className="space-y-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Join the rmdig team</h1>
+          <p className="text-muted-foreground">
+            You&apos;re signed in as {session.user.email}. This invitation was issued to{" "}
+            <strong>{invite.email}</strong>; sign in with that account to accept it.
+          </p>
+          <SwitchAccount email={invite.email} returnTo={`/admin-invite/${token}`} />
         </div>
       ) : (
         <div className="space-y-3">
