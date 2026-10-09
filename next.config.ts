@@ -47,6 +47,16 @@ const nextConfig: NextConfig = {
     "/advertiser/**": ["./lib/geo/data/**"],
     "/admin/**": ["./lib/geo/data/**"],
   },
+  experimental: {
+    serverActions: {
+      // Next's default is 1 MB, below a typical scanned proof document: a SAR
+      // application with a larger letter got the error page instead of a field
+      // error (2026-10-08). 4.5 MB is Vercel's own function request limit, so nothing larger
+      // could arrive anyway. The document cap (lib/blob/proof-limits.ts) leaves
+      // room under it for the rest of the form; a unit test pins the two.
+      bodySizeLimit: "4.5mb",
+    },
+  },
   async headers() {
     return [
       {

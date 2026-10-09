@@ -77,6 +77,8 @@ export const createSarOrgSchema = z
     // decided by requireVerifiedOrgPhone (only when Twilio Verify is
     // configured), not by the schema.
     phoneCode: optionalText(12),
+    // The signed note from the form's "Verify" step (lib/phone/proof.ts).
+    phoneProof: optionalText(120),
     operatingStatus: z.enum(operatingStatusValues),
     operatingStatusOther: optionalText(200),
     region: regionField,

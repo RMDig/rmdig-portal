@@ -71,7 +71,10 @@ export async function createSarOrgAction(
 
   // Verified-phone gate (no-op when Twilio Verify is unconfigured). Runs
   // before the proof-doc upload so a bad code doesn't orphan a blob.
-  const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode);
+  const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode, {
+    token: data.phoneProof,
+    userId,
+  });
   if (!phoneGate.ok) {
     return { ok: false, error: phoneGate.error, fieldErrors: phoneGate.fieldErrors };
   }

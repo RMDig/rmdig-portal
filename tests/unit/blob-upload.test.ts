@@ -52,6 +52,13 @@ describe("uploadProofDoc", () => {
     expect(opts).not.toHaveProperty("token");
   });
 
+  it("refuses a document over 4 MB before uploading, as a ProofDocError", async () => {
+    h.env.BLOB_STORE_ID = "store_abc";
+    const big = new File([new Uint8Array(4 * 1024 * 1024 + 1)], "scan.pdf", { type: "application/pdf" });
+    await expect(uploadProofDoc(big)).rejects.toMatchObject({ name: "ProofDocError", message: expect.stringMatching(/4 MB or smaller/) });
+    expect(h.put).not.toHaveBeenCalled();
+  });
+
   it("refuses before uploading when no credentials exist", async () => {
     await expect(uploadProofDoc(pdf())).rejects.toThrow(/No Vercel Blob credentials/);
     expect(h.put).not.toHaveBeenCalled();

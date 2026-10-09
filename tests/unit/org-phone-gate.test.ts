@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   enabled: true,
   checkResult: Promise.resolve(true),
+  check: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -11,13 +12,18 @@ vi.mock("@/lib/phone/verify", async (importOriginal) => {
   return {
     ...real, // keep the real normalizeUsPhone — the gate depends on its semantics
     phoneVerificationEnabled: () => h.enabled,
-    checkPhoneVerification: () => h.checkResult,
+    checkPhoneVerification: (...args: unknown[]) => {
+      h.check(...args);
+      return h.checkResult;
+    },
   };
 });
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@/lib/env", () => ({ env: { NEXTAUTH_SECRET: "a".repeat(64) } }));
 
 import { isUniqueViolation } from "@/lib/db/errors";
 import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
+import { signPhoneProof } from "@/lib/phone/proof";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -68,6 +74,39 @@ describe("requireVerifiedOrgPhone", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/couldn't verify/i);
     expect(h.log.error).toHaveBeenCalled();
+  });
+});
+
+describe("requireVerifiedOrgPhone with a proof from the Verify step", () => {
+  const PHONE = "+17207809044";
+
+  it("accepts a valid proof without a code and without asking Twilio again", async () => {
+    const token = signPhoneProof("user-1", PHONE);
+    const res = await requireVerifiedOrgPhone("(720) 780-9044", undefined, { token, userId: "user-1" });
+    expect(res).toEqual({ ok: true, phone: PHONE });
+    expect(h.check).not.toHaveBeenCalled();
+  });
+
+  it("refuses a proof issued to another user, falling back to the code", async () => {
+    const token = signPhoneProof("user-2", PHONE);
+    const res = await requireVerifiedOrgPhone("(720) 780-9044", "123456", { token, userId: "user-1" });
+    expect(res).toEqual({ ok: true, phone: PHONE });
+    expect(h.check).toHaveBeenCalledWith(PHONE, "123456");
+  });
+
+  it("refuses a proof for a different number than the one submitted", async () => {
+    const token = signPhoneProof("user-1", "+17205550100");
+    const res = await requireVerifiedOrgPhone("(720) 780-9044", undefined, { token, userId: "user-1" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors.phoneCode?.[0]).toMatch(/expired/i);
+  });
+
+  it("asks for a fresh verification when an expired proof comes without a code", async () => {
+    const token = signPhoneProof("user-1", PHONE, Date.now() - 2 * 60 * 60 * 1000);
+    const res = await requireVerifiedOrgPhone("(720) 780-9044", "", { token, userId: "user-1" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors.phoneCode?.[0]).toMatch(/verify again/i);
+    expect(h.check).not.toHaveBeenCalled();
   });
 });
 

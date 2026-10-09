@@ -56,7 +56,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | `PREVIEW_EMAIL_RECIPIENTS` | — | — | empty, or testers who should get real email | — | no |
 | `AVSERV_SAR_INTAKE_KEYS` | — | yes: `keyId:secret,…`, one pair per AvServ node (runbook "SAR alert intake") | — | — | yes |
 | `CRON_SECRET` | — | yes (`openssl rand -hex 32`); unset, every cron answers 503 and reports to Sentry | — | — | yes |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | — | **unset as of 2026-10-07**, so org-creation phone verification is off (all three set = on) | — | — | `TWILIO_AUTH_TOKEN` yes |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | — | set 2026-10-08 from a separate Twilio **subaccount** (`rmdig-portal`, Verify service "AvAI", Verify geo permissions US + Canada only), so the portal's token can't touch AvServ's A2P campaign or numbers. Verify sends from Twilio's own senders. Org-creation phone verification is on (all three set = on) | — | — | `TWILIO_AUTH_TOKEN` yes |
 | `NEXT_PUBLIC_MAPTILER_KEY` | — (OpenStreetMap tiles) | yes | yes | — | no (public, origin-restricted) |
 | `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | — | unset: the Apple provider isn't wired into `lib/auth` yet | — | — | `APPLE_PRIVATE_KEY` yes |
 | `FEATURE_ADVERTISER_PORTAL`, `FEATURE_RESTRICTION_REVIEW` | `off` | unset → `off` (`lib/features.ts`); `on` only once AvServ ships the endpoints | unset → `off` | — | no |
