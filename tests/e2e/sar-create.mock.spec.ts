@@ -83,7 +83,8 @@ test.describe("SAR org creation (mock)", () => {
     await page.getByRole("button", { name: /submit application/i }).click();
 
     await page.waitForURL("**/sar/pending");
-    await expect(page.getByText("Application received")).toBeVisible();
+    // The heading, not getByText: Next's route announcer repeats the page title.
+    await expect(page.getByRole("heading", { name: "Application received" })).toBeVisible();
     await expect(page.getByText(orgName)).toBeVisible();
 
     // The create transaction actually wrote a pending row (this is the boundary
