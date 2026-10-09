@@ -61,7 +61,6 @@ test.describe("SAR org creation (mock)", () => {
     await page.getByLabel("Contact name").fill("Jane Doe");
     await page.getByLabel("Contact email").fill("jane@sar.test");
     // operatingStatus defaults to county_sar — no detail field needed.
-    await page.getByTestId("e2e-region-input").fill(VALID_REGION);
     // A document over the 4 MB cap is turned away in the browser with a hint,
     // and the input is cleared, so the form never sends a body Next.js would
     // refuse with the error page.
@@ -80,6 +79,16 @@ test.describe("SAR org creation (mock)", () => {
     });
     await page.locator('input[name="tosAccepted"]').check();
 
+    // Submitted with no service area: the plain-words error shows, and nothing
+    // else is lost, the chosen document included (a file input can't be
+    // refilled, so the form must not be reset).
+    await page.getByRole("button", { name: /submit application/i }).click();
+    await expect(page.getByText("Draw your service area on the map.")).toBeVisible();
+    await expect(page.getByText("proof.pdf")).toBeVisible();
+    expect(await proofInput.evaluate((el) => (el as HTMLInputElement).files?.length ?? 0)).toBe(1);
+    await expect(page.getByLabel("Organization name")).toHaveValue(orgName);
+
+    await page.getByTestId("e2e-region-input").fill(VALID_REGION);
     await page.getByRole("button", { name: /submit application/i }).click();
 
     await page.waitForURL("**/sar/pending");

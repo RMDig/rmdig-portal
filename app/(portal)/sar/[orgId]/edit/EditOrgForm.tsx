@@ -19,7 +19,7 @@ import {
 } from "../../SarOrgFields";
 import { ProofDocInput } from "../../ProofDocInput";
 import { updateSarOrgAction } from "./actions";
-import { useSubmittedValues } from "@/components/forms/use-submitted-values";
+import { submitWithoutReset } from "@/components/forms/submit-without-reset";
 
 // Edit and resubmit a pending application. Inputs are uncontrolled with
 // defaultValue, so a rejected submit keeps what was typed. The area and proof
@@ -38,8 +38,8 @@ export function EditOrgForm({
   const [state, formAction, pending] = useActionState(updateSarOrgAction.bind(null, orgId), null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
   const [orgType, setOrgType] = useState(initial.orgType);
-  // Edits survive a rejected resubmit instead of snapping back to the saved values.
-  const { values, capture } = useSubmittedValues(initial);
+  // Edits, and a newly chosen document, survive a rejected resubmit.
+  const values = initial;
   const [redraw, setRedraw] = useState(region === null);
   const [newRegion, setNewRegion] = useState<DrawnPolygon | null>(null);
   const onRegionChange = useCallback((p: DrawnPolygon | null) => setNewRegion(p), []);
@@ -58,7 +58,7 @@ export function EditOrgForm({
   }
 
   return (
-    <form action={formAction} onSubmit={capture} className="space-y-8">
+    <form action={formAction} onSubmit={submitWithoutReset(formAction)} className="space-y-8">
       <input type="hidden" name="region" value={redraw && newRegion ? JSON.stringify(newRegion) : ""} />
 
       <OrgDetailsFields initial={values} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
