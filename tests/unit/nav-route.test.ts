@@ -13,9 +13,12 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({ auth: () => Promise.resolve(h.session) }));
 vi.mock("@/lib/logger", () => ({ logger: { error: h.logError, info: vi.fn(), warn: vi.fn() } }));
-vi.mock("@/lib/auth/roles", () => ({
+vi.mock("@/lib/auth/roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/roles")>()),
   getPlatformRoles: () => (h.fail ? Promise.reject(new Error("db down")) : Promise.resolve(h.rows.roles)),
 }));
+// Both switched-off surfaces stay off (lib/features.ts reads these).
+vi.mock("@/lib/env", () => ({ env: {} }));
 vi.mock("@/lib/db", () => {
   let call = 0;
   const chain = (): Record<string, unknown> => {
@@ -47,11 +50,19 @@ describe("GET /api/nav", () => {
 
   it("shows Map only to someone with a team, an advertiser account or a staff role", async () => {
     h.session = { user: { id: "u1", email: "a@b.co" } };
-    expect(await (await GET()).json()).toEqual({ viewer: { email: "a@b.co", isStaff: false, hasMap: false } });
+    expect(await (await GET()).json()).toEqual({ viewer: { email: "a@b.co", showAdmin: false, hasMap: false } });
     h.rows.teams = [{ id: "t" }];
-    expect((await (await GET()).json()).viewer).toMatchObject({ hasMap: true, isStaff: false });
+    expect((await (await GET()).json()).viewer).toMatchObject({ hasMap: true, showAdmin: false });
     h.rows = { roles: ["rmdig_reviewer"], teams: [], advertisers: [] };
-    expect((await (await GET()).json()).viewer).toMatchObject({ hasMap: true, isStaff: true });
+    expect((await (await GET()).json()).viewer).toMatchObject({ hasMap: true });
+  });
+
+  it("shows Admin only when the admin hub has something for the viewer's roles", async () => {
+    h.session = { user: { id: "u1", email: "a@b.co" } };
+    h.rows = { roles: ["rmdig_reviewer"], teams: [], advertisers: [] };
+    expect((await (await GET()).json()).viewer).toMatchObject({ showAdmin: false });
+    h.rows = { roles: ["rmdig_sar_approver"], teams: [], advertisers: [] };
+    expect((await (await GET()).json()).viewer).toMatchObject({ showAdmin: true });
   });
 
   it("fails loud (logged, 500) and lets the header fall back to signed out", async () => {

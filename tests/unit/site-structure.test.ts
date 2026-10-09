@@ -82,7 +82,7 @@ describe("headers", () => {
     const admin = header.indexOf('href="/admin"');
     expect(admin).toBeGreaterThan(gear);
     expect(admin).toBeLessThan(header.indexOf("{signOut ??"));
-    expect(header).toContain("{viewer.isStaff ? ( <Link href=\"/admin\"");
+    expect(header).toContain("{viewer.showAdmin ? ( <Link href=\"/admin\"");
   });
 
   it("keep the public pages free of auth and the database (CLAUDE.md §3.7): the header asks /api/nav instead", () => {
