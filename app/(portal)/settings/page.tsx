@@ -2,9 +2,12 @@ import { eq } from "drizzle-orm";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
+import { hasAdminWork } from "@/lib/auth/admin-work";
+import { getPlatformRoles, PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { featureEnabled } from "@/lib/features";
 import { DisplayNameCard, PasswordCard } from "./AccountCards";
 import { AvaiAccountCard } from "./AvaiAccountCard";
 import { MfaCard } from "./MfaCard";
@@ -26,6 +29,12 @@ export default async function SettingsPage() {
   if (!session?.user?.id) {
     return redirectToSignIn();
   }
+
+  const roles = await getPlatformRoles(session.user.id);
+  const adminWork = hasAdminWork(roles, {
+    adsOn: featureEnabled("advertiser_portal"),
+    reviewsOn: featureEnabled("restriction_review"),
+  });
 
   const [user] = await db
     .select({
@@ -50,6 +59,26 @@ export default async function SettingsPage() {
       />
       <PasswordCard hasPassword={!!user?.passwordHash} />
       <MfaCard enabled={!!user?.mfaEnabledAt} />
+      {roles.length > 0 ? (
+        // Staff roles live here rather than on an Admin page that may have
+        // nothing for them (lib/auth/admin-work.ts).
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle>Platform roles</CardTitle>
+              <CardDescription>
+                {roles.map((r) => PLATFORM_ROLE_LABEL[r]).join(", ")}.
+                {adminWork ? null : " Nothing on the Admin page applies to these roles right now."}
+              </CardDescription>
+            </div>
+            {adminWork ? (
+              <Button asChild variant="outline">
+                <Link href="/admin">Open admin</Link>
+              </Button>
+            ) : null}
+          </CardHeader>
+        </Card>
+      ) : null}
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
           <div className="space-y-1.5">

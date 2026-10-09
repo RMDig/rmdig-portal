@@ -91,12 +91,12 @@ export function EditOrgForm({
             </Button>
           </>
         )}
+        <FieldError errors={fieldErrors?.region} />
         <div className="space-y-2">
           <Label htmlFor="regionName">Region name (optional)</Label>
           <Input id="regionName" name="regionName" defaultValue={values.regionName} />
           <FieldError errors={fieldErrors?.regionName} />
         </div>
-        <FieldError errors={fieldErrors?.region} />
       </section>
 
       <section className="space-y-4">

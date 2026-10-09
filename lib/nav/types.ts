@@ -3,7 +3,8 @@
 // database (CLAUDE.md §3.7).
 export interface NavViewer {
   email: string;
-  isStaff: boolean;
+  /** Has something on /admin (lib/auth/admin-work.ts), not merely a staff role. */
+  showAdmin: boolean;
   /** Has something to see on /map: a team, an advertiser account, or staff. */
   hasMap: boolean;
 }

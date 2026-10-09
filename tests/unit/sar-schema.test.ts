@@ -93,6 +93,28 @@ describe("createSarOrgSchema", () => {
     expect(createSarOrgSchema.safeParse({ ...base, region: "not json" }).success).toBe(false);
   });
 
+  // The form shows these under the map, so they must be plain words, never
+  // Zod's GeoJSON wording ("expected object, received string", 2026-10-08).
+  it("asks for the area when none was drawn", () => {
+    for (const region of ["", undefined]) {
+      const res = createSarOrgSchema.safeParse({ ...base, region });
+      expect(res.success).toBe(false);
+      if (!res.success) expect(res.error.flatten().fieldErrors.region).toEqual(["Draw your service area on the map."]);
+    }
+  });
+
+  it("explains an unreadable area in plain words", () => {
+    for (const region of ["not json", JSON.stringify({ type: "Point", coordinates: [1, 2] })]) {
+      const res = createSarOrgSchema.safeParse({ ...base, region });
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        const [message] = res.error.flatten().fieldErrors.region ?? [];
+        expect(message).toMatch(/couldn't be read/);
+        expect(message).not.toMatch(/expected|received/);
+      }
+    }
+  });
+
   it("rejects a region that is not a valid polygon", () => {
     const openRing = JSON.stringify({
       type: "Polygon",

@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 
+import { hasAdminWork } from "../auth/admin-work";
 import { getPlatformRoles, type PlatformRole } from "../auth/roles";
 import { db } from "../db";
 import { advertiserMemberships, orgMemberships } from "../db/schema";
+import { featureEnabled } from "../features";
 
 import type { NavViewer } from "./types";
 
@@ -22,5 +24,9 @@ export async function navViewer(userId: string, email: string, knownRoles?: Plat
       .limit(1),
   ]);
   const isStaff = roles.length > 0;
-  return { email, isStaff, hasMap: isStaff || teams.length > 0 || advertisers.length > 0 };
+  const showAdmin = hasAdminWork(roles, {
+    adsOn: featureEnabled("advertiser_portal"),
+    reviewsOn: featureEnabled("restriction_review"),
+  });
+  return { email, showAdmin, hasMap: isStaff || teams.length > 0 || advertisers.length > 0 };
 }

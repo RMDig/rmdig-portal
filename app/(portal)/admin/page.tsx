@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
+import { hasAdminWork } from "@/lib/auth/admin-work";
 import { AD_REVIEW_ROLES, getPlatformRoles, PLATFORM_ROLE_LABEL } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,15 +44,17 @@ export default async function AdminPage() {
     return redirectToSignIn();
   }
   const roles = await getPlatformRoles(session.user.id);
-  if (roles.length === 0) {
-    redirect("/dashboard");
+  // Queues for surfaces switched off until AvServ ships them (lib/features.ts).
+  const adsOn = featureEnabled("advertiser_portal");
+  const reviewsOn = featureEnabled("restriction_review");
+  // No card below applies (no staff role, or only queues that are switched
+  // off): Settings lists the user's roles instead of an empty hub.
+  if (!hasAdminWork(roles, { adsOn, reviewsOn })) {
+    redirect(roles.length === 0 ? "/dashboard" : "/settings");
   }
   const isAdmin = roles.includes("rmdig_admin");
   const isSarApprover = roles.includes("rmdig_sar_approver");
   const canReviewAds = roles.some((r) => AD_REVIEW_ROLES.includes(r));
-  // Queues for surfaces switched off until AvServ ships them (lib/features.ts).
-  const adsOn = featureEnabled("advertiser_portal");
-  const reviewsOn = featureEnabled("restriction_review");
 
   const [sarPending, adsPending, reviewsOpen, termsSubmitted, [deletions]] = await Promise.all([
     isSarApprover ? db.select({ n: count() }).from(sarOrgs).where(eq(sarOrgs.status, "pending")) : Promise.resolve([]),

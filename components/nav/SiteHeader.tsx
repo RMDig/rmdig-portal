@@ -108,7 +108,7 @@ export function SiteHeader({
               >
                 <GearIcon />
               </Link>
-              {viewer.isStaff ? (
+              {viewer.showAdmin ? (
                 <Link
                   href="/admin"
                   aria-current={isActive(pathname, "/admin") ? "page" : undefined}
@@ -146,7 +146,7 @@ export function SiteHeader({
             <Link href="/services">Services</Link>
             <Link href="/research">Research</Link>
             <Link href="/support">Support</Link>
-            {viewer?.isStaff ? <Link href="/admin">Admin</Link> : null}
+            {viewer?.showAdmin ? <Link href="/admin">Admin</Link> : null}
             {viewer ? <Link href="/settings">Settings</Link> : <Link href="/sign-up">Create account</Link>}
           </MobileNav>
         </div>

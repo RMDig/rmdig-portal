@@ -23,18 +23,36 @@ const optionalText = (max: number) =>
   );
 
 // The map serializes the drawn polygon to a JSON string in a hidden field. Parse
-// it, then validate the GeoJSON, so a missing/garbled region is a field-level
-// error on `region` rather than a 500 deep in the insert. A non-string or
-// unparseable value passes through unchanged and fails RegionPolygonSchema
-// cleanly (wrong shape) instead of throwing.
-const regionField = z.preprocess((v) => {
-  if (typeof v !== "string") return v;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return v;
-  }
-}, RegionPolygonSchema);
+// it, then validate the GeoJSON, so a missing or garbled region is a plain
+// field-level error on `region` rather than a 500 deep in the insert.
+export const REGION_MISSING = "Draw your service area on the map.";
+const REGION_UNREADABLE = "That service area couldn't be read. Clear the drawing and draw it again.";
+
+const regionField = z
+  .preprocess((v) => {
+    if (v === "" || v === undefined || v === null) return undefined;
+    if (typeof v !== "string") return v;
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v;
+    }
+  }, z.unknown())
+  // RegionPolygonSchema's own messages describe GeoJSON ("expected object,
+  // received string"), which a form shouldn't show; it's also used for map
+  // reads, so the plain wording lives here (2026-10-08).
+  .transform((v, ctx) => {
+    if (v === undefined) {
+      ctx.addIssue({ code: "custom", message: REGION_MISSING });
+      return z.NEVER;
+    }
+    const parsed = RegionPolygonSchema.safeParse(v);
+    if (!parsed.success) {
+      ctx.addIssue({ code: "custom", message: REGION_UNREADABLE });
+      return z.NEVER;
+    }
+    return parsed.data;
+  });
 
 // Fields an org admin can change while the application is pending. The phone
 // is not among them: it was verified at submission, and a new one would need

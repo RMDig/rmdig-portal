@@ -40,6 +40,7 @@ vi.mock("@/lib/auth/reset-tokens", () => ({
 }));
 
 import { signInCredentialsAction } from "@/app/(auth)/actions";
+import { logger } from "@/lib/logger";
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -117,5 +118,32 @@ describe("signInCredentialsAction MFA handling", () => {
       expect(res.mfaRequired).toBeFalsy();
       expect(res.error).toMatch(/invalid email or password/i);
     }
+  });
+
+  // The throttle and unverified-email refusals carry their own codes; before,
+  // they arrived as a wrapped AuthError and showed "Invalid email or password".
+  it("tells a throttled user to wait, not that the password is wrong", async () => {
+    h.signInError = credError("rate_limited");
+    const res = await signInCredentialsAction(null, form({ email: "a@b.co", password: "pw" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/too many sign-in attempts/i);
+  });
+
+  it("tells an unverified user to verify their email", async () => {
+    h.signInError = credError("email_unverified");
+    const res = await signInCredentialsAction(null, form({ email: "a@b.co", password: "pw" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/verify your email/i);
+  });
+
+  it("reports any other sign-in failure as ours, logged, not as a bad password", async () => {
+    h.signInError = new h.FakeAuthError("CallbackRouteError: connect ECONNREFUSED");
+    const res = await signInCredentialsAction(null, form({ email: "a@b.co", password: "pw" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error).toMatch(/couldn't sign you in right now/i);
+      expect(res.error).not.toMatch(/invalid email or password/i);
+    }
+    expect(vi.mocked(logger.error)).toHaveBeenCalledWith(expect.objectContaining({ event: "auth.signin.failed" }));
   });
 });

@@ -37,16 +37,22 @@ export const SIGNIN_IP_RATE_LIMIT = { limit: 30, windowSec: 15 * 60 };
 export const SIGNIN_SOURCE_RATE_LIMIT = { limit: 5, windowSec: 15 * 60 };
 export const SIGNIN_EMAIL_FAILURE_LIMIT = { limit: 50, windowSec: 60 * 60 };
 
-const TOO_MANY = "Too many sign-in attempts. Try again in a few minutes.";
-
 // CredentialsSignin subclasses carry a `code` that propagates intact to the
-// sign-in server action (unlike plain Errors, which get wrapped). The action
-// reads the code to drive the two-phase MFA challenge in the UI.
+// sign-in server action; plain Errors arrive wrapped in a generic AuthError
+// whose message isn't ours, which is how the throttle and unverified-email
+// messages were lost (shown as "Invalid email or password", 2026-10-08). The
+// action maps each code to what the user sees.
 export class MfaRequiredError extends CredentialsSignin {
   code = "mfa_required";
 }
 export class MfaInvalidError extends CredentialsSignin {
   code = "mfa_invalid";
+}
+export class SignInRateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
+export class EmailUnverifiedError extends CredentialsSignin {
+  code = "email_unverified";
 }
 
 export interface AuthorizedUser {
@@ -68,19 +74,19 @@ export async function authorizeCredentials(raw: unknown): Promise<AuthorizedUser
   const ipLimit = await incrementRateLimit(`signin-ip:${ip}`, SIGNIN_IP_RATE_LIMIT);
   if (!ipLimit.allowed) {
     logger.warn({ event: "auth.credentials.ip_rate_limited", ip, attempts: ipLimit.attempts });
-    throw new Error(TOO_MANY);
+    throw new SignInRateLimitedError();
   }
   const sourceKey = `signin:${email}:${ip}`;
   const sourceLimit = await incrementRateLimit(sourceKey, SIGNIN_SOURCE_RATE_LIMIT);
   if (!sourceLimit.allowed) {
     logger.warn({ event: "auth.credentials.rate_limited", email, ip, attempts: sourceLimit.attempts });
-    throw new Error(TOO_MANY);
+    throw new SignInRateLimitedError();
   }
   const failureKey = `signin-fail:${email}`;
   const failures = await peekRateLimit(failureKey, SIGNIN_EMAIL_FAILURE_LIMIT);
   if (!failures.allowed) {
     logger.warn({ event: "auth.credentials.email_failure_limited", email, failures: failures.attempts });
-    throw new Error(TOO_MANY);
+    throw new SignInRateLimitedError();
   }
   const recordFailure = () => incrementRateLimit(failureKey, SIGNIN_EMAIL_FAILURE_LIMIT);
 
@@ -101,9 +107,7 @@ export async function authorizeCredentials(raw: unknown): Promise<AuthorizedUser
 
   if (!user.emailVerified) {
     logger.info({ event: "auth.credentials.unverified", userId: user.id });
-    throw new Error(
-      "Please verify your email before signing in. Check your inbox, or use \"Didn't get your verification email?\" below for a new link.",
-    );
+    throw new EmailUnverifiedError();
   }
 
   // Second factor (phase two). The password is correct; if MFA is on, the

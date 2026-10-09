@@ -8,7 +8,7 @@ import { z } from "zod";
 import { signIn, signOut } from "@/lib/auth";
 import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
 import { generateVerificationToken } from "@/lib/auth/verification-tokens";
-import { safeReturnTo } from "@/lib/auth/return-to";
+import { nextQuery, safeReturnTo } from "@/lib/auth/return-to";
 import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
@@ -249,17 +249,24 @@ export async function signInCredentialsAction(
           error: "That code didn't match. Try again, or use a recovery code.",
         };
       }
+      if (err.code === "rate_limited") {
+        return { ok: false, error: "Too many sign-in attempts. Try again in a few minutes." };
+      }
+      if (err.code === "email_unverified") {
+        return {
+          ok: false,
+          error:
+            "Please verify your email before signing in. Check your inbox, or use \"Didn't get your verification email?\" below for a new link.",
+        };
+      }
       // code "credentials" — authorize returned null (bad email/password).
       return { ok: false, error: "Invalid email or password." };
     }
-    // Other AuthErrors: our plain-Error throws (verify-email, too-many-attempts)
-    // arrive wrapped; surface those messages, else a generic one.
+    // Any other AuthError is a failure on our side (authorize threw, the
+    // database didn't answer): say so rather than blame the password.
     if (err instanceof AuthError) {
-      const friendly =
-        err.message.includes("verify your email") || err.message.includes("Too many")
-          ? err.message
-          : "Invalid email or password.";
-      return { ok: false, error: friendly };
+      logger.error({ event: "auth.signin.failed", err });
+      return { ok: false, error: "Couldn't sign you in right now. Try again in a moment." };
     }
     // signIn() rethrows a NEXT_REDIRECT to trigger the redirect. Don't swallow.
     throw err;
@@ -276,6 +283,12 @@ export async function signInGoogleAction(formData: FormData): Promise<void> {
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/sign-in" });
+}
+
+// Sign out, then sign in again and come back to `next`: for a page that needs
+// a different account, such as an invitation issued to another email.
+export async function signOutAndContinueAction(formData: FormData): Promise<void> {
+  await signOut({ redirectTo: `/sign-in${nextQuery(safeReturnTo(formData.get("next")))}` });
 }
 
 // ----- Password reset: request -----

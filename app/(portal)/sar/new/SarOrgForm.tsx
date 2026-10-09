@@ -52,6 +52,7 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
         <h2 className="text-lg font-medium">Service area</h2>
         <p className="text-muted-foreground text-sm">{SERVICE_AREA_HELP}</p>
         <RegionDrawMap onRegionChange={onRegionChange} hasRegion={!!region} />
+        <FieldError errors={fieldErrors?.region} />
         {process.env.NEXT_PUBLIC_E2E === "1" ? (
           // Test-only seam: the headless E2E can't reliably draw on the map
           // canvas/tiles, so under NEXT_PUBLIC_E2E it sets the region by pasting
@@ -81,7 +82,6 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
           />
           <FieldError errors={fieldErrors?.regionName} />
         </div>
-        <FieldError errors={fieldErrors?.region} />
       </section>
 
       <section className="space-y-4">
