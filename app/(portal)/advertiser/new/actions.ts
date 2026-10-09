@@ -63,7 +63,10 @@ export async function createAdvertiserAccountAction(
 
   // Verified-phone gate (no-op when Twilio Verify is unconfigured); mirrors
   // /sar/new.
-  const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode);
+  const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode, {
+    token: data.phoneProof,
+    userId,
+  });
   if (!phoneGate.ok) {
     return { ok: false, error: phoneGate.error, fieldErrors: phoneGate.fieldErrors };
   }

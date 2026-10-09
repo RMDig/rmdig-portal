@@ -2,15 +2,17 @@
 
 import { startTransition, useActionState, useState } from "react";
 
-import { sendPhoneCodeAction } from "@/app/(portal)/phone-verify-actions";
+import { sendPhoneCodeAction, verifyPhoneCodeAction } from "@/app/(portal)/phone-verify-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // Contact-phone block shared by the SAR and advertiser org-creation forms.
-// With verification enabled (prod): phone is required, a "Text me a code"
-// button sends the OTP, and the code field must be filled — the server action
-// re-checks the code against Twilio, so this UI is convenience, not the gate.
+// With verification enabled (prod): phone is required, "Text me a code" sends
+// the OTP, and "Verify" checks it before the rest of the form is submitted.
+// A verified number is locked and its signed proof (lib/phone/proof.ts) goes
+// with the form; the server action re-checks that proof, or the code if the
+// user submits without verifying, so this UI is convenience, not the gate.
 // Disabled (CI/local/preview): renders the plain optional phone input.
 
 function FieldError({ errors }: { errors?: string[] }) {
@@ -29,7 +31,13 @@ export function VerifiedPhoneField({
   // autofill concerns): the send-code button needs the current value, and
   // client state survives a failed server-action round trip.
   const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
   const [sendState, sendCode, sending] = useActionState(sendPhoneCodeAction, null);
+  const [checkState, checkCode, checking] = useActionState(verifyPhoneCodeAction, null);
+  // "Change number" sets this to the proof being discarded; a later Verify
+  // returns a new proof, so the field shows as verified again.
+  const [discardedProof, setDiscardedProof] = useState<string | null>(null);
+  const verified = checkState?.ok && checkState.proof !== discardedProof ? checkState : null;
 
   if (!enabled) {
     return (
@@ -59,12 +67,13 @@ export function VerifiedPhoneField({
             autoComplete="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            readOnly={!!verified}
             aria-invalid={!!fieldErrors?.contactPhone}
           />
           <Button
             type="button"
             variant="outline"
-            disabled={sending || !phone.trim()}
+            disabled={sending || !phone.trim() || !!verified}
             onClick={() => {
               const f = new FormData();
               f.set("phone", phone);
@@ -89,14 +98,53 @@ export function VerifiedPhoneField({
       </div>
       <div className="space-y-2">
         <Label htmlFor="phoneCode">Verification code</Label>
-        <Input
-          id="phoneCode"
-          name="phoneCode"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          required
-          aria-invalid={!!fieldErrors?.phoneCode}
-        />
+        {verified ? (
+          <div className="flex items-center gap-3">
+            <input type="hidden" name="phoneProof" value={verified.proof} />
+            <p className="text-sm text-green-700 dark:text-green-400">✓ {verified.message}</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDiscardedProof(verified.proof);
+                setCode("");
+              }}
+            >
+              Change number
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-2">
+              <Input
+                id="phoneCode"
+                name="phoneCode"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                aria-invalid={!!fieldErrors?.phoneCode}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={checking || !phone.trim() || !code.trim()}
+                onClick={() => {
+                  const f = new FormData();
+                  f.set("phone", phone);
+                  f.set("code", code);
+                  startTransition(() => checkCode(f));
+                }}
+              >
+                {checking ? "Checking…" : "Verify"}
+              </Button>
+            </div>
+            {checkState && !checkState.ok ? (
+              <p className="text-xs text-red-700 dark:text-red-400">{checkState.error}</p>
+            ) : null}
+          </>
+        )}
         <p className="text-muted-foreground text-xs">
           We verify a phone number for each team — it&apos;s how we reach you
           during review.

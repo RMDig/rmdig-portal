@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 
+import { verifyPhoneProof } from "./proof";
 import { checkPhoneVerification, normalizeUsPhone, phoneVerificationEnabled } from "./verify";
 
 // Gate an org-creation submit on a verified phone (operator decision
@@ -13,9 +14,13 @@ export type OrgPhoneResult =
   | { ok: true; phone: string | null }
   | { ok: false; error: string; fieldErrors: Record<string, string[]> };
 
+/** `proof` is what the form's "Verify" step returned (lib/phone/proof.ts): with
+ *  a valid one the number is already verified and Twilio isn't asked again.
+ *  Without one, the code is checked here, as before the Verify step existed. */
 export async function requireVerifiedOrgPhone(
   rawPhone: string | undefined,
   code: string | undefined,
+  proof?: { token: string | undefined; userId: string },
 ): Promise<OrgPhoneResult> {
   if (!phoneVerificationEnabled()) {
     return { ok: true, phone: rawPhone ?? null };
@@ -29,11 +34,22 @@ export async function requireVerifiedOrgPhone(
       fieldErrors: { contactPhone: ["Enter a valid US phone number (10 digits)."] },
     };
   }
+  if (proof?.token) {
+    if (verifyPhoneProof(proof.token, proof.userId, phone)) return { ok: true, phone };
+    // Expired, or for another number: fall back to the code, if one was sent.
+    logger.info({ event: "org.phone_verify.proof_rejected", userId: proof.userId });
+  }
   if (!code?.trim()) {
     return {
       ok: false,
       error: "Please fix the highlighted fields.",
-      fieldErrors: { phoneCode: ["Enter the verification code we texted you."] },
+      fieldErrors: {
+        phoneCode: [
+          proof?.token
+            ? "Your phone verification expired. Text yourself a new code and verify again."
+            : "Enter the verification code we texted you.",
+        ],
+      },
     };
   }
 
