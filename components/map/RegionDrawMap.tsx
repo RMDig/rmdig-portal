@@ -107,7 +107,7 @@ export default function RegionDrawMap({ onRegionChange, hasRegion }: RegionDrawM
     <div className="space-y-2">
       <div
         ref={containerRef}
-        className="h-80 w-full overflow-hidden rounded-md border"
+        className="h-[30rem] w-full overflow-hidden rounded-md border md:h-[40rem]"
         // Min height as a fallback if the utility class is purged in odd builds.
         style={{ minHeight: "20rem" }}
         aria-label="Draw your service area"

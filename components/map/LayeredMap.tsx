@@ -80,11 +80,15 @@ export default function LayeredMap({
     void (async () => {
       const maplibregl = await loadMaplibre();
       if (cancelled || !containerRef.current) return;
+      // Start framed on the items when they're already known, so the map
+      // doesn't open on Colorado and then jump once the style has loaded.
+      const initial = unionBounds(itemsRef.current.map((i) => i.bounds));
       const map = new maplibregl.Map({
         container: containerRef.current,
         style: basemapStyle(),
-        center: [-105.5, 39.0],
-        zoom: 6,
+        ...(initial
+          ? { bounds: initial, fitBoundsOptions: { padding: 32, maxZoom: 11 } }
+          : { center: [-105.5, 39.0] as [number, number], zoom: 6 }),
         attributionControl: { compact: true },
         // On a phone, one finger scrolls the page and two move the map, so a
         // tall map can't trap the panel below it.
@@ -185,8 +189,10 @@ export default function LayeredMap({
         }
 
         loadedRef.current = true;
+        // Items that arrived after the map was created weren't in the
+        // constructor's bounds; frame them now.
         const b = unionBounds(itemsRef.current.map((i) => i.bounds));
-        if (b) map.fitBounds(b, { padding: 32, animate: false, maxZoom: 11 });
+        if (b && !initial) map.fitBounds(b, { padding: 32, animate: false, maxZoom: 11 });
       });
     })();
     return () => {

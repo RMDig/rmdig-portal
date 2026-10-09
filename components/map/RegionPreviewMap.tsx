@@ -31,9 +31,13 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
     void (async () => {
       const maplibregl = await loadMaplibre();
       if (cancelled || !containerRef.current) return;
+      // Framed from the first frame: fitting only after "load" showed the
+      // default world view first and then jumped (2026-10-08).
+      const bounds = ringsBounds(polygon.coordinates);
       map = new maplibregl.Map({
         container: containerRef.current,
         style: basemapStyle(),
+        ...(bounds ? { bounds, fitBoundsOptions: { padding: 16 } } : {}),
         interactive: false,
         // Both basemaps require visible attribution on every map.
         attributionControl: { compact: true },
@@ -61,8 +65,6 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
           source: "region",
           paint: { "line-color": "#2563eb", "line-width": 2 },
         });
-        const bounds = ringsBounds(polygon.coordinates);
-        if (bounds) map.fitBounds(bounds, { padding: 16, animate: false });
       });
     })();
 
@@ -74,7 +76,7 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
 
   if (!polygon) {
     return (
-      <div className="text-muted-foreground flex h-40 w-full items-center justify-center rounded-md border text-sm">
+      <div className="text-muted-foreground flex h-80 w-full items-center justify-center rounded-md border text-sm">
         No service area on file
       </div>
     );
@@ -82,7 +84,7 @@ export default function RegionPreviewMap({ polygon }: { polygon: PreviewPolygon 
   return (
     <div
       ref={containerRef}
-      className="h-40 w-full overflow-hidden rounded-md border"
+      className="h-80 w-full overflow-hidden rounded-md border"
       style={{ minHeight: "10rem" }}
       aria-label="Service area preview"
     />
