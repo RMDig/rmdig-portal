@@ -18,7 +18,7 @@ import {
   SERVICE_AREA_HELP,
 } from "../SarOrgFields";
 import { createSarOrgAction } from "./actions";
-import { useSubmittedValues } from "@/components/forms/use-submitted-values";
+import { submitWithoutReset } from "@/components/forms/submit-without-reset";
 import { ProofDocInput } from "../ProofDocInput";
 
 export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
@@ -29,15 +29,15 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
   const [region, setRegion] = useState<DrawnPolygon | null>(null);
   const onRegionChange = useCallback((p: DrawnPolygon | null) => setRegion(p), []);
   const [orgType, setOrgType] = useState("sar_team");
-  // What was typed survives a rejected submit (React resets the form).
-  const { values, capture } = useSubmittedValues(EMPTY_ORG_FIELDS);
+  // A rejected submit keeps everything, the chosen file included.
+  const values = EMPTY_ORG_FIELDS;
 
   useEffect(() => {
     if (state?.ok) router.push("/sar/pending");
   }, [state, router]);
 
   return (
-    <form action={formAction} onSubmit={capture} className="space-y-8">
+    <form action={formAction} onSubmit={submitWithoutReset(formAction)} className="space-y-8">
       <input type="hidden" name="region" value={region ? JSON.stringify(region) : ""} />
 
       <OrgDetailsFields initial={values} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />

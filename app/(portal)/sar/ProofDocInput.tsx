@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { PROOF_DOC_ACCEPT, proofDocProblem } from "@/lib/blob/proof-limits";
@@ -29,22 +29,10 @@ export function ProofDocInput({
   const [problem, setProblem] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const errors = problem ? [problem] : serverErrors;
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // React resets the form after a rejected submit, which empties the file
-  // input; the name shown below must not claim a file is still attached.
-  useEffect(() => {
-    const form = inputRef.current?.form;
-    if (!form) return;
-    const clear = () => setFileName(null);
-    form.addEventListener("reset", clear);
-    return () => form.removeEventListener("reset", clear);
-  }, []);
 
   return (
     <div className="space-y-2">
       <input
-        ref={inputRef}
         id="proofDoc"
         name="proofDoc"
         type="file"
