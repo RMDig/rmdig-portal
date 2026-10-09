@@ -19,6 +19,7 @@ import {
 } from "../SarOrgFields";
 import { createSarOrgAction } from "./actions";
 import { useSubmittedValues } from "@/components/forms/use-submitted-values";
+import { ProofDocInput } from "../ProofDocInput";
 
 export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
   const router = useRouter();
@@ -86,18 +87,7 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Proof of operating status</h2>
         <ProofHint orgType={orgType} />
-        <div className="space-y-2">
-          <input
-            id="proofDoc"
-            name="proofDoc"
-            type="file"
-            accept="application/pdf,image/png,image/jpeg"
-            required
-            className="text-sm"
-            aria-invalid={!!fieldErrors?.proofDoc}
-          />
-          <FieldError errors={fieldErrors?.proofDoc} />
-        </div>
+        <ProofDocInput required serverErrors={fieldErrors?.proofDoc} />
       </section>
 
       <section className="space-y-3">

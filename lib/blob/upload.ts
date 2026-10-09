@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { get, put } from "@vercel/blob";
 
 import { env } from "../env";
+import { PROOF_DOC_TYPES, proofDocProblem } from "./proof-limits";
 
 // Proof-of-status document upload to Vercel Blob (SAR onboarding, P1.4).
 // Credentials: on Vercel, the store connection sets BLOB_STORE_ID and the
@@ -18,16 +19,6 @@ import { env } from "../env";
 // streams the bytes with getProofDoc (runbook "SAR proof documents").
 // Documents uploaded before 2026-10-03 went to
 // the old public store; getProofDoc still reads those by their public URL.
-
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-
-// Accepted document types → file extension. A county letter or determination
-// letter is a PDF or a scan; nothing else is a plausible proof doc.
-const ALLOWED_TYPES = new Map<string, string>([
-  ["application/pdf", "pdf"],
-  ["image/png", "png"],
-  ["image/jpeg", "jpg"],
-]);
 
 /** A user-correctable problem with the uploaded file (wrong type, too big,
  *  missing). The caller surfaces the message as a field error. */
@@ -49,16 +40,11 @@ export interface UploadedProofDoc {
  * carries a random component so the URL can't be guessed from the org name.
  */
 export async function uploadProofDoc(file: File): Promise<UploadedProofDoc> {
-  if (file.size === 0) {
-    throw new ProofDocError("Attach your proof-of-status document.");
-  }
-  if (file.size > MAX_BYTES) {
-    throw new ProofDocError("Document must be 10 MB or smaller.");
-  }
-  const ext = ALLOWED_TYPES.get(file.type);
-  if (!ext) {
-    throw new ProofDocError("Document must be a PDF, PNG, or JPG.");
-  }
+  // The browser runs the same check (lib/blob/proof-limits.ts); this one is the gate.
+  const problem = proofDocProblem(file);
+  if (problem) throw new ProofDocError(problem);
+  const ext = PROOF_DOC_TYPES.get(file.type);
+  if (!ext) throw new ProofDocError("Document must be a PDF, PNG, or JPG.");
 
   // E2E hermeticity: the mock Playwright gate runs without a Blob token.
   // E2E_FAKE_BLOB=1 (set only by the Playwright web server) returns a

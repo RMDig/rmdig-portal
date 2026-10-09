@@ -62,7 +62,18 @@ test.describe("SAR org creation (mock)", () => {
     await page.getByLabel("Contact email").fill("jane@sar.test");
     // operatingStatus defaults to county_sar — no detail field needed.
     await page.getByTestId("e2e-region-input").fill(VALID_REGION);
-    await page.locator('input[name="proofDoc"]').setInputFiles({
+    // A document over the 4 MB cap is turned away in the browser with a hint,
+    // and the input is cleared, so the form never sends a body Next.js would
+    // refuse with the error page.
+    const proofInput = page.locator('input[name="proofDoc"]');
+    await proofInput.setInputFiles({
+      name: "big-scan.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.alloc(5 * 1024 * 1024),
+    });
+    await expect(page.getByText(/4 MB or smaller/)).toBeVisible();
+    await expect(proofInput).toHaveJSProperty("value", "");
+    await proofInput.setInputFiles({
       name: "proof.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("%PDF-1.4 e2e proof"),

@@ -17,6 +17,7 @@ import {
   SERVICE_AREA_HELP,
   type OrgFieldValues,
 } from "../../SarOrgFields";
+import { ProofDocInput } from "../../ProofDocInput";
 import { updateSarOrgAction } from "./actions";
 import { useSubmittedValues } from "@/components/forms/use-submitted-values";
 
@@ -102,15 +103,11 @@ export function EditOrgForm({
         <h2 className="text-lg font-medium">Proof of operating status</h2>
         <ProofHint orgType={orgType} />
         <p className="text-muted-foreground text-sm">Your current document stays unless you attach a new one.</p>
-        <input
-          id="proofDoc"
-          name="proofDoc"
-          type="file"
-          accept="application/pdf,image/png,image/jpeg"
-          className="text-sm"
-          aria-label="Replace proof document (optional)"
+        <ProofDocInput
+          required={false}
+          ariaLabel="Replace proof document (optional)"
+          serverErrors={fieldErrors?.proofDoc}
         />
-        <FieldError errors={fieldErrors?.proofDoc} />
       </section>
 
       {state && !state.ok && !fieldErrors ? <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p> : null}

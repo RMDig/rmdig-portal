@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PROOF_DOC_LIMIT_LABEL } from "@/lib/blob/proof-limits";
 
 // Fields shared by the application form (/sar/new) and the resubmit form
 // (/sar/[orgId]/edit). Option values mirror the DB enums; labels are inlined so
@@ -172,7 +173,7 @@ export function ProofHint({ orgType }: { orgType: string }) {
       {orgType === "ski_patrol"
         ? "A letter from the ski area naming your patrol, or a similar document. Before approving, we'll call the ski area's published phone number to confirm."
         : "A county registration letter, 501(c)(3) determination, or similar."}{" "}
-      PDF, PNG, or JPG, up to 10 MB.
+      PDF, PNG, or JPG, up to {PROOF_DOC_LIMIT_LABEL}.
     </p>
   );
 }
