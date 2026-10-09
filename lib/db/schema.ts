@@ -348,11 +348,17 @@ export const sarOrgs = pgTable("sar_orgs", {
   (t) => [
     // The operator approvals queue lists pending orgs; index the status it filters on.
     index("sar_orgs_status_idx").on(t.status),
-    // One verified phone → one SAR org (anti-abuse + a unique callback number
-    // for vetting). Partial: legacy/unverified rows may hold NULL.
-    uniqueIndex("sar_orgs_contact_phone_unique")
+    // One verified phone → one live SAR org (anti-abuse + a unique callback
+    // number for vetting). Rejected and withdrawn orgs are final (no transition
+    // leaves either), so they release the number: a rejected applicant can
+    // reapply with their own phone (owner decision 2026-10-09). Partial:
+    // legacy/unverified rows may hold NULL. sar_org_holds_phone() is defined in
+    // migration 0025: it compares the status as text, because naming
+    // 'withdrawn' as an enum literal fails when a fresh database applies 0020
+    // (which added that value) and this index in one transaction.
+    uniqueIndex("sar_orgs_contact_phone_live_unique")
       .on(t.contactPhone)
-      .where(sql`contact_phone IS NOT NULL`),
+      .where(sql`contact_phone IS NOT NULL AND sar_org_holds_phone(status)`),
   ],
 );
 
