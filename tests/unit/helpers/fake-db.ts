@@ -4,8 +4,8 @@
 // CLAUDE.md §4.3): the test mocks `@/lib/db`, `@/lib/db/schema` and
 // `drizzle-orm` with the exports below.
 //
-// Scope is deliberately small: select/insert/update/delete with eq, and, isNull
-// and gt predicates, `.limit()`, `.returning()`, and `transaction()`. Anything
+// Scope is deliberately small: select/insert/update/delete with eq, and, isNull,
+// isNotNull and gt predicates, `.limit()`, `.returning()`, and `transaction()`. Anything
 // else throws, so a query shape the fake doesn't model fails the test loudly
 // instead of silently matching nothing.
 
@@ -15,6 +15,7 @@ type Pred =
   | { op: "eq"; col: string; val: unknown }
   | { op: "gt"; col: string; val: unknown }
   | { op: "isNull"; col: string }
+  | { op: "isNotNull"; col: string }
   | { op: "and"; preds: Pred[] };
 
 interface Table {
@@ -32,6 +33,7 @@ export const fakeOperators = {
   eq: (col: string, val: unknown): Pred => ({ op: "eq", col, val }),
   gt: (col: string, val: unknown): Pred => ({ op: "gt", col, val }),
   isNull: (col: string): Pred => ({ op: "isNull", col }),
+  isNotNull: (col: string): Pred => ({ op: "isNotNull", col }),
   and: (...preds: Array<Pred | undefined>): Pred => ({
     op: "and",
     preds: preds.filter((p): p is Pred => p !== undefined),
@@ -48,6 +50,8 @@ function matches(row: Row, pred: Pred): boolean {
       return (row[pred.col] as number | Date) > (pred.val as number | Date);
     case "isNull":
       return row[pred.col] === null || row[pred.col] === undefined;
+    case "isNotNull":
+      return row[pred.col] !== null && row[pred.col] !== undefined;
     case "and":
       return pred.preds.every((p) => matches(row, p));
   }
@@ -108,9 +112,11 @@ export function createFakeDb(): FakeDb {
     }),
     delete: (table: Table) => ({
       where: (pred: Pred) => {
-        const kept = rows(table.__t).filter((r) => !matches(r, pred));
-        tables.set(table.__t, kept);
-        return Promise.resolve();
+        const hit = rows(table.__t).filter((r) => matches(r, pred));
+        tables.set(table.__t, rows(table.__t).filter((r) => !matches(r, pred)));
+        return Object.assign(Promise.resolve(), {
+          returning: (fields?: Record<string, string>) => Promise.resolve(hit.map((r) => project(r, fields))),
+        });
       },
     }),
   };

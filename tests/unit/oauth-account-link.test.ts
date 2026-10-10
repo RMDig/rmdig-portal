@@ -59,6 +59,7 @@ async function seedUser(fields: { id: string; password?: string; emailVerified: 
     emailVerified: fields.emailVerified,
     mfaEnabledAt: null,
     totpSecretEncrypted: null,
+    oauthPasswordClearedAt: null,
   });
 }
 
@@ -102,6 +103,11 @@ describe("Google sign-in linking into an unverified credentials row (the attack)
     );
   });
 
+  it("records the cleared password so the dashboard can tell the owner once", async () => {
+    await secureOAuthEmailLink(VICTIM);
+    expect(userRow().oauthPasswordClearedAt).toBeInstanceOf(Date);
+  });
+
   it("is idempotent: a second Google sign-in changes nothing more", async () => {
     await secureOAuthEmailLink(VICTIM);
     const verifiedAt = userRow().emailVerified;
@@ -142,6 +148,7 @@ describe("legitimate flows still work", () => {
 
     expect(userRow().emailVerified).toBe(verifiedAt);
     expect(h.fake!.rows("sessions")).toHaveLength(1);
+    expect(userRow().oauthPasswordClearedAt).toBeNull();
     expect(h.log.warn).not.toHaveBeenCalled();
     await expect(authorizeCredentials({ email: VICTIM, password: OWNER_PASSWORD })).resolves.toMatchObject({ id: "u-owner" });
   });
