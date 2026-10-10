@@ -327,14 +327,14 @@ export async function requestPasswordResetAction(
   }
 
   const [user] = await db
-    .select({ id: users.id, passwordHash: users.passwordHash })
+    .select({ id: users.id })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
 
-  // Only credentials users (those with a password) can reset one. OAuth-only
-  // accounts have a null hash and nothing to reset — silently no-op, neutrally.
-  if (!user || !user.passwordHash) {
+  // Any account can get a link, including a Google-only one with no password
+  // yet (beta plan D1b): the link proves the inbox the same way Google does.
+  if (!user) {
     logger.info({ event: "pwreset.request.no_eligible_user", email });
     return neutral;
   }

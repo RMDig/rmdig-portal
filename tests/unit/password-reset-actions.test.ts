@@ -107,12 +107,12 @@ describe("requestPasswordResetAction", () => {
     expect(h.sendReset).not.toHaveBeenCalled();
   });
 
-  it("returns neutral success for an OAuth-only user (no password to reset)", async () => {
-    h.selectResult = [{ id: "u1", passwordHash: null }];
+  it("emails a Google-only user a link to add a password (D1b)", async () => {
+    h.selectResult = [{ id: "u1" }];
     const res = await requestPasswordResetAction(null, form({ email: "oauth@rmdig.ai" }));
     expect(res).toEqual({ ok: true });
-    expect(h.inserted).toHaveLength(0);
-    expect(h.sendReset).not.toHaveBeenCalled();
+    expect(h.inserted.find((i) => i.table === "prt")?.vals.userId).toBe("u1");
+    expect(h.sendReset).toHaveBeenCalledTimes(1);
   });
 
   it("issues a token and emails a credentials user", async () => {
