@@ -21,6 +21,8 @@ import {
 import { featureEnabled } from "@/lib/features";
 import { ADVERTISER_ROLE_LABEL, ADVERTISER_STATUS_LABEL, TEAM_ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/labels";
 
+import { PasswordClearedNotice } from "./PasswordClearedNotice";
+
 export const metadata = {
   title: "Dashboard — rmdig",
 };
@@ -72,7 +74,7 @@ export default async function DashboardPage() {
   // onboarding form until the matching entity exists. Pure UX — grants nothing.
   const [me] = userId
     ? await db
-        .select({ signupIntent: users.signupIntent })
+        .select({ signupIntent: users.signupIntent, oauthPasswordClearedAt: users.oauthPasswordClearedAt })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1)
@@ -100,6 +102,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Signed in as {session?.user?.email}.</p>
       </div>
+      {me?.oauthPasswordClearedAt ? <PasswordClearedNotice /> : null}
       {nudge ? (
         <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-900/10">
           <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">

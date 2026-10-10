@@ -74,7 +74,11 @@ export function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
       <CardContent>
         {!hasPassword ? (
           <p className="text-muted-foreground text-sm">
-            Your account signs in with Google, so there&apos;s no password to change.
+            Your account signs in with Google and has no password.{" "}
+            <Link href="/forgot-password" className="text-foreground font-medium underline">
+              Email yourself a link to add one
+            </Link>
+            . Setting it signs you out everywhere.
           </p>
         ) : (
           <form action={formAction} className="space-y-4">

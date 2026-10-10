@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "oauth_password_cleared_at" timestamp with time zone;

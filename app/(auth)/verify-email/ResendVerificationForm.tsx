@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// "Send a new link": for an account that was never verified. The answer is the
+// "Send a new link": for a sign-up that was never finished. The answer is the
 // same whether or not the address has an account, so it can't be used to
 // probe for accounts.
 export function ResendVerificationForm() {

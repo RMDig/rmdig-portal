@@ -29,7 +29,8 @@ export default function ResetPasswordEmail({
           <Heading style={heading}>Reset your password</Heading>
           <Text style={paragraph}>
             We received a request to reset the password on your rmdig account. Click the button
-            below to choose a new one.
+            below to choose a new one. If you sign in with Google, this adds a password you can
+            use as well.
           </Text>
           <Section style={buttonContainer}>
             <Link href={resetUrl} style={button}>

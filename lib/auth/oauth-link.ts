@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { db } from "../db";
 import { sessions, users, verificationTokens } from "../db/schema";
@@ -16,8 +16,10 @@ import { logger } from "../logger";
  * would start working the moment the row became verified). So, atomically:
  *
  *   - the password is cleared and the row marked verified, in one guarded
- *     statement (the row becomes Google-only, like any OAuth account; adding a
- *     password to an OAuth-only account is not offered today),
+ *     statement (the row becomes Google-only, like any OAuth account; the
+ *     owner can add a password back through Forgot password). When there was
+ *     a password to clear, oauthPasswordClearedAt records it so the dashboard
+ *     can tell the owner why their password stopped working,
  *   - every existing session for the row is deleted,
  *   - every pending email-verification link for the address is deleted.
  *
@@ -30,23 +32,38 @@ import { logger } from "../logger";
  */
 export async function secureOAuthEmailLink(email: string): Promise<void> {
   await db.transaction(async (tx) => {
-    // The guarded UPDATE is the claim: it only touches a row that is still
+    // The guarded UPDATEs are the claim: they only touch a row that is still
     // unverified, so a concurrent verification can't be raced into clearing a
-    // password that was just proved.
-    const [row] = await tx
+    // password that was just proved. The first one takes a row with a password
+    // (and records the notice); the second, an email-first sign-up that never
+    // got as far as choosing one, which has nothing to tell the owner about.
+    const now = new Date();
+    const [cleared] = await tx
       .update(users)
-      .set({ passwordHash: null, emailVerified: new Date() })
-      .where(and(eq(users.email, email), isNull(users.emailVerified)))
+      .set({ passwordHash: null, emailVerified: now, oauthPasswordClearedAt: now })
+      .where(and(eq(users.email, email), isNull(users.emailVerified), isNotNull(users.passwordHash)))
       .returning({ id: users.id });
+    const [row] = cleared
+      ? [cleared]
+      : await tx
+          .update(users)
+          .set({ emailVerified: now })
+          .where(and(eq(users.email, email), isNull(users.emailVerified)))
+          .returning({ id: users.id });
     if (!row) return;
 
     await tx.delete(sessions).where(eq(sessions.userId, row.id));
     await tx.delete(verificationTokens).where(eq(verificationTokens.identifier, email));
 
-    // Expected for a real owner who signed up but never clicked the link; also
-    // exactly what the pre-hijack looks like. Worth a trail either way: an
-    // owner who had set a password now signs in with Google only.
-    logger.warn({ event: "auth.oauth_link.unverified_row_secured", userId: row.id });
+    if (cleared) {
+      // Expected for a real owner who signed up before email-first sign-up and
+      // never clicked the link; also exactly what the pre-hijack looks like.
+      // Worth a trail either way: an owner who had set a password now signs in
+      // with Google only.
+      logger.warn({ event: "auth.oauth_link.unverified_row_secured", userId: row.id });
+    } else {
+      logger.info({ event: "auth.oauth_link.pending_signup_verified", userId: row.id });
+    }
   });
 }
 

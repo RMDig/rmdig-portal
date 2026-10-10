@@ -34,15 +34,10 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/client-ip", () => ({ clientIp: () => Promise.resolve("203.0.113.1") }));
 vi.mock("@/lib/env", () => ({ env: { NEXTAUTH_URL: "https://rmdig.ai" } }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@/lib/features", () => ({ featureEnabled: () => false }));
 vi.mock("bcryptjs", () => ({ default: { hash: () => Promise.resolve("bcrypt-hash") } }));
-vi.mock("next/navigation", () => ({
-  redirect: (url: string) => {
-    throw Object.assign(new Error("NEXT_REDIRECT"), { url });
-  },
-}));
 
-import { signUpAction } from "@/app/(auth)/actions";
-import { GET as verify } from "@/app/api/verify/route";
+import { finishSignUpAction, signUpAction } from "@/app/(auth)/actions";
 import {
   generateVerificationToken,
   hashVerificationToken,
@@ -62,16 +57,19 @@ function form(fields: Record<string, string>): FormData {
 async function signUpAndGetLinkToken(): Promise<string> {
   const res = await signUpAction(
     null,
-    form({ email: EMAIL, password: "a-long-password-1", confirmPassword: "a-long-password-1", intent: "explorer" }),
+    form({ email: EMAIL, intent: "explorer" }),
   );
   expect(res).toEqual({ ok: true });
+  // The fake applies no column defaults; Postgres gives the row its id.
+  h.fake!.rows("users")[0]!.id = "u1";
   const link = new URL(h.sendVerification.mock.calls[0]![1] as string);
   return link.searchParams.get("token")!;
 }
 
-const callVerify = (token: string) =>
-  verify(new Request(`https://rmdig.ai/api/verify?token=${token}&email=${encodeURIComponent(EMAIL)}`)).catch(
-    (e: { url?: string }) => e.url,
+const finishWith = (token: string) =>
+  finishSignUpAction(
+    null,
+    form({ email: EMAIL, token, password: "a-long-password-1", confirmPassword: "a-long-password-1" }),
   );
 
 beforeEach(() => {
@@ -102,17 +100,19 @@ describe("sign-up → verify link", () => {
     expect(stored[0]!.token).not.toBe(linkToken);
   });
 
-  it("verifies the account from the emailed token and burns it", async () => {
+  it("verifies the account and sets its password from the emailed token, and burns it", async () => {
     const linkToken = await signUpAndGetLinkToken();
-    expect(await callVerify(linkToken)).toBe("/sign-in?verified=true");
+    expect(await finishWith(linkToken)).toEqual({ ok: true });
     expect(h.fake!.rows("users")[0]!.emailVerified).toBeInstanceOf(Date);
+    expect(h.fake!.rows("users")[0]!.passwordHash).toBe("bcrypt-hash");
     expect(h.fake!.rows("verification_tokens")).toHaveLength(0);
   });
 
   it("rejects the stored hash used as a link token (a DB read can't be replayed)", async () => {
     await signUpAndGetLinkToken();
     const storedHash = h.fake!.rows("verification_tokens")[0]!.token as string;
-    expect(await callVerify(storedHash)).toBe("/sign-in?error=invalid-token");
+    expect(await finishWith(storedHash)).toMatchObject({ ok: false });
     expect(h.fake!.rows("users")[0]!.emailVerified ?? null).toBeNull();
+    expect(h.fake!.rows("users")[0]!.passwordHash ?? null).toBeNull();
   });
 });

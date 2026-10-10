@@ -56,6 +56,10 @@ export const users = pgTable("users", {
   // Nullable: pre-dropdown accounts (and OAuth sign-ups, which skip the form)
   // have no recorded intent and get the default explorer experience.
   signupIntent: signupIntent("signup_intent"),
+  // Set when a Google sign-in landed on this row while it was unverified and
+  // removed a password someone had set on it (lib/auth/oauth-link.ts). The
+  // dashboard tells the owner once, then clears it when they dismiss the notice.
+  oauthPasswordClearedAt: timestamp("oauth_password_cleared_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

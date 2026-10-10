@@ -32,7 +32,8 @@ export function ForgotPasswordForm() {
   return (
     <form action={formAction} className="space-y-4">
       <p className="text-muted-foreground text-sm">
-        Enter the email for your account and we&apos;ll send you a link to reset your password.
+        Enter the email for your account and we&apos;ll send you a link to reset your password. If
+        you sign in with Google, the link lets you add a password.
       </p>
 
       <div className="space-y-2">

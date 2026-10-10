@@ -65,6 +65,7 @@ vi.mock("@/lib/rate-limit", () => ({
   },
 }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@/lib/features", () => ({ featureEnabled: () => false }));
 // signUpAction reads the client IP (via lib/client-ip) for its per-IP limit.
 vi.mock("next/headers", () => ({
   headers: () => Promise.resolve(new Headers({ "x-forwarded-for": "203.0.113.9" })),
@@ -107,12 +108,12 @@ describe("requestPasswordResetAction", () => {
     expect(h.sendReset).not.toHaveBeenCalled();
   });
 
-  it("returns neutral success for an OAuth-only user (no password to reset)", async () => {
-    h.selectResult = [{ id: "u1", passwordHash: null }];
+  it("emails a Google-only user a link to add a password (D1b)", async () => {
+    h.selectResult = [{ id: "u1" }];
     const res = await requestPasswordResetAction(null, form({ email: "oauth@rmdig.ai" }));
     expect(res).toEqual({ ok: true });
-    expect(h.inserted).toHaveLength(0);
-    expect(h.sendReset).not.toHaveBeenCalled();
+    expect(h.inserted.find((i) => i.table === "prt")?.vals.userId).toBe("u1");
+    expect(h.sendReset).toHaveBeenCalledTimes(1);
   });
 
   it("issues a token and emails a credentials user", async () => {
@@ -183,87 +184,68 @@ describe("resetPasswordAction", () => {
 });
 
 describe("signUpAction", () => {
-  it("rejects mismatched passwords with a confirmPassword field error", async () => {
-    const res = await signUpAction(
-      null,
-      form({
-        email: "new@rmdig.ai",
-        password: "abcdefghijkl",
-        confirmPassword: "abcdefghijkX",
-      }),
-    );
+  it("rejects a malformed email with a field error", async () => {
+    const res = await signUpAction(null, form({ email: "not-an-email" }));
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.fieldErrors?.confirmPassword).toBeTruthy();
+    if (!res.ok) expect(res.fieldErrors?.email).toBeTruthy();
     expect(h.inserted).toHaveLength(0);
     expect(h.sendVerify).not.toHaveBeenCalled();
   });
 
-  it("creates the account and sends verification when passwords match", async () => {
+  it("creates the account with no password and sends the link (email first, D1a)", async () => {
     h.selectResult = []; // no existing user
-    const res = await signUpAction(
-      null,
-      form({
-        email: "new@rmdig.ai",
-        password: "abcdefghijkl",
-        confirmPassword: "abcdefghijkl",
-      }),
-    );
+    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
     expect(res).toEqual({ ok: true });
-    expect(h.inserted.some((i) => i.table === "users")).toBe(true);
+    const row = h.inserted.find((i) => i.table === "users")?.vals;
+    expect(row).toBeDefined();
+    expect(row).not.toHaveProperty("passwordHash");
     expect(h.sendVerify).toHaveBeenCalledTimes(1);
+    expect(h.sendVerify.mock.calls[0]![1]).toContain("/sign-up/finish?token=");
     // No dropdown value (or a legacy form) defaults the routing hint.
-    expect(h.inserted.find((i) => i.table === "users")?.vals.signupIntent).toBe("explorer");
+    expect(row?.signupIntent).toBe("explorer");
+  });
+
+  it("ignores a password posted by an old cached form", async () => {
+    h.selectResult = [];
+    await signUpAction(null, form({ email: "new@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }));
+    expect(h.inserted.find((i) => i.table === "users")?.vals).not.toHaveProperty("passwordHash");
   });
 
   it("stores the selected signup intent", async () => {
     h.selectResult = [];
-    const res = await signUpAction(
-      null,
-      form({
-        email: "sar-team@rmdig.ai",
-        password: "abcdefghijkl",
-        confirmPassword: "abcdefghijkl",
-        intent: "sar",
-      }),
-    );
+    const res = await signUpAction(null, form({ email: "sar-team@rmdig.ai", intent: "sar" }));
     expect(res).toEqual({ ok: true });
     expect(h.inserted.find((i) => i.table === "users")?.vals.signupIntent).toBe("sar");
   });
 
   it("rejects an unknown intent value", async () => {
-    const res = await signUpAction(
-      null,
-      form({
-        email: "new@rmdig.ai",
-        password: "abcdefghijkl",
-        confirmPassword: "abcdefghijkl",
-        intent: "superuser",
-      }),
-    );
+    const res = await signUpAction(null, form({ email: "new@rmdig.ai", intent: "superuser" }));
     expect(res.ok).toBe(false);
     expect(h.inserted).toHaveLength(0);
   });
 
   it("keys the per-IP limit on the forwarded client IP", async () => {
     h.selectResult = [];
-    await signUpAction(
-      null,
-      form({ email: "a@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
-    );
+    await signUpAction(null, form({ email: "a@rmdig.ai" }));
     expect(h.rlKeys).toContain("signup-ip:203.0.113.9");
   });
 
   it("fails loud — no insert, no email — when the IP is rate-limited", async () => {
     h.rlAllowed = false;
     h.selectResult = [];
-    const res = await signUpAction(
-      null,
-      form({ email: "new@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
-    );
+    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/too many sign-ups/i);
     expect(h.inserted).toHaveLength(0);
     expect(h.sendVerify).not.toHaveBeenCalled();
     expect(h.log.warn).toHaveBeenCalled();
+  });
+
+  it("tells the user when the link couldn't be sent", async () => {
+    h.selectResult = [];
+    h.sendVerify.mockRejectedValueOnce(new Error("resend down"));
+    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
+    expect(res.ok).toBe(false);
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "signup.email_send_failed" }));
   });
 });

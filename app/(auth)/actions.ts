@@ -6,11 +6,13 @@ import { AuthError, CredentialsSignin } from "next-auth";
 import { z } from "zod";
 
 import { signIn, signOut } from "@/lib/auth";
+import { finishSignUp } from "@/lib/auth/email-first-signup";
 import { generateResetToken, hashResetToken } from "@/lib/auth/reset-tokens";
 import { generateVerificationToken } from "@/lib/auth/verification-tokens";
 import { nextQuery, safeReturnTo } from "@/lib/auth/return-to";
 import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
+import { featureEnabled } from "@/lib/features";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
@@ -19,25 +21,34 @@ import { portalUrl } from "@/lib/email/links";
 
 // ----- Schemas -----
 
-const signUpSchema = z
-  .object({
-    email: z.string().email().toLowerCase(),
-    password: z
-      .string()
-      .min(12, "Password must be at least 12 characters")
-      .max(200, "Password is too long"),
-    confirmPassword: z.string(),
-    // Sign-up dropdown ("What brings you to AvAI?"). A pure routing hint —
-    // grants nothing (SAR approval stays manual per CLAUDE.md §0).
-    intent: z.enum(["explorer", "sar", "advertiser"]).default("explorer"),
-  })
-  // Server-side twin of the retype-to-confirm UX — the client can't be trusted
-  // to enforce the match, and a typo'd password locks the user out of a brand
-  // new account until they discover password reset.
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
+// Sign-up dropdown ("What brings you to AvAI?"). A pure routing hint — grants
+// nothing (SAR approval stays manual per CLAUDE.md §0).
+const intentSchema = z.enum(["explorer", "sar", "advertiser"]).default("explorer");
+
+// Email first (beta plan D1a): no password until the emailed link is opened.
+const signUpSchema = z.object({
+  email: z.string().email().toLowerCase(),
+  intent: intentSchema,
+});
+
+// The first password, chosen on the page the verification link opens. Same
+// rules and retype-to-confirm check as a reset (the client can't be trusted to
+// enforce the match, and a typo'd password locks a new user out).
+const newPasswordFields = {
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(200, "Password is too long"),
+  confirmPassword: z.string(),
+};
+const passwordsMatch = {
+  check: (data: { password: string; confirmPassword: string }) => data.password === data.confirmPassword,
+  message: { message: "Passwords don't match", path: ["confirmPassword"] },
+};
+
+const finishSignUpSchema = z
+  .object({ email: z.string().email().toLowerCase(), token: z.string().min(1), ...newPasswordFields })
+  .refine(passwordsMatch.check, passwordsMatch.message);
 
 const signInSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -81,7 +92,8 @@ async function issueVerification(email: string, next: string | null): Promise<vo
   // Only the hash is stored; the plaintext exists only in the emailed link.
   const { token, tokenHash, expires } = generateVerificationToken();
   await db.insert(verificationTokens).values({ identifier: email, token: tokenHash, expires });
-  const verifyUrl = portalUrl(`/api/verify?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`);
+  // Opens the page where the password is chosen (email-first sign-up).
+  const verifyUrl = portalUrl(`/sign-up/finish?token=${token}&email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`);
   await sendVerificationEmail(email, verifyUrl);
 }
 
@@ -125,7 +137,7 @@ export async function signUpAction(
     };
   }
 
-  const { email, password, intent } = parsed.data;
+  const { email, intent } = parsed.data;
   const next = safeReturnTo(formData.get("next"));
 
   const ip = await clientIp();
@@ -145,17 +157,17 @@ export async function signUpAction(
     .limit(1);
 
   if (existing) {
-    // An unverified owner signing up again gets a fresh link (their original
-    // password stands); a verified one gets nothing. Same answer either way.
+    // An unverified address signing up again gets a fresh link; a verified
+    // one gets nothing. Same answer either way.
     logger.info({ event: "signup.duplicate", email });
     await resendIfUnverified(email, next);
     return { ok: true };
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  // No password yet: it is set when the link is used (finishSignUpAction).
   const [user] = await db
     .insert(users)
-    .values({ email, passwordHash, signupIntent: intent })
+    .values({ email, signupIntent: intent })
     .returning({ id: users.id });
 
   if (!user) {
@@ -177,6 +189,35 @@ export async function signUpAction(
   }
 
   logger.info({ event: "signup.success", userId: user.id });
+  return { ok: true };
+}
+
+// ----- Finish sign-up (the page the verification link opens) -----
+
+export async function finishSignUpAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = finishSignUpSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  const { email, token, password } = parsed.data;
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const userId = await finishSignUp({ email, token, passwordHash });
+  if (!userId) {
+    logger.info({ event: "signup.finish.invalid_link", email });
+    return {
+      ok: false,
+      error: "This link has expired or was already used. Send yourself a new one.",
+    };
+  }
+  logger.info({ event: "signup.finish.success", userId });
   return { ok: true };
 }
 
@@ -279,6 +320,20 @@ export async function signInGoogleAction(formData: FormData): Promise<void> {
   await signIn("google", { redirectTo: safeReturnTo(formData.get("next")) ?? "/dashboard" });
 }
 
+// "Continue with Google" on the sign-up page. Google creates the account, so
+// the intent dropdown can't be stored on it; it routes the first landing
+// instead, straight to the matching onboarding form. Only a routing hint.
+export async function signUpGoogleAction(formData: FormData): Promise<void> {
+  const intent = intentSchema.catch("explorer").parse(formData.get("intent") ?? undefined);
+  const landing =
+    intent === "sar"
+      ? "/sar/new"
+      : intent === "advertiser" && featureEnabled("advertiser_portal")
+        ? "/advertiser/new"
+        : "/dashboard";
+  await signIn("google", { redirectTo: safeReturnTo(formData.get("next")) ?? landing });
+}
+
 // ----- Sign out -----
 
 export async function signOutAction(): Promise<void> {
@@ -327,14 +382,14 @@ export async function requestPasswordResetAction(
   }
 
   const [user] = await db
-    .select({ id: users.id, passwordHash: users.passwordHash })
+    .select({ id: users.id })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
 
-  // Only credentials users (those with a password) can reset one. OAuth-only
-  // accounts have a null hash and nothing to reset — silently no-op, neutrally.
-  if (!user || !user.passwordHash) {
+  // Any account can get a link, including a Google-only one with no password
+  // yet (beta plan D1b): the link proves the inbox the same way Google does.
+  if (!user) {
     logger.info({ event: "pwreset.request.no_eligible_user", email });
     return neutral;
   }
@@ -361,19 +416,8 @@ export async function requestPasswordResetAction(
 // ----- Password reset: complete -----
 
 const resetPasswordSchema = z
-  .object({
-    token: z.string().min(1),
-    password: z
-      .string()
-      .min(12, "Password must be at least 12 characters")
-      .max(200, "Password is too long"),
-    confirmPassword: z.string(),
-  })
-  // Same retype-to-confirm contract as sign-up (see signUpSchema).
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
+  .object({ token: z.string().min(1), ...newPasswordFields })
+  .refine(passwordsMatch.check, passwordsMatch.message);
 
 export async function resetPasswordAction(
   _prev: ActionResult | null,
