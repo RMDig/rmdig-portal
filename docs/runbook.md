@@ -563,21 +563,12 @@ under the CPA — treat every request as covering it.
    WHERE status = 'confirmed' ORDER BY confirmed_at;
    ```
 
-2. **Portal data.** If a `users` row matches the email, delete it — sessions,
-   accounts, MFA rows, memberships, tokens cascade. Caveat: rows the user
-   *created* for org-shaped entities (`sar_orgs.created_by_user_id`,
-   `advertiser_accounts.created_by_user_id`, invitation `created_by_user_id`)
-   have plain FKs and will block the delete. If they own such rows, transfer
-   them before deleting the user: for a SAR org, point
-   `sar_orgs.created_by_user_id` at another of the org's admins (or a staff
-   account) and remove the user's membership. **Never delete a SAR org row** to
-   get past this: its status log, alerts, acks, view logs, membership log and
-   terms are evidence and reference it `ON DELETE RESTRICT`, so the delete fails
-   (see "Removing a SAR org").
-3. **AvServ data.** Delete the account's checkout history, heartbeat rows, and
-   emergency-contact details on AvServ (operator process; no S2S deletion
-   endpoint yet — track as an AvServ work item).
-3a. **SAR teams that received the data.** **Admin → Deletion requests**
+   Work the steps **in this order**. Step 2 needs the portal user row (it holds
+   the linked AvAI account id) and AvServ's account email (erasure leaves a
+   tombstone with no email), so ids and teams are gathered before anything is
+   deleted.
+
+2. **SAR teams that received the data.** **Admin → Deletion requests**
    (`/admin/deletion-requests`, rmdig admins) lists the confirmed queue with each
    request's days left. For a request, "Teams that received data" reads AvServ's
    `data_share_log` from both nodes (`GET /v1/internal/data-share-log`) and lists
@@ -598,13 +589,50 @@ under the CPA — treat every request as covering it.
    every `rmdig_admin`; at 40 days it's a Sentry error
    (`deletion.clock.escalated`). It repeats daily until the request is marked
    completed.
-4. **Record completion** so the queue stays truthful: on
+   Write down every AvAI account id the requester controls before going on.
+
+3. **AvServ data.** Erase each AvAI account with AvServ's operator CLI (AvServ
+   runbook "Account erasure (CPA deletion requests)", since `v1.5.0-rc53`). The
+   portal doesn't call AvServ's erasure endpoint yet, so this is by hand, on the
+   nodes, from the AvServ deploy directory:
+
+   ```sh
+   # a. dry run on EVERY node: "nothing blocks erasure", or the live safety items
+   docker compose exec api /avserv account erase --account <ACCOUNT_ID> --dry-run
+   # b. erase on ONE node (it replicates); the request id is deletion_requests.id
+   docker compose exec api /avserv account erase --account <ACCOUNT_ID> --request-ref <DELETION_REQUEST_ID>
+   # c. confirm on EVERY node within a few minutes
+   docker compose exec api /avserv account erasure-status --account <ACCOUNT_ID>
+   ```
+
+   A dry run that lists a live item (an open or alerted check-out, an active
+   Send Help, a live incident, a SAR message in flight) means **wait**: never
+   close a safety item to unblock an erasure. Ask the user to check in, and
+   note the wait on the request; the 45 days keep running. A node whose status
+   says "not erased" is holding the erasure behind a live item and applies it
+   on its own once that item closes; re-check it. Copy each node's audit record
+   (`originNode`, per-table counts) into the completion note.
+
+4. **Portal data.** If a `users` row matches the email, delete it — sessions,
+   accounts, MFA rows, memberships, tokens cascade. Caveat: rows the user
+   *created* for org-shaped entities (`sar_orgs.created_by_user_id`,
+   `advertiser_accounts.created_by_user_id`, invitation `created_by_user_id`)
+   have plain FKs and will block the delete. If they own such rows, transfer
+   them before deleting the user: for a SAR org, point
+   `sar_orgs.created_by_user_id` at another of the org's admins (or a staff
+   account) and remove the user's membership. **Never delete a SAR org row** to
+   get past this: its status log, alerts, acks, view logs, membership log and
+   terms are evidence and reference it `ON DELETE RESTRICT`, so the delete fails
+   (see "Removing a SAR org").
+
+5. **Record completion** so the queue stays truthful: on
    `/admin/deletion-requests`, **Mark completed** with a note of what was
-   erased, where, and which teams were told (at least 10 characters). It sets
+   erased, where (the AvServ nodes and counts from step 3), and which teams
+   were told (at least 10 characters). It sets
    `completed_at`, appends your email and the time to the note, and takes the
    request off the queue. Only a confirmed request can be completed.
 
-5. **Reply to the requester** from the support mailbox confirming completion.
+6. **Reply to the requester** from the support mailbox confirming completion.
    The reply must go out within the 45-day window even if the answer is "we
    held no data for this address."
 

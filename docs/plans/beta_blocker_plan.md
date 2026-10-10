@@ -326,7 +326,7 @@ in the AvServ runbook drill log. The **pre-beta** set runs on the beta release t
   - **Carrier failure (B2):** an owned landline to send the undeliverable SMS to.
   - **Operator escalation:** the secondary contact set up in PagerDuty.
   - **Incident rehearsal:** the same secondary contact.
-  - **CPA deletion end to end:** can run now, by hand. Follow portal runbook "Data-deletion requests": delete the portal user, then erase the AvServ account with W5's operator CLI, then the teams lookup, then Mark completed. The portal doesn't call AvServ's erasure endpoint, and doesn't need to for the drill. Automating that (with the `account_erasure` route group on the portal's key) is a later portal change. The portal runbook's step 3 still says AvServ has no deletion endpoint; it needs updating to name W5's CLI.
+  - **CPA deletion end to end:** can run now, by hand. Follow portal runbook "Data-deletion requests" in its order: the teams lookup and AvAI account ids first (both are lost once the portal user is deleted or the AvServ account erased), then W5's erasure CLI on the nodes, then delete the portal user, then Mark completed. The portal doesn't call AvServ's erasure endpoint, and doesn't need to for the drill. Automating that (with the `account_erasure` route group on the portal's key) is a later portal change. The runbook names the CLI since 2026-10-10.
   - **Portal restore:** a restore of the nightly backup to a scratch branch, then `/readyz` and row counts.
   - **Carrier failover (W8):** waits until W8 is implemented.
 
