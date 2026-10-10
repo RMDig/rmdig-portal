@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { signUpAction } from "../actions";
+import { signUpAction, signUpGoogleAction } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PasswordInput } from "@/components/ui/password-input";
 
 export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) {
   const router = useRouter();
@@ -24,6 +23,9 @@ export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) 
     }
   }, [state, router, next]);
 
+  // Email first (beta plan D1a): the password is chosen on the page the
+  // emailed link opens. "Continue with Google" submits this same form to its
+  // own action, so it carries the intent; formNoValidate skips the email field.
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="next" value={next} />
@@ -44,6 +46,19 @@ export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) 
         </select>
       </div>
 
+      <Button type="submit" variant="outline" className="w-full" formAction={signUpGoogleAction} formNoValidate>
+        Continue with Google
+      </Button>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card text-muted-foreground px-2">or</span>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -54,44 +69,12 @@ export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) 
           required
           aria-invalid={!!fieldErrors?.email}
         />
+        <p className="text-muted-foreground text-xs">
+          We&apos;ll email you a link. You choose your password on the page it opens.
+        </p>
         {fieldErrors?.email ? (
           <p className="text-xs text-red-700 dark:text-red-400">
             {fieldErrors.email.join(", ")}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
-        <PasswordInput
-          id="password"
-          name="password"
-          autoComplete="new-password"
-          required
-          minLength={12}
-          aria-invalid={!!fieldErrors?.password}
-        />
-        <p className="text-muted-foreground text-xs">At least 12 characters.</p>
-        {fieldErrors?.password ? (
-          <p className="text-xs text-red-700 dark:text-red-400">
-            {fieldErrors.password.join(", ")}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirm password</Label>
-        <PasswordInput
-          id="confirmPassword"
-          name="confirmPassword"
-          autoComplete="new-password"
-          required
-          minLength={12}
-          aria-invalid={!!fieldErrors?.confirmPassword}
-        />
-        {fieldErrors?.confirmPassword ? (
-          <p className="text-xs text-red-700 dark:text-red-400">
-            {fieldErrors.confirmPassword.join(", ")}
           </p>
         ) : null}
       </div>
@@ -101,7 +84,7 @@ export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) 
       ) : null}
 
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Creating account…" : "Create account"}
+        {pending ? "Sending link…" : "Continue with email"}
       </Button>
 
       <p className="text-muted-foreground text-center text-sm">

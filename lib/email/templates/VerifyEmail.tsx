@@ -20,17 +20,17 @@ export default function VerifyEmail({ verifyUrl, expiresInHours }: VerifyEmailPr
   return (
     <Html>
       <Head />
-      <Preview>Verify your email to finish setting up your rmdig account</Preview>
+      <Preview>Choose your password to finish setting up your rmdig account</Preview>
       <Body style={body}>
         <Container style={container}>
-          <Heading style={heading}>Verify your email</Heading>
+          <Heading style={heading}>Finish signing up</Heading>
           <Text style={paragraph}>
-            Thanks for signing up. Click the button below to verify your email and finish setting up
-            your rmdig account.
+            Thanks for signing up. Click the button below to confirm your email and choose the
+            password for your rmdig account.
           </Text>
           <Section style={buttonContainer}>
             <Link href={verifyUrl} style={button}>
-              Verify email
+              Choose password
             </Link>
           </Section>
           <Text style={paragraph}>

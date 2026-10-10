@@ -171,6 +171,7 @@ describe("forbidden-phrase scan (doc 16 §6.2)", () => {
     for (const page of [
       join("app", "(auth)", "sign-in", "page.tsx"),
       join("app", "(auth)", "sign-up", "page.tsx"),
+      join("app", "(auth)", "sign-up", "finish", "page.tsx"),
       join("app", "(auth)", "actions.ts"),
       join("app", "invite", "[token]", "page.tsx"),
       join("app", "admin-invite", "[token]", "page.tsx"),

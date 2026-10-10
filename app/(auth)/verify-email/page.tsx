@@ -16,11 +16,10 @@ export default function VerifyEmailPage() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p>
-          We sent you a verification link. Click it to finish setting up your account, then sign in.
+          We sent you a link. Open it to choose your password and finish setting up your account.
         </p>
         <p className="text-muted-foreground text-sm">
-          Didn&apos;t get it, or did the link expire? Check your spam folder, or send a new one. Sign in
-          afterwards with the password you chose when you signed up.
+          Didn&apos;t get it, or did the link expire? Check your spam folder, or send a new one.
         </p>
         <Suspense fallback={null}>
           <ResendVerificationForm />
