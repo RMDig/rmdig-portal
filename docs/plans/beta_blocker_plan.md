@@ -73,7 +73,7 @@ them before editing.
 - **AvApp coverage (W6).** Raise coverage of `avserv_session.dart` (18.6%) and `notification_scheduler.dart` (16.4%).
 - **Dependencies and actions (W1, W4, W6, each in its own repo).** Turn on Dependabot alerts. In the portal, pin actions by SHA and add `permissions: contents: read`.
 - **Retention cleanup (W5).** STOPped SMS-only contacts are still texted, relying on Twilio error 21610. Legacy proof documents may still be in the public Blob store (the portal-side query is in the runbook).
-- **Restore drill (Human).** Run a portal restore drill and record it. Add a heartbeat after the backup upload.
+- **Restore drill (Human).** Run a portal restore drill and record it. Add a heartbeat after the backup upload. (Done 2026-10-11: drill passed and logged; heartbeat `BACKUP_HEARTBEAT_URL`.)
 - **Rotation playbook (Human / docs).** Write a credential-leak rotation playbook covering `NEXTAUTH_SECRET` and `MFA_ENCRYPTION_KEY`.
 
 ---
@@ -235,7 +235,7 @@ This workstream is lower urgency and can start after the blockers.
   - real dispatch is live on both nodes;
   - the service-key route groups are on both nodes;
   - `AVSERV_SAR_INTAKE_KEYS` is set.
-- [ ] Run a portal restore drill and record it.
+- [x] Run a portal restore drill and record it. (2026-10-11, AvServ `docs/drills/log.md`.)
 
 ## 5. Decisions
 

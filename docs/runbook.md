@@ -674,17 +674,41 @@ Two independent mechanisms, different failure domains:
    - Variables: `AGE_PUBLIC_KEY` (the `age1…` string),
      `R2_BACKUP_BUCKET=rmdig-portal-backups`, and finally
      `DB_BACKUPS_ENABLED=1` to arm the schedule.
-4. Run the workflow once by hand (Actions → db-backup → Run workflow) and
-   confirm an object lands in the bucket.
+4. **Dead-man check.** In healthchecks.io, create a check `portal-db-backup`:
+   period 1 day, grace 3 hours, alerting the same place as the AvServ node
+   checks. Add its ping URL as the repo secret `BACKUP_HEARTBEAT_URL`. Every
+   successful run pings it, and a failed run pings `/fail`. A run that never
+   happens (the variable unset, the schedule disabled) is caught when the day
+   passes without a ping. GitHub's failure email can't catch that. The workflow
+   fails if the secret is missing.
+5. Run the workflow once by hand (Actions → db-backup → Run workflow) and
+   confirm an object lands in the bucket and the check turns green.
 
 **Restore drill** (quarterly — an untested backup is a hope, not a backup):
 
+Last run: 2026-10-11, passed (AvServ `docs/drills/log.md`).
+
 1. Download the newest `portal-db/*.dump.age` from R2.
-2. `age -d -i portal-backup.key -o portal.dump portal-<stamp>.dump.age`
-3. Create a scratch Neon branch off `production`, then
-   `pg_restore -d "<scratch branch URL>" --clean --if-exists --no-owner portal.dump`
-4. Spot-check row counts (`users`, `sar_orgs`, `deletion_requests`) against
-   prod, then delete the scratch branch.
+2. Decrypt it in a temporary directory, and `cd ~` before step 3 (a shell left in a
+   deleted directory breaks `neonctl`):
+   `age -d -i ~/.secrets/portal-backup.key -o portal.dump portal-<stamp>.dump.age`
+3. Create a scratch Neon branch off `production` (`neonctl branches create
+   --name restore-drill-<date> --parent production`), and **empty it**, so every
+   row afterwards came from the dump rather than the branch copy. Check that the
+   URL is the scratch endpoint, never `ep-crimson-thunder`, before running:
+   `DROP SCHEMA IF EXISTS drizzle CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
+4. `pg_restore -d "<scratch branch URL>" --no-owner portal.dump`. Two errors are
+   expected and harmless: `ALTER DEFAULT PRIVILEGES FOR ROLE cloud_admin`, a
+   grant on Neon's own platform role that our role isn't allowed to make.
+   Anything else is a real failure.
+5. Compare exact row counts for every table against production (read-only).
+   They match, except `drizzle.__drizzle_migrations` when a migration shipped
+   after the dump.
+6. Run `pnpm db:migrate` against the scratch branch, as a real restore must,
+   then boot the app on it (`DATABASE_URL=<scratch> CI=true pnpm build && pnpm
+   start`) and check `/readyz` reports `ready`.
+7. Delete the scratch branch and the decrypted dump. Record the result in the
+   drill log.
 
 If a nightly run fails, GitHub emails the repo owner — treat a red `db-backup`
 run as an incident, not noise: the second mechanism existing is the point.
