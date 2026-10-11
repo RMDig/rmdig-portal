@@ -217,10 +217,14 @@ This workstream is lower urgency and can start after the blockers.
 ### W8: second SMS carrier (AvServ + owner), see §5b
 
 - [ ] Owner: open the provider account and start toll-free verification. This takes
-  the longest, so start it first.
-- [ ] Write the AvServ plan doc (provider list, failover rules, opt-out unification,
-  webhooks, metrics). Owner signs off.
-- [ ] Implement, test, and run the failover drill.
+  the longest, so start it first. (Rollout P0, pending: AvServ plan 36 track R4b.)
+- [x] Write the AvServ plan doc (provider list, failover rules, opt-out unification,
+  webhooks, metrics). Owner signs off. (AvServ plan 45.)
+- [x] Implement and test. (Live on both nodes in v1.5.0-rc56, AvServ PRs #260–#264,
+  not sending.)
+- [ ] Run the failover drill, once Telnyx is sending (§5c "Carrier failover").
+- [ ] Portal: publish /sms sending numbers and /privacy Telnyx (draft PR #158) at
+  P4, after counsel.
 
 ### Human track (owner, counsel, consoles)
 
@@ -265,7 +269,7 @@ This workstream is lower urgency and can start after the blockers.
 
 | # | Single point of failure | Failure mode | Resolution | Owner | Before beta? |
 |---|---|---|---|---|---|
-| S1 | One SMS provider (Twilio) and one 10DLC campaign | Twilio outage or account problem, campaign suspension, carrier filtering of the campaign | **W8: second carrier.** Use a different provider **and** a different number type (toll-free verified), so neither a provider outage nor a 10DLC campaign problem takes SMS down. Design below. | W8 + owner | Yes |
+| S1 | One SMS provider (Twilio) and one 10DLC campaign | Twilio outage or account problem, campaign suspension, carrier filtering of the campaign | **W8: second carrier.** Use a different provider **and** a different number type (toll-free verified), so neither a provider outage nor a 10DLC campaign problem takes SMS down. Design below. **2026-10-11: the AvServ code is live on both nodes (v1.5.0-rc56, AvServ PRs #260–#264, plan 45), not sending. The rollout (plan 45 §9.1, from P0: Telnyx account and TFV) is pending, tracked in AvServ plan 36 track R4b. The portal's /sms and /privacy drafts are portal draft PR #158, for P4.** | W8 + owner | Yes; code live, rollout pending |
 | S2 | One human on call, single Pushover device | Owner asleep, sick or in the backcountry; pages lapse after 1h | Add an escalation layer: a critical page not acknowledged within 15 min goes to a named secondary by SMS or call. Write a one-page secondary runbook: reach the owner, check the status page, post an announcement, contact Twilio. No production credentials for the secondary at beta. Write the A9 operator dead-man's switch section. Plan coverage for the owner's own trips. | Owner | Yes |
 | S3 | Home nodes' failure domain | If avserv-2 and avserv-3 share a site, power or ISP, one outage stops all alerting | Fill in the R5 failure-domain attestation. **If they share any of these, the cloud standby node (plan 42 step 3) becomes a beta blocker.** **Finding 2026-10-09: both live nodes are on Comcast** (a shared ISP). Owner decision: a known, accepted risk for the beta, and a **release blocker for general release**, closed by avserv-1 on a non-Comcast link (AvServ #240, runbook "Failure-domain attestation"). | Owner | Accepted for beta; blocks general release |
 | S4 | Release signing key (one YubiKey) | Losing the key means no signed tags, so no fixes reach the cloud node | Enroll a backup YubiKey, add its fingerprint to the deploy pin list, store it off-site. **2026-10-11 (owner): the owner holds a backup YubiKey, and the designated successor holds their own key plus a backup.** Check that each signing key's fingerprint is on AvServ's deploy pin list. | Owner | Yes; keys held, pin list to confirm |
