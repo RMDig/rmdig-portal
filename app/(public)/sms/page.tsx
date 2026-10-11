@@ -60,12 +60,13 @@ export default function SmsProgramPage() {
           <figure className="mt-4 flex flex-col items-center">
             {/* A static screenshot of the AvApp Add Contact screen (fixture
                 data), copied from AvApp main docs/screenshots/
-                add_contact_attestation.png (2026-10-01, 987465e; AvServ account
-                contract §3.8). That capture still shows the earlier disclosure
-                with "automatic accident alerts": retake it in the release that
-                ships the narrowed CONTACT_SMS_DISCLOSURE. Never an HTML
-                checkbox here: a form-like mock is reviewed as a web opt-in
-                form (Twilio 30925 lesson). */}
+                add_contact_attestation.png (2026-10-10, 7b89e7a, W6; AvServ
+                account contract §3.8). It shows the narrowed
+                CONTACT_SMS_DISCLOSURE word for word. Replace it with the owner's
+                on-device capture of the store build when there is one, and
+                again when the Incident Detection cutover changes the line.
+                Never an HTML checkbox here: a form-like mock is reviewed as a
+                web opt-in form (Twilio 30925 lesson). */}
             <Image
               src="/research/designation-attestation.png"
               alt={`Screenshot of the AvAI Add contact screen: name and phone fields, an unticked checkbox labelled "${CONTACT_PERMISSION_ATTESTATION}", the disclosure "${CONTACT_SMS_DISCLOSURE}", and a Save contact button that stays disabled until the box is ticked.`}
