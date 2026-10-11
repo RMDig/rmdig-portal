@@ -17,12 +17,20 @@ const ERROR_MESSAGES: Record<string, string> = {
   "expired-token": "That verification link has expired.",
 };
 
+// Auth.js's code when our signIn callback refuses a Google sign-in whose email
+// Google hasn't verified (lib/auth/oauth-link.ts oauthEmailVerified).
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  AccessDenied:
+    "Google hasn't confirmed the email address on that Google account, so we can't sign you in with it. Confirm it with Google, or sign in with your email and password.",
+};
+
 export function SignInForm() {
   const params = useSearchParams();
   const verified = params.get("verified") === "true";
   const reset = params.get("reset") === "true";
   const urlError = params.get("error");
   const urlErrorMessage = urlError ? ERROR_MESSAGES[urlError] : null;
+  const oauthErrorMessage = urlError ? OAUTH_ERROR_MESSAGES[urlError] : null;
   // Where to go after signing in (an invite, an account-review link); the
   // server re-validates it (lib/auth/return-to.ts).
   const next = params.get("next") ?? "";
@@ -55,6 +63,11 @@ export function SignInForm() {
       {reset ? (
         <div className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-900 dark:bg-green-900/20 dark:text-green-200">
           Password updated. Sign in with your new password.
+        </div>
+      ) : null}
+      {oauthErrorMessage ? (
+        <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-900 dark:bg-red-900/20 dark:text-red-200">
+          {oauthErrorMessage}
         </div>
       ) : null}
       {urlErrorMessage ? (

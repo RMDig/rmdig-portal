@@ -5,6 +5,25 @@ import { sessions, users, verificationTokens } from "../db/schema";
 import { logger } from "../logger";
 
 /**
+ * Whether an OAuth provider has itself verified the email it hands us. Every
+ * OAuth sign-in is treated as proof that the caller controls the address: it
+ * links into an existing row with that email (secureOAuthEmailLink) and marks
+ * it verified. That is only true when the provider says so. A Google account
+ * can carry an address Google never confirmed, and Auth.js doesn't check the
+ * claim (its docs leave it to the signIn callback). Without this, such an
+ * account could sign in as whoever owns that address here.
+ *
+ * Google sends `email_verified` as a boolean; anything else is refused. A
+ * provider we haven't reviewed is refused too, so adding one (Apple sends the
+ * claim as a string) means deciding here how its claim reads.
+ */
+export function oauthEmailVerified(provider: string, profile: unknown): boolean {
+  const claim = (profile as { email_verified?: unknown } | null | undefined)?.email_verified;
+  if (provider === "google") return claim === true;
+  return false;
+}
+
+/**
  * Runs on every OAuth sign-in, from the Auth.js `signIn` callback — before the
  * adapter links the provider account to a row with the same email
  * (`allowDangerousEmailAccountLinking`) and before it creates the new session.
