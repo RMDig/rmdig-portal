@@ -21,6 +21,8 @@ export function isProductionDatabaseUrl(url: string | undefined): boolean {
 export function previewSafetyProblems(e: {
   DATABASE_URL?: string;
   AVSERV_BASE_URL?: string;
+  AVSERV_FAILOVER_BASE_URL?: string;
+  AVSERV_SERVICE_JWT_SIGNING_KEY_B64?: string;
 }): string[] {
   const problems: string[] = [];
   if (isProductionDatabaseUrl(e.DATABASE_URL)) {
@@ -33,6 +35,24 @@ export function previewSafetyProblems(e: {
     problems.push(
       "AVSERV_BASE_URL is a real AvServ; previews must use mock://localhost so they never create " +
         "real AvServ accounts or touch the safety service.",
+    );
+  }
+  // Every AvServ call tries the failover node when the primary doesn't answer
+  // (lib/avserv/request.ts), so a mock primary alone doesn't keep a preview
+  // off the live service.
+  if (e.AVSERV_FAILOVER_BASE_URL && !e.AVSERV_FAILOVER_BASE_URL.startsWith("mock://")) {
+    problems.push(
+      "AVSERV_FAILOVER_BASE_URL is a real AvServ; previews call it when the primary fails, so it " +
+        "must be unset or mock://.",
+    );
+  }
+  // The service key is what AvServ trusts. A preview has no use for it (the
+  // mock needs none), and holding it would let a misconfigured preview act on
+  // production AvServ as the portal. Production-scoped only in Vercel.
+  if (e.AVSERV_SERVICE_JWT_SIGNING_KEY_B64) {
+    problems.push(
+      "AVSERV_SERVICE_JWT_SIGNING_KEY_B64 is set; the portal's AvServ signing key must be " +
+        "Production-scoped only in Vercel.",
     );
   }
   return problems;
