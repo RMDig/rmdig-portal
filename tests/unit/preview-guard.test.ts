@@ -52,6 +52,29 @@ describe("previewSafetyProblems", () => {
     expect(problems[0]).toMatch(/mock:\/\/localhost/);
   });
 
+  it("rejects a real failover AvServ even with a mock primary", () => {
+    const problems = previewSafetyProblems({
+      DATABASE_URL: previewUrl,
+      AVSERV_BASE_URL: "mock://localhost",
+      AVSERV_FAILOVER_BASE_URL: "https://avserv-3.rmdig.ai",
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/AVSERV_FAILOVER_BASE_URL/);
+    expect(
+      previewSafetyProblems({ DATABASE_URL: previewUrl, AVSERV_BASE_URL: "mock://localhost", AVSERV_FAILOVER_BASE_URL: "mock://localhost" }),
+    ).toEqual([]);
+  });
+
+  it("rejects the AvServ signing key on a preview", () => {
+    const problems = previewSafetyProblems({
+      DATABASE_URL: previewUrl,
+      AVSERV_BASE_URL: "mock://localhost",
+      AVSERV_SERVICE_JWT_SIGNING_KEY_B64: "LS0tLS1CRUdJTi...",
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/Production-scoped/);
+  });
+
   it("reports both problems at once", () => {
     expect(previewSafetyProblems({ DATABASE_URL: prodUrl, AVSERV_BASE_URL: "https://avserv-3.rmdig.ai" })).toHaveLength(2);
   });
