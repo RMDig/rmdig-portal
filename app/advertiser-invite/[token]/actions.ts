@@ -9,15 +9,22 @@ import { advertiserInvitations, advertiserMemberships } from "@/lib/db/schema";
 import { hashInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
 
-// Accept an advertiser-team invitation (docs/plans/30 §3). The token is the bearer
-// credential — the signed-in user joins the advertiser with the invited role. Lives
-// at top-level /advertiser-invite (not under (portal)) so a signed-out invitee isn't
-// bounced to /sign-in before we can show them the invitation. `token` is bound by
-// the form (acceptAdvertiserInvitationAction.bind(null, token)).
+// Accept an advertiser-team invitation (docs/plans/30 §3). The token alone isn't
+// enough: as with SAR and staff invites (app/invite, app/admin-invite), the
+// signed-in account's email must be the invited one, so a forwarded or leaked
+// link can't make whoever opens it a member, possibly an admin. Session emails
+// are verified: credentials sign-in requires it and OAuth sign-in verifies
+// (lib/auth). Lives at top-level /advertiser-invite (not under (portal)) so a
+// signed-out invitee isn't bounced to /sign-in before we can show them the
+// invitation. `token` is bound by the form
+// (acceptAdvertiserInvitationAction.bind(null, token)).
 
 export type AcceptResult =
   | { ok: true; advertiserId: string }
   | { ok: false; error: string };
+
+// Thrown inside the transaction to roll it back when the guarded claim loses.
+class InvitationAlreadyClaimed extends Error {}
 
 export async function acceptAdvertiserInvitationAction(
   token: string,
@@ -26,16 +33,18 @@ export async function acceptAdvertiserInvitationAction(
 ): Promise<AcceptResult> {
   if (!featureEnabled("advertiser_portal")) return { ok: false, error: FEATURE_OFF_ERROR };
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = session?.user?.id;
+  const sessionEmail = session?.user?.email?.toLowerCase();
+  if (!userId || !sessionEmail) {
     return { ok: false, error: "Sign in or create an account, then open this link to accept." };
   }
-  const userId = session.user.id;
 
   const tokenHash = hashInviteToken(token);
   const [invite] = await db
     .select({
       id: advertiserInvitations.id,
       advertiserId: advertiserInvitations.advertiserId,
+      email: advertiserInvitations.email,
       role: advertiserInvitations.role,
       createdByUserId: advertiserInvitations.createdByUserId,
     })
@@ -52,10 +61,28 @@ export async function acceptAdvertiserInvitationAction(
     return { ok: false, error: "This invitation is invalid, already used, or has expired." };
   }
 
+  if (invite.email !== sessionEmail) {
+    logger.warn({ event: "advertiser.invite.email_mismatch", inviteId: invite.id, userId });
+    return {
+      ok: false,
+      error: `This invitation was issued to ${invite.email}. Sign in with that account to accept it.`,
+    };
+  }
+
   try {
     await db.transaction(async (tx) => {
-      // onConflictDoNothing: if the user is already a member (e.g. a re-used link),
-      // keep their existing role rather than overwriting it.
+      // Guarded claim first: if another accept raced us (or the link was used
+      // between the read above and now), zero rows change and nothing is granted.
+      const claimed = await tx
+        .update(advertiserInvitations)
+        .set({ acceptedAt: new Date(), acceptedByUserId: userId })
+        .where(and(eq(advertiserInvitations.id, invite.id), isNull(advertiserInvitations.acceptedAt)))
+        .returning({ id: advertiserInvitations.id });
+      if (claimed.length === 0) {
+        throw new InvitationAlreadyClaimed();
+      }
+      // onConflictDoNothing: if the user is already a member (e.g. invited
+      // again), keep their existing role rather than overwriting it.
       await tx
         .insert(advertiserMemberships)
         .values({
@@ -65,12 +92,12 @@ export async function acceptAdvertiserInvitationAction(
           invitedByUserId: invite.createdByUserId,
         })
         .onConflictDoNothing();
-      await tx
-        .update(advertiserInvitations)
-        .set({ acceptedAt: new Date(), acceptedByUserId: userId })
-        .where(eq(advertiserInvitations.id, invite.id));
     });
   } catch (err) {
+    if (err instanceof InvitationAlreadyClaimed) {
+      logger.warn({ event: "advertiser.invite.already_claimed", inviteId: invite.id, userId });
+      return { ok: false, error: "This invitation is invalid, already used, or has expired." };
+    }
     logger.error({
       event: "advertiser.invite.accept_failed",
       inviteId: invite.id,

@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -24,9 +24,17 @@ import { reportError } from "@/lib/report-error";
 
 // Publish an approved creative to AvServ and record the returned ref + publishedAt.
 // Best-effort by contract (docs/plans/30 §9 invariant 5): on failure the creative
-// stays approved with published_at = null ("approved, not yet live") — never a
-// false "live" — and the failure is logged loudly (no silent failure). Returns
-// whether it went live so callers can surface a retry.
+// stays approved with published_at = null ("approved, not yet live"), never a
+// false "live", and the failure reaches Sentry (no silent failure).
+//
+// AvServ and the portal must agree on what's live. So once AvServ has accepted,
+// the stamp is written only if the creative is still approved and unpublished;
+// if that write fails or matches nothing (a suspend landed, or another click
+// published it first), the new ref is pulled back off AvServ, unless it is the
+// ref already recorded (AvServ may answer a repeat publish with the same ref,
+// and pulling that would take the live ad down).
+export type PublishOutcome = "live" | "refused" | "changed";
+
 async function publishAndRecord(creative: {
   id: string;
   slot: string;
@@ -40,9 +48,10 @@ async function publishAndRecord(creative: {
   targetRadiusMi: number | null;
   targetAdminLevel: "state" | "county" | "place" | null;
   targetAdminFips: string[] | null;
-}): Promise<boolean> {
+}): Promise<PublishOutcome> {
+  let avservCreativeRef: string;
   try {
-    const { avservCreativeRef } = await publishCreative({
+    ({ avservCreativeRef } = await publishCreative({
       portalCreativeId: creative.id,
       slot: creative.slot,
       headline: creative.headline,
@@ -50,15 +59,53 @@ async function publishAndRecord(creative: {
       altText: creative.altText,
       clickUrl: creative.clickUrl,
       target: columnsToAdTarget(creative),
-    });
-    await db
+    }));
+  } catch (err) {
+    reportError("ad.publish.failed", err, { creativeId: creative.id });
+    return "refused";
+  }
+
+  try {
+    const stamped = await db
       .update(adCreatives)
       .set({ publishedAt: new Date(), avservCreativeRef })
-      .where(eq(adCreatives.id, creative.id));
-    return true;
+      .where(
+        and(
+          eq(adCreatives.id, creative.id),
+          eq(adCreatives.status, "approved"),
+          isNull(adCreatives.publishedAt),
+        ),
+      )
+      .returning({ id: adCreatives.id });
+    if (stamped.length > 0) return "live";
   } catch (err) {
-    logger.error({ event: "ad.publish.failed", creativeId: creative.id, err });
-    return false;
+    // AvServ has it live but we couldn't record it: without the ref nothing
+    // could ever pull it, so pull it now and leave it retryable.
+    reportError("ad.publish.record_failed", err, { creativeId: creative.id, avservCreativeRef });
+    await pullUnrecorded(creative.id, avservCreativeRef);
+    return "refused";
+  }
+
+  const [current] = await db
+    .select({ ref: adCreatives.avservCreativeRef })
+    .from(adCreatives)
+    .where(eq(adCreatives.id, creative.id))
+    .limit(1);
+  if (current?.ref !== avservCreativeRef) {
+    await pullUnrecorded(creative.id, avservCreativeRef);
+  }
+  logger.warn({ event: "ad.publish.changed_underneath", creativeId: creative.id });
+  return "changed";
+}
+
+// Pull a ref AvServ published but the portal didn't record. If that fails too,
+// the ad is live with nothing pointing at it: report it with the ref, so it can
+// be pulled by hand.
+async function pullUnrecorded(creativeId: string, avservCreativeRef: string): Promise<void> {
+  try {
+    await unpublishCreative(avservCreativeRef);
+  } catch (err) {
+    reportError("ad.publish.orphaned_live", err, { creativeId, avservCreativeRef });
   }
 }
 
@@ -85,6 +132,10 @@ async function unpublishAndClear(creativeId: string, ref: string | null): Promis
 // Each decision is valid only from a specific current status; it flips status,
 // appends to the append-only ad_creative_status_log, and (for every decision
 // but reactivate) emails the advertiser's contact.
+
+// Thrown inside a transaction to roll it back when the creative's status changed
+// between the read and the update (another reviewer, or the advertiser).
+class CreativeStatusChanged extends Error {}
 
 export type ReviewResult =
   | { ok: true }
@@ -166,6 +217,7 @@ export async function reviewCreativeAction(
       targetAdminFips: adCreatives.targetAdminFips,
       advertiserName: advertiserAccounts.name,
       advertiserEmail: advertiserAccounts.contactEmail,
+      advertiserStatus: advertiserAccounts.status,
       advertiserId: adCampaigns.advertiserId,
     })
     .from(adCreatives)
@@ -182,11 +234,19 @@ export async function reviewCreativeAction(
       error: `Can't ${decision.replace("_", " ")} a creative that's ${creative.status}.`,
     };
   }
+  // A suspended advertiser's ads never go live (approve publishes at once).
+  if (decision === "approve" && creative.advertiserStatus !== "active") {
+    return { ok: false, error: `This advertiser is ${creative.advertiserStatus}, so its ads can't be approved.` };
+  }
 
   try {
     await db.transaction(async (tx) => {
+      // Every decision is guarded on the status checked above, so a concurrent
+      // decision can't be overwritten and the log's fromStatus stays true.
+      const guard = and(eq(adCreatives.id, creativeId), eq(adCreatives.status, transition.from));
+      let updated: { id: string }[];
       if (decision === "approve") {
-        await tx
+        updated = await tx
           .update(adCreatives)
           .set({
             status: "approved",
@@ -194,30 +254,36 @@ export async function reviewCreativeAction(
             approvedByUserId: userId,
             reviewNote: null,
           })
-          .where(eq(adCreatives.id, creativeId));
+          .where(guard)
+          .returning({ id: adCreatives.id });
       } else if (decision === "reject") {
-        await tx
+        updated = await tx
           .update(adCreatives)
           .set({ status: "rejected", reviewNote: note })
-          .where(eq(adCreatives.id, creativeId));
+          .where(guard)
+          .returning({ id: adCreatives.id });
       } else if (decision === "request_changes") {
         // Back to draft so the advertiser sees the note and can resubmit.
-        await tx
+        updated = await tx
           .update(adCreatives)
           .set({ status: "draft", reviewNote: note, submittedAt: null })
-          .where(eq(adCreatives.id, creativeId));
+          .where(guard)
+          .returning({ id: adCreatives.id });
       } else if (decision === "suspend") {
-        await tx
+        updated = await tx
           .update(adCreatives)
           .set({ status: "suspended", reviewNote: note ?? null })
-          .where(eq(adCreatives.id, creativeId));
+          .where(guard)
+          .returning({ id: adCreatives.id });
       } else {
         // reactivate — clear the prior approval/publish stamps; re-review from pending.
-        await tx
+        updated = await tx
           .update(adCreatives)
           .set({ status: "pending", approvedAt: null, approvedByUserId: null, publishedAt: null, reviewNote: null })
-          .where(eq(adCreatives.id, creativeId));
+          .where(guard)
+          .returning({ id: adCreatives.id });
       }
+      if (updated.length === 0) throw new CreativeStatusChanged();
       await tx.insert(adCreativeStatusLog).values({
         creativeId,
         action: transition.action,
@@ -228,6 +294,10 @@ export async function reviewCreativeAction(
       });
     });
   } catch (err) {
+    if (err instanceof CreativeStatusChanged) {
+      logger.warn({ event: "ad.review.status_changed", userId, creativeId, decision });
+      return { ok: false, error: "This ad changed while you were reviewing it. Reload the page and try again." };
+    }
     logger.error({ event: "ad.review.tx_failed", userId, creativeId, decision, err });
     return { ok: false, error: "Couldn't record the decision. Try again in a moment." };
   }
@@ -242,7 +312,7 @@ export async function reviewCreativeAction(
   // having an active ref to pull (reactivate comes from suspended, already pulled).
   let published = false;
   if (decision === "approve") {
-    published = await publishAndRecord({
+    published = (await publishAndRecord({
       id: creativeId,
       slot: creative.slot,
       headline: creative.headline,
@@ -255,7 +325,7 @@ export async function reviewCreativeAction(
       targetRadiusMi: creative.targetRadiusMi,
       targetAdminLevel: creative.targetAdminLevel,
       targetAdminFips: creative.targetAdminFips,
-    });
+    })) === "live";
   } else if (decision === "suspend") {
     await unpublishAndClear(creativeId, creative.avservCreativeRef);
   }
@@ -300,12 +370,17 @@ export async function publishApprovedCreativeAction(
   if (!(await canReviewAds(actor.userId))) {
     return { ok: false, error: "You don't have access to the approvals queue." };
   }
+  // Bound by the form on the client, so check it like any other input.
+  if (!z.string().uuid().safeParse(creativeId).success) {
+    return { ok: false, error: "That ad no longer exists." };
+  }
 
   const [creative] = await db
     .select({
       id: adCreatives.id,
       status: adCreatives.status,
       publishedAt: adCreatives.publishedAt,
+      advertiserStatus: advertiserAccounts.status,
       slot: adCreatives.slot,
       headline: adCreatives.headline,
       body: adCreatives.body,
@@ -319,10 +394,15 @@ export async function publishApprovedCreativeAction(
       targetAdminFips: adCreatives.targetAdminFips,
     })
     .from(adCreatives)
+    .innerJoin(adCampaigns, eq(adCampaigns.id, adCreatives.campaignId))
+    .innerJoin(advertiserAccounts, eq(advertiserAccounts.id, adCampaigns.advertiserId))
     .where(eq(adCreatives.id, creativeId))
     .limit(1);
   if (!creative) {
     return { ok: false, error: "That ad no longer exists." };
+  }
+  if (creative.advertiserStatus !== "active") {
+    return { ok: false, error: `This advertiser is ${creative.advertiserStatus}, so its ads can't go live.` };
   }
   if (creative.status !== "approved") {
     return { ok: false, error: `Only an approved creative can be published (this one is ${creative.status}).` };
@@ -331,9 +411,12 @@ export async function publishApprovedCreativeAction(
     return { ok: false, error: "This ad is already live." };
   }
 
-  const published = await publishAndRecord(creative);
-  if (!published) {
-    return { ok: false, error: "AvServ didn't accept the ad. Try again in a moment." };
+  const outcome = await publishAndRecord(creative);
+  if (outcome === "refused") {
+    return { ok: false, error: "The ad didn't go live. Try again in a moment." };
+  }
+  if (outcome === "changed") {
+    return { ok: false, error: "This ad changed while it was being published. Reload the page to see where it stands." };
   }
 
   logger.info({ event: "ad.publish.retry_success", userId: actor.userId, creativeId });

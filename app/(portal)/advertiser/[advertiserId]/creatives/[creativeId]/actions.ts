@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { FEATURE_OFF_ERROR, featureEnabled } from "@/lib/features";
@@ -19,6 +19,10 @@ import {
 import { sendAdCreativePendingReviewEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { portalUrl } from "@/lib/email/links";
+
+// Thrown inside the transaction to roll it back when the creative's status
+// changed between the read and the update (another submit, or a review).
+class CreativeStatusChanged extends Error {}
 
 // Submit a creative for operator review (AD-P5, docs/plans/30 §5). Advertiser
 // member gated (re-checked, never trusting the page). Valid only from `draft` or
@@ -75,10 +79,14 @@ export async function submitCreativeForReviewAction(
 
   try {
     await db.transaction(async (tx) => {
-      await tx
+      // Guarded on the status we checked, so a concurrent submit or review
+      // can't be overwritten and the log's fromStatus stays true.
+      const flipped = await tx
         .update(adCreatives)
         .set({ status: "pending", submittedAt: new Date(), reviewNote: null })
-        .where(eq(adCreatives.id, creativeId));
+        .where(and(eq(adCreatives.id, creativeId), eq(adCreatives.status, row.status)))
+        .returning({ id: adCreatives.id });
+      if (flipped.length === 0) throw new CreativeStatusChanged();
       await tx.insert(adCreativeStatusLog).values({
         creativeId,
         action: "submitted",
@@ -88,6 +96,10 @@ export async function submitCreativeForReviewAction(
       });
     });
   } catch (err) {
+    if (err instanceof CreativeStatusChanged) {
+      logger.warn({ event: "advertiser.creative.submit_status_changed", userId, creativeId });
+      return { ok: false, error: "This ad changed while you were submitting it. Reload the page and try again." };
+    }
     logger.error({ event: "advertiser.creative.submit_failed", userId, creativeId, err });
     return { ok: false, error: "Couldn't submit the ad. Try again in a moment." };
   }

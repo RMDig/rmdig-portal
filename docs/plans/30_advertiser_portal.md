@@ -481,6 +481,28 @@ portal→AvServ *publish input* endpoint (path/verb/body). Track as a small foll
 
 ---
 
+## 11a. Before the advertiser portal is switched on (test audit, 2026-10-11)
+
+A server-action test audit (CLAUDE.md §4.3) found and fixed, behind the flag:
+advertiser invites now require the invited email and claim the link first; the
+creative status flips (submit, every review decision, the publish stamp) are
+guarded on the status that was checked; approve and publish refuse a suspended
+advertiser; and an ad AvServ accepted but the portal couldn't record is pulled
+straight back (`ad.publish.record_failed`, or `ad.publish.orphaned_live` with
+the ref if the pull fails too). Still open, each needing a migration, the AvServ
+contract or an owner decision:
+
+- [ ] A unique index on `ad_campaigns (advertiser_id, name)`: two concurrent
+  creates with a new campaign name each insert one (create and edit actions).
+- [ ] Publications aren't in `ad_creative_status_log` (no "published" action in
+  the enum), so who published what, when, isn't audited.
+- [ ] Pin in the AvServ contract that publish is idempotent per
+  `portalCreativeId` (the portal relies on a repeat returning the same ref).
+- [ ] Refuse accepting an invite to a suspended advertiser.
+- [ ] Rate-limit invitation creation (it emails any address).
+- [ ] Replace the pending invite in one transaction with the new one, so a failed
+  insert can't drop the old link.
+
 ## 12. Cross-references
 
 - **AvApp doc 30** — house-ad model, slot set, §0 safety fences, impression policy, phasing

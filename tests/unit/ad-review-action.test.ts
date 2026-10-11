@@ -20,6 +20,8 @@ const h = vi.hoisted(() => ({
   staff: true,
   creative: [] as unknown[],
   updates: [] as unknown[],
+  // A guarded update matches no row: the creative's status changed underneath.
+  statusChanged: false,
   publish: vi.fn(),
   unpublish: vi.fn(() => Promise.resolve()),
   email: vi.fn(() => Promise.resolve()),
@@ -39,7 +41,14 @@ vi.mock("@/lib/db", () => {
   sel.innerJoin = () => sel;
   sel.where = () => sel;
   sel.limit = () => Promise.resolve(h.creative);
-  const update = () => ({ set: (v: unknown) => ({ where: () => { h.updates.push(v); return Promise.resolve(); } }) });
+  const update = () => ({
+    set: (v: unknown) => ({
+      where: () => {
+        if (!h.statusChanged) h.updates.push(v);
+        return { returning: () => Promise.resolve(h.statusChanged ? [] : [{ id: "c" }]) };
+      },
+    }),
+  });
   const tx = { update, insert: () => ({ values: () => Promise.resolve() }) };
   return { db: { select: () => sel, update, transaction: (cb: (t: typeof tx) => unknown) => Promise.resolve(cb(tx)) } };
 });
@@ -63,6 +72,7 @@ const row = (status: string) => ({
   targetAdminFips: null,
   advertiserName: "Demo Outfitters",
   advertiserEmail: "ads@demo.co",
+  advertiserStatus: "active",
   advertiserId: ADVERTISER_ID,
 });
 
@@ -79,6 +89,7 @@ beforeEach(() => {
   h.actor = { ok: true, userId: "staff-1" };
   h.staff = true;
   h.updates = [];
+  h.statusChanged = false;
   h.publish.mockResolvedValue({ avservCreativeRef: "ref-new" });
 });
 
@@ -149,4 +160,29 @@ describe("reviewCreativeAction", () => {
     expect(h.updates[0]).toMatchObject({ status: "suspended" });
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "ad.review.email_failed" }));
   });
+
+  it("won't approve an ad whose advertiser is suspended, and publishes nothing", async () => {
+    h.creative = [{ ...row("pending"), advertiserStatus: "suspended" }];
+    expect(await reviewCreativeAction(null, fd("approve"))).toEqual({
+      ok: false,
+      error: "This advertiser is suspended, so its ads can't be approved.",
+    });
+    expect(h.updates).toEqual([]);
+    expect(h.publish).not.toHaveBeenCalled();
+    expect(h.email).not.toHaveBeenCalled();
+  });
+
+  it("records nothing when the creative's status changed after the check (another reviewer got there first)", async () => {
+    h.creative = [row("approved")];
+    h.statusChanged = true;
+    expect(await reviewCreativeAction(null, fd("suspend", "Bad link"))).toEqual({
+      ok: false,
+      error: "This ad changed while you were reviewing it. Reload the page and try again.",
+    });
+    expect(h.updates).toEqual([]);
+    expect(h.unpublish).not.toHaveBeenCalled();
+    expect(h.email).not.toHaveBeenCalled();
+    expect(h.log.warn).toHaveBeenCalledWith(expect.objectContaining({ event: "ad.review.status_changed", decision: "suspend" }));
+  });
 });
+
