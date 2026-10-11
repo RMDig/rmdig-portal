@@ -268,7 +268,7 @@ This workstream is lower urgency and can start after the blockers.
 | S1 | One SMS provider (Twilio) and one 10DLC campaign | Twilio outage or account problem, campaign suspension, carrier filtering of the campaign | **W8: second carrier.** Use a different provider **and** a different number type (toll-free verified), so neither a provider outage nor a 10DLC campaign problem takes SMS down. Design below. | W8 + owner | Yes |
 | S2 | One human on call, single Pushover device | Owner asleep, sick or in the backcountry; pages lapse after 1h | Add an escalation layer: a critical page not acknowledged within 15 min goes to a named secondary by SMS or call. Write a one-page secondary runbook: reach the owner, check the status page, post an announcement, contact Twilio. No production credentials for the secondary at beta. Write the A9 operator dead-man's switch section. Plan coverage for the owner's own trips. | Owner | Yes |
 | S3 | Home nodes' failure domain | If avserv-2 and avserv-3 share a site, power or ISP, one outage stops all alerting | Fill in the R5 failure-domain attestation. **If they share any of these, the cloud standby node (plan 42 step 3) becomes a beta blocker.** **Finding 2026-10-09: both live nodes are on Comcast** (a shared ISP). Owner decision: a known, accepted risk for the beta, and a **release blocker for general release**, closed by avserv-1 on a non-Comcast link (AvServ #240, runbook "Failure-domain attestation"). | Owner | Accepted for beta; blocks general release |
-| S4 | Release signing key (one YubiKey) | Losing the key means no signed tags, so no fixes reach the cloud node | Enroll a backup YubiKey, add its fingerprint to the deploy pin list, store it off-site. | Owner | Yes |
+| S4 | Release signing key (one YubiKey) | Losing the key means no signed tags, so no fixes reach the cloud node | Enroll a backup YubiKey, add its fingerprint to the deploy pin list, store it off-site. **2026-10-11 (owner): the owner holds a backup YubiKey, and the designated successor holds their own key plus a backup.** Check that each signing key's fingerprint is on AvServ's deploy pin list. | Owner | Yes; keys held, pin list to confirm |
 | S5 | Cloudflare (ingress + DNS for every node) | Check-ins can't arrive, so contacts get false alerts; new check-outs dead-letter in the app | Accept for beta and document it: the failure produces false alerts, never missed ones. A non-Cloudflare ingress comes with the plan 42 cloud node. | Owner | Document only |
 | S6 | Email providers (one Postmark account; Resend for the portal) | The secondary channel is down | Accept for beta; SMS (S1) is the primary channel. | — | No |
 | S7 | Monitoring stack | Prometheus or Alertmanager dies silently | W3 heartbeat rule plus an external dead-man check. Configure it on each node. | Owner | Yes |
@@ -326,8 +326,8 @@ in the AvServ runbook drill log. The **pre-beta** set runs on the beta release t
   - **Carrier failure (B2):** an owned landline to send the undeliverable SMS to.
   - **Operator escalation:** the secondary contact set up in PagerDuty.
   - **Incident rehearsal:** the same secondary contact.
-  - **CPA deletion end to end:** can run now, by hand. Follow portal runbook "Data-deletion requests" in its order: the teams lookup and AvAI account ids first (both are lost once the portal user is deleted or the AvServ account erased), then W5's erasure CLI on the nodes, then delete the portal user, then Mark completed. The portal doesn't call AvServ's erasure endpoint, and doesn't need to for the drill. Automating that (with the `account_erasure` route group on the portal's key) is a later portal change. The runbook names the CLI since 2026-10-10.
-  - **Portal restore:** a restore of the nightly backup to a scratch branch, then `/readyz` and row counts.
+  - **CPA deletion end to end: PASSED 2026-10-11** (logged in AvServ `docs/drills/log.md`; a drill account with no app data; a re-run with a check-out and a contact is a follow-up). It ran by hand. Follow portal runbook "Data-deletion requests" in its order: the teams lookup and AvAI account ids first (both are lost once the portal user is deleted or the AvServ account erased), then W5's erasure CLI on the nodes, then delete the portal user, then Mark completed. The portal doesn't call AvServ's erasure endpoint, and doesn't need to for the drill. Automating that (with the `account_erasure` route group on the portal's key) is a later portal change. The runbook names the CLI since 2026-10-10.
+  - **Portal restore: PASSED 2026-10-11.** The 10-10 nightly dump went into an emptied scratch branch; 35/35 tables matched; `db:migrate`; then `/readyz` ready. The runbook steps were updated from it (#155).
   - **Carrier failover (W8):** waits until W8 is implemented.
 
 ## 5a. Progress log
@@ -346,6 +346,35 @@ worktrees, waiting for owner review and signing. Each worktree has a
 | W8 | `AvServ-w8-carrier` (design only) | — | none; design merged as **AvServ plan 45** (#231), renumbered from 43 because plans 43 and 44 already existed |
 
 AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and W5 to 0042–0048.
+
+**2026-10-10 to 10-11, portal wave 2 merged and live (#148–#156).**
+
+- **W1b** (#148, migration 0026):
+  - email-first sign-up: the link opens a page where the password is chosen, and opening it doesn't use it up;
+  - "Continue with Google" on sign-up;
+  - a one-time dashboard notice when Google cleared an unverified password;
+  - forgot-password adds a password to a Google-only account;
+  - email addresses pseudonymized in every log line (keyed HMAC in the pino redact).
+- **Runbook** (#149): "Data-deletion requests" now names W5's erasure CLI and gathers ids and teams before anything is deleted.
+- **`/sms`** (#150): shows AvApp's W6 Add Contact screenshot (the narrowed consent line).
+- **Dependencies** (#151): `pnpm audit --prod` is clean with no overrides (dropped the unused `react-email`; Sentry 10.76).
+- **Security review of plan 35:** three parallel reviewers. It found two live gaps, fixed in #152:
+  - Google sign-in now requires `email_verified`;
+  - the preview guard rejects a real failover URL and the AvServ signing key.
+- **Plan 35** (#153): automated deletion, low-risk case only. AvServ plan 47 (caps, paging, a separate erasure key, `erasure-preview`) is required first, after W8.
+- **Plan 35 phase 1** (#154):
+  - a deletion request is confirmed by typing the address, not by opening the link;
+  - one pending request per address, with a daily cap.
+- **Backups** (#155): a healthchecks.io dead-man check (`BACKUP_HEARTBEAT_URL`), tested green on 2026-10-11.
+- **Server-action audit** (#156): all 55 actions now meet CLAUDE.md §4.3. Six advertiser-portal bugs were fixed behind the flag. Plan 30 §11a lists what's left before that flag is turned on.
+- **Drills:** portal restore and CPA deletion both passed (§5c).
+- **Owner:** a backup YubiKey is held, and the successor holds a key plus a backup (S4). The counsel packet went out.
+
+**Still open on the portal:**
+- the 10-minute cron (D10), after Vercel Pro;
+- plan 34, after counsel;
+- plan 35's automation, after AvServ plan 47;
+- `/privacy` (Telnyx, retention), from counsel.
 
 **2026-10-09, AvServ wave merged and live.**
 
@@ -385,10 +414,10 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
 
 **New items found during wave 1**
 
-- [ ] **B1 residual.** A victim who clicks the verification email triggered by a
+- [x] **B1 residual** (done in #148: email-first sign-up). A victim who clicks the verification email triggered by a
   stranger's sign-up makes the stranger's password valid. Fix: set the password
   only after the email is verified. Needs owner approval.
-- [ ] Vercel Hobby crons run at most daily, so the SAR email retry backstop is
+- [ ] (Still open: waits on the Vercel Pro upgrade, then D10.) Vercel Hobby crons run at most daily, so the SAR email retry backstop is
   daily. Consider Pro.
 - [ ] Set `NEXT_PUBLIC_SENTRY_DSN` in Vercel. Browser Sentry has never run;
   W2 fixes the config filename.
@@ -629,7 +658,7 @@ texts live in the 2026-10-07 conversation and are summarized here.
 | 3 | AvServ, ship and rebase (W4 → W3 → W5, drill kit, W8 doc) | AvServ | Now |
 | 4 | Production drills (§9.1, §5c) | AvServ | Baseline now; again after W2 deploys and after the AvServ release |
 | 5 | AvApp, ship W6 + device-link test (§9.4) | AvApp | Now; the device-link part after the AvServ release |
-| 6 | Portal, W1b | rmdig-portal | After W1 merges |
+| 6 | Portal, W1b | rmdig-portal | **Done 2026-10-10 (#148)** |
 | 7 | AvServ, W8 implementation | AvServ | After W3 merges and Telnyx credentials exist |
 
 ## 9. Manual test pass (reconciled 2026-10-07)
