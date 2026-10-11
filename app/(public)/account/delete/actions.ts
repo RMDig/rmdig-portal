@@ -3,8 +3,7 @@
 import { z } from "zod";
 
 import { clientIp } from "@/lib/client-ip";
-import { db } from "@/lib/db";
-import { deletionRequests } from "@/lib/db/schema";
+import { recordDeletionRequest } from "@/lib/deletion/requests";
 import { sendDataDeletionConfirmEmail } from "@/lib/email/send";
 import {
   DELETION_TOKEN_TTL_HOURS,
@@ -25,9 +24,12 @@ const requestSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254),
 });
 
-// 3 requests/hour per address: a legitimate requester needs exactly one email;
-// this only throttles someone spamming a victim's inbox through our form.
+// 3 requests/hour and 5/day per address: a legitimate requester needs exactly
+// one email; these only throttle someone spamming a victim's inbox through our
+// form. Each new request also replaces the address's unconfirmed one, so at
+// most one link is live at a time.
 const RATE_LIMIT = { limit: 3, windowSec: 60 * 60 };
+const DAILY_RATE_LIMIT = { limit: 5, windowSec: 24 * 60 * 60 };
 
 // 10 requests/hour per client IP, checked BEFORE the per-address limit. Unlike
 // password reset, this form emails ANY address (no account-existence gate — a
@@ -66,7 +68,8 @@ export async function requestDataDeletionAction(
   }
 
   const rate = await incrementRateLimit(`deletion:${email}`, RATE_LIMIT);
-  if (!rate.allowed) {
+  const daily = rate.allowed ? await incrementRateLimit(`deletion-day:${email}`, DAILY_RATE_LIMIT) : rate;
+  if (!rate.allowed || !daily.allowed) {
     logger.warn({ event: "deletion.request.rate_limited", email });
     return {
       ok: false,
@@ -78,14 +81,14 @@ export async function requestDataDeletionAction(
 
   let requestId: string;
   try {
-    const [row] = await db
-      .insert(deletionRequests)
-      .values({ email, tokenHash, tokenExpiresAt: expires })
-      .returning({ id: deletionRequests.id });
-    if (!row) {
-      throw new Error("deletion_requests insert returned no rows");
+    const recorded = await recordDeletionRequest({ email, tokenHash, expires });
+    if (recorded.kind === "already_open") {
+      // Already confirmed and in the queue: no second request, no email. Same
+      // answer as any other address, so the form reveals nothing.
+      logger.info({ event: "deletion.request.already_open", requestId: recorded.id });
+      return { ok: true };
     }
-    requestId = row.id;
+    requestId = recorded.id;
   } catch (err) {
     logger.error({ event: "deletion.request.insert_failed", email, err });
     return { ok: false, error: "Couldn't record your request. Try again in a moment." };
