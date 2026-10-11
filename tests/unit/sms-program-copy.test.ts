@@ -10,6 +10,7 @@ import {
   DESIGNATION_NOTICE,
   HELP_REPLY,
   YES_CONFIRMATION,
+  SMS_SENDING_NUMBERS,
 } from "@/lib/legal/sms-program-copy";
 
 // rmdig.ai/sms is the opt-in evidence page the approved A2P campaign links. Its
@@ -122,3 +123,23 @@ describe("/sms page", () => {
     expect(src).not.toMatch(/Message rates apply/);
   });
 });
+
+describe("sending numbers (W8 draft, AvServ plan 45 §6.6)", () => {
+  const filled = /^\+1 \(\d{3}\) \d{3}-\d{4}$/;
+  const placeholder = /^\[OWNER: (10DLC|toll-free) number\]$/;
+
+  it("lists each node once, each number a placeholder or a +1 (NNN) NNN-NNNN number", () => {
+    const nodes = SMS_SENDING_NUMBERS.map((n) => n.node);
+    expect(new Set(nodes).size).toBe(nodes.length);
+    for (const n of SMS_SENDING_NUMBERS) {
+      for (const number of [n.longCode, n.tollFree]) {
+        expect(filled.test(number) || placeholder.test(number), `${n.node}: ${number}`).toBe(true);
+      }
+    }
+  });
+
+  // Before publishing (rollout phase P4): every placeholder replaced by a real
+  // number, then this becomes a plain test asserting none is left.
+  it.todo("has every sending number filled in before /sms publishes them");
+});
+

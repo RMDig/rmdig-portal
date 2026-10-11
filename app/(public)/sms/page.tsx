@@ -8,6 +8,7 @@ import {
   CONTACT_SMS_DISCLOSURE,
   DESIGNATION_NOTICE,
   HELP_REPLY,
+  SMS_SENDING_NUMBERS,
   YES_CONFIRMATION,
 } from "@/lib/legal/sms-program-copy";
 import { pageMetadata } from "@/lib/seo";
@@ -154,6 +155,48 @@ export default function SmsProgramPage() {
               <blockquote className="mt-2 rounded-md border-l-4 border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3 text-sm">
                 {HELP_REPLY}
               </blockquote>
+            </li>
+          </ul>
+        </section>
+
+        {/* DRAFT (plan 45 §6.6): publish at rollout phase P4 only, after counsel
+            reviews this section, with /privacy naming Telnyx in the same release. */}
+        <section>
+          <h2>AvAI sends from these numbers</h2>
+          <p className="mt-3">
+            Alerts come from our registered long-code numbers. If one can&apos;t deliver, the
+            same alert is sent from a toll-free number instead. Consent and opt-out apply to
+            all AvAI numbers.
+          </p>
+          <table className="mt-3 w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 dark:border-neutral-800">
+                <th className="py-2 pr-4 font-medium">Long code (10DLC)</th>
+                <th className="py-2 font-medium">Toll-free</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SMS_SENDING_NUMBERS.map((n) => (
+                <tr key={n.node} className="border-b border-neutral-100 dark:border-neutral-900">
+                  <td className="py-2 pr-4 font-mono">{n.longCode}</td>
+                  <td className="py-2 font-mono">{n.tollFree}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <ul className="mt-3 list-disc space-y-2 pl-6">
+            <li>
+              <strong>HELP</strong> gets the same reply from every number (shown above).
+            </li>
+            <li>
+              <strong>STOP</strong> to any AvAI number opts you out of all of them. A STOP sent
+              to a toll-free number is answered by the carrier with a fixed reply that starts
+              &ldquo;NETWORK MSG&rdquo;; we can&apos;t change that wording, and your opt-out
+              still applies to every AvAI number.
+            </li>
+            <li>
+              <strong>START</strong>: to receive AvAI messages again after STOP, text START to
+              both the long-code number and the toll-free number.
             </li>
           </ul>
         </section>
