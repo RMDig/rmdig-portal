@@ -11,6 +11,11 @@
 # Gated on the DB_BACKUPS_ENABLED repo variable so scheduled runs stay green
 # (skipped) until the operator finishes setup — see docs/runbook.md
 # "Database backups".
+#
+# A failed run emails the repo owner, but a run that never happens (the
+# variable unset, the schedule disabled) is silent. So every successful run
+# pings an external dead-man check (BACKUP_HEARTBEAT_URL, healthchecks.io),
+# which alerts when a day passes without one; a failed run reports /fail.
 name: db-backup
 on:
   schedule:
@@ -69,6 +74,28 @@ jobs:
           aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix portal-db/ \
             --endpoint-url "$R2_ENDPOINT" \
             --query "Contents[?LastModified<'$CUTOFF'].Key" --output text \
-          | tr '\t' '\n' | grep -v '^None$' | while read -r key; do
-              [ -n "$key" ] && aws s3 rm "s3://$R2_BUCKET/$key" --endpoint-url "$R2_ENDPOINT"
-            done || true
+          | tr '\t' '\n' | { grep -v '^None$' || true; } | while read -r key; do
+              # grep exits 1 when nothing is old enough to prune; that's fine.
+              # A failed list or delete still fails the step.
+              if [ -n "$key" ]; then aws s3 rm "s3://$R2_BUCKET/$key" --endpoint-url "$R2_ENDPOINT"; fi
+            done
+
+      - name: Report success to the dead-man check
+        env:
+          BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_HEARTBEAT_URL" ]; then
+            echo "::error::BACKUP_HEARTBEAT_URL is not set; nothing would notice backups stopping (runbook \"Database backups\")."
+            exit 1
+          fi
+          curl -fsS -m 10 --retry 3 -o /dev/null "$BACKUP_HEARTBEAT_URL"
+
+      - name: Report failure to the dead-man check
+        if: failure()
+        env:
+          BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
+        run: |
+          if [ -n "$BACKUP_HEARTBEAT_URL" ]; then
+            curl -fsS -m 10 --retry 3 -o /dev/null "$BACKUP_HEARTBEAT_URL/fail"
+          fi
