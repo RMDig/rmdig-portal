@@ -199,11 +199,11 @@ This workstream is lower urgency and can start after the blockers.
 
 ### W1b: portal sign-up follow-ups (`fix/email-first-signup`, stacked on W1)
 
-- [ ] D1a: email-first sign-up. The password is set on the verify page. Update the
-  e2e and unit tests.
-- [ ] D1b: forgot-password can set a password on a Google-only account.
-- [ ] Hash emails in auth logs; do a lockfile refresh or overrides for the remaining
-  transitive high advisories.
+- [x] D1a: email-first sign-up. The password is set on the verify page. Update the
+  e2e and unit tests. (#148)
+- [x] D1b: forgot-password can set a password on a Google-only account. (#148)
+- [x] Hash emails in auth logs (#148, all log lines); do a lockfile refresh or overrides for the remaining
+  transitive high advisories (2026-10-10: unused `react-email` removed, transitive refresh, Sentry 10.76; `pnpm audit --prod` clean, no overrides).
 
 ### W2 amendment (before merge)
 
@@ -396,8 +396,8 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
 - [ ] Decide whether staff who are members of an org are also barred from
   approving it (currently only the creator is).
 - [ ] Turn on strict required checks (portal ruleset) and Dependabot alerts.
-- [ ] Do a lockfile-refresh or overrides PR for the 20 remaining transitive
-  high advisories.
+- [x] Do a lockfile-refresh or overrides PR for the 20 remaining transitive
+  high advisories. (2026-10-10, no overrides needed.)
 - [ ] AvServ nodes, each one:
   - set the Twilio status callback URL (B2 does nothing without it);
   - add the dead-man's switch route to `alertmanager.yml` and an external heartbeat check;
@@ -409,7 +409,7 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
   its device rows have replicated.
 - [ ] W5's session purge must keep each device's newest session.
 - [ ] Fix `internal/opswitch` test isolation (it fails on a reused test database).
-- [ ] Hash emails in the portal auth logs. This was left out of W2 because it is in W1's file.
+- [x] Hash emails in the portal auth logs. This was left out of W2 because it is in W1's file. (#148)
 
 **2026-10-07, wave 2 progress**
 
