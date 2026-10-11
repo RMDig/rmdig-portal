@@ -8,7 +8,7 @@ import Google from "next-auth/providers/google";
 
 import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
 import { authorizeCredentials } from "./auth/credentials-authorize";
-import { markOAuthUserVerified, secureOAuthEmailLink } from "./auth/oauth-link";
+import { markOAuthUserVerified, oauthEmailVerified, secureOAuthEmailLink } from "./auth/oauth-link";
 import { db } from "./db";
 import { accounts, sessions, users, verificationTokens } from "./db/schema";
 import { env } from "./env";
@@ -115,15 +115,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session;
     },
-    async signIn({ user, account }) {
-      // OAuth providers (Google + later Apple) have verified the email on their
-      // side. Before the adapter links this sign-in into an existing row with
-      // the same email, make that row safe to hand over: an unverified row loses
-      // its password and sessions and becomes verified (beta blocker B1, see
-      // secureOAuthEmailLink). A first-time OAuth user has no row yet, so this
-      // is a no-op for them (events.linkAccount verifies their new row).
-      if (account?.type === "oauth" && user.email) {
-        await secureOAuthEmailLink(user.email);
+    async signIn({ user, account, profile }) {
+      if (account?.type === "oauth") {
+        // Only an address the provider itself verified proves anything. Refused
+        // before any row is linked or changed; the user lands on the sign-in
+        // page with error=AccessDenied.
+        if (!oauthEmailVerified(account.provider, profile)) {
+          logger.warn({ event: "auth.oauth.email_unverified", provider: account.provider, email: user.email });
+          return false;
+        }
+        // Before the adapter links this sign-in into an existing row with the
+        // same email, make that row safe to hand over: an unverified row loses
+        // its password and sessions and becomes verified (beta blocker B1, see
+        // secureOAuthEmailLink). A first-time OAuth user has no row yet, so this
+        // is a no-op for them (events.linkAccount verifies their new row).
+        if (user.email) await secureOAuthEmailLink(user.email);
       }
       return true;
     },
