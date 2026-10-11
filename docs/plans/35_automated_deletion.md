@@ -206,8 +206,8 @@ tier has no rate limit, and service JWTs have no maximum lifetime
 | D6 | Keep the manual path? | **Yes,** compare-and-set so the operator and the worker can't both finish a request. |
 | D7 | Signed-in deletion | Add "Delete my account" in settings, behind a session that has passed MFA. For a `strong_account` that's the self-service route instead of the operator. |
 | D8 | Daily cap value | 5 per day per node at beta (AvServ's default); revisit with volume. |
-| D9 | A check-out opened on a peer during the replication window after an erasure (AvServ plan 47 open point) | **Safety first:** the origin still applies the check-out-open event so both nodes watch the live trip, pages, and the erasure re-runs when the trip closes. |
-| D10 | Who the per-erasure page reaches | The operator via Pushover (AvServ default). Escalate to PagerDuty only for `email_mismatch` and a cap hit. |
+| D9 | A check-out opened on a peer during the replication window after an erasure (AvServ plan 47 open point) | **Decided (owner, 2026-10-11): safety first.** The origin applies the check-out-open event so both nodes watch the live trip, pages, and re-erases when the trip closes (AvServ plan 47 §7). |
+| D10 | Who the per-erasure page reaches | **Agreed with AvServ (plan 47, 2026-10-11):** every erasure to the operator via Pushover; `email_mismatch` and a cap hit to PagerDuty as well. |
 
 ## 7. Counsel questions
 
