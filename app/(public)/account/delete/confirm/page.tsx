@@ -1,18 +1,9 @@
-import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { db } from "@/lib/db";
-import { deletionRequests, userPlatformRoles, users } from "@/lib/db/schema";
-import {
-  sendDataDeletionAdminEmail,
-  sendDataDeletionReceivedEmail,
-} from "@/lib/email/send";
-import { hashDeletionToken } from "@/lib/legal/deletion-tokens";
-import { logger } from "@/lib/logger";
-import { reportError, reportProblem } from "@/lib/report-error";
-import { CPA_DAYS } from "@/lib/deletion/share-log";
-import { portalUrl } from "@/lib/email/links";
+import { checkDeletionLink } from "@/lib/deletion/requests";
+
+import { ConfirmDeletionForm } from "./ConfirmDeletionForm";
 
 export const metadata: Metadata = {
   title: "Confirm deletion request — rmdig / AvAI",
@@ -20,114 +11,37 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-// Landing page for the emailed confirmation link. Clicking proves control of
-// the address (same trust model as /api/verify for email verification), which
-// is the CPA request-authentication step. Confirming is idempotent: revisits
-// and mail-scanner prefetches of an already-confirmed link just re-render the
-// success state.
+// Landing page for the emailed confirmation link. Opening it changes nothing:
+// mail scanners open links on delivery, and a confirmed request is acted on.
+// The person confirms by typing the address the request was made for and
+// pressing the button (confirmDeletionAction), which proves control of the
+// address (the CPA request-authentication step) and is deliberate.
 export default async function ConfirmDeletionPage({
   searchParams,
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
   const { token } = await searchParams;
-  if (!token) {
-    return <Invalid />;
-  }
+  if (!token) return <Invalid />;
 
-  const tokenHash = hashDeletionToken(token);
-  const [request] = await db
-    .select()
-    .from(deletionRequests)
-    .where(eq(deletionRequests.tokenHash, tokenHash))
-    .limit(1);
+  const state = await checkDeletionLink(token);
+  if (state.kind === "invalid") return <Invalid />;
+  if (state.kind === "expired") return <Expired />;
+  if (state.kind === "confirmed") return <Confirmed requestId={state.id} />;
 
-  if (!request) {
-    return <Invalid />;
-  }
-
-  if (request.status !== "pending_confirmation") {
-    // Already confirmed (or even completed) — show success, don't re-notify.
-    return <Confirmed requestId={request.id} />;
-  }
-
-  if (request.tokenExpiresAt < new Date()) {
-    return <Expired />;
-  }
-
-  const confirmedAt = new Date();
-  // Guard on status in the WHERE so two concurrent clicks can't double-confirm
-  // (and double-email the operator): only one update transitions the row.
-  const updated = await db
-    .update(deletionRequests)
-    .set({ status: "confirmed", confirmedAt })
-    .where(
-      and(
-        eq(deletionRequests.id, request.id),
-        eq(deletionRequests.status, "pending_confirmation"),
-      ),
-    )
-    .returning({ id: deletionRequests.id });
-
-  if (updated.length > 0) {
-    // Notify outside the state transition: the row is the source of truth, so
-    // an email hiccup must not un-confirm the request. Failures are logged
-    // loudly, never swallowed (mirrors the SAR submission pattern).
-    await notifyOnConfirmation(request.id, request.email, confirmedAt);
-  }
-
-  return <Confirmed requestId={request.id} />;
-}
-
-async function notifyOnConfirmation(
-  requestId: string,
-  email: string,
-  confirmedAt: Date,
-): Promise<void> {
-  try {
-    await sendDataDeletionReceivedEmail(email, { requestId });
-  } catch (err) {
-    logger.error({ event: "deletion.confirm.requester_email_failed", requestId, err });
-  }
-
-  let admins: { email: string }[];
-  try {
-    admins = await db
-      .select({ email: users.email })
-      .from(userPlatformRoles)
-      .innerJoin(users, eq(users.id, userPlatformRoles.userId))
-      .where(eq(userPlatformRoles.role, "rmdig_admin"));
-  } catch (err) {
-    // Nobody is told the CPA clock started; the deletion-clock cron still
-    // flags the request at 30 days.
-    reportError("deletion.confirm.admin_lookup_failed", err, { requestId });
-    return;
-  }
-  if (admins.length === 0) {
-    reportProblem("deletion.confirm.no_admins", "No rmdig admin to tell about a confirmed deletion request", { requestId });
-  }
-
-  for (const admin of admins) {
-    try {
-      await sendDataDeletionAdminEmail(admin.email, {
-        requesterEmail: email,
-        requestId,
-        confirmedAtIso: confirmedAt.toISOString(),
-        dueIso: new Date(confirmedAt.getTime() + CPA_DAYS * 86_400_000).toISOString(),
-        queueUrl: portalUrl("/admin/deletion-requests"),
-      });
-    } catch (err) {
-      // lib/email/send has already reported it to Sentry.
-      logger.error({
-        event: "deletion.confirm.admin_email_failed",
-        requestId,
-        to: admin.email,
-        err,
-      });
-    }
-  }
-
-  logger.info({ event: "deletion.confirm.success", requestId });
+  return (
+    <article className="mx-auto max-w-3xl px-4 py-12">
+      <h1 className="text-3xl font-semibold tracking-tight">Confirm your deletion request</h1>
+      <div className="mt-6 space-y-4 leading-7 text-neutral-700 dark:text-neutral-200">
+        <p>
+          Confirming asks us to delete the personal data tied to your email address, in the
+          rmdig portal and the AvAI app. Once it&apos;s carried out it can&apos;t be undone.
+        </p>
+        <p>To confirm, type the email address you made the request for.</p>
+      </div>
+      <ConfirmDeletionForm token={token} />
+    </article>
+  );
 }
 
 function Confirmed({ requestId }: { requestId: string }) {

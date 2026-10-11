@@ -7,25 +7,21 @@ const h = vi.hoisted(() => ({
   rlSeenKeys: [] as string[],
   inserted: [] as Array<{ table: string; vals: Record<string, unknown> }>,
   insertFails: false,
+  alreadyOpen: false,
   sendConfirm: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   requestHeaders: {} as Record<string, string>,
 }));
 
-vi.mock("@/lib/db/schema", () => ({
-  deletionRequests: { __t: "deletion_requests", id: "id" },
-}));
-vi.mock("@/lib/db", () => ({
-  db: {
-    insert: (table: { __t: string }) => ({
-      values: (vals: Record<string, unknown>) => ({
-        returning: () => {
-          if (h.insertFails) return Promise.reject(new Error("db down"));
-          h.inserted.push({ table: table.__t, vals });
-          return Promise.resolve([{ id: "req-1" }]);
-        },
-      }),
-    }),
+// Replacing an unconfirmed request and skipping an already-open one are
+// covered against a table in deletion-requests.test.ts; here the recorder is
+// a seam.
+vi.mock("@/lib/deletion/requests", () => ({
+  recordDeletionRequest: (vals: Record<string, unknown>) => {
+    if (h.insertFails) return Promise.reject(new Error("db down"));
+    if (h.alreadyOpen) return Promise.resolve({ kind: "already_open", id: "req-0" });
+    h.inserted.push({ table: "deletion_requests", vals });
+    return Promise.resolve({ kind: "created", id: "req-1" });
   },
 }));
 vi.mock("@/lib/email/send", () => ({
@@ -60,6 +56,7 @@ beforeEach(() => {
   h.rlSeenKeys = [];
   h.inserted = [];
   h.insertFails = false;
+  h.alreadyOpen = false;
   h.requestHeaders = { "x-forwarded-for": "203.0.113.7, 172.16.0.1" };
 });
 
@@ -92,9 +89,9 @@ describe("requestDataDeletionAction", () => {
     expect(h.sendConfirm).not.toHaveBeenCalled();
   });
 
-  it("consults the IP limit (first x-forwarded-for hop) before the email limit", async () => {
+  it("consults the IP limit (first x-forwarded-for hop) before the email limits", async () => {
     await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
-    expect(h.rlSeenKeys).toEqual(["deletion-ip:203.0.113.7", "deletion:user@rmdig.ai"]);
+    expect(h.rlSeenKeys).toEqual(["deletion-ip:203.0.113.7", "deletion:user@rmdig.ai", "deletion-day:user@rmdig.ai"]);
   });
 
   it("stops at the per-email limit without writing or emailing", async () => {
@@ -134,5 +131,19 @@ describe("requestDataDeletionAction", () => {
     const res = await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
     expect(res?.ok).toBe(false);
     expect(h.log.error).toHaveBeenCalled();
+  });
+
+  it("caps requests per address per day, after the hourly limit", async () => {
+    await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
+    expect(h.rlSeenKeys).toContain("deletion-day:user@rmdig.ai");
+    h.rlDeniedKeys = ["deletion-day:"];
+    const res = await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }));
+    expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/Too many/) });
+  });
+
+  it("answers the same for an address whose request is already confirmed, and sends nothing", async () => {
+    h.alreadyOpen = true;
+    expect(await requestDataDeletionAction(null, form({ email: "user@rmdig.ai" }))).toEqual({ ok: true });
+    expect(h.sendConfirm).not.toHaveBeenCalled();
   });
 });
