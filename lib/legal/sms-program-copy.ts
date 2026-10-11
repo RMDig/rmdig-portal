@@ -54,3 +54,19 @@ export const HELP_REPLY =
 export const YES_CONFIRMATION =
   "AvAI: Confirmed. You are set as an emergency contact and will receive safety alerts " +
   "if needed. Reply STOP any time to opt out, HELP for help.";
+
+/**
+ * The numbers AvAI sends from (AvServ plan 45, W8): each node's registered 10DLC
+ * long code (Twilio) and its toll-free number (Telnyx), used only when the
+ * primary can't deliver. DRAFT, not published: the toll-free numbers don't
+ * exist yet, and the owner fills in which 10DLC number each node uses. Publish
+ * only at plan 45 rollout phase P4, after counsel's review, in the same release
+ * as /privacy naming Telnyx. Consent is to AvAI safety messages, not to a
+ * number, so the consent twins don't change (plan 45 §6.1).
+ */
+export const SMS_SENDING_NUMBERS: ReadonlyArray<{ node: string; longCode: string; tollFree: string }> = [
+  { node: "avserv-1", longCode: "[OWNER: 10DLC number]", tollFree: "[OWNER: toll-free number]" },
+  { node: "avserv-2", longCode: "[OWNER: 10DLC number]", tollFree: "[OWNER: toll-free number]" },
+  { node: "avserv-3", longCode: "[OWNER: 10DLC number]", tollFree: "[OWNER: toll-free number]" },
+];
+
