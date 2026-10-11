@@ -73,7 +73,7 @@ cd ~ && git -C ~/Scripts/rmdig-portal worktree remove --force /tmp/rmdig-main
 until the next merge deploys. If a bad build does go live, restore the last good
 one with `vercel promote <its URL>`: on the Hobby plan `vercel rollback` only
 goes back one deployment, which after two bad builds is another bad one
-(2026-10-08).
+(2026-10-08). On Pro it can go back further ("Vercel plan and spend management").
 
 `vercel env pull --environment production` does NOT work for secrets anymore —
 integration vars are marked sensitive and pull as empty strings. Get the URL
@@ -984,6 +984,27 @@ reviews) call AvServ endpoints that don't exist yet, so they're off:
 write to support), their server actions refuse, and the dashboard, sign-up and
 admin hub don't offer them. Turn one on only after AvServ ships its routes and
 the Admin → AvServ checks pass against them; redeploy after changing it.
+
+## Vercel plan and spend management
+
+The portal moves to Vercel Pro under owner decision D6, because Hobby is for
+non-commercial use only. Pro brings per-minute crons, rollback to any earlier
+production deployment, and a day of runtime logs.
+
+- **Spend Management: notify, never pause.** Spend Management can pause every
+  production deployment when the budget is reached, and Vercel turns that on by
+  default. Keep **Pause Production Deployments** off: a pause answers 503 on
+  `/privacy`, the deletion form and SAR intake, and stops the crons. Each
+  project also has to be resumed by hand. Set an on-demand budget for alerts
+  (50/75/100%, plus SMS at 100%) and let the owner decide.
+- **Rollback.** On Pro, Instant Rollback (`vercel rollback`, or the dashboard's
+  production tile) can go back to any deployment that was ever in production;
+  on Hobby only one step. After a rollback, Vercel **stops auto-assigning
+  production**: merges to `main` build but don't go live until you click **Undo
+  Rollback** or run `vercel promote <deployment>`. A rollback restores old code
+  and its crons, never the database, so a migration it predates stays applied.
+- **Crons.** On Pro, `sar-alert-notify` runs every 10 minutes (D10); see the
+  cron note in "SAR alert intake" for the change and its monitor.
 
 ## Outages and rollback
 
