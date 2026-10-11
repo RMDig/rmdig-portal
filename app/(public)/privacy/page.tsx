@@ -135,9 +135,16 @@ export default function PrivacyPolicyPage() {
             <li>
               <span className="font-medium text-neutral-900 dark:text-neutral-50">Service providers</span> — we
               use Vercel (web hosting), Neon (database), Resend (transactional email),
-              Twilio (SMS alert delivery), Sentry (error reporting), and Cloudflare
-              (DNS/network) to run the service. They process data on our behalf and are not
-              permitted to use it for their own purposes.
+              Twilio (SMS alert delivery), Telnyx (SMS alert delivery when Twilio can&apos;t
+              deliver), Sentry (error reporting), and Cloudflare (DNS/network) to run the
+              service. They process data on our behalf and are not permitted to use it for
+              their own purposes.
+              <LawyerPlaceholder>
+                Telnyx (draft, plan 45 §6.5 item 4): confirm the processor wording, the
+                data-processing agreement and where Telnyx processes data, and whether the
+                App Store and Play declarations change. Publish in the same release that sends
+                real traffic through Telnyx.
+              </LawyerPlaceholder>
             </li>
             <li>
               <span className="font-medium text-neutral-900 dark:text-neutral-50">Legal requirements</span> — we
@@ -181,7 +188,8 @@ export default function PrivacyPolicyPage() {
           <p className="mt-3">
             AvAI&apos;s safety alerts are delivered by SMS and email to the emergency
             contact an AvAI user designates. Messages are sent by our own servers through
-            Twilio, our SMS delivery provider, and are strictly event-driven: an overdue
+            Twilio, our SMS delivery provider, or through Telnyx when Twilio can&apos;t
+            deliver, and are strictly event-driven: an overdue
             alert, a Send&nbsp;Help alert, or the all-clear that follows. We send no
             marketing or promotional texts, and message frequency depends entirely on the
             user&apos;s safety activity. Message and data rates may apply. Full program details, including the exact
