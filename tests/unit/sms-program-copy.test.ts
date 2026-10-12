@@ -56,15 +56,14 @@ describe("Add Contact consent copy (AvApp compliance_copy.dart twins, contract ย
       "I confirm I have this person's permission to add them as my emergency contact, and for AvAI to text them about my trips and if I may need help.",
     );
     expect(CONTACT_SMS_DISCLOSURE).toBe(
-      "They'll get texts from AvAI about your trips, missed check-ins and emergencies. Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.",
+      "They'll get texts from AvAI about your trips, missed check-ins and emergencies, including automatic accident alerts. Msg frequency varies. Msg & data rates may apply. They can reply STOP to opt out.",
     );
   });
 
-  it("the disclosure states the elements the campaign's message flow names, and no automatic alerts", () => {
+  it("the disclosure states the elements the campaign's message flow names, including automatic alerts", () => {
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/your trips, missed check-ins and emergencies/);
-    // No live campaign covers automatic accident alerts yet (restored only
-    // with the Incident Detection cutover, plan 38a, in both twins).
-    expect(CONTACT_SMS_DISCLOSURE).not.toMatch(/automatic|accident/i);
+    // Restored 2026-10-11 (owner decision reversing D4; AvServ plan 38a ยง0 item 2).
+    expect(CONTACT_SMS_DISCLOSURE).toMatch(/including automatic accident alerts/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/Msg frequency varies/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/Msg & data rates may apply/);
     expect(CONTACT_SMS_DISCLOSURE).toMatch(/reply STOP/);
@@ -72,18 +71,19 @@ describe("Add Contact consent copy (AvApp compliance_copy.dart twins, contract ย
 });
 
 describe("/sms consent screenshot", () => {
-  // AvApp main docs/screenshots/add_contact_attestation.png at 7b89e7a (box
-  // unticked, Save disabled, the narrowed disclosure: trips, missed check-ins
-  // and emergencies). A new app screenshot updates this hash and the consent
-  // strings together.
-  const APPROVED_SHA256 = "7749f895e46b35ebe153e936bda136443fb111d2726933f7f6f69275f6f0b999";
+  // AvApp docs/screenshots/add_contact_attestation.png as regenerated in
+  // AvApp #259 (2d7fe15; box unticked, Save disabled, the disclosure naming
+  // automatic accident alerts). The render is deterministic, so it matches
+  // the 987465e capture byte for byte. A new app screenshot updates this hash
+  // and the consent strings together.
+  const APPROVED_SHA256 = "9beb72cc9fb5a409f9247233fa236f8cf440f44583a2592ca699b1172db4e772";
   // Earlier screenshots: without the disclosure line, with the
-  // missed-check-ins-only disclosure, then naming automatic accident alerts
-  // (987465e), which no live campaign covered.
+  // missed-check-ins-only disclosure, then the narrowed disclosure (7b89e7a,
+  // trips, missed check-ins and emergencies).
   const SUPERSEDED_SHA256 = [
     "41457e9b5f5cddcfc923af115fae973763b6c459b85bb10bd34914cd50745169",
     "d93905399e7ca80a466e6a7918e2023da6728f47b9639f7e3d42acf4079dbb48",
-    "9beb72cc9fb5a409f9247233fa236f8cf440f44583a2592ca699b1172db4e772",
+    "7749f895e46b35ebe153e936bda136443fb111d2726933f7f6f69275f6f0b999",
   ];
 
   it("is the current AvApp screenshot with the disclosure line", () => {

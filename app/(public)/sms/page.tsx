@@ -59,12 +59,12 @@ export default function SmsProgramPage() {
           </p>
           <figure className="mt-4 flex flex-col items-center">
             {/* A static screenshot of the AvApp Add Contact screen (fixture
-                data), copied from AvApp main docs/screenshots/
-                add_contact_attestation.png (2026-10-10, 7b89e7a, W6; AvServ
-                account contract §3.8). It shows the narrowed
-                CONTACT_SMS_DISCLOSURE word for word. Replace it with the owner's
-                on-device capture of the store build when there is one, and
-                again when the Incident Detection cutover changes the line.
+                data), copied from AvApp docs/screenshots/
+                add_contact_attestation.png as regenerated in AvApp #259
+                (2026-10-11, 2d7fe15; AvServ account contract §3.8, plan 38a
+                §0 item 2). It shows CONTACT_SMS_DISCLOSURE word for word.
+                Replace it with the owner's on-device capture of the store build
+                when there is one, and whenever the line changes.
                 Never an HTML checkbox here: a form-like mock is reviewed as a
                 web opt-in form (Twilio 30925 lesson). */}
             <Image
