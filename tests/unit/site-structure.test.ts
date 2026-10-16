@@ -127,3 +127,33 @@ describe("new copy", () => {
     expect(src).toContain("peer-reviewed by independent experts");
   });
 });
+
+describe("press-linked and founder pages", () => {
+  const cfg = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
+  const footer = readFileSync(join(process.cwd(), "components", "nav", "SiteFooter.tsx"), "utf8");
+  const urls = () => sitemap().map((e) => new URL(e.url).pathname);
+
+  // News coverage links rmdig.ai/collection_signup; it 404'd after the 2026-07
+  // cutover until 2026-10-15. It must stay a real page at this exact path.
+  it("/collection_signup is a real page, never redirected, and in the sitemap", () => {
+    expect(pageExists("/collection_signup")).toBe(true);
+    expect(cfg).not.toMatch(/source: "\/collection_signup"/);
+    expect(urls()).toContain("/collection_signup");
+  });
+
+  it("the signup page and its form stay free of auth (CLAUDE.md §3.7)", () => {
+    for (const f of ["page.tsx", "CollectionSignupForm.tsx", "actions.ts"]) {
+      expect(read("collection_signup", f), f).not.toMatch(/from "@\/lib\/auth"/);
+    }
+  });
+
+  it("/founder is a real page, linked from the footer and in the sitemap", () => {
+    expect(pageExists("/founder")).toBe(true);
+    expect(footer).toContain('href="/founder"');
+    expect(urls()).toContain("/founder");
+  });
+});
+
+it("/founder links to the founder's personal website", () => {
+  expect(read("founder", "page.tsx")).toContain('"https://www.dennyschaedig.com"');
+});

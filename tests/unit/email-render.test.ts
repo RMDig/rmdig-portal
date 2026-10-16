@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import OrgInviteEmail from "@/lib/email/templates/OrgInviteEmail";
 import ResetPasswordEmail from "@/lib/email/templates/ResetPasswordEmail";
 import RestrictionReviewUpheldEmail from "@/lib/email/templates/RestrictionReviewUpheldEmail";
+import CollectionSignupEmail from "@/lib/email/templates/CollectionSignupEmail";
 import AdCreativeDecisionEmail from "@/lib/email/templates/AdCreativeDecisionEmail";
 import DataDeletionAdminEmail from "@/lib/email/templates/DataDeletionAdminEmail";
 import DeletionClockEmail from "@/lib/email/templates/DeletionClockEmail";
@@ -161,6 +162,28 @@ describe("email templates render to HTML", () => {
     const url = "https://rmdig.ai/sar/o1/terms";
     const html = await render(SarTermsDecisionEmail({ orgName: "San Juan SAR", decision: "published", version: 2, termsUrl: url }));
     expect(html).toContain(url);
+  });
+
+  it("CollectionSignupEmail carries every answer, escaped, and says when no phone was given", async () => {
+    const html = await render(
+      CollectionSignupEmail({
+        name: "Avery <b>Lane</b>",
+        email: "avery@example.com",
+        city: "Frisco",
+        state: "CO",
+        backcountryExperience: "AIARE 1, four seasons touring",
+        hasEquipment: true,
+        dataExperience: "Spreadsheets",
+        motivation: "Give back to the snow community",
+        submittedAtIso: "2026-10-15T12:00:00.000Z",
+      }),
+    );
+    expect(html).toContain("avery@example.com");
+    expect(html).toContain("Frisco, CO");
+    expect(html).toContain("AIARE 1, four seasons touring");
+    expect(html).toContain("Give back to the snow community");
+    expect(html).toContain("(not given)");
+    expect(html).not.toContain("<b>Lane</b>");
   });
 
   it("DataDeletionAdminEmail gives the deadline and links to the queue, not SQL", async () => {

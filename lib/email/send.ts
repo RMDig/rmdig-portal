@@ -12,6 +12,9 @@ import AdCreativeDecisionEmail, {
 } from "./templates/AdCreativeDecisionEmail";
 import AdCreativePendingReviewEmail from "./templates/AdCreativePendingReviewEmail";
 import AdvertiserInviteEmail from "./templates/AdvertiserInviteEmail";
+import CollectionSignupEmail, {
+  type CollectionSignupEmailProps,
+} from "./templates/CollectionSignupEmail";
 import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
 import DeletionClockEmail, { type DeletionClockEmailProps } from "./templates/DeletionClockEmail";
@@ -403,4 +406,15 @@ export async function sendPatrolReverifyTeamEmail(to: string, params: PatrolReve
 export async function sendRestrictionReviewRequestedEmail(to: string, reviewUrl: string): Promise<void> {
   const html = render(RestrictionReviewRequestedEmail({ reviewUrl }));
   await deliver({ kind: "restriction_review_requested", label: "restriction-review-requested", to, subject: "A restriction review is waiting", html });
+}
+
+export async function sendCollectionSignupEmail(to: string, params: CollectionSignupEmailProps): Promise<void> {
+  const html = render(CollectionSignupEmail(params));
+  await deliver({
+    kind: "collection_signup",
+    label: "collection-signup",
+    to,
+    subject: `Snowpack volunteer sign-up: ${params.name}`,
+    html,
+  });
 }

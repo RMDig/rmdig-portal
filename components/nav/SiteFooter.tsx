@@ -36,6 +36,9 @@ export function SiteFooter() {
           <Link href="/status" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             Status
           </Link>
+          <Link href="/founder" className="hover:text-neutral-900 dark:hover:text-neutral-100">
+            Founder
+          </Link>
           <a href={GITHUB_URL} rel="noopener" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             GitHub
           </a>
