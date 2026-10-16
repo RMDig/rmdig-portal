@@ -32,7 +32,10 @@ export const STAYS_UP = [
   "/account/delete",
   "/alerts",
   "/avai",
+  // Press-linked volunteer sign-up; frozen path (runbook "Volunteer sign-ups").
+  "/collection_signup",
   "/contribute",
+  "/founder",
   "/methods", // redirects to /research/methods
   "/models", // redirects to /research/models
   "/privacy",

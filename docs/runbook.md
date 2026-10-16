@@ -549,6 +549,18 @@ fails until the secret exists. An unreachable database fails, never passes.
 This is the only CI job that touches production, and only with that read-only
 role; E2E never does (`E2E_ALLOW_DB`).
 
+## Volunteer sign-ups (`/collection_signup`)
+
+News coverage links `rmdig.ai/collection_signup`, so the path is frozen: never
+rename it, move it, redirect it, or put it behind sign-in. Each sign-up is
+emailed to every `rmdig_admin` (subject "Snowpack volunteer sign-up: <name>")
+and the portal keeps no copy, so the email is the record. Reply to the
+applicant from your own mailbox. If no admin email goes out (no `rmdig_admin`,
+Resend down), the applicant sees an error and Sentry gets
+`email.collection_signup.failed` or `collection_signup.no_admins`. Limits: 5
+per hour per IP, 3 per day per address. The privacy policy promises deletion on
+request: see step 4 of "Data-deletion requests".
+
 ## Data-deletion requests (Colorado Privacy Act)
 
 Confirmed requests arrive by email to every `rmdig_admin` (the requester proved
@@ -624,6 +636,10 @@ under the CPA — treat every request as covering it.
    get past this: its status log, alerts, acks, view logs, membership log and
    terms are evidence and reference it `ON DELETE RESTRICT`, so the delete fails
    (see "Removing a SAR org").
+
+   **Volunteer sign-ups** (`/collection_signup`) are never in the DB; each is an
+   email to every `rmdig_admin` ("Snowpack volunteer sign-up: <name>"). Search
+   the admin mailboxes for the requester's address and delete any matches.
 
 5. **Record completion** so the queue stays truthful: on
    `/admin/deletion-requests`, **Mark completed** with a note of what was

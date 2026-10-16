@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 26, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: October 15, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -98,6 +98,15 @@ export default function PrivacyPolicyPage() {
             verify by one-time code. The phone number is kept as the organization&apos;s
             operational contact — we use it to reach you during application review and
             for account matters, never for marketing.
+          </p>
+
+          <h3 className="mt-5">Volunteer sign-ups</h3>
+          <p className="mt-2">
+            If you sign up to help collect snowpack data, we receive your name, email address,
+            phone number (if you give one), city and state, and your answers about your
+            backcountry and data experience. The portal does not store them: they are emailed
+            to our staff, and we use them only to organize data collection and to contact you
+            about it.
           </p>
 
           <h3 className="mt-5">Safety and telemetry records</h3>
@@ -244,6 +253,10 @@ export default function PrivacyPolicyPage() {
                 <tr>
                   <td>Account data</td>
                   <td>While your account is active, plus up to 30 days after deletion completes</td>
+                </tr>
+                <tr>
+                  <td>Volunteer sign-ups</td>
+                  <td>In our staff email until you ask us to delete them</td>
                 </tr>
                 <tr>
                   <td>Encrypted database backups</td>

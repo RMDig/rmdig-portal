@@ -118,6 +118,13 @@ export default function SnowpackDatasetPage() {
             device, and a future opt-in contribution flow will let users add their captures
             to this public dataset with explicit consent.
           </p>
+          <p className="mt-3">
+            You can also help in the field:{" "}
+            <Link href="/collection_signup" className="font-medium underline">
+              volunteer to collect snowpack data
+            </Link>{" "}
+            with us.
+          </p>
         </section>
 
         <section>
