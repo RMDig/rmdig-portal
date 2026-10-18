@@ -1,7 +1,7 @@
 # 36 — Account security and hardening (portal side of AvApp plans 54–57)
 
-Status: **draft, 2026-10-17. Owner decisions (§8) open; S1 done in this PR.** Nothing else
-here is built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
+Status: **draft, 2026-10-17; owner decisions (§8) all decided 2026-10-18, as recommended.
+S1 done in this PR.** Nothing else here is built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
 system) and 57 (false alarms) on 2026-10-17 (AvApp `21f9da3`, PR #288). This plan is the
 portal's share of them, in the order the owner set. It was read against portal `origin/main`
 `e1bc368`, AvServ `origin/main` `04510c8` and AvApp `origin/main` `21f9da3`.
@@ -307,21 +307,21 @@ AvServ write endpoint"). It gains:
 | H7 | One rotation table (P7) | The runbook gains "Key rotation": every key, cadence, procedure, last rotated, and what rotating it breaks (e.g. `NEXTAUTH_SECRET` voids open phone proofs until H6). It adds the missing entries for `MFA_ENCRYPTION_KEYS` (after H3), `CRON_SECRET`, Twilio and the age key. | Docs |
 | H8 | Old Render site (P8) | **Still live on 2026-10-17**: `rmdig-ai.onrender.com` answers 200 with no security headers, and its old `/collection_signup` form still serves. Owner: confirm nothing links there, then suspend the Render service. | Owner check |
 
-## 8. Owner decisions
+## 8. Owner decisions (all decided 2026-10-18)
 
-| ID | Question | Recommendation |
+| ID | Question | Decision |
 |---|---|---|
-| S-D1 | Hashed-token cut-over | **Delete all sessions in the migration**: everyone signs in once (at most twice across the deploy gap). No dual-read code. |
-| S-D2 | "Recent login" window | **10 minutes** for revoke, the reset code, MFA changes, the events view and the notice toggle. |
-| S-D3 | Re-auth for Google-only accounts | **Google again with `prompt=login` and `max_age=0`.** If Google doesn't honour it on a test account, ask them to set a password first. |
-| S-D4 | What the session list stores | **User agent only, no IP.** Rule 1 makes a location trail in the account a risk, not a help. |
-| S-D5 | Passkey implementation | **SimpleWebAuthn as a second factor** beside TOTP, not Auth.js's experimental provider. Passwordless sign-in is a later, separate decision. |
-| S-D6 | `MFA_ENFORCEMENT=all` for Google-only accounts | **Keep the P1.2 boundary** (not challenged). "All" means every password account. |
-| S-D7 | SAR payload: encrypt or shorten | **Encrypt the three location and free-text fields**. Retention is already short (24 h for positions after close). |
-| S-D8 | Notice latency for AvServ-origin events | **Daily on Hobby; 10 minutes after the Pro move.** Portal events go out immediately. |
-| S-D9 | CSP rollout | **One week Report-Only, then enforce.** A nonce makes every HTML page dynamic, including the static public pages (S-D10). |
-| S-D10 | Static public pages under a nonce CSP | **Accept dynamic rendering** (cost: no full-route cache; the pages stay DB-free, CLAUDE.md §3.7). The alternative is hash-based CSP with Next's experimental SRI. |
-| S-D11 | Render site | **Suspend it** once a check shows nothing points there. |
+| S-D1 | Hashed-token cut-over | **Decided (owner, 2026-10-18):** **Delete all sessions in the migration**: everyone signs in once (at most twice across the deploy gap). No dual-read code. |
+| S-D2 | "Recent login" window | **Decided (owner, 2026-10-18):** **10 minutes** for revoke, the reset code, MFA changes, the events view and the notice toggle. |
+| S-D3 | Re-auth for Google-only accounts | **Decided (owner, 2026-10-18):** **Google again with `prompt=login` and `max_age=0`.** If Google doesn't honour it on a test account, ask them to set a password first. |
+| S-D4 | What the session list stores | **Decided (owner, 2026-10-18):** **User agent only, no IP.** Rule 1 makes a location trail in the account a risk, not a help. |
+| S-D5 | Passkey implementation | **Decided (owner, 2026-10-18):** **SimpleWebAuthn as a second factor** beside TOTP, not Auth.js's experimental provider. Passwordless sign-in is a later, separate decision. |
+| S-D6 | `MFA_ENFORCEMENT=all` for Google-only accounts | **Decided (owner, 2026-10-18):** **Keep the P1.2 boundary** (not challenged). "All" means every password account. |
+| S-D7 | SAR payload: encrypt or shorten | **Decided (owner, 2026-10-18):** **Encrypt the three location and free-text fields**. Retention is already short (24 h for positions after close). |
+| S-D8 | Notice latency for AvServ-origin events | **Decided (owner, 2026-10-18):** **Daily on Hobby; 10 minutes after the Pro move.** Portal events go out immediately. |
+| S-D9 | CSP rollout | **Decided (owner, 2026-10-18):** **One week Report-Only, then enforce.** A nonce makes every HTML page dynamic, including the static public pages (S-D10). |
+| S-D10 | Static public pages under a nonce CSP | **Decided (owner, 2026-10-18):** **Accept dynamic rendering** (cost: no full-route cache; the pages stay DB-free, CLAUDE.md §3.7). The alternative is hash-based CSP with Next's experimental SRI. |
+| S-D11 | Render site | **Decided (owner, 2026-10-18):** **Suspend it** once a check shows nothing points there. |
 
 ## 9. S6 — plan 57, later
 
@@ -352,17 +352,17 @@ rules:
 | PR | Contents | Waits on |
 |---|---|---|
 | 1 | **This plan**, the S1 infrastructure doc, `00_status` row | — |
-| 2 | S2 schema + hashed adapter + `auth_time` + recent-auth helper (migration: prod before merge) | S-D1, S-D2, S-D4 |
+| 2 | S2 schema + hashed adapter + `auth_time` + recent-auth helper (migration: prod before merge) | — |
 | 3 | S2 `/settings/sessions` + revoke on password change + transactional reset + portal events table | PR 2 |
 | 4 | H5 + H6 + H2 (small, independent) | — |
 | 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | — |
-| 6 | H1 CSP Report-Only, then a one-line enforce PR | S-D9, S-D10 |
+| 6 | H1 CSP Report-Only, then a one-line enforce PR | — |
 | 7 | S3 scoped kid in the portal | AvServ kid installed |
 | 8 | S4 revoke UI + preview on the mock | PR 3, PR 7, `device_revoke.md` rev 1 |
 | 9 | S4 security-events view + opt-in notices | PR 3, `security_events.md` rev 1 |
-| 10 | S4 passkeys + password-to-disable (migration) | PR 2, S-D5 |
+| 10 | S4 passkeys + password-to-disable (migration) | PR 2 |
 | 11 | S4 App Lock reset code + link-code rate limit | PR 8 |
-| 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | PR 10 shipped, S-D6 |
+| 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | PR 10 shipped |
 | 13 | H4 SAR payload encryption, H7 rotation table | PR 5 |
 | — | S6 (plan 57) | §9 gates |
 
