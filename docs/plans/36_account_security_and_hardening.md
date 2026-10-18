@@ -1,16 +1,17 @@
 # 36 — Account security and hardening (portal side of AvApp plans 54–57)
 
 Status: **draft, 2026-10-17; owner decisions (§8) all decided 2026-10-18, as recommended.
-S1 done in this PR.** Nothing else here is built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
+S1 done (#161). AvServ contracts rev 1 written 2026-10-18 (§6).** Nothing else here is built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
 system) and 57 (false alarms) on 2026-10-17 (AvApp `21f9da3`, PR #288). This plan is the
 portal's share of them, in the order the owner set. It was read against portal `origin/main`
 `e1bc368`, AvServ `origin/main` `04510c8` and AvApp `origin/main` `21f9da3`.
 
-**AvServ owns the contracts.** `device_revoke.md` and `security_events.md` (plan 54 §7.1–7.2)
-and later `false_alarm_reports.md` (plan 57 §5) are **not yet written** in AvServ. The portal
-builds against each one behind `AVSERV_BASE_URL=mock://` once its rev 1 lands, the same way
-plan 32 built against `restrictions.md`. Nothing here edits AvServ or AvApp. §6 lists what to
-ask AvServ for.
+**AvServ owns the contracts.** `device_revoke.md` rev 1 and `security_events.md` rev 1
+(2026-10-18) are in AvServ PR #299 (`061d4e2`). Both are **specified, not built**: AvServ
+builds them in its plan 52 steps 3–4. The portal builds against them behind
+`AVSERV_BASE_URL=mock://`, the same way plan 32 built against `restrictions.md`.
+`false_alarm_reports.md` (plan 57 §5) comes later. Nothing here edits AvServ or AvApp. §6 has
+the contract facts the portal depends on.
 
 ## 0. Rules
 
@@ -27,8 +28,12 @@ Owner, 2026-10-17:
 Carried from the plans and CLAUDE.md:
 
 5. **A user revoke never cuts the safety net.** A revoked phone still sends Send Help and
-   heartbeats, and its armed check-out stays watched (plan 54 §7.1). The full 401 cut stays
-   operator-only. The portal's copy says this plainly.
+   heartbeats, can start a new check-out, and its armed check-out stays watched (plan 54 §7.1;
+   `device_revoke.md` §2, §6). It **can't check in**, so a trip started on it alerts unless the
+   user checks in from another linked device (§4 of the contract; AvApp D9). The portal's copy
+   says all of this plainly. **Amended 2026-10-18** (AvServ plan 52 D3): the operator ban no
+   longer cuts Send Help or the heartbeat either. It stays operator-only and is still the wider
+   cut, but it is not a "full 401", and nothing in the portal can call it.
 6. **No restriction or report ever blocks a safety action** (plan 57 rule 1; restrictions
    contract tie-breaker). The portal never decides misuse automatically.
 7. **Fail loud, except where silence is the safety behaviour.** Every failure here is visible
@@ -43,12 +48,13 @@ Carried from the plans and CLAUDE.md:
 |---|---|---|---|
 | **S1 now** | Local dev off the production DB | 56 P1 | — (**done, §2**) |
 | **S2** | Sessions: list, revoke one or all, revoke on password change, hashed tokens, `auth_time` | 56 P3 | — (portal only) |
-| **S3** | Scoped service-JWT kids, starting with a revoke key | 56 P4, 54 §7.1 | AvServ adds the kid and its scope |
-| **S4** | Device revoke UI, security-events view, opt-in notices, passkeys then `MFA_ENFORCEMENT=all`, App Lock reset code | 54 §7, §4.6 | S2, S3; AvServ `device_revoke.md`, `security_events.md` |
+| **S3** | Scoped service-JWT kids, starting with a revoke key | 56 P4, 54 §7.1 | Built on the mock now; AvServ installs the kid after its revoke build ships on both nodes |
+| **S4** | Device revoke UI, security-events view, opt-in notices, passkeys then `MFA_ENFORCEMENT=all`, App Lock reset code | 54 §7, §4.6 | S2, S3; built on the mock against the rev 1 contracts; live once AvServ plan 52 ships |
 | **S5** | Hardening: CSP, OAuth tokens, TOTP key id and replay, SAR payload, DB TLS and https, log IPs and phones, rotation table, Render | 56 P2, P5–P8 | — (portal only; Render is owner) |
 | **S6 later** | `/report`, per-user block, SAR disposition and decline, false-alarm queue | 57 §2, §5 | AvServ plan 39 built; `false_alarm_reports.md`; counsel; DV advocate |
 
-S2 and S5 need nothing from AvServ, so they can run in parallel with AvServ's contract work.
+S2 and S5 need nothing from AvServ. S3 and S4 now have their contracts, so they can be built on
+the mock in parallel with AvServ's build.
 
 ## 2. S1 — local dev off production (done 2026-10-17)
 
@@ -69,8 +75,16 @@ Done:
 Owner checks:
 
 - Any other machine or checkout with an old `.env.local`.
-- Whether the Vercel **Development** env's `DATABASE_URL` still points at `vercel-dev`, which
-  is a production fork with production data. `vercel env pull` would bring it back.
+- **Checked 2026-10-18: the Vercel Development env's `DATABASE_URL` and
+  `DATABASE_URL_UNPOOLED` point at `vercel-dev`** (`ep-rough-pond-…`). That's a branch of the
+  production project, last reset from production on 2026-07-25. Today it holds one user row (the
+  owner's own) and 11 of 27 migrations, so there is no third-party data yet.
+  - The risk is a future reset: the runbook resets `vercel-dev` from production when migration
+    history drifts. That would copy all production data into the Development env, into CI's
+    e2e parent (`ci.yml:152`), and into any `vercel env pull`.
+  - **Proposed (owner to approve):** point Vercel Development at `local-dev`. Move CI's e2e
+    parent off `vercel-dev` (to an empty-schema branch, or to the preview project) before
+    `vercel-dev` is ever reset again.
 
 ## 3. S2 — sessions (before any per-device revoke)
 
@@ -159,17 +173,26 @@ Today one Ed25519 key with kid `svc-key-portal-1` signs every call (`lib/avserv/
 AvServ already supports per-kid route groups through `AVSERV_SERVICE_KEY_SCOPES` (AvServ
 `config.go:1182-1196`). The portal is the side that doesn't separate its keys.
 
-- **Ask AvServ** (§6) for a second kid, `svc-key-portal-device-admin-1`, scoped **only** to the
-  new `device_admin` group (plan 54 §7.1). Its key pair is generated with the
-  `svc-key-portal-1` procedure (runbook "AvServ service key").
+- A second kid, `svc-key-portal-device-admin-1`, scoped **only** to `device_admin`
+  (`device_revoke.md` §3.1).
+  - AvServ's doctor FAILs a node where `device_admin` is held with another group or by two
+    keys.
+  - The install steps are in the AvServ runbook, "Portal device-admin key". AvServ installs it
+    **after its revoke build ships on both nodes**.
+  - The key pair is generated with the `svc-key-portal-1` procedure (portal runbook "AvServ
+    service key").
+- **Security events are read with the everyday key** `svc-key-portal-1`, which AvServ grants the
+  new read-only group `security_events` (`security_events.md` §5). The revoke key isn't used
+  to read.
 - In the portal, `avservFetch` takes a `keyRole: "default" | "device_admin"`. Revoke, revoke
   preview, revoke-others and the App Lock reset code use `device_admin`; everything else stays
   `default`.
 - New env triple: `AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64`, `…_KID` and `…_KEY_SHA256`, with
   the same build check as today's key (`scripts/check-service-key.ts`). It is added to
   `lib/env.ts`, `.env.example` and Vercel Production (an owner check).
-- When the key is unset, revoke shows "unavailable" and reports to Sentry. It never falls back
-  to the default key.
+- When the key is unset, or a node answers `403 path_not_allowed` or `503
+  device_admin_unavailable`, revoke shows "unavailable" and reports to Sentry. It never falls
+  back to the default key.
 - Later, one kid per remaining group (`sar_ack`, `account_lookup`, `sar_feed`) as each is next
   touched. This needs no new design.
 
@@ -186,33 +209,70 @@ AvServ write endpoint"). It gains:
 - **Sign out this phone**, per device:
   1. Recent login (§3.4).
   2. The **revoke preview**: `GET …/devices/{id}/revoke-preview` on **every node**, merged the
-     way the erasure pages merge results. The `live[]` items are shown in plain words, and any
-     kind the portal doesn't know is shown as "an open safety item" (rule 3: plan 55 §3.4's
-     generic `held`).
-  3. A reason: lost, stolen or "I don't use it".
-  4. `POST …/revoke` to every node.
-- **What the user is told** (rule 5, honest copy): "This phone can no longer see your trips or
-  change your contacts. If it's still with you, it can still send Send Help, and any trip
-  you've already started is still watched. To use it again, link it as a new phone."
-- **Sign out all other phones** uses `revoke-others {keepDeviceId}`. The portal can't tell
-  which phone is in the user's hand, so the user picks the one to keep. "None" waits on
-  whether the contract allows it (§6).
-- **Partial results** are loud: "Signed out on one server; the other didn't answer. It will
-  catch up." The node is named in the log, there's a retry button, and the replication outbox
-  is the backstop (plan 54 §7.1).
+     way the erasure pages merge results (contract §3.2).
+     - `live[]` is **informational**: it never blocks a revoke, and the revoke cuts none of
+       it. The portal says "this stays watched".
+     - Kinds are a closed list: `checkout` ("a trip you've started"), `help_request` ("an open
+       Send Help"), and `held`. `held`, and any kind the portal doesn't know, are shown as "an
+       open safety item" (rule 3).
+     - `revoked: true` on a node means it's already signed out there.
+  3. A reason: lost, stolen or "I don't use it" (`lost` / `stolen` / `user`).
+  4. `POST …/revoke` to every node. There is no 409: live state never blocks it.
+- **What the user is told** (rule 5, honest copy):
+  > This phone can no longer see your trips or change your contacts. If it's still with you,
+  > it can still send Send Help and start a new trip, and any trip already started on it is
+  > still watched. **It can't check in.** If a trip on it is under way, check in from another
+  > linked phone, or your contact will be alerted. To use the phone again, link it as a new
+  > phone.
+
+  The contract's §4 makes the cost explicit: an abuser who holds the portal login can force a
+  false alert by revoking the victim's phone. The owner accepted this on 2026-10-18 (AvServ
+  plan 52 D1). The copy says so where the abuse is possible, in Settings help, not as a threat
+  on the button.
+- **Sign out all other phones** uses `revoke-others {keepDeviceId, reason}`.
+  - `keepDeviceId` is **always sent**. The user picks the phone to keep, or **None**, which
+    sends `null` and revokes them all. An absent field is a 400, so "none" is always
+    deliberate.
+  - The kept phone is checked first on each node. `404 device_not_found` (not replicated
+    there yet) or `409 keep_device_revoked` revokes **nothing on that node**. The portal shows
+    it as that node's result and offers a retry.
+  - Each node revokes only the devices it knows at the time of the call, so every node is
+    called.
+- **Per-node results, retries and timeouts** (contract §3.3):
+  - Every node is called, and each node's answer is shown.
+  - One success reaches the rest by replication. A node that didn't answer is a **partial
+    result**: "Signed out on one server; the other didn't answer. It will catch up." There's a
+    retry button.
+  - A timeout is **unknown, not failed**. Re-POSTing is safe: a repeat answers 200 with
+    `alreadyRevoked: true` and the original `revokedAt` and `reason`.
+  - A `404` on one node may mean the phone hasn't replicated there yet. It's shown as
+    "not there yet", with a retry.
+- **The node window** (contract §4): a node that hasn't applied the revoke still accepts a
+  check-in from the phone. Calling every node narrows the window but can't close it. The plan
+  says so; the UI doesn't need to.
 - The page also offers the S2 action, "Sign out every other browser".
 - Each revoke writes a portal event (§3.3), and AvServ emits its own (§5.2).
 
 ### 5.2 Security-events view (`/settings/security`)
 
-- It merges the AvServ feed (`security_events.md`, a cursor read from both nodes and
-  deduplicated by event id, the `sar_feeds.md` pattern in `lib/avserv/sar-feeds.ts`) with
-  `account_security_events`, newest first.
-- AvServ kinds come from plan 54 §7.2: register, link, revoke, contact add, contact remove,
-  cancel. The portal's Zod enum lists **only** those. An unknown kind is dropped and counted
-  (`security_events.unknown_kind_dropped`, count only).
-- Rows show what, when and which device, and never a contact's name or number. A removed
-  contact must not be named to whoever reads the account.
+- It merges the AvServ feed with `account_security_events`, newest first.
+  - Feed: `GET …/accounts/{id}/security-events?cursor=&limit=`, read from **every node**
+    (`security_events.md` §4; the `sar_feeds.md` pattern in `lib/avserv/sar-feeds.ts`).
+  - Each node is oldest-first with its own opaque cursor. `nextCursor: null` means nothing
+    newer yet, so the portal keeps the last non-null cursor.
+  - Events dedupe on `id`, which is a UUIDv5 of the action, the same on both nodes. The
+    **earliest** `at` wins.
+  - A node that doesn't answer makes the list "may be incomplete", said on the page.
+- Kinds are the contract's closed list: `register`, `link`, `revoke`, `contact_add`,
+  `contact_remove`, `cancel`.
+  - The portal's Zod enum lists **only** those.
+  - An unknown kind is dropped and counted (`security_events.unknown_kind_dropped`, count
+    only; rule 3).
+  - AvServ guarantees no duress event, field, ordering, gap or timing, ever (contract §2).
+- Rows show what, when and which device. The feed carries no contact names, numbers, emails or
+  locations, and the portal adds none. A removed contact must not be named to whoever reads
+  the account.
+- Reader header: `X-AvAI-Reader: portal-user:<id>`. Every read is logged on the node.
 - Needs recent login: the history itself is sensitive (rule 1).
 
 ### 5.3 Opt-in email notices
@@ -222,9 +282,14 @@ AvServ write endpoint"). It gains:
 - Content: "A security change happened on your AvAI account at <time>. Sign in to see what
   changed." No kind detail, no names, no device names. The inbox may be the abuser's, and a
   notice must not tip off a removed contact.
-- Portal events notify as they happen. AvServ events notify from a cron that reads the feed
-  cursor. On Vercel Hobby, crons run once a day, so the latency is a day until the planned move
-  to Pro (memory: beta blocker plan; S-D8).
+- Portal events notify as they happen.
+- AvServ events notify from a cron that reads each opted-in account's feed from every node.
+  - It reads from the last cursor, kept per account and node in a new table,
+    `security_notice_cursors(user_id, node, cursor, updated_at)`.
+  - It uses reader `portal-user:automation:security-notices` (contract §5).
+  - On Vercel Hobby crons run once a day, so the latency is a day until the planned move to Pro
+    (S-D8).
+  - Turning notices on starts from the current end of each feed, so no backlog is emailed.
 - A template in `lib/email/templates/`, added to the legal-copy scan.
 
 ### 5.4 Passkeys (WebAuthn), then `MFA_ENFORCEMENT=all`
@@ -250,8 +315,14 @@ AvServ write endpoint"). It gains:
 
 - **Get an App Lock reset code**, per device. It needs recent login, and the account must have
   MFA or a passkey.
-- AvServ issues the code, as it issues link codes today (`lib/avserv/client.ts:209-262`), using
-  the `device_admin` kid. The endpoint is part of the §6 ask.
+- AvServ issues the code (`device_revoke.md` §3.5):
+  `POST …/accounts/{id}/devices/{deviceId}/app-lock-reset-codes`, using the `device_admin` kid.
+  - The code is 8 characters in the link-code alphabet, has a 10-minute TTL, is single use and
+    bound to that device, and is stored hashed on AvServ.
+  - The portal shows it **once** and never stores or logs it.
+  - Call one node, and the other on a timeout or 503. Two live codes are harmless.
+  - `409 device_revoked` means a revoked phone has no App Lock to reset. `429 rate_limited`
+    (AvServ backstop: 3 per device and 5 per account a day, per node) shows its `Retry-After`.
 - Copy (§0 rule 8; counsel only if it becomes binding): "Entering this code on your phone
   starts the same 24-hour wait as 'Forgot PIN'. It never makes the wait shorter. Your real PIN
   still cancels it."
@@ -261,9 +332,16 @@ AvServ write endpoint"). It gains:
 
 ### 5.6 Tests
 
-- Mock-client tests for revoke, revoke preview, revoke-others and the reset code, including the
-  generic rendering of an unknown preview kind.
-- A merged feed with an unknown kind: it is dropped, and the log holds only a count.
+- Mock-client tests for revoke, revoke preview, revoke-others and the reset code:
+  - the generic rendering of `held` and of an unknown preview kind;
+  - `alreadyRevoked` repeats;
+  - `keepDeviceId: null` always sent for "None";
+  - `409 keep_device_revoked` and `404` shown per node;
+  - a timeout retried;
+  - `400 reader_required` never reached (the header is always set).
+- A merged feed: dedupe by `id` keeping the earliest `at`; per-node cursors kept apart; an
+  unknown kind dropped with a count-only log; one node down shown as incomplete.
+- The revoke copy names check-in from the revoked phone as refused.
 - Every action needs recent login.
 - Notices are off by default; turning them on or off needs recent login; the email has no
   detail.
@@ -274,25 +352,39 @@ AvServ write endpoint"). It gains:
 - **A rule-3 guard test**: a repo scan fails if `duress`, `second pin` or `second_pin` appears
   in `app/`, `lib/` or `components/`.
 
-## 6. Asks of AvServ (the owner relays; this PR edits nothing there)
+## 6. AvServ contracts (rev 1, 2026-10-18; AvServ PR #299, `061d4e2`)
 
-1. **`docs/contracts/device_revoke.md` rev 1** (plan 54 §7.1):
-   - the three endpoints;
-   - preview `live[]` kinds as a closed list, with a generic `held` for anything the portal must
-     not name;
-   - whether `keepDeviceId` may be absent;
-   - `410 device_revoked`;
-   - `X-AvAI-Reader`;
-   - the App Lock reset-code endpoint, plus the code's shape and TTL.
-2. **`docs/contracts/security_events.md` rev 1** (§7.2):
-   - kinds and fields, with event ids for deduplication across nodes;
-   - the cursor;
-   - retention;
-   - a written guarantee that no duress event is ever emitted.
-3. **Kid `svc-key-portal-device-admin-1`** in `AVSERV_SERVICE_KEYS`, with scope `device_admin`
-   only.
-4. **Later:** `false_alarm_reports.md` (plan 57 §5) and restrictions contract rev 2 (the new
-   scopes and portal issuing).
+Answered, specified and not built. AvServ plan 52 builds them: step 3 is the revoke and reset
+code, step 4 is security events.
+
+1. **`docs/contracts/device_revoke.md` rev 1.** The facts the portal builds on are in §5.1 and
+   §5.5:
+   - routes in group `device_admin`;
+   - closed preview kinds (`checkout`, `help_request`, `held`);
+   - `keepDeviceId` required, nullable;
+   - per-node answers, `alreadyRevoked` repeats, and timeouts that are safe to retry;
+   - `410 device_revoked` for the app;
+   - `X-AvAI-Reader` required;
+   - the reset code (§3.5).
+2. **`docs/contracts/security_events.md` rev 1** (§5.2–5.3 above):
+   - six kinds;
+   - UUIDv5 ids;
+   - a per-node cursor;
+   - the everyday key plus `security_events`;
+   - no duress, ever.
+
+   Retention (proposed 400 days, held while live) and erasure (rev 1 default: deleted with the
+   account) are **[COUNSEL]**.
+3. **Kid `svc-key-portal-device-admin-1`.** Its install steps are in the AvServ runbook
+   ("Portal device-admin key"). It's installed after the revoke build ships on both nodes.
+4. **Still open on AvServ's side:** hashing link codes at rest and an AvServ-side mint limit
+   (AvServ plan 52 §3.7, D14, open with the owner). The portal's own mint limit (§5.5) doesn't
+   wait on it.
+5. **Later:** `false_alarm_reports.md` (plan 57 §5) and restrictions contract rev 2.
+
+**Portal data in the same scope.** `account_security_events` and `security_notice_cursors` are
+deleted with the portal user (`ON DELETE CASCADE`), which matches the contract's rev 1 erasure
+default. The runbook's deletion steps name them once they exist.
 
 ## 7. S5 — hardening
 
@@ -357,9 +449,9 @@ rules:
 | 4 | H5 + H6 + H2 (small, independent) | — |
 | 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | — |
 | 6 | H1 CSP Report-Only, then a one-line enforce PR | — |
-| 7 | S3 scoped kid in the portal | AvServ kid installed |
-| 8 | S4 revoke UI + preview on the mock | PR 3, PR 7, `device_revoke.md` rev 1 |
-| 9 | S4 security-events view + opt-in notices | PR 3, `security_events.md` rev 1 |
+| 7 | S3 scoped kid in the portal (mock first) | Live: AvServ installs the kid after its revoke build |
+| 8 | S4 revoke UI + preview on the mock | PR 3, PR 7 (contract rev 1 ✅) |
+| 9 | S4 security-events view + opt-in notices (migration: cursors table) | PR 3 (contract rev 1 ✅) |
 | 10 | S4 passkeys + password-to-disable (migration) | PR 2 |
 | 11 | S4 App Lock reset code + link-code rate limit | PR 8 |
 | 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | PR 10 shipped |
