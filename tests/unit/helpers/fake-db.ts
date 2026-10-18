@@ -4,7 +4,7 @@
 // CLAUDE.md §4.3): the test mocks `@/lib/db`, `@/lib/db/schema` and
 // `drizzle-orm` with the exports below.
 //
-// Scope is deliberately small: select/insert/update/delete with eq, and, isNull,
+// Scope is deliberately small: select/insert/update/delete with eq, ne, and, isNull,
 // isNotNull and gt predicates, `.limit()`, `.returning()`, and `transaction()`. Anything
 // else throws, so a query shape the fake doesn't model fails the test loudly
 // instead of silently matching nothing.
@@ -13,6 +13,7 @@ export type Row = Record<string, unknown>;
 
 type Pred =
   | { op: "eq"; col: string; val: unknown }
+  | { op: "ne"; col: string; val: unknown }
   | { op: "gt"; col: string; val: unknown }
   | { op: "isNull"; col: string }
   | { op: "isNotNull"; col: string }
@@ -31,6 +32,7 @@ export function fakeTable(name: string): Table & Record<string, string> {
 
 export const fakeOperators = {
   eq: (col: string, val: unknown): Pred => ({ op: "eq", col, val }),
+  ne: (col: string, val: unknown): Pred => ({ op: "ne", col, val }),
   gt: (col: string, val: unknown): Pred => ({ op: "gt", col, val }),
   isNull: (col: string): Pred => ({ op: "isNull", col }),
   isNotNull: (col: string): Pred => ({ op: "isNotNull", col }),
@@ -46,6 +48,8 @@ function matches(row: Row, pred: Pred): boolean {
       return row[pred.col] instanceof Date && pred.val instanceof Date
         ? (row[pred.col] as Date).getTime() === pred.val.getTime()
         : row[pred.col] === pred.val;
+    case "ne":
+      return row[pred.col] !== pred.val;
     case "gt":
       return (row[pred.col] as number | Date) > (pred.val as number | Date);
     case "isNull":

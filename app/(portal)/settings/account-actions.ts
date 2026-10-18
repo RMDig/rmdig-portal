@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
+import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { currentSessionId, signOutOtherSessions } from "@/lib/auth/sessions";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -111,11 +113,18 @@ export async function changePasswordAction(
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  // Every other browser is signed out with the old password (plan 36 §3.3): a
+  // password change is often how someone takes their account back, so a
+  // session opened by whoever knew the old one must not outlive it. This
+  // browser stays signed in.
+  const keep = await currentSessionId(userId);
+  const signedOut = await db.transaction(async (tx) => {
+    await tx.update(users).set({ passwordHash }).where(eq(users.id, userId));
+    const n = await signOutOtherSessions(tx, userId, keep);
+    await recordSecurityEvent(tx, { userId, kind: "password_changed", sessionId: keep });
+    return n;
+  });
 
-  // Sessions are intentionally left intact: the user proved possession of the
-  // current password, so this isn't a compromise-recovery flow (that's the
-  // reset path, which does burn sessions). Their other devices stay signed in.
-  logger.info({ event: "account.password.changed", userId });
+  logger.info({ event: "account.password.changed", userId, signedOut });
   return { ok: true };
 }

@@ -132,6 +132,46 @@ export const sessions = pgTable(
   (t) => [index("sessions_user_id_idx").on(t.userId)],
 );
 
+// Security-relevant changes made through the portal, for the account's
+// security view (plan 36 §3.3, §5.2), merged later with AvServ's own feed.
+// Append-only. No free text and no IP: an abuser may hold the login (plan 36
+// rule 1), so a row says what happened and when, never to whom or from where.
+// A CHECK, not a Postgres enum, so adding a kind is a constraint swap rather
+// than ALTER TYPE … ADD VALUE (which can't run inside drizzle's migration
+// transaction on a fresh database).
+export const ACCOUNT_SECURITY_EVENT_KINDS = [
+  "password_changed",
+  "password_reset",
+  "mfa_enabled",
+  "mfa_disabled",
+  "recovery_codes_regenerated",
+  "session_revoked",
+  "sessions_revoked_others",
+] as const;
+export type AccountSecurityEventKind = (typeof ACCOUNT_SECURITY_EVENT_KINDS)[number];
+
+export const accountSecurityEvents = pgTable(
+  "account_security_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<AccountSecurityEventKind>().notNull(),
+    at: timestamp("at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+    // The session that made the change, when there was one (a reset has none).
+    // Not a foreign key: the session is often revoked by the change itself.
+    sessionId: uuid("session_id"),
+  },
+  (t) => [
+    index("account_security_events_user_at_idx").on(t.userId, t.at),
+    check(
+      "account_security_events_kind",
+      sql`${t.kind} IN (${sql.raw(ACCOUNT_SECURITY_EVENT_KINDS.map((k) => `'${k}'`).join(", "))})`,
+    ),
+  ],
+);
+
 export const verificationTokens = pgTable(
   "verification_tokens",
   {

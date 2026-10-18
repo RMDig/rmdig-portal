@@ -626,7 +626,7 @@ under the CPA — treat every request as covering it.
    (`originNode`, per-table counts) into the completion note.
 
 4. **Portal data.** If a `users` row matches the email, delete it — sessions,
-   accounts, MFA rows, memberships, tokens cascade. Caveat: rows the user
+   accounts, MFA rows, memberships, tokens and `account_security_events` cascade. Caveat: rows the user
    *created* for org-shaped entities (`sar_orgs.created_by_user_id`,
    `advertiser_accounts.created_by_user_id`, invitation `created_by_user_id`)
    have plain FKs and will block the delete. If they own such rows, transfer
