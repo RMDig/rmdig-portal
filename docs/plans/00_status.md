@@ -50,6 +50,7 @@ the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
 | [31 Agreement onboarding](31_account_agreement_onboarding.md) | ✅ merged (#77) | **Counsel**: agreement text, assent/attestation wording, minimum age, individuals-only, privacy acknowledgement, retention vs deletion, scroll-to-agree (D2). Then AvServ publishes v1 → `pnpm agreement:pin v1` within 30 days; capture on. Also §1 |
 | [32 Restriction review](32_restriction_review.md) | ✅ merged (#83), runs on the mock | AvServ builds plan 39 (after v1.5) |
 | [33 Map and SAR workspace](33_map_and_sar_workspace.md) | Phase 1 `/map` ✅ (own SAR areas, own ad targets, staff overview) | Phases 2–4 (own history; SAR teams as opt-in contacts with team terms; red/orange SAR layers): doc amendments, AvServ contracts, counsel addendum (§4) |
+| [36 Account security and hardening](36_account_security_and_hardening.md) | Draft 2026-10-17; S1 (local dev off production) done | Owner decisions done 2026-10-18; AvServ `device_revoke.md`, `security_events.md`, a `device_admin` kid (§6) |
 
 ## 4. Incident Detection re-filing (AvServ plans 38/38a/38b)
 
@@ -94,6 +95,4 @@ spacing on `/privacy`/`/terms` (#87, open).
   AvApp doc 40 Q9 (the portal page for `identity_locked` is `https://rmdig.ai/settings`).
 - Maintenance: DMARC `p=quarantine` → `p=reject`; Sentry and Neon plan decisions
   ([infrastructure.md](../infrastructure.md) "Maintenance").
-- Move local development off the production database (`.env.local` points at the
-  production endpoint).
 - Prune merged local branches.
