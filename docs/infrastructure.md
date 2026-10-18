@@ -11,7 +11,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | **GitHub** | `dennys246/rmdig-portal` (public) | — | Source of truth, Vercel build trigger, Sentry source-code mapping |
 | **Vercel** | Project `rmdig-portal` under team `denny-schaedig-s-projects` | `VERCEL_GIT_COMMIT_SHA` (auto, build-time) | Hosting for Next.js app; deploys `main` to production, every PR to a preview |
 | **Neon** | Project linked via Vercel Marketplace ("Neon-managed" path) | `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct), `POSTGRES_*` family (auto-injected) | Primary Postgres for users, SAR orgs, device links. PostGIS enabled. First migration applied — empty `users` table exists. |
-| **Neon (previews)** | Separate project `rmdig-portal-preview`: branches `preview-seed` (test personas) → `preview` | Preview-scoped `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (set by hand) | Database for every Vercel preview; no production data (runbook "Preview deployments") |
+| **Neon (previews)** | Separate project `rmdig-portal-preview`: branches `preview-seed` (test personas) → `preview`, and `local-dev` for local development | Preview-scoped `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (set by hand) | Database for every Vercel preview and for local dev; no production data (runbook "Preview deployments"; "Local development database" below) |
 | **Vercel Blob** | **Private** store connected to Production (runbook "SAR proof documents") | `BLOB_STORE_ID` (OIDC auth) | SAR proof documents, read only through the staff route |
 | **Google Cloud Console** | OAuth client for the `rmdig` project | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in (configured in P1.1) |
 | **Resend** | Domain `rmdig.ai` (apex DKIM, `send.rmdig.ai` envelope) | `RESEND_API_KEY`, `RESEND_FROM_EMAIL=noreply@rmdig.ai` | Transactional email — verification links, claim tokens, org approvals |
@@ -32,7 +32,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 
 | Var | `.env.local` | Vercel: Production | Vercel: Preview | Vercel: Development | Sensitive in Vercel? |
 |---|---|---|---|---|---|
-| `DATABASE_URL` | dev-branch URL (**currently points at production — move it**) | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | auto | yes |
+| `DATABASE_URL` | pooled URL of `local-dev` in `rmdig-portal-preview` (moved off production 2026-10-17, plan 36 S1); `DATABASE_URL_UNPOOLED` is the same branch's direct URL | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | auto | yes |
 | `NEXTAUTH_URL` | `http://localhost:3000` | `https://app.rmdig.ai` (**required**: the server refuses to boot in production without it; every emailed link is built from it) | unset (Auth.js auto-detects) | — | no |
 | `NEXTAUTH_SECRET` | hex string | hex | **its own value** (was missing until the previews PR, so preview sign-in failed) | hex | yes |
 | `GOOGLE_CLIENT_ID` | yes | yes | yes | yes | no |
@@ -88,6 +88,20 @@ curl -X POST https://api.resend.com/emails \
   -H "Content-Type: application/json" \
   -d '{"from":"rmdig <noreply@rmdig.ai>","to":"dennys25@pm.me","subject":"smoke","text":"alive"}'
 ```
+
+## Local development database
+
+Local dev uses the `local-dev` branch of the **preview** Neon project (`rmdig-portal-preview`, id `icy-sunset-60687550`), forked from `preview-seed` on 2026-10-17. It holds the seeded test personas and no production data. Until that date `.env.local`'s `DATABASE_URL` pointed at the production branch, so a local `pnpm dev` wrote to production and a local `pnpm db:migrate` would have migrated it (plan 36 S1, AvApp plan 56 P1).
+
+- **Refresh** the URLs (both are the `neondb_owner` role; guard against an empty result):
+  ```sh
+  cd ~ && P=$(neonctl connection-string local-dev --project-id icy-sunset-60687550 --role-name neondb_owner --database-name neondb --pooled) && echo "${P:?empty}" | sed 's/:[^:@]*@/:***@/'
+  ```
+  The direct URL is the same command without `--pooled`. Paste them into `.env.local` as `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
+- **Migrate it** after pulling a migration: `pnpm db:migrate` (drizzle reads `.env.local`, see below).
+- **Reset it** to the seed: `neonctl branches reset local-dev --parent --project-id icy-sunset-60687550`, then `pnpm db:migrate`.
+- **Check where you are** before anything that writes: the host must be `ep-flat-bar-…` (`local-dev`), never `ep-crimson-thunder-…` (the `production` branch of `lingering-waterfall-99928244`).
+- Don't `vercel env pull` into `.env.local`: it writes the Vercel Development values over the local ones.
 
 ## Local CLI gotchas
 
