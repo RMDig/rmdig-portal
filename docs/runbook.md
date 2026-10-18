@@ -664,10 +664,12 @@ already require MFA regardless.
 
 Two independent mechanisms, different failure domains:
 
-1. **Neon point-in-time restore** (managed, always on) — check the history
-   retention window on the `production` branch of project
-   `lingering-waterfall-99928244` and bump it if the plan allows; restore =
-   create a branch from a timestamp in the Neon console.
+1. **Neon point-in-time restore** (managed, always on). The history window on
+   project `lingering-waterfall-99928244` is **6 hours** (owner, 2026-10-18; the
+   current plan's limit). Restore = create a branch from a timestamp in the Neon
+   console. A mistake found later than 6 hours falls back to the nightly dump
+   below, which can lose up to a day. So run a production migration when you
+   can check production within a few hours of it, not last thing at night.
 2. **Nightly encrypted dump to Cloudflare R2** —
    [.github/workflows/db-backup.yml](../.github/workflows/db-backup.yml),
    09:00 UTC. `pg_dump -Fc` → `age`-encrypt → upload to
@@ -900,7 +902,11 @@ data** and never reach the live AvServ:
   DATABASE_URL="${SEED:?}" pnpm db:migrate; unset SEED
   ```
 - `vercel-dev` (the CI E2E parent) is a separate matter: it's still a branch of
-  production, used only by CI.
+  production, used only by CI. CI forks it and migrates the fork on every run
+  (`ci.yml` "Apply migrations"), so a stale `vercel-dev` is harmless. **Never
+  reset `vercel-dev` from production**: that copies every production user into
+  it, and from there into every CI run. As of 2026-10-18 it holds only the
+  owner's own row, from its last reset on 2026-07-25.
 
 ## Portal maintenance switch
 
