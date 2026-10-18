@@ -82,7 +82,9 @@ export default async function DevicesPage() {
           </CardHeader>
         </Card>
       )}
-      <LinkDeviceCard />
+      <LinkDeviceCard
+        devices={devices?.map((d) => ({ deviceId: d.deviceId, platform: d.platform })) ?? null}
+      />
     </div>
   );
 }
