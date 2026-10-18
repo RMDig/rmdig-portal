@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
   rlAllowed: true,
   rlKeys: [] as string[],
   secondFactorCalls: 0,
+  signedOut: [] as Array<{ userId: string; keep: string | null }>,
+  events: [] as Array<{ userId: string; kind: string; sessionId?: string | null }>,
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -21,8 +23,21 @@ vi.mock("@/lib/db/schema", () => ({
   users: { __t: "users", id: "id", totpSecretEncrypted: "s", mfaEnabledAt: "e" },
   mfaRecoveryCodes: { __t: "rc", userId: "user_id", codeHash: "code_hash" },
 }));
-vi.mock("@/lib/db", () => ({
-  db: {
+vi.mock("@/lib/auth/sessions", () => ({
+  currentSessionId: () => Promise.resolve("sess-here"),
+  signOutOtherSessions: (_tx: unknown, userId: string, keep: string | null) => {
+    h.signedOut.push({ userId, keep });
+    return Promise.resolve(1);
+  },
+}));
+vi.mock("@/lib/auth/security-events", () => ({
+  recordSecurityEvent: (_tx: unknown, e: { userId: string; kind: string; sessionId?: string | null }) => {
+    h.events.push(e);
+    return Promise.resolve();
+  },
+}));
+vi.mock("@/lib/db", () => {
+  const db = {
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve(h.selectResult) }) }),
     }),
@@ -46,8 +61,10 @@ vi.mock("@/lib/db", () => ({
         return Promise.resolve();
       },
     }),
-  },
-}));
+    transaction: <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
+  };
+  return { db };
+});
 vi.mock("@/lib/auth/mfa", () => ({
   decryptSecret: (s: string) => s,
   verifyTotp: () => Promise.resolve(h.totpValid),
@@ -81,6 +98,8 @@ function form(code: string): FormData {
 }
 
 beforeEach(() => {
+  h.signedOut = [];
+  h.events = [];
   vi.clearAllMocks();
   h.sessionUserId = "u1";
   h.selectResult = [];
@@ -134,6 +153,9 @@ describe("confirmMfaEnrollmentAction", () => {
     expect(h.updates[0]?.mfaEnabledAt).toBeInstanceOf(Date);
     expect(h.deletes).toContain("rc"); // cleared prior codes
     expect(h.inserts).toHaveLength(1); // inserted new set
+    expect(h.events).toEqual([{ userId: "u1", kind: "mfa_enabled", sessionId: "sess-here" }]);
+    // Turning protection ON signs nobody out.
+    expect(h.signedOut).toEqual([]);
   });
 });
 
@@ -158,6 +180,8 @@ describe("disableMfaAction", () => {
     expect(res.ok).toBe(true);
     expect(h.updates[0]).toMatchObject({ totpSecretEncrypted: null, mfaEnabledAt: null });
     expect(h.deletes).toContain("rc");
+    expect(h.signedOut).toEqual([{ userId: "u1", keep: "sess-here" }]);
+    expect(h.events).toEqual([{ userId: "u1", kind: "mfa_disabled", sessionId: "sess-here" }]);
   });
 });
 
@@ -181,6 +205,8 @@ describe("regenerateRecoveryCodesAction", () => {
     }
     expect(h.deletes).toContain("rc");
     expect(h.inserts).toHaveLength(1);
+    expect(h.signedOut).toEqual([{ userId: "u1", keep: "sess-here" }]);
+    expect(h.events).toEqual([{ userId: "u1", kind: "recovery_codes_regenerated", sessionId: "sess-here" }]);
   });
 });
 

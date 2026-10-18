@@ -7,6 +7,9 @@ const h = vi.hoisted(() => ({
   selectResult: [] as Array<Record<string, unknown>>,
   rlAllowed: true,
   updates: [] as Array<Record<string, unknown>>,
+  signedOut: [] as Array<{ userId: string; keep: string | null }>,
+  events: [] as Array<{ userId: string; kind: string; sessionId?: string | null }>,
+  currentSession: "sess-here" as string | null,
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -16,8 +19,21 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/db/schema", () => ({
   users: { __t: "users", id: "id", displayName: "displayName", passwordHash: "passwordHash" },
 }));
-vi.mock("@/lib/db", () => ({
-  db: {
+vi.mock("@/lib/auth/sessions", () => ({
+  currentSessionId: () => Promise.resolve(h.currentSession),
+  signOutOtherSessions: (_tx: unknown, userId: string, keep: string | null) => {
+    h.signedOut.push({ userId, keep });
+    return Promise.resolve(2);
+  },
+}));
+vi.mock("@/lib/auth/security-events", () => ({
+  recordSecurityEvent: (_tx: unknown, e: { userId: string; kind: string; sessionId?: string | null }) => {
+    h.events.push(e);
+    return Promise.resolve();
+  },
+}));
+vi.mock("@/lib/db", () => {
+  const db = {
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve(h.selectResult) }) }),
     }),
@@ -29,8 +45,10 @@ vi.mock("@/lib/db", () => ({
         },
       }),
     }),
-  },
-}));
+    transaction: <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
+  };
+  return { db };
+});
 vi.mock("@/lib/rate-limit", () => ({
   incrementRateLimit: () => Promise.resolve({ allowed: h.rlAllowed, attempts: 1, resetAt: new Date() }),
 }));
@@ -48,6 +66,9 @@ function form(fields: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
+  h.signedOut = [];
+  h.events = [];
+  h.currentSession = "sess-here";
   vi.clearAllMocks();
   h.sessionUserId = "u1";
   h.selectResult = [];
@@ -127,6 +148,26 @@ describe("changePasswordAction", () => {
     expect(res).toEqual({ ok: true });
     expect(h.updates[0]?.passwordHash).toBeTruthy();
     expect(h.updates[0]?.passwordHash).not.toBe("realpassword");
+  });
+
+  it("signs every other browser out and records the change, keeping this browser", async () => {
+    h.selectResult = [{ passwordHash: await bcrypt.hash("realpassword", 4) }];
+    await changePasswordAction(
+      null,
+      form({ currentPassword: "realpassword", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
+    );
+    expect(h.signedOut).toEqual([{ userId: "u1", keep: "sess-here" }]);
+    expect(h.events).toEqual([{ userId: "u1", kind: "password_changed", sessionId: "sess-here" }]);
+  });
+
+  it("signs nobody out on a wrong current password", async () => {
+    h.selectResult = [{ passwordHash: await bcrypt.hash("realpassword", 4) }];
+    await changePasswordAction(
+      null,
+      form({ currentPassword: "wrongpassword", newPassword: "abcdefghijkl", confirmPassword: "abcdefghijkl" }),
+    );
+    expect(h.signedOut).toEqual([]);
+    expect(h.events).toEqual([]);
   });
 
   it("stays neutral-safe when rate-limited", async () => {

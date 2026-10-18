@@ -14,6 +14,7 @@ import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { featureEnabled } from "@/lib/features";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
+import { recordSecurityEvent } from "@/lib/auth/security-events";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
@@ -455,18 +456,22 @@ export async function resetPasswordAction(
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  // Set the new password and mark the email verified — completing a reset proves
-  // control of the inbox, so an unverified credentials user becomes verified.
-  await db
-    .update(users)
-    .set({ passwordHash, emailVerified: new Date() })
-    .where(eq(users.id, row.userId));
-
-  // Burn every reset token for this user (single-use + clears any siblings)...
-  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, row.userId));
-  // ...and invalidate all existing sessions so a stolen session can't outlive
-  // the password it was opened under. The user re-authenticates with the new one.
-  await db.delete(sessions).where(eq(sessions.userId, row.userId));
+  // One transaction, so a failure part-way can't leave the new password set
+  // with the old sessions (or the reset link) still working.
+  await db.transaction(async (tx) => {
+    // Set the new password and mark the email verified — completing a reset
+    // proves control of the inbox, so an unverified credentials user becomes verified.
+    await tx
+      .update(users)
+      .set({ passwordHash, emailVerified: new Date() })
+      .where(eq(users.id, row.userId));
+    // Burn every reset token for this user (single-use + clears any siblings)...
+    await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, row.userId));
+    // ...and invalidate all existing sessions so a stolen session can't outlive
+    // the password it was opened under. The user re-authenticates with the new one.
+    await tx.delete(sessions).where(eq(sessions.userId, row.userId));
+    await recordSecurityEvent(tx, { userId: row.userId, kind: "password_reset" });
+  });
 
   logger.info({ event: "pwreset.complete.success", userId: row.userId });
   return { ok: true };

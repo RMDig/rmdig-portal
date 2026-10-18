@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   deletes: [] as string[],
   updates: [] as Array<{ table: string; vals: Record<string, unknown> }>,
   sendReset: vi.fn(),
+  events: [] as Array<{ userId: string; kind: string }>,
+  txCount: 0,
   sendVerify: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -23,8 +25,14 @@ vi.mock("@/lib/db/schema", () => ({
   sessions: { __t: "sessions", userId: "userId" },
   verificationTokens: { __t: "vt", identifier: "identifier", token: "token", expires: "expires" },
 }));
-vi.mock("@/lib/db", () => ({
-  db: {
+vi.mock("@/lib/auth/security-events", () => ({
+  recordSecurityEvent: (_tx: unknown, e: { userId: string; kind: string }) => {
+    h.events.push(e);
+    return Promise.resolve();
+  },
+}));
+vi.mock("@/lib/db", () => {
+  const db = {
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve(h.selectResult) }) }),
     }),
@@ -52,8 +60,13 @@ vi.mock("@/lib/db", () => ({
         },
       }),
     }),
-  },
-}));
+    transaction: <T>(fn: (tx: unknown) => Promise<T>) => {
+      h.txCount++;
+      return fn(db);
+    },
+  };
+  return { db };
+});
 vi.mock("@/lib/email/send", () => ({
   sendPasswordResetEmail: h.sendReset,
   sendVerificationEmail: h.sendVerify,
@@ -84,6 +97,8 @@ function form(fields: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
+  h.events = [];
+  h.txCount = 0;
   vi.clearAllMocks();
   h.selectResult = [];
   h.rlAllowed = true;
@@ -180,6 +195,9 @@ describe("resetPasswordAction", () => {
     // Single-use + session invalidation.
     expect(h.deletes).toContain("prt");
     expect(h.deletes).toContain("sessions");
+    // All in one transaction, with the change recorded.
+    expect(h.txCount).toBe(1);
+    expect(h.events).toEqual([{ userId: "u1", kind: "password_reset" }]);
   });
 });
 

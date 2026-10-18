@@ -31,7 +31,8 @@ export function isRecentAuth(
   return age > -CLOCK_SKEW_MS && age <= maxAgeSec * 1000;
 }
 
-async function currentSessionTokenHash(): Promise<string | null> {
+/** sha256 of this request's session cookie, or null when there is none. */
+export async function currentSessionTokenHash(): Promise<string | null> {
   const store = await cookies();
   for (const name of SESSION_COOKIES) {
     const value = store.get(name)?.value;

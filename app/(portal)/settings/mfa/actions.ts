@@ -10,6 +10,8 @@ import {
   verifyTotp,
 } from "@/lib/auth/mfa";
 import { verifySecondFactor } from "@/lib/auth/mfa-verify";
+import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { currentSessionId, signOutOtherSessions } from "@/lib/auth/sessions";
 import { db } from "@/lib/db";
 import { mfaRecoveryCodes, users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -86,6 +88,7 @@ export async function confirmMfaEnrollmentAction(
 
   await db.update(users).set({ mfaEnabledAt: new Date() }).where(eq(users.id, userId));
   const recoveryCodes = await issueRecoveryCodes(userId);
+  await recordSecurityEvent(db, { userId, kind: "mfa_enabled", sessionId: await currentSessionId(userId) });
 
   logger.info({ event: "mfa.enrolled", userId });
   return { ok: true, recoveryCodes };
@@ -120,11 +123,18 @@ export async function disableMfaAction(
     return { ok: false, error: "That code didn't match. Try again." };
   }
 
-  await db
-    .update(users)
-    .set({ totpSecretEncrypted: null, mfaEnabledAt: null })
-    .where(eq(users.id, userId));
-  await db.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
+  // Turning the second factor off signs every other browser out (plan 36 §3.3),
+  // in one transaction with the change itself.
+  const keep = await currentSessionId(userId);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ totpSecretEncrypted: null, mfaEnabledAt: null })
+      .where(eq(users.id, userId));
+    await tx.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
+    await signOutOtherSessions(tx, userId, keep);
+    await recordSecurityEvent(tx, { userId, kind: "mfa_disabled", sessionId: keep });
+  });
 
   logger.info({ event: "mfa.disabled", userId });
   return { ok: true };
@@ -160,6 +170,13 @@ export async function regenerateRecoveryCodesAction(
   }
 
   const recoveryCodes = await issueRecoveryCodes(userId);
+  // New codes usually mean the old ones may have leaked: sign the other
+  // browsers out too (plan 36 §3.3).
+  const keep = await currentSessionId(userId);
+  await db.transaction(async (tx) => {
+    await signOutOtherSessions(tx, userId, keep);
+    await recordSecurityEvent(tx, { userId, kind: "recovery_codes_regenerated", sessionId: keep });
+  });
   logger.info({ event: "mfa.recovery_codes_regenerated", userId });
   return { ok: true, recoveryCodes };
 }
