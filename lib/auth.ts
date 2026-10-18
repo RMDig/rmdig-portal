@@ -5,10 +5,12 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import { encode as defaultJwtEncode } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import { headers } from "next/headers";
 
 import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
 import { authorizeCredentials } from "./auth/credentials-authorize";
 import { markOAuthUserVerified, oauthEmailVerified, secureOAuthEmailLink } from "./auth/oauth-link";
+import { withHashedSessions } from "./auth/session-adapter";
 import { db } from "./db";
 import { accounts, sessions, users, verificationTokens } from "./db/schema";
 import { env } from "./env";
@@ -20,13 +22,17 @@ import { logger } from "./logger";
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
 // Hoisted so the credentials encode override (below) can call createSession on
-// the same adapter instance NextAuth uses for everything else.
-const adapter = DrizzleAdapter(db, {
-  usersTable: users,
-  accountsTable: accounts,
-  sessionsTable: sessions,
-  verificationTokensTable: verificationTokens,
-});
+// the same adapter instance NextAuth uses for everything else. Session tokens are
+// stored hashed (lib/auth/session-adapter.ts); the cookie keeps the raw token.
+const adapter = withHashedSessions(
+  DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    sessionsTable: sessions,
+    verificationTokensTable: verificationTokens,
+  }),
+  { userAgent: async () => (await headers()).get("user-agent") },
+);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter,

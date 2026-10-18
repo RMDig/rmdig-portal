@@ -216,6 +216,13 @@ AvServ write endpoint"). It gains:
        Send Help"), and `held`. `held`, and any kind the portal doesn't know, are shown as "an
        open safety item" (rule 3).
      - `revoked: true` on a node means it's already signed out there.
+     - **The device list after a revoke** (contract rev 1.1 §3.6, AvServ #303 `897d74a`):
+       `GET …/devices` keeps listing a revoked phone, with `userRevokedAt` and
+       `revokeReason` (both null on a live one). Each node answers for itself, so
+       **Settings → Devices reads every node** (today it uses `fetchOnAnyNode`) and
+       shows a phone as revoked if **any** node says so: "Signed out on <date>
+       (lost)". Its `lastSeenAt` can keep moving, because a revoked phone still sends
+       heartbeats. A phone under the operator ban is omitted, as today.
   3. A reason: lost, stolen or "I don't use it" (`lost` / `stolen` / `user`).
   4. `POST …/revoke` to every node. There is no 409: live state never blocks it.
 - **What the user is told** (rule 5, honest copy):
@@ -377,10 +384,15 @@ code, step 4 is security events.
    account) are **[COUNSEL]**.
 3. **Kid `svc-key-portal-device-admin-1`.** Its install steps are in the AvServ runbook
    ("Portal device-admin key"). It's installed after the revoke build ships on both nodes.
-4. **Still open on AvServ's side:** hashing link codes at rest and an AvServ-side mint limit
-   (AvServ plan 52 §3.7, D14, open with the owner). The portal's own mint limit (§5.5) doesn't
-   wait on it.
-5. **Later:** `false_alarm_reports.md` (plan 57 §5) and restrictions contract rev 2.
+4. **Link codes: AvServ plan 52 D14, YES (owner, 2026-10-18).** AvServ stores them hashed,
+   with a mint limit of 10 per account per day per node, as its PR C after the revoke build.
+   Nothing changes on the portal's side; its own limit (3 a day, §5.5) stays in front.
+5. **Rev 1.1** (AvServ #303, `897d74a`): the device list keeps revoked phones, with
+   `userRevokedAt` and `revokeReason` (§5.1).
+6. **Go-live signals** the owner relays: AvServ plan 52 PR A and PR B ship on both nodes;
+   `svc-key-portal-device-admin-1` is installed; `svc-key-portal-1` gets `+security_events`
+   and the feed ships.
+7. **Later:** `false_alarm_reports.md` (plan 57 §5) and restrictions contract rev 2.
 
 **Portal data in the same scope.** `account_security_events` and `security_notice_cursors` are
 deleted with the portal user (`ON DELETE CASCADE`), which matches the contract's rev 1 erasure
@@ -464,9 +476,15 @@ rules:
   the `MFA_ENFORCEMENT` flip; cron frequency (S-D8).
 - Production headers after H1. On 2026-10-17, `curl -I https://rmdig.ai/` shows the baseline
   CSP, HSTS with preload, `X-Frame-Options: DENY`, `nosniff`, referrer and permissions
-  policies. HSTS preload **registration** at hstspreload.org.
-- Neon: encryption at rest, PITR window and enforced TLS for both projects; that `local-dev`
-  stays in the preview project.
+  policies.
+- HSTS preload: **eligible, not preloaded** (hstspreload.org, 2026-10-18). Every known
+  subdomain already serves HTTPS (`www.`/`app.` 308 to the apex; `avserv-2.`/`-3.` answer
+  HTTPS; `send.` has no web host). Submitting is the owner's call: it's effectively
+  permanent and forces HTTPS on every future subdomain.
+- Neon: the production restore window is **6 hours** (2026-10-18, recorded in the runbook);
+  encryption at rest and TLS are always on. `local-dev` stays in the preview project.
+- **Done 2026-10-18:** Vercel Development repointed to `local-dev`; the Render site
+  suspended (503).
 - Sentry: "Prevent storing IP addresses" and server-side scrubbing on the portal project.
 - Google: that `prompt=login` / `max_age` forces a fresh sign-in (S-D3).
 - Twilio: Verify on a public route, and its fraud guard (Verify Fraud Guard / geo permissions)

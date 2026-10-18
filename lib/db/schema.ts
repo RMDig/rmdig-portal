@@ -108,13 +108,29 @@ export const accounts = pgTable(
   ],
 );
 
-export const sessions = pgTable("sessions", {
-  sessionToken: text("sessionToken").primaryKey(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
-});
+// `sessionToken` holds sha256(cookie token), never the token itself
+// (lib/auth/session-adapter.ts; plan 36 §3.2), so a read of this table can't sign
+// anyone in. `id` is the handle the session list and revoke use, so no token or
+// hash reaches the browser. `authTime` is when this session last proved who it
+// is (sign-in or re-authentication), for "recent login" (lib/auth/recent-auth.ts).
+export const sessions = pgTable(
+  "sessions",
+  {
+    sessionToken: text("sessionToken").primaryKey(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
+    id: uuid("id").notNull().unique().defaultRandom(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+    authTime: timestamp("auth_time", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+    // Written when Auth.js extends the session (updateAge, once a day at most).
+    lastSeenAt: timestamp("last_seen_at", { mode: "date", withTimezone: true }),
+    // For "Safari on iPhone" in the session list. No IP is kept (plan 36 S-D4).
+    userAgent: text("user_agent"),
+  },
+  (t) => [index("sessions_user_id_idx").on(t.userId)],
+);
 
 export const verificationTokens = pgTable(
   "verification_tokens",

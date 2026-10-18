@@ -32,7 +32,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 
 | Var | `.env.local` | Vercel: Production | Vercel: Preview | Vercel: Development | Sensitive in Vercel? |
 |---|---|---|---|---|---|
-| `DATABASE_URL` | pooled URL of `local-dev` in `rmdig-portal-preview` (moved off production 2026-10-17, plan 36 S1); `DATABASE_URL_UNPOOLED` is the same branch's direct URL | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | auto | yes |
+| `DATABASE_URL` | pooled URL of `local-dev` in `rmdig-portal-preview` (moved off production 2026-10-17, plan 36 S1); `DATABASE_URL_UNPOOLED` is the same branch's direct URL | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | manual: `local-dev` pooled (and `_UNPOOLED` direct), set 2026-10-18; was `vercel-dev` | yes (Production, Preview); no (Development can't be sensitive) |
 | `NEXTAUTH_URL` | `http://localhost:3000` | `https://app.rmdig.ai` (**required**: the server refuses to boot in production without it; every emailed link is built from it) | unset (Auth.js auto-detects) | — | no |
 | `NEXTAUTH_SECRET` | hex string | hex | **its own value** (was missing until the previews PR, so preview sign-in failed) | hex | yes |
 | `GOOGLE_CLIENT_ID` | yes | yes | yes | yes | no |
@@ -101,7 +101,7 @@ Local dev uses the `local-dev` branch of the **preview** Neon project (`rmdig-po
 - **Migrate it** after pulling a migration: `pnpm db:migrate` (drizzle reads `.env.local`, see below).
 - **Reset it** to the seed: `neonctl branches reset local-dev --parent --project-id icy-sunset-60687550`, then `pnpm db:migrate`.
 - **Check where you are** before anything that writes: the host must be `ep-flat-bar-…` (`local-dev`), never `ep-crimson-thunder-…` (the `production` branch of `lingering-waterfall-99928244`).
-- Don't `vercel env pull` into `.env.local`: it writes the Vercel Development values over the local ones.
+- `vercel env pull .env.local` now brings `local-dev` too (Vercel Development was repointed 2026-10-18), but it leaves every **sensitive** variable empty (Google secret, Resend key…). It gives a working database, not a working sign-in or email; prefer pasting the two URLs into an existing `.env.local`.
 
 ## Local CLI gotchas
 
