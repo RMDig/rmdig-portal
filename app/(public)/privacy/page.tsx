@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: October 15, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: October 19, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -91,6 +91,29 @@ export default function PrivacyPolicyPage() {
             Google. If you enable two-factor authentication, the TOTP secret is stored
             encrypted. Devices you link to your account are recorded so the safety features
             know which device is yours.
+          </p>
+
+          <h3 className="mt-5">Sign-in and account security records</h3>
+          <p className="mt-2">
+            To let you see where you&apos;re signed in and sign out a browser you don&apos;t
+            recognise, we keep a record of each signed-in browser: the browser and device type
+            it reports (for example &quot;Safari on iPhone&quot;), when it signed in, and when it
+            was last active. We don&apos;t record its IP address. If you add a passkey, we keep
+            its public key, the name you gave it, and when it was added and last used; the
+            private key and any fingerprint or face check stay on your device.
+          </p>
+          <p className="mt-2">
+            We also keep a log of security changes to your account (password and two-factor
+            changes, passkeys added or removed, browsers or phones signed out, and changes made
+            on your phones such as a phone linked or a contact added or removed). The log says
+            what happened and when. It doesn&apos;t name your contacts or record locations. You
+            can see it in Settings → Security.
+          </p>
+          <p className="mt-2">
+            Security notices by email are off unless you turn them on. If you do, we email your
+            account address when a security change happens, saying only that something changed
+            and when, and we keep a note of how far we&apos;ve read each server&apos;s log so we
+            don&apos;t repeat a notice. Turning notices off deletes that note.
           </p>
           <p className="mt-2">
             If you register a search &amp; rescue organization or an advertiser account,
@@ -255,6 +278,22 @@ export default function PrivacyPolicyPage() {
                   <td>While your account is active, plus up to 30 days after deletion completes</td>
                 </tr>
                 <tr>
+                  <td>Signed-in browser records</td>
+                  <td>Until you sign that browser out, or 30 days after it was last used</td>
+                </tr>
+                <tr>
+                  <td>Passkeys</td>
+                  <td>Until you remove them, turn two-factor off, or delete your account</td>
+                </tr>
+                <tr>
+                  <td>Security change log</td>
+                  <td>
+                    Changes made in the portal: until you delete your account. Changes made on your
+                    phones: held on AvServ for a period set in the legal review below, and longer
+                    while a check-out or Send Help is open
+                  </td>
+                </tr>
+                <tr>
                   <td>Volunteer sign-ups</td>
                   <td>In our staff email until you ask us to delete them</td>
                 </tr>
@@ -281,6 +320,11 @@ export default function PrivacyPolicyPage() {
             These windows are our operating practice while the service is in beta; final
             retention terms are part of the legal review noted at the top of this page.
           </p>
+          <LawyerPlaceholder>
+            Retention of the security change log (portal and AvServ; AvServ proposes 400 days,
+            held while a check-out or Send Help is open) and what an account deletion does to
+            it (current practice: deleted with the account). Counsel to set (privacy doc 17).
+          </LawyerPlaceholder>
         </section>
 
         <section>
