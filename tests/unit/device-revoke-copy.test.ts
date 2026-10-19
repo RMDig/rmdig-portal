@@ -19,8 +19,16 @@ describe("revoke copy", () => {
     expect(REVOKE_COPY.permanent).toMatch(/can't be undone/);
   });
 
-  it("never claims the phone is wiped or erased, or uses a forbidden claim phrase", () => {
-    expect(text).not.toMatch(/\b(wipe|wiped|erase|erased|secure|guarantee)/i);
+  it("warns that field data is erased only on a full revoke, and keeps it locked on a limited one", () => {
+    expect(REVOKE_COPY.fieldData.full).toBe("Unsynced observations and photos on that phone will be erased.");
+    expect(REVOKE_COPY.fieldData.limited).toMatch(/kept, locked/);
+    expect(REVOKE_COPY.fieldData.limited).not.toMatch(/eras/i);
+  });
+
+  it("says erased nowhere but the full-revoke line, never wiped, and no forbidden claim phrase", () => {
+    const rest = text.replace(REVOKE_COPY.fieldData.full, "");
+    expect(rest).not.toMatch(/\b(wipe|wiped|erase|erased|secure|guarantee)/i);
+    expect(text).not.toMatch(/\bwipe/i);
     for (const phrase of FORBIDDEN_PUBLIC_PHRASES) {
       expect(new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}`, "i").test(text), phrase).toBe(false);
     }

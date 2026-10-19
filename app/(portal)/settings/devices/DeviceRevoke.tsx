@@ -32,6 +32,11 @@ export function RevokeFacts({ mode }: { mode: "limited" | "full" }) {
       <p>{REVOKE_COPY.mode[mode]}</p>
       {mode === "limited" ? <p className="text-muted-foreground">{REVOKE_COPY.limitedWhy}</p> : null}
       <p className="text-muted-foreground">{REVOKE_COPY.whatThePhoneDoes}</p>
+      {mode === "full" ? (
+        <p className="font-medium text-amber-900 dark:text-amber-200">{REVOKE_COPY.fieldData.full}</p>
+      ) : (
+        <p className="text-muted-foreground">{REVOKE_COPY.fieldData.limited}</p>
+      )}
       <p className="text-muted-foreground">{REVOKE_COPY.limits}</p>
       <p className="text-muted-foreground">{REVOKE_COPY.permanent}</p>
     </div>

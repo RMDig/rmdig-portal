@@ -267,7 +267,13 @@ AvServ write endpoint"). It gains:
   plan 56 A9 adds a server-held key later), a phone kept offline never hears the revoke,
   and camera-roll photos aren't covered. The copy says so and suggests the phone's
   passcode and Find My / Find My Device. `tests/unit/device-revoke-copy.test.ts` keeps
-  "wipe"/"erase" and the claim words out.
+  "wipe" and the claim words out.
+- **Field data depends on the mode** (owner, 2026-10-18; AvApp plan 54 §7.1a item 5, PR
+  #322): a **full** revoke erases the phone's unsynced observations and photos, and only
+  then does the portal warn "Unsynced observations and photos on that phone will be
+  erased." before the confirm. A **limited** revoke keeps them, locked, until the phone
+  re-links, and says so; it never mentions erasing (a password alone mustn't be able to
+  destroy someone's fieldwork).
 - **What the user is told** (rule 5, honest copy, AvServ's wording for the two modes):
   - Limited: "This phone can still send Send Help and start new trips, but it can't see your
     account or change any trip you started before."

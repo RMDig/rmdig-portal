@@ -2,7 +2,8 @@
 // stays in step with what the phone and AvServ actually do (AvApp plan 54
 // §7.1a; AvServ device_revoke.md rev 2) and is scanned for claim words
 // (tests/unit/device-revoke-copy.test.ts). Never promise more than the phone
-// does: it doesn't wipe itself, and an offline phone never hears the revoke.
+// does: an offline phone never hears the revoke, and only a full revoke erases
+// field data (owner, 2026-10-18; AvApp plan 54 §7.1a item 5).
 
 import type { RevokeMode } from "@/lib/avserv/device-revoke-types";
 
@@ -20,7 +21,13 @@ export const REVOKE_COPY = {
   liveHelp: "This phone has an open Send Help. Signing the phone out doesn't close it.",
   liveOther: "This phone has another open safety item. Signing the phone out doesn't stop it.",
   whatThePhoneDoes:
-    "The next time the phone connects, it shows that it was signed out, removes your trips, contacts and check-out history, and locks your field observations until it's signed back in.",
+    "The next time the phone connects, it shows that it was signed out and removes your trips, contacts and check-out history.",
+  // Field data depends on the mode: a password alone mustn't be able to destroy
+  // someone's fieldwork, so only a full revoke erases it.
+  fieldData: {
+    limited: "Your field observations and photos on it are kept, locked, until the phone is signed back in.",
+    full: "Unsynced observations and photos on that phone will be erased.",
+  } satisfies Record<RevokeMode, string>,
   limits:
     "A phone that stays offline won't hear about this, so also use the phone's own passcode and Find My (iPhone) or Find My Device (Android). Photos saved to the phone's camera roll aren't covered.",
   permanent: "This can't be undone. To use the phone again, link it as a new phone.",

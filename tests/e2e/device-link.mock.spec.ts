@@ -68,6 +68,9 @@ test.describe("device-link flow (mock AvServ)", () => {
     await expect(phone.getByText(/has a check-out under way/)).toBeVisible();
     await expect(phone.getByText("Send Help still works from that phone.")).toBeVisible();
     await expect(phone.getByText(/limited sign-out/)).toBeVisible();
+    // Limited (no passkey yet): field data is kept locked, never erased.
+    await expect(phone.getByText(/kept, locked/)).toBeVisible();
+    await expect(phone.getByText(/will be erased/)).toHaveCount(0);
 
     await phone.getByLabel("Why are you signing it out?").selectOption("lost");
     await phone.getByRole("button", { name: "Sign out this phone" }).click();
