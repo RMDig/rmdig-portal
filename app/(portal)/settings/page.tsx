@@ -108,6 +108,19 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
           <div className="space-y-1.5">
+            <CardTitle>Security</CardTitle>
+            <CardDescription>
+              Recent security activity on your account, and opt-in email notices.
+            </CardDescription>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/settings/security">Review security</Link>
+          </Button>
+        </CardHeader>
+      </Card>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
             <CardTitle>Delete account &amp; data</CardTitle>
             <CardDescription>
               Request deletion of your account and the personal data we hold, under the

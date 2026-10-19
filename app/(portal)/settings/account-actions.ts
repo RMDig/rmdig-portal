@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
 import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { currentSessionId, signOutOtherSessions } from "@/lib/auth/sessions";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -126,5 +127,6 @@ export async function changePasswordAction(
   });
 
   logger.info({ event: "account.password.changed", userId, signedOut });
+  await notifySecurityChange(userId);
   return { ok: true };
 }

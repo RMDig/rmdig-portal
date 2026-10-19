@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
 import { requireRecentAuth } from "@/lib/auth/recent-auth";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import {
   deviceRevokeAvailable,
   revokeDevice,
@@ -124,6 +125,7 @@ export async function revokeDeviceAction(_prev: RevokeResult, formData: FormData
   const outcome = summarizeRevoke(answers);
   for (const node of outcome.missingNodes) logger.warn({ event: "devices.revoke.node_missing", userId: r.userId, node });
   logger.info({ event: "devices.revoked", userId: r.userId, status: outcome.status, mode: outcome.mode });
+  if (outcome.status !== "failed") await notifySecurityChange(r.userId);
   revalidatePath("/settings/devices");
   return outcomeMessage(outcome, "Signed out");
 }
@@ -142,6 +144,7 @@ export async function revokeOtherDevicesAction(_prev: RevokeResult, formData: Fo
   const outcome = summarizeRevokeOthers(answers);
   for (const node of outcome.missingNodes) logger.warn({ event: "devices.revoke_others.node_missing", userId: r.userId, node });
   logger.info({ event: "devices.revoked_others", userId: r.userId, status: outcome.status, devices: outcome.devices });
+  if (outcome.status !== "failed" && outcome.devices > 0) await notifySecurityChange(r.userId);
   revalidatePath("/settings/devices");
   if (outcome.keepRefused && outcome.status !== "done") {
     return {

@@ -52,12 +52,22 @@ describe("account_security_events (Postgres)", () => {
     expect(code).toBe("23514");
   });
 
-  it("is deleted with the user, as their sessions are", async () => {
+  it("accepts the notice kinds added in 0030", async () => {
+    await sql`INSERT INTO account_security_events (user_id, kind) VALUES (${userId}, 'notices_on'), (${userId}, 'notices_off')`;
+    await sql`INSERT INTO security_notice_cursors (user_id, node, cursor) VALUES (${userId}, 'avserv-2', 'c1')`;
+    await sql`UPDATE users SET security_notices_at = now() WHERE id = ${userId}`;
+    const [row] = await sql<{ n: string }[]>`SELECT count(*)::text AS n FROM account_security_events WHERE kind LIKE 'notices_%'`;
+    expect(row!.n).toBe("2");
+  });
+
+  it("is deleted with the user, as their sessions and notice cursors are", async () => {
     await sql`INSERT INTO sessions ("sessionToken", "userId", expires) VALUES ('h', ${userId}, now() + interval '1 day')`;
     await sql`DELETE FROM users WHERE id = ${userId}`;
     const [ev] = await sql<{ n: string }[]>`SELECT count(*)::text AS n FROM account_security_events`;
     const [se] = await sql<{ n: string }[]>`SELECT count(*)::text AS n FROM sessions`;
+    const [cu] = await sql<{ n: string }[]>`SELECT count(*)::text AS n FROM security_notice_cursors`;
     expect(ev!.n).toBe("0");
     expect(se!.n).toBe("0");
+    expect(cu!.n).toBe("0");
   });
 });

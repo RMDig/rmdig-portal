@@ -6,6 +6,7 @@ import { z } from "zod";
 import { portalActor } from "@/lib/auth/portal-actor";
 import { requireRecentAuth } from "@/lib/auth/recent-auth";
 import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { revokeOtherSessions, revokeSession } from "@/lib/auth/sessions";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -53,6 +54,7 @@ export async function revokeSessionAction(
   if (!revoked) return { ok: false, error: "That session has already ended." };
 
   logger.info({ event: "sessions.revoked_one", userId });
+  await notifySecurityChange(userId);
   revalidatePath("/settings/sessions");
   return { ok: true, message: "Signed out." };
 }
@@ -77,6 +79,7 @@ export async function revokeOtherSessionsAction(
   });
 
   logger.info({ event: "sessions.revoked_others", userId, count });
+  if (count > 0) await notifySecurityChange(userId);
   revalidatePath("/settings/sessions");
   return {
     ok: true,

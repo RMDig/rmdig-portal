@@ -32,6 +32,7 @@ import SarAlertNotifyEmail, { type SarAlertNotifyKind } from "./templates/SarAle
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
 import SarTermsDecisionEmail, { type SarTermsDecision } from "./templates/SarTermsDecisionEmail";
 import SarTermsPendingReviewEmail from "./templates/SarTermsPendingReviewEmail";
+import SecurityNoticeEmail, { type SecurityNoticeEmailProps } from "./templates/SecurityNoticeEmail";
 import VerifyEmail from "./templates/VerifyEmail";
 import type { AdvertiserRole, TeamRole } from "../labels";
 
@@ -417,4 +418,9 @@ export async function sendCollectionSignupEmail(to: string, params: CollectionSi
     subject: `Snowpack volunteer sign-up: ${params.name}`,
     html,
   });
+}
+
+export async function sendSecurityNoticeEmail(to: string, params: SecurityNoticeEmailProps): Promise<void> {
+  const html = render(SecurityNoticeEmail(params));
+  await deliver({ kind: "security_notice", label: "security-notice", to, subject: "A security change on your AvAI account", html });
 }

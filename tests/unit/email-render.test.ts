@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import OrgInviteEmail from "@/lib/email/templates/OrgInviteEmail";
 import ResetPasswordEmail from "@/lib/email/templates/ResetPasswordEmail";
 import RestrictionReviewUpheldEmail from "@/lib/email/templates/RestrictionReviewUpheldEmail";
+import SecurityNoticeEmail from "@/lib/email/templates/SecurityNoticeEmail";
 import CollectionSignupEmail from "@/lib/email/templates/CollectionSignupEmail";
 import AdCreativeDecisionEmail from "@/lib/email/templates/AdCreativeDecisionEmail";
 import DataDeletionAdminEmail from "@/lib/email/templates/DataDeletionAdminEmail";
@@ -162,6 +163,13 @@ describe("email templates render to HTML", () => {
     const url = "https://rmdig.ai/sar/o1/terms";
     const html = await render(SarTermsDecisionEmail({ orgName: "San Juan SAR", decision: "published", version: 2, termsUrl: url }));
     expect(html).toContain(url);
+  });
+
+  it("SecurityNoticeEmail says only that something changed and when, with the link", async () => {
+    const html = await render(SecurityNoticeEmail({ whenText: "Oct 19, 2026, 8:00 AM MDT", securityUrl: "https://rmdig.ai/settings/security" }));
+    expect(html).toContain("Oct 19, 2026, 8:00 AM MDT");
+    expect(html).toContain("https://rmdig.ai/settings/security");
+    expect(html).not.toMatch(/phone|contact|password|device/i);
   });
 
   it("CollectionSignupEmail carries every answer, escaped, and says when no phone was given", async () => {

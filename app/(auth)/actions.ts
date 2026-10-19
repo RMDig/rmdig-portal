@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { featureEnabled } from "@/lib/features";
 import { passwordResetTokens, sessions, users, verificationTokens } from "@/lib/db/schema";
 import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
@@ -474,5 +475,6 @@ export async function resetPasswordAction(
   });
 
   logger.info({ event: "pwreset.complete.success", userId: row.userId });
+  await notifySecurityChange(row.userId);
   return { ok: true };
 }

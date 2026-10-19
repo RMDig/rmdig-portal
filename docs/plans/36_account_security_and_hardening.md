@@ -347,6 +347,19 @@ AvServ write endpoint"). It gains:
     (S-D8).
   - Turning notices on starts from the current end of each feed, so no backlog is emailed.
 - A template in `lib/email/templates/`, added to the legal-copy scan.
+- **Built (PR 9, on the mock):** `/settings/security` (needs a recent login; merged history,
+  the notice switch), `lib/avserv/security-events*.ts` (every node, everyday key, reader
+  header, dedupe on id keeping the earliest `at`, unknown kinds counted only),
+  `lib/auth/security-view.ts`, `lib/auth/security-notices.ts`, `SecurityNoticeEmail`, the
+  daily cron `/api/cron/security-notices` (17:00 UTC). Migration 0030:
+  `users.security_notices_at`, `security_notice_cursors`, and the `notices_on` /
+  `notices_off` kinds. Turning notices **off** is announced by email before it takes
+  effect, so an owner whose login someone else holds still hears it once. Portal changes
+  (password, reset, MFA, browser and phone sign-outs) notify right after they commit; a
+  failed email is reported and never undoes the change.
+- **Cursor reading:** the cron announces only events newer than that node's last read, so
+  a page read twice is never announced twice whichever way AvServ answers the open
+  question in §6.
 
 ### 5.4 Passkeys (WebAuthn), then `MFA_ENFORCEMENT=all`
 
@@ -447,6 +460,10 @@ code, step 4 is security events.
    after PR 10.
 6a. **Asked of AvServ (2026-10-18):** a `dueAt` on preview `checkout` items, so the warning
    can name the due-back time the phone shows.
+6b. **Asked of AvServ (2026-10-18):** `security_events.md` §4 says `nextCursor` is null "when
+   there's nothing newer yet" and to keep the last non-null cursor. Is it null after a page
+   that **has** events (so the next poll re-reads that page), or only on an empty page?
+   The portal handles both (by time, §5.3); the contract should say which.
 7. **Go-live signals** the owner relays: AvServ plan 52 PR A and PR B ship on both nodes;
    `svc-key-portal-device-admin-1` is installed; `svc-key-portal-1` gets `+security_events`
    and the feed ships.
