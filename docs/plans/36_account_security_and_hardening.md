@@ -1,8 +1,9 @@
 # 36 — Account security and hardening (portal side of AvApp plans 54–57)
 
-Status: **draft, 2026-10-17; owner decisions (§8) all decided 2026-10-18, as recommended.
-S1 done (#161); S2 sessions live (#164, #165). AvServ contracts: `device_revoke.md` rev 2,
-`security_events.md` rev 1 (§6).** S3–S6 are not built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
+Status (2026-10-19): **S1, S2, S4 portal side and PR 12 live; S3/S4's AvServ-backed parts
+run on the mock until AvServ plan 52 ships; PR 11, S5 hardening and S6 not built.** Owner
+decisions (§8) all decided 2026-10-18. AvServ contracts: `device_revoke.md` rev 2.1,
+`security_events.md` rev 1.1 (§6). The PR table (§10) has the numbers. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
 system) and 57 (false alarms) on 2026-10-17 (AvApp `21f9da3`, PR #288). This plan is the
 portal's share of them, in the order the owner set. It was read against portal `origin/main`
 `e1bc368`, AvServ `origin/main` `04510c8` and AvApp `origin/main` `21f9da3`.
@@ -540,21 +541,21 @@ rules:
 
 ## 10. PRs
 
-| PR | Contents | Waits on |
+| PR | Contents | Status |
 |---|---|---|
-| 1 | **This plan**, the S1 infrastructure doc, `00_status` row | — |
-| 2 | S2 schema + hashed adapter + `auth_time` + recent-auth helper (migration: prod before merge) | — |
-| 3 | S2 `/settings/sessions` + revoke on password change + transactional reset + portal events table | PR 2 |
-| 4 | H5 + H6 + H2 (small, independent) | — |
-| 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | — |
-| 6 | H1 CSP Report-Only, then a one-line enforce PR | — |
-| 7 | S3 scoped kid in the portal (mock first) | Live: AvServ installs the kid after its revoke build |
-| 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | PR 3, PR 7 (contract rev 2 ✅) |
-| 9 | S4 security-events view + opt-in notices (migration: cursors table) | PR 3 (contract rev 1 ✅) |
-| 10 | S4 passkeys + password-to-disable (migration) | PR 2 |
-| 11 | S4 App Lock reset code + link-code rate limit | PR 8 |
-| 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | PR 10 shipped |
-| 13 | H4 SAR payload encryption, H7 rotation table | PR 5 |
+| 1 | **This plan**, the S1 infrastructure doc, `00_status` row | ✅ #161, #162 |
+| 2 | S2 schema + hashed adapter + `auth_time` + recent-auth helper (migration: prod before merge) | ✅ #164 (0027) |
+| 3 | S2 `/settings/sessions` + revoke on password change + transactional reset + portal events table | ✅ #165 (0028); re-auth password-only #166 |
+| 4 | H5 + H6 + H2 (small, independent) | ⬜ not started |
+| 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | ⬜ not started |
+| 6 | H1 CSP Report-Only, then a one-line enforce PR | ⬜ not started |
+| 7 | S3 scoped kid in the portal (mock first) | ✅ #167 (with PR 8); live when AvServ installs the kid |
+| 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | ✅ #167 (0029), #169 (due time); live with AvServ plan 52 |
+| 9 | S4 security-events view + opt-in notices (migration: cursors table) | ✅ #168 (0030); phone-side rows live with plan 52 step 4 |
+| 10 | S4 passkeys + password-to-disable (migration) | ✅ #170 (0031) |
+| 11 | S4 App Lock reset code + link-code rate limit | ⬜ not started (contract §3.5 ready) |
+| 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | ✅ 2026-10-19 |
+| 13 | H4 SAR payload encryption, H7 rotation table | ⬜ not started (after PR 5) |
 | — | S6 (plan 57) | §9 gates |
 
 ## 11. Owner checks (not verifiable from the repo)
