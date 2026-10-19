@@ -1,7 +1,8 @@
 # 36 — Account security and hardening (portal side of AvApp plans 54–57)
 
 Status: **draft, 2026-10-17; owner decisions (§8) all decided 2026-10-18, as recommended.
-S1 done (#161). AvServ contracts rev 1 written 2026-10-18 (§6).** Nothing else here is built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
+S1 done (#161); S2 sessions live (#164, #165). AvServ contracts: `device_revoke.md` rev 2,
+`security_events.md` rev 1 (§6).** S3–S6 are not built. AvApp merged plans 54 (App Lock), 55 (Second PIN), 56 (encryption across the
 system) and 57 (false alarms) on 2026-10-17 (AvApp `21f9da3`, PR #288). This plan is the
 portal's share of them, in the order the owner set. It was read against portal `origin/main`
 `e1bc368`, AvServ `origin/main` `04510c8` and AvApp `origin/main` `21f9da3`.
@@ -27,13 +28,17 @@ Owner, 2026-10-17:
 
 Carried from the plans and CLAUDE.md:
 
-5. **A user revoke never cuts the safety net.** A revoked phone still sends Send Help and
-   heartbeats, can start a new check-out, and its armed check-out stays watched (plan 54 §7.1;
-   `device_revoke.md` §2, §6). It **can't check in**, so a trip started on it alerts unless the
-   user checks in from another linked device (§4 of the contract; AvApp D9). The portal's copy
-   says all of this plainly. **Amended 2026-10-18** (AvServ plan 52 D3): the operator ban no
-   longer cuts Send Help or the heartbeat either. It stays operator-only and is still the wider
-   cut, but it is not a "full 401", and nothing in the portal can call it.
+5. **A user revoke never cuts the safety net.** A revoked phone always keeps Send Help and the
+   heartbeat, and any trip already under way on it stays watched (plan 54 §7.1;
+   `device_revoke.md` rev 2 §1–§2, §6). What else it keeps depends on the revoke's **mode**
+   (rev 2 §1.1): `limited` also keeps starting new trips and checking in on those; `full` keeps
+   Send Help and the heartbeat only. Neither can check in on a trip started **before** the
+   revoke, so that trip alerts unless the user checks in from another linked device (contract
+   §4; AvApp D9). The portal's copy says this plainly. **Amended 2026-10-18** (AvServ plan 52
+   D3): the operator ban no longer cuts Send Help or the heartbeat either. It stays
+   operator-only and is still the wider cut, but it is not a "full 401", and nothing in the
+   portal can call it. Rev 2 keeps the revoked phone's sessions alive, so a refresh never
+   answers 410: nothing in the portal or app relies on a 410 after a revoke.
 6. **No restriction or report ever blocks a safety action** (plan 57 rule 1; restrictions
    contract tie-breaker). The portal never decides misuse automatically.
 7. **Fail loud, except where silence is the safety behaviour.** Every failure here is visible
@@ -151,7 +156,11 @@ the deploy, which means a second sign-in at most. Run the migration right before
 
 - Password accounts re-enter the password plus TOTP or a passkey (`verifyActorPassword`'s
   rate limit, `admin/team/actions.ts:42`).
-- Google-only accounts redo Google sign-in with `prompt=login` and `max_age` (S-D3).
+- **Not Google** (S-D3 outcome, 2026-10-18). With `max_age=0` Google showed only its account
+  picker, and Auth.js keeps the existing session when a signed-in user signs in again with the
+  same Google account, so a Google round trip proves nothing. An account without a password
+  sets one through the emailed reset link (`/forgot-password`), then confirms with it. Built:
+  `lib/auth/reauth.ts`, `/settings/reauth`.
 
 `auth_time` is set when a session is created and when re-authentication succeeds, never when
 a session is merely refreshed. The `admin/team` password re-entry moves onto this helper.
@@ -221,16 +230,32 @@ AvServ write endpoint"). It gains:
        `revokeReason` (both null on a live one). Each node answers for itself, so
        **Settings → Devices reads every node** (today it uses `fetchOnAnyNode`) and
        shows a phone as revoked if **any** node says so: "Signed out on <date>
-       (lost)". Its `lastSeenAt` can keep moving, because a revoked phone still sends
+       (lost)". Rev 2 adds `revokeMode` (`limited` | `full`, null when live); take the
+       strongest any node reports. Its `lastSeenAt` can keep moving, because a revoked phone still sends
        heartbeats. A phone under the operator ban is omitted, as today.
   3. A reason: lost, stolen or "I don't use it" (`lost` / `stolen` / `user`).
-  4. `POST …/revoke` to every node. There is no 409: live state never blocks it.
-- **What the user is told** (rule 5, honest copy):
-  > This phone can no longer see your trips or change your contacts. If it's still with you,
-  > it can still send Send Help and start a new trip, and any trip already started on it is
-  > still watched. **It can't check in.** If a trip on it is under way, check in from another
-  > linked phone, or your contact will be alerted. To use the phone again, link it as a new
-  > phone.
+  4. `POST …/revoke` to every node with `{reason, authStrength}`. There is no 409: live state
+     never blocks it.
+- **`authStrength` (rev 2 §3.3, required; missing or malformed is `400 invalid_request`)**
+  says how **this** session last proved who it is: `{"method": "passkey", "passkeyCreatedAt":
+  …}`, `{"method": "password"}`, or `{"method": "other"}` (Google, which can't re-prove,
+  §3.4). AvServ derives the mode: `full` only for a passkey enrolled at least 7 days before
+  the revoke; everything else is `limited`. So:
+  - **Sessions record their sign-in method** next to `auth_time`: new columns
+    `sessions.auth_method` (`password` | `passkey` | `google`) and `auth_passkey_id`, set when
+    a session is created and again on every re-authentication (migration in PR 8; the passkey
+    id in PR 10).
+  - Until passkeys ship (PR 10), every revoke is `limited`.
+  - **A repeat with a trusted `authStrength` upgrades** `limited` to `full` (`upgraded: true`).
+    Nothing downgrades. The device row offers "Make this stronger" on a `limited` revoke once
+    the user has a passkey at least 7 days old.
+  - The response carries `mode` and `upgraded`; `sessionsRevoked` is gone.
+- **What the user is told** (rule 5, honest copy, AvServ's wording for the two modes):
+  - Limited: "This phone can still send Send Help and start new trips, but it can't see your
+    account or change any trip you started before."
+  - Full: "This phone can only send Send Help."
+  - Both add: "If a trip you started on it is under way, check in from another linked phone,
+    or your contact will be alerted. To use the phone again, link it as a new phone."
 
   The contract's §4 makes the cost explicit: an abuser who holds the portal login can force a
   false alert by revoking the victim's phone. The owner accepted this on 2026-10-18 (AvServ
@@ -364,7 +389,10 @@ AvServ write endpoint"). It gains:
 Answered, specified and not built. AvServ plan 52 builds them: step 3 is the revoke and reset
 code, step 4 is security events.
 
-1. **`docs/contracts/device_revoke.md` rev 1.** The facts the portal builds on are in §5.1 and
+1. **`docs/contracts/device_revoke.md` rev 2** (AvServ #310, `c51f63d`; supersedes rev 1 where
+   they differ). Rev 2 keeps the revoked phone's sessions (rev 1 would have cut Send Help 15
+   minutes after a revoke), enforces the revoke route by route, and adds the two modes and
+   `authStrength` (§5.1). The facts the portal builds on are in §5.1 and
    §5.5:
    - routes in group `device_admin`;
    - closed preview kinds (`checkout`, `help_request`, `held`);
@@ -389,10 +417,12 @@ code, step 4 is security events.
    Nothing changes on the portal's side; its own limit (3 a day, §5.5) stays in front.
 5. **Rev 1.1** (AvServ #303, `897d74a`): the device list keeps revoked phones, with
    `userRevokedAt` and `revokeReason` (§5.1).
-6. **Go-live signals** the owner relays: AvServ plan 52 PR A and PR B ship on both nodes;
+6. **Later (AvServ plan 52):** "S-phone", a revoke started from the phone in hand through the
+   passkey sign-in in the system sheet. Not in this plan yet.
+7. **Go-live signals** the owner relays: AvServ plan 52 PR A and PR B ship on both nodes;
    `svc-key-portal-device-admin-1` is installed; `svc-key-portal-1` gets `+security_events`
    and the feed ships.
-7. **Later:** `false_alarm_reports.md` (plan 57 §5) and restrictions contract rev 2.
+8. **Later:** `false_alarm_reports.md` (plan 57 §5) and restrictions contract rev 2.
 
 **Portal data in the same scope.** `account_security_events` and `security_notice_cursors` are
 deleted with the portal user (`ON DELETE CASCADE`), which matches the contract's rev 1 erasure
@@ -417,7 +447,7 @@ default. The runbook's deletion steps name them once they exist.
 |---|---|---|
 | S-D1 | Hashed-token cut-over | **Decided (owner, 2026-10-18):** **Delete all sessions in the migration**: everyone signs in once (at most twice across the deploy gap). No dual-read code. |
 | S-D2 | "Recent login" window | **Decided (owner, 2026-10-18):** **10 minutes** for revoke, the reset code, MFA changes, the events view and the notice toggle. |
-| S-D3 | Re-auth for Google-only accounts | **Decided (owner, 2026-10-18):** **Google again with `prompt=login` and `max_age=0`.** If Google doesn't honour it on a test account, ask them to set a password first. |
+| S-D3 | Re-auth for Google-only accounts | **Decided (owner, 2026-10-18):** **Google again with `prompt=login` and `max_age=0`.** If Google doesn't honour it on a test account, ask them to set a password first. **Outcome (owner test, 2026-10-18): it didn't** (account picker only, and Auth.js reuses the session), **so the fallback applies**: Google-only accounts set a password via `/forgot-password` (§3.4). |
 | S-D4 | What the session list stores | **Decided (owner, 2026-10-18):** **User agent only, no IP.** Rule 1 makes a location trail in the account a risk, not a help. |
 | S-D5 | Passkey implementation | **Decided (owner, 2026-10-18):** **SimpleWebAuthn as a second factor** beside TOTP, not Auth.js's experimental provider. Passwordless sign-in is a later, separate decision. |
 | S-D6 | `MFA_ENFORCEMENT=all` for Google-only accounts | **Decided (owner, 2026-10-18):** **Keep the P1.2 boundary** (not challenged). "All" means every password account. |
@@ -462,7 +492,7 @@ rules:
 | 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | — |
 | 6 | H1 CSP Report-Only, then a one-line enforce PR | — |
 | 7 | S3 scoped kid in the portal (mock first) | Live: AvServ installs the kid after its revoke build |
-| 8 | S4 revoke UI + preview on the mock | PR 3, PR 7 (contract rev 1 ✅) |
+| 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | PR 3, PR 7 (contract rev 2 ✅) |
 | 9 | S4 security-events view + opt-in notices (migration: cursors table) | PR 3 (contract rev 1 ✅) |
 | 10 | S4 passkeys + password-to-disable (migration) | PR 2 |
 | 11 | S4 App Lock reset code + link-code rate limit | PR 8 |

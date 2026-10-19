@@ -1,24 +1,28 @@
 import bcrypt from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { accounts, users } from "../db/schema";
+import { users } from "../db/schema";
 import { logger } from "../logger";
 import { incrementRateLimit } from "../rate-limit";
 import { decryptSecret } from "./mfa";
 import { verifySecondFactor } from "./mfa-verify";
 
 // Proving it's still you, for "recent login" (plan 36 §3.4): the password and,
-// when two-factor is on, a code; or Google again for an account without a
-// password (S-D3). Shares the `reauth:` budget with the staff re-auth in
-// admin/team, so the two surfaces can't be combined to guess faster.
+// when two-factor is on, a code. Shares the `reauth:` budget with the staff
+// re-auth in admin/team, so the two surfaces can't be combined to guess faster.
+//
+// Not Google (S-D3, tested 2026-10-18): with max_age=0 Google only showed its
+// account picker, and Auth.js keeps the existing session when an already
+// signed-in user signs in again with the same Google account, so nothing proves
+// a person is present. An account without a password sets one first through
+// the emailed reset link (/forgot-password).
 
 const REAUTH_RATE_LIMIT = { limit: 5, windowSec: 15 * 60 };
 
 export interface ReauthOptions {
   password: boolean;
   mfa: boolean;
-  google: boolean;
 }
 
 /** Which ways this account can prove itself again. */
@@ -28,12 +32,7 @@ export async function reauthOptions(userId: string): Promise<ReauthOptions> {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  const [google] = await db
-    .select({ provider: accounts.provider })
-    .from(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.provider, "google")))
-    .limit(1);
-  return { password: !!user?.passwordHash, mfa: !!user?.mfaEnabledAt, google: !!google };
+  return { password: !!user?.passwordHash, mfa: !!user?.mfaEnabledAt };
 }
 
 /** null when the password (and code, if two-factor is on) check out; otherwise
@@ -57,7 +56,7 @@ export async function verifyPasswordReauth(
     .where(eq(users.id, userId))
     .limit(1);
   if (!user?.passwordHash) {
-    return "Your account signs in with Google. Use Continue with Google instead.";
+    return "Your account doesn't have a password yet. Set one first, then confirm here.";
   }
   if (!(await bcrypt.compare(input.password, user.passwordHash))) {
     logger.info({ event: "auth.reauth.bad_password", userId });
