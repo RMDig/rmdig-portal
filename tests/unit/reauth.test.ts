@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   user: null as null | Record<string, unknown>,
-  google: [] as unknown[],
   rlAllowed: true,
   factorOk: true,
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -11,7 +10,6 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@/lib/db/schema", () => ({
   users: { __t: "users" },
-  accounts: { __t: "accounts" },
 }));
 vi.mock("drizzle-orm", () => ({ and: () => ({}), eq: () => ({}) }));
 vi.mock("@/lib/db", () => ({
@@ -19,7 +17,7 @@ vi.mock("@/lib/db", () => ({
     select: () => ({
       from: (t: { __t: string }) => ({
         where: () => ({
-          limit: () => Promise.resolve(t.__t === "users" ? (h.user ? [h.user] : []) : h.google),
+          limit: () => Promise.resolve(t.__t === "users" && h.user ? [h.user] : []),
         }),
       }),
     }),
@@ -39,7 +37,6 @@ beforeEach(async () => {
   vi.clearAllMocks();
   hash ??= await bcrypt.hash("right-password", 4);
   h.user = { passwordHash: hash, mfaEnabledAt: null, totpSecretEncrypted: null };
-  h.google = [];
   h.rlAllowed = true;
   h.factorOk = true;
 });
@@ -72,19 +69,17 @@ describe("verifyPasswordReauth", () => {
     expect(await verifyPasswordReauth("u1", { password: "right-password", code: "" })).toMatch(/Too many/);
   });
 
-  it("points a Google-only account at Google", async () => {
+  it("tells a Google-only account to set a password first", async () => {
     h.user = { passwordHash: null, mfaEnabledAt: null, totpSecretEncrypted: null };
-    expect(await verifyPasswordReauth("u1", { password: "x", code: "" })).toMatch(/Google/);
+    expect(await verifyPasswordReauth("u1", { password: "x", code: "" })).toMatch(/password yet/);
   });
 });
 
 describe("reauthOptions", () => {
-  it("reports password, two-factor and Google", async () => {
+  it("reports whether there's a password and two-factor", async () => {
     h.user = { passwordHash: hash, mfaEnabledAt: new Date() };
-    h.google = [{ provider: "google" }];
-    expect(await reauthOptions("u1")).toEqual({ password: true, mfa: true, google: true });
+    expect(await reauthOptions("u1")).toEqual({ password: true, mfa: true });
     h.user = { passwordHash: null, mfaEnabledAt: null };
-    h.google = [{ provider: "google" }];
-    expect(await reauthOptions("u1")).toEqual({ password: false, mfa: false, google: true });
+    expect(await reauthOptions("u1")).toEqual({ password: false, mfa: false });
   });
 });

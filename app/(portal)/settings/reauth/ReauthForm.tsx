@@ -2,55 +2,32 @@
 
 import { useActionState } from "react";
 
-import { reauthWithGoogleAction, reauthWithPasswordAction } from "./actions";
+import { reauthWithPasswordAction } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 
-export function ReauthForm({
-  returnTo,
-  password,
-  mfa,
-  google,
-}: {
-  returnTo: string;
-  password: boolean;
-  mfa: boolean;
-  google: boolean;
-}) {
+export function ReauthForm({ returnTo, mfa }: { returnTo: string; mfa: boolean }) {
   const [state, action, pending] = useActionState(reauthWithPasswordAction, null);
 
   return (
-    <div className="space-y-6">
-      {password ? (
-        <form action={action} className="space-y-4">
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <PasswordInput id="password" name="password" autoComplete="current-password" required />
-          </div>
-          {mfa ? (
-            <div className="space-y-2">
-              <Label htmlFor="code">Authenticator or recovery code</Label>
-              <Input id="code" name="code" autoComplete="one-time-code" inputMode="text" required />
-            </div>
-          ) : null}
-          {state && !state.ok ? <p className="text-sm text-red-700 dark:text-red-300">{state.error}</p> : null}
-          <Button type="submit" disabled={pending}>
-            {pending ? "Checking…" : "Confirm"}
-          </Button>
-        </form>
+    <form action={action} className="space-y-4">
+      <input type="hidden" name="returnTo" value={returnTo} />
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <PasswordInput id="password" name="password" autoComplete="current-password" required />
+      </div>
+      {mfa ? (
+        <div className="space-y-2">
+          <Label htmlFor="code">Authenticator or recovery code</Label>
+          <Input id="code" name="code" autoComplete="one-time-code" inputMode="text" required />
+        </div>
       ) : null}
-
-      {google ? (
-        <form action={reauthWithGoogleAction}>
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <Button type="submit" variant={password ? "outline" : "default"}>
-            Continue with Google
-          </Button>
-        </form>
-      ) : null}
-    </div>
+      {state && !state.ok ? <p className="text-sm text-red-700 dark:text-red-300">{state.error}</p> : null}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Checking…" : "Confirm"}
+      </Button>
+    </form>
   );
 }
