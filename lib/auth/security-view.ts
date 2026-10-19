@@ -29,6 +29,8 @@ const PORTAL_LABEL: Record<AccountSecurityEventKind, string> = {
   sessions_revoked_others: "Every other browser was signed out",
   notices_on: "Security notices turned on",
   notices_off: "Security notices turned off",
+  passkey_added: "A passkey was added",
+  passkey_removed: "A passkey was removed",
 };
 
 const AVSERV_LABEL: Record<AvServSecurityEventKind, string> = {

@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useActionState, useState } from "react";
 
 import { signInCredentialsAction, signInGoogleAction } from "../actions";
+import { passkeySignInOptionsAction } from "../passkey-actions";
+import { PasskeyFactorButton } from "@/components/auth/PasskeyFactorButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -157,6 +159,7 @@ export function SignInForm() {
             <p className="text-muted-foreground text-xs">
               Enter the 6-digit code from your app, or one of your recovery codes.
             </p>
+            <PasskeyFactorButton getOptions={passkeySignInOptionsAction} />
           </div>
         ) : null}
         {state && !state.ok && (!mfaRequired || mfaInvalid) ? (

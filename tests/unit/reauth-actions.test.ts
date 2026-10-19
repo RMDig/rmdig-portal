@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   actor: { ok: true, userId: "u1" } as { ok: true; userId: string } | { ok: false; error: string },
   verifyError: null as string | null,
+  verifyMethod: "password" as "password" | "passkey",
+  marks: [] as unknown[][],
   marked: true,
   redirects: [] as string[],
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -21,8 +23,23 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
-vi.mock("@/lib/auth/reauth", () => ({ verifyPasswordReauth: () => Promise.resolve(h.verifyError) }));
-vi.mock("@/lib/auth/recent-auth", () => ({ markRecentAuth: () => Promise.resolve(h.marked) }));
+vi.mock("@/lib/auth/reauth", () => ({
+  verifyPasswordReauth: (_u: string, input: { passkey?: string }) =>
+    Promise.resolve(
+      h.verifyError
+        ? { ok: false, error: h.verifyError }
+        : input.passkey
+          ? { ok: true, method: "passkey", passkeyId: "pk-1" }
+          : { ok: true, method: "password", passkeyId: null },
+    ),
+}));
+vi.mock("@/lib/auth/recent-auth", () => ({
+  markRecentAuth: (...a: unknown[]) => {
+    h.marks.push(a);
+    return Promise.resolve(h.marked);
+  },
+}));
+vi.mock("@/lib/auth/passkeys", () => ({ authenticationOptions: () => Promise.resolve({ challenge: "c" }) }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
 import { reauthWithPasswordAction } from "@/app/(portal)/settings/reauth/actions";
@@ -36,6 +53,7 @@ const form = (f: Record<string, string>) => {
 beforeEach(() => {
   h.actor = { ok: true, userId: "u1" };
   h.verifyError = null;
+  h.marks = [];
   h.marked = true;
   h.redirects = [];
 });
@@ -44,6 +62,12 @@ describe("reauthWithPasswordAction", () => {
   it("marks this session as freshly signed in and goes back where it was asked", async () => {
     await expect(reauthWithPasswordAction(null, form({ password: "p", returnTo: "/settings/sessions" }))).rejects.toThrow(Redirect);
     expect(h.redirects).toEqual(["/settings/sessions"]);
+    expect(h.marks).toEqual([["u1", "password", null]]);
+  });
+
+  it("records a passkey confirmation as one, with which passkey", async () => {
+    await expect(reauthWithPasswordAction(null, form({ password: "p", passkey: "{}" }))).rejects.toThrow(Redirect);
+    expect(h.marks).toEqual([["u1", "passkey", "pk-1"]]);
   });
 
   it("never returns to another site", async () => {

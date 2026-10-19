@@ -11,6 +11,9 @@ import { featureEnabled } from "@/lib/features";
 import { DisplayNameCard, PasswordCard } from "./AccountCards";
 import { AvaiAccountCard } from "./AvaiAccountCard";
 import { MfaCard } from "./MfaCard";
+import { PasskeysCard } from "./PasskeysCard";
+import { listPasskeys } from "@/lib/auth/passkeys";
+import { formatMountainDate } from "@/lib/format/time";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -59,6 +62,16 @@ export default async function SettingsPage() {
       />
       <PasswordCard hasPassword={!!user?.passwordHash} />
       <MfaCard enabled={!!user?.mfaEnabledAt} />
+      {user?.mfaEnabledAt ? (
+        <PasskeysCard
+          passkeys={(await listPasskeys(session.user.id)).map((p) => ({
+            id: p.id,
+            nickname: p.nickname,
+            added: formatMountainDate(p.createdAt),
+            lastUsed: p.lastUsedAt ? formatMountainDate(p.lastUsedAt) : null,
+          }))}
+        />
+      ) : null}
       {roles.length > 0 ? (
         // Staff roles live here rather than on an Admin page that may have
         // nothing for them (lib/auth/admin-work.ts).

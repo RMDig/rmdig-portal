@@ -11,13 +11,18 @@ type SignIn = (args: {
 }) => Promise<boolean>;
 
 const h = vi.hoisted(() => ({
-  config: null as null | { callbacks: { signIn: SignIn } },
+  config: null as null | {
+    callbacks: {
+      signIn: SignIn;
+      jwt: (p: { token: Record<string, unknown>; account?: { provider: string } | null; user?: Record<string, unknown> }) => Promise<Record<string, unknown>>;
+    };
+  },
   secure: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("next-auth", () => ({
-  default: (config: { callbacks: { signIn: SignIn } }) => {
+  default: (config: NonNullable<typeof h.config>) => {
     h.config = config;
     return { handlers: {}, signIn: vi.fn(), signOut: vi.fn(), auth: vi.fn() };
   },
@@ -87,5 +92,24 @@ describe("signIn callback", () => {
   it("leaves credentials sign-in alone", async () => {
     expect(await h.config!.callbacks.signIn({ user: { email: "pat@example.org" }, account: { type: "credentials", provider: "credentials" } })).toBe(true);
     expect(h.secure).not.toHaveBeenCalled();
+  });
+});
+
+describe("jwt callback", () => {
+  it("carries how a credentials sign-in met its second factor, for the session row", async () => {
+    const token = await h.config!.callbacks.jwt({
+      token: {},
+      account: { provider: "credentials" },
+      user: { id: "u1", authMethod: "passkey", passkeyId: "pk-1" },
+    });
+    expect(token).toMatchObject({ credentials: true, sub: "u1", authMethod: "passkey", passkeyId: "pk-1" });
+  });
+
+  it("defaults a credentials sign-in to a password one, and leaves Google alone", async () => {
+    expect(await h.config!.callbacks.jwt({ token: {}, account: { provider: "credentials" }, user: { id: "u1" } })).toMatchObject({
+      authMethod: "password",
+      passkeyId: null,
+    });
+    expect(await h.config!.callbacks.jwt({ token: {}, account: { provider: "google" }, user: { id: "u1" } })).not.toHaveProperty("authMethod");
   });
 });

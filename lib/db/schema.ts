@@ -111,6 +111,31 @@ export const accounts = pgTable(
   ],
 );
 
+// Passkeys (WebAuthn), a second factor beside TOTP (plan 36 §5.4, S-D5). Only
+// the public key is held; the private key never leaves the user's device. A
+// passkey can be added only while two-factor (TOTP) is on, so recovery codes
+// exist if every passkey is lost, and turning two-factor off removes them.
+// created_at is what makes a revoke "full" (device_revoke rev 2 §1.1: a passkey
+// at least 7 days old), so it is never updated.
+export const webauthnCredentials = pgTable(
+  "webauthn_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // base64url, as the browser and SimpleWebAuthn report it.
+    credentialId: text("credential_id").notNull().unique(),
+    publicKey: text("public_key").notNull(),
+    counter: integer("counter").notNull().default(0),
+    transports: text("transports"),
+    nickname: text("nickname").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { mode: "date", withTimezone: true }),
+  },
+  (t) => [index("webauthn_credentials_user_id_idx").on(t.userId)],
+);
+
 // Where the security-notice cron last read each AvServ node's security_events
 // feed for one opted-in user (security_events.md §4: cursors are per node and
 // opaque). Deleted with the user, and when notices are turned off.
@@ -156,6 +181,9 @@ export const sessions = pgTable(
     userAgent: text("user_agent"),
     // Set with authTime, at sign-in and at every re-authentication.
     authMethod: text("auth_method").$type<SessionAuthMethod>(),
+    // The passkey that proved it, when authMethod is "passkey" (its age decides
+    // a full revoke). Cleared if the passkey is removed.
+    authPasskeyId: uuid("auth_passkey_id").references(() => webauthnCredentials.id, { onDelete: "set null" }),
   },
   (t) => [
     index("sessions_user_id_idx").on(t.userId),
@@ -183,6 +211,8 @@ export const ACCOUNT_SECURITY_EVENT_KINDS = [
   "sessions_revoked_others",
   "notices_on",
   "notices_off",
+  "passkey_added",
+  "passkey_removed",
 ] as const;
 export type AccountSecurityEventKind = (typeof ACCOUNT_SECURITY_EVENT_KINDS)[number];
 

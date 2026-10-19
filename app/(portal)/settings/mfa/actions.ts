@@ -1,5 +1,6 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
@@ -10,6 +11,7 @@ import {
   verifyTotp,
 } from "@/lib/auth/mfa";
 import { verifySecondFactor } from "@/lib/auth/mfa-verify";
+import { removeAllPasskeys } from "@/lib/auth/passkeys";
 import { recordSecurityEvent } from "@/lib/auth/security-events";
 import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { currentSessionId, signOutOtherSessions } from "@/lib/auth/sessions";
@@ -96,8 +98,10 @@ export async function confirmMfaEnrollmentAction(
   return { ok: true, recoveryCodes };
 }
 
-/** Disable MFA. Requires a valid second factor (TOTP or recovery code) so a
- *  walk-up attacker on an open session can't silently turn it off. */
+/** Disable MFA. Requires the password AND a valid second factor (TOTP or
+ *  recovery code), so neither a walk-up attacker on an open session nor
+ *  someone with only the code can turn it off (plan 36 §5.4, P6). Removes the
+ *  account's passkeys too: a passkey is only ever an addition to TOTP. */
 export async function disableMfaAction(
   _prev: MfaActionResult | null,
   formData: FormData,
@@ -107,9 +111,10 @@ export async function disableMfaAction(
   const userId = session.user.id;
 
   const code = String(formData.get("code") ?? "");
+  const password = String(formData.get("password") ?? "");
 
   const [user] = await db
-    .select({ secret: users.totpSecretEncrypted, enabledAt: users.mfaEnabledAt })
+    .select({ secret: users.totpSecretEncrypted, enabledAt: users.mfaEnabledAt, passwordHash: users.passwordHash })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -119,6 +124,17 @@ export async function disableMfaAction(
   }
 
   if (!(await mfaManageAllowed(userId, "disable"))) return MFA_MANAGE_LIMITED;
+
+  if (!user.passwordHash) {
+    return {
+      ok: false,
+      error: "Turning two-factor off needs a password, and your account signs in with Google only. Set a password first.",
+    };
+  }
+  if (!(await bcrypt.compare(password, user.passwordHash))) {
+    logger.info({ event: "mfa.disable.bad_password", userId });
+    return { ok: false, error: "That password is incorrect." };
+  }
 
   const ok = await verifySecondFactor(userId, decryptSecret(user.secret), code);
   if (!ok) {
@@ -134,6 +150,7 @@ export async function disableMfaAction(
       .set({ totpSecretEncrypted: null, mfaEnabledAt: null })
       .where(eq(users.id, userId));
     await tx.delete(mfaRecoveryCodes).where(eq(mfaRecoveryCodes.userId, userId));
+    await removeAllPasskeys(tx, userId);
     await signOutOtherSessions(tx, userId, keep);
     await recordSecurityEvent(tx, { userId, kind: "mfa_disabled", sessionId: keep });
   });

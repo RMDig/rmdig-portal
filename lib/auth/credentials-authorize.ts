@@ -9,6 +9,7 @@ import { users } from "../db/schema";
 import { logger } from "../logger";
 import { incrementRateLimit, peekRateLimit, resetRateLimit } from "../rate-limit";
 import { decryptSecret } from "./mfa";
+import { verifyPasskeyAssertion } from "./passkeys";
 import { verifySecondFactor } from "./mfa-verify";
 
 // The Credentials provider's authorize(), kept out of lib/auth.ts so it can be
@@ -20,6 +21,8 @@ const credentialsSchema = z.object({
   // Optional second factor. Absent on the first submit (password only); present
   // on the resubmit after we signal MFA_REQUIRED. A 6-digit TOTP or a recovery code.
   totp: z.string().optional(),
+  // A passkey answer (AuthenticationResponseJSON as a string), instead of a code.
+  passkey: z.string().optional(),
 });
 
 // Three throttles, all checked before the user lookup so timing can't reveal
@@ -60,6 +63,9 @@ export interface AuthorizedUser {
   email: string;
   name: string | null;
   image: string | null;
+  /** How the second factor was met, for sessions.auth_method (lib/auth.ts). */
+  authMethod: "password" | "passkey";
+  passkeyId: string | null;
 }
 
 export async function authorizeCredentials(raw: unknown): Promise<AuthorizedUser | null> {
@@ -68,7 +74,7 @@ export async function authorizeCredentials(raw: unknown): Promise<AuthorizedUser
     logger.warn({ event: "auth.credentials.invalid_input" });
     return null;
   }
-  const { email, password, totp } = parsed.data;
+  const { email, password, totp, passkey } = parsed.data;
 
   const ip = await clientIp();
   const ipLimit = await incrementRateLimit(`signin-ip:${ip}`, SIGNIN_IP_RATE_LIMIT);
@@ -111,8 +117,18 @@ export async function authorizeCredentials(raw: unknown): Promise<AuthorizedUser
   }
 
   // Second factor (phase two). The password is correct; if MFA is on, the
-  // user must also present a current TOTP or an unused recovery code.
-  if (user.mfaEnabledAt) {
+  // user must also present a current TOTP, an unused recovery code, or one of
+  // their passkeys (plan 36 §5.4).
+  let passkeyId: string | null = null;
+  if (user.mfaEnabledAt && passkey) {
+    const result = await verifyPasskeyAssertion(user.id, passkey, "signin");
+    if (!result.ok) {
+      logger.info({ event: "auth.credentials.passkey_invalid", userId: user.id });
+      await recordFailure();
+      throw new MfaInvalidError();
+    }
+    passkeyId = result.passkeyId;
+  } else if (user.mfaEnabledAt) {
     const code = totp?.trim();
     if (!code) {
       // Password ok, code not yet supplied — tell the UI to ask for it.
@@ -144,5 +160,7 @@ export async function authorizeCredentials(raw: unknown): Promise<AuthorizedUser
     email: user.email,
     name: user.displayName ?? user.name,
     image: user.image,
+    authMethod: passkeyId ? "passkey" : "password",
+    passkeyId,
   };
 }

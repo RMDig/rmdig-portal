@@ -2,13 +2,14 @@
 
 import { useActionState } from "react";
 
-import { reauthWithPasswordAction } from "./actions";
+import { reauthPasskeyOptionsAction, reauthWithPasswordAction } from "./actions";
+import { PasskeyFactorButton } from "@/components/auth/PasskeyFactorButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 
-export function ReauthForm({ returnTo, mfa }: { returnTo: string; mfa: boolean }) {
+export function ReauthForm({ returnTo, mfa, passkey }: { returnTo: string; mfa: boolean; passkey: boolean }) {
   const [state, action, pending] = useActionState(reauthWithPasswordAction, null);
 
   return (
@@ -21,7 +22,9 @@ export function ReauthForm({ returnTo, mfa }: { returnTo: string; mfa: boolean }
       {mfa ? (
         <div className="space-y-2">
           <Label htmlFor="code">Authenticator or recovery code</Label>
-          <Input id="code" name="code" autoComplete="one-time-code" inputMode="text" required />
+          {/* Not `required`: a passkey answers instead of the code. */}
+          <Input id="code" name="code" autoComplete="one-time-code" inputMode="text" />
+          {passkey ? <PasskeyFactorButton getOptions={reauthPasskeyOptionsAction} /> : null}
         </div>
       ) : null}
       {state && !state.ok ? <p className="text-sm text-red-700 dark:text-red-300">{state.error}</p> : null}

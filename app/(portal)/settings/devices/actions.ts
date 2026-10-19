@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
+import { passkeyCreatedAt } from "@/lib/auth/passkeys";
 import { requireRecentAuth } from "@/lib/auth/recent-auth";
 import { notifySecurityChange } from "@/lib/auth/security-notices";
 import {
@@ -45,10 +46,17 @@ const UNAVAILABLE = { ok: false as const, error: "Signing a phone out isn't avai
 
 type Failure = { ok: false; error: string; reauth?: true };
 
-/** How this session last proved who it is, as AvServ's authStrength (§3.3). */
-function authStrengthFor(method: SessionAuthMethod | null): AuthStrength {
-  // Passkeys arrive in plan 36 PR 10, with their enrolment time.
-  return method === "password" ? { method: "password" } : { method: "other" };
+/** How this session last proved who it is, as AvServ's authStrength (§3.3):
+ *  a passkey with its enrolment time (AvServ makes it full at 7 days), a
+ *  password, or anything else. A passkey since removed counts as a password:
+ *  the password was checked alongside it. */
+async function authStrengthFor(method: SessionAuthMethod | null, passkeyId: string | null): Promise<AuthStrength> {
+  if (method === "passkey" && passkeyId) {
+    const created = await passkeyCreatedAt(passkeyId);
+    if (created) return { method: "passkey", passkeyCreatedAt: created.toISOString() };
+    return { method: "password" };
+  }
+  return method === "password" || method === "passkey" ? { method: "password" } : { method: "other" };
 }
 
 type Ready =
@@ -69,7 +77,12 @@ async function ready(): Promise<Ready> {
   }
   const recent = await requireRecentAuth(actor.userId);
   if (!recent.ok) return REAUTH;
-  return { ok: true, userId: actor.userId, accountId: row.avservAccountId, strength: authStrengthFor(recent.authMethod) };
+  return {
+    ok: true,
+    userId: actor.userId,
+    accountId: row.avservAccountId,
+    strength: await authStrengthFor(recent.authMethod, recent.authPasskeyId),
+  };
 }
 
 const deviceId = z.string().uuid();

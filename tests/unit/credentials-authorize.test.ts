@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
   resets: [] as string[],
   dbReads: 0,
   secondFactorOk: false,
+  passkeyCalls: [] as unknown[][],
+  passkeyOk: false,
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -54,6 +56,12 @@ vi.mock("@/lib/client-ip", () => ({ clientIp: () => Promise.resolve(h.ip) }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("@/lib/auth/mfa", () => ({ decryptSecret: (s: string) => s }));
 vi.mock("@/lib/auth/mfa-verify", () => ({ verifySecondFactor: () => Promise.resolve(h.secondFactorOk) }));
+vi.mock("@/lib/auth/passkeys", () => ({
+  verifyPasskeyAssertion: (...a: unknown[]) => {
+    h.passkeyCalls.push(a);
+    return Promise.resolve(h.passkeyOk ? { ok: true, passkeyId: "pk-1" } : { ok: false });
+  },
+}));
 
 import {
   EmailUnverifiedError,
@@ -99,6 +107,8 @@ beforeEach(() => {
   h.resets = [];
   h.dbReads = 0;
   h.secondFactorOk = false;
+  h.passkeyCalls = [];
+  h.passkeyOk = false;
 });
 
 describe("authorizeCredentials throttling", () => {
@@ -177,6 +187,39 @@ describe("authorizeCredentials throttling", () => {
 
     h.secondFactorOk = true;
     await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD, totp: "123456" })).resolves.toMatchObject({ id: "u1" });
+  });
+
+  it("accepts a passkey as the second factor, and records the session as a passkey one", async () => {
+    await verifiedUser({ mfaEnabledAt: new Date(), totpSecretEncrypted: "secret" });
+    h.passkeyOk = true;
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD, passkey: "{}" })).resolves.toMatchObject({
+      id: "u1",
+      authMethod: "passkey",
+      passkeyId: "pk-1",
+    });
+    expect(h.passkeyCalls).toEqual([["u1", "{}", "signin"]]);
+  });
+
+  it("counts a passkey that doesn't check out as a failure", async () => {
+    await verifiedUser({ mfaEnabledAt: new Date(), totpSecretEncrypted: "secret" });
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD, passkey: "{}" })).rejects.toBeInstanceOf(MfaInvalidError);
+    expect(h.increments.filter((k) => k === failureKey)).toHaveLength(1);
+  });
+
+  it("never looks at a passkey before the password is right", async () => {
+    await verifiedUser({ mfaEnabledAt: new Date(), totpSecretEncrypted: "secret" });
+    h.passkeyOk = true;
+    await expect(authorizeCredentials({ email: EMAIL, password: "guess", passkey: "{}" })).resolves.toBeNull();
+    expect(h.passkeyCalls).toEqual([]);
+  });
+
+  it("marks a code sign-in as a password one", async () => {
+    await verifiedUser({ mfaEnabledAt: new Date(), totpSecretEncrypted: "secret" });
+    h.secondFactorOk = true;
+    await expect(authorizeCredentials({ email: EMAIL, password: PASSWORD, totp: "123456" })).resolves.toMatchObject({
+      authMethod: "password",
+      passkeyId: null,
+    });
   });
 
   it("keeps the per-source cap at bootstrap P1.1's 5 / 15 min and the other caps looser", () => {

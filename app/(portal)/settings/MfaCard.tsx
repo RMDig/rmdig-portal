@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function MfaCard({ enabled }: { enabled: boolean }) {
   if (!enabled) {
@@ -107,6 +108,13 @@ function ManageMfa() {
 
         {mode === "disable" ? (
           <form action={disableAction} className="space-y-3">
+            <p className="text-muted-foreground text-sm">
+              Turning two-factor off also removes your passkeys and signs out your other browsers.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="disable-password">Your password</Label>
+              <PasswordInput id="disable-password" name="password" autoComplete="current-password" required />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="disable-code">
                 Enter a current authenticator or recovery code to turn off two-factor

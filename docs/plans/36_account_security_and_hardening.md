@@ -374,6 +374,18 @@ AvServ write endpoint"). It gains:
   The counter is checked, and a regression is refused and reported.
 - **Disabling MFA needs the password** as well as a factor (56 P6). Google-only accounts need a
   recent Google re-login instead.
+- **Built (PR 10):** `lib/auth/passkeys.ts`, `webauthn-config.ts` (RP ID `rmdig.ai` in
+  production, `localhost` in dev, a preview's own host; anything else refused),
+  `webauthn-challenge.ts` (the ceremony's challenge in a signed, httpOnly, 5-minute cookie,
+  spent once and bound to its purpose, and for registration and re-auth to the user),
+  Settings → Passkeys (add with a name, remove; both need a recent login and two-factor
+  on; removing one signs the other browsers out), "Use a passkey instead" at sign-in's
+  second step and on "Confirm it's you", `sessions.auth_passkey_id` (migration 0031),
+  and the revoke's `authStrength` from the passkey's enrolment time. Discoverable
+  credentials with user verification required, so the sign-in options name no
+  credentials and reveal nothing about an account. A counter that goes backwards is
+  refused and reported. Turning two-factor off needs the password and removes the
+  passkeys.
 - **Then `MFA_ENFORCEMENT=all`**, a Vercel env change by the owner (00_status §1 already plans it
   at launch).
   - Google-only accounts keep the P1.2 boundary: Google's own 2FA covers them, and they're not

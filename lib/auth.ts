@@ -8,7 +8,7 @@ import Google from "next-auth/providers/google";
 import { headers } from "next/headers";
 
 import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
-import { authorizeCredentials } from "./auth/credentials-authorize";
+import { authorizeCredentials, type AuthorizedUser } from "./auth/credentials-authorize";
 import { markOAuthUserVerified, oauthEmailVerified, secureOAuthEmailLink } from "./auth/oauth-link";
 import { withHashedSessions } from "./auth/session-adapter";
 import { db } from "./db";
@@ -66,8 +66,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           sessionToken,
           userId,
           expires: new Date(Date.now() + SESSION_MAX_AGE * 1000),
-          // Read by the session adapter for sessions.auth_method.
-          authMethod: "password",
+          // Read by the session adapter for sessions.auth_method and
+          // auth_passkey_id (a passkey's age decides a full phone revoke).
+          authMethod: params.token.authMethod ?? "password",
+          authPasskeyId: params.token.passkeyId ?? null,
         } as Parameters<NonNullable<typeof adapter.createSession>>[0]);
         if (!session) {
           throw new Error("credentials session encode: createSession returned nothing");
@@ -112,6 +114,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (account?.provider === "credentials") {
         token.credentials = true;
         if (user?.id) token.sub = user.id;
+        // How the second factor was met (lib/auth/credentials-authorize.ts),
+        // carried to the session row by the encode override.
+        const authorized = user as Partial<AuthorizedUser> | undefined;
+        token.authMethod = authorized?.authMethod ?? "password";
+        token.passkeyId = authorized?.passkeyId ?? null;
       }
       return token;
     },
@@ -183,5 +190,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     credentials?: boolean;
+    authMethod?: "password" | "passkey";
+    passkeyId?: string | null;
   }
 }

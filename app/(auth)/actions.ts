@@ -56,6 +56,7 @@ const signInSchema = z.object({
   email: z.string().email().toLowerCase(),
   password: z.string().min(1),
   totp: z.string().optional(),
+  passkey: z.string().max(16_000).optional(),
 });
 
 // ----- Action result type -----
@@ -270,6 +271,7 @@ export async function signInCredentialsAction(
       email: parsed.data.email,
       password: parsed.data.password,
       ...(parsed.data.totp ? { totp: parsed.data.totp } : {}),
+      ...(parsed.data.passkey ? { passkey: parsed.data.passkey } : {}),
       redirectTo: safeReturnTo(formData.get("next")) ?? "/dashboard",
     });
     return { ok: true };
@@ -289,7 +291,7 @@ export async function signInCredentialsAction(
           ok: false,
           mfaRequired: true,
           mfaInvalid: true,
-          error: "That code didn't match. Try again, or use a recovery code.",
+          error: "That didn't match. Try your code again, a recovery code, or your passkey.",
         };
       }
       if (err.code === "rate_limited") {
