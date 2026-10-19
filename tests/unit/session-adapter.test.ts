@@ -55,6 +55,14 @@ describe("withHashedSessions", () => {
     expect(JSON.stringify([...rows.values()])).not.toContain(RAW);
   });
 
+  it("records the sign-in method: password when the credentials sign-in says so, oauth otherwise", async () => {
+    const { adapter, rows } = wrapped();
+    await adapter.createSession!({ sessionToken: RAW, userId: "u1", expires, authMethod: "password" } as never);
+    await adapter.createSession!({ sessionToken: "oauth-token", userId: "u1", expires });
+    expect(rows.get(hashSessionToken(RAW))?.authMethod).toBe("password");
+    expect(rows.get(hashSessionToken("oauth-token"))?.authMethod).toBe("oauth");
+  });
+
   it("records the browser's user agent, cut to 200 characters", async () => {
     const { adapter, rows } = wrapped("x".repeat(500));
     await adapter.createSession!({ sessionToken: RAW, userId: "u1", expires });

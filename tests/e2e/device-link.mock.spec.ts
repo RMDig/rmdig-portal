@@ -44,12 +44,38 @@ test.describe("device-link flow (mock AvServ)", () => {
     await page.goto("/settings/devices");
     await expect(page.getByRole("heading", { name: "Devices" })).toBeVisible();
     await expect(page.getByText("Linked devices")).toBeVisible();
-    await expect(page.getByText("iOS", { exact: false })).toBeVisible();
-    await expect(page.getByText("macOS", { exact: false })).toBeVisible();
+    // Scoped to the device rows: the "sign out your other phones" picker names
+    // the phones too.
+    await expect(page.getByRole("listitem").filter({ hasText: "macOS" })).toBeVisible();
+    await expect(page.getByRole("listitem").filter({ hasText: /^iOS/ })).toBeVisible();
 
     // P-B2: minting a link-code shows a single-use XXXX-XXXX code.
     await page.getByRole("button", { name: /generate link code/i }).click();
     await expectMintedCodeVisible(page);
     await expect(page.getByText(MOCK_CODE_RE)).toBeVisible();
+  });
+
+  // Plan 36 §5.1 (AvServ device_revoke.md rev 2 on the mock): signing a phone
+  // out warns about the trip under way on it, says Send Help stays, and leaves
+  // the phone listed as signed out. A fresh sign-in counts as a recent login.
+  test("a phone can be signed out, and stays listed as signed out", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/settings/devices");
+
+    const phone = page.getByRole("listitem").filter({ hasText: /^iOS/ });
+    await phone.getByRole("button", { name: "Sign out this phone" }).click();
+
+    await expect(phone.getByText(/has a check-out under way/)).toBeVisible();
+    await expect(phone.getByText("Send Help still works from that phone.")).toBeVisible();
+    await expect(phone.getByText(/limited sign-out/)).toBeVisible();
+
+    await phone.getByLabel("Why are you signing it out?").selectOption("lost");
+    await phone.getByRole("button", { name: "Sign out this phone" }).click();
+    await expect(phone.getByText("Signed out. Send Help still works from it.")).toBeVisible();
+
+    await page.reload();
+    const after = page.getByRole("listitem").filter({ hasText: /^iOS/ });
+    await expect(after.getByText(/Signed out .*\(lost\)/)).toBeVisible();
+    await expect(after.getByRole("button", { name: "Sign out this phone" })).toHaveCount(0);
   });
 });

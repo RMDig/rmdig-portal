@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import type { Adapter, AdapterSession } from "next-auth/adapters";
 
+import type { SessionAuthMethod } from "../db/schema";
+
 // Auth.js looks sessions up by the exact cookie token. This wrapper stores and
 // looks up sha256(token) instead (plan 36 §3.2), so a copy of the sessions table
 // can't sign anyone in. It wraps the four session methods and nothing else:
@@ -52,12 +54,17 @@ export function withHashedSessions(base: Adapter, deps: SessionAdapterDeps): Ada
 
     async createSession(session) {
       const userAgent = (await deps.userAgent())?.slice(0, USER_AGENT_MAX) ?? null;
+      // The credentials sign-in (lib/auth.ts jwt.encode) says it's a password;
+      // Auth.js itself creates sessions only for OAuth sign-ins here.
+      const authMethod: SessionAuthMethod =
+        (session as AdapterSession & { authMethod?: SessionAuthMethod }).authMethod ?? "oauth";
       // Extra columns ride along in the insert; the Drizzle adapter writes the
       // object as given. authTime and createdAt take their database defaults.
       const row = await m.createSession({
         ...session,
         sessionToken: hashSessionToken(session.sessionToken),
         userAgent,
+        authMethod,
       } as AdapterSession);
       return { ...row, sessionToken: session.sessionToken };
     },

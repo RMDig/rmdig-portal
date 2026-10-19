@@ -90,6 +90,14 @@ export const Env = z.object({
   AVSERV_SERVICE_JWT_SIGNING_KEY_B64: z.string().optional(),
   AVSERV_SERVICE_JWT_KID: z.string().optional(),
   AVSERV_SERVICE_JWT_KEY_SHA256: z.string().optional(),
+  // A second key, granted ONLY AvServ's device_admin group (device_revoke.md
+  // §3.1; plan 36 S3): revoke, revoke preview, revoke-others and the App Lock
+  // reset code sign with it, and nothing else does. Same one-line base64 shape
+  // and build check as the key above. Optional: unset, signing a phone out
+  // shows "not available yet", and it never falls back to the everyday key.
+  AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64: z.string().optional(),
+  AVSERV_DEVICE_ADMIN_JWT_KID: z.string().optional(),
+  AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256: z.string().optional(),
   // The second AvServ node, used only to retry an agreement acceptance with the
   // same Idempotency-Key when the primary is unreachable or answers 5xx/503
   // (AvServ contract account_agreement.md §4, failover). Optional: unset means

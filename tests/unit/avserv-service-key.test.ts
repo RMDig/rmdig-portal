@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { checkServiceKeyConfig, parseServiceKey } from "@/lib/avserv/service-key";
+import { checkDeviceAdminKeyConfig, checkServiceKeyConfig, parseServiceKey } from "@/lib/avserv/service-key";
 
 // The key format and the build-time check (scripts/check-service-key.ts).
 const ed = generateKeyPairSync("ed25519");
@@ -57,5 +57,31 @@ describe("checkServiceKeyConfig (the build check)", () => {
     expect(
       checkServiceKeyConfig({ AVSERV_BASE_URL: REAL, AVSERV_SERVICE_JWT_SIGNING_KEY_B64: b64, AVSERV_SERVICE_JWT_KEY_SHA256: fp, AVSERV_SERVICE_JWT_KID: "bad kid" }),
     ).toMatchObject({ status: "error", error: expect.stringMatching(/valid key id/) });
+  });
+});
+
+describe("checkDeviceAdminKeyConfig (plan 36 S3)", () => {
+  it("is fine absent (not installed yet) and skipped on the mock", () => {
+    expect(checkDeviceAdminKeyConfig({ AVSERV_BASE_URL: REAL })).toEqual({ status: "absent" });
+    expect(checkDeviceAdminKeyConfig({ AVSERV_BASE_URL: "mock://localhost", AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64: "junk" })).toEqual({ status: "skipped" });
+  });
+
+  it("passes a matching key under the device-admin kid", () => {
+    expect(
+      checkDeviceAdminKeyConfig({ AVSERV_BASE_URL: REAL, AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64: b64, AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256: fp }),
+    ).toEqual({ status: "ok", kid: "svc-key-portal-device-admin-1", fingerprint: fp });
+  });
+
+  it("fails a present key that's malformed, unfingerprinted, mismatched, or under the everyday kid", () => {
+    const base = { AVSERV_BASE_URL: REAL, AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64: b64 };
+    expect(checkDeviceAdminKeyConfig({ ...base, AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64: "not base64!" })).toMatchObject({
+      status: "error",
+      error: expect.stringMatching(/AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64/),
+    });
+    expect(checkDeviceAdminKeyConfig(base)).toMatchObject({ status: "error", error: expect.stringMatching(/KEY_SHA256 is not set/) });
+    expect(checkDeviceAdminKeyConfig({ ...base, AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256: "00".repeat(32) })).toMatchObject({ status: "error" });
+    expect(
+      checkDeviceAdminKeyConfig({ ...base, AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256: fp, AVSERV_DEVICE_ADMIN_JWT_KID: "svc-key-portal-1" }),
+    ).toMatchObject({ status: "error", error: expect.stringMatching(/everyday kid/) });
   });
 });

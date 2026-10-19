@@ -5,7 +5,8 @@ import Link from "next/link";
 import { DevicesList } from "./DevicesList";
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
-import { listDevices, type LinkedDevice } from "@/lib/avserv/client";
+import { deviceRevokeAvailable, listDevicesEveryNode } from "@/lib/avserv/device-revoke";
+import type { MergedDevices } from "@/lib/avserv/device-revoke-merge";
 import { isAvServOutage } from "@/lib/avserv/request";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -51,9 +52,10 @@ export default async function DevicesPage() {
 
   // Keep the try/catch to data-fetching only; build JSX after (a thrown render
   // wouldn't be caught here anyway — see the react-hooks/error-boundaries rule).
-  let devices: LinkedDevice[] | null = null;
+  let devices: MergedDevices | null = null;
   try {
-    devices = await listDevices(user.avservAccountId);
+    // Every node, merged: a phone is signed out if any node says so (rev 1.1).
+    devices = await listDevicesEveryNode(user.avservAccountId);
   } catch (err) {
     // No silent catch (§5): null drives the recoverable error UI. An AvServ
     // outage is logged; anything else (a portal bug, a contract drift, a
@@ -70,7 +72,7 @@ export default async function DevicesPage() {
     <div className="space-y-6">
       <Header />
       {devices ? (
-        <DevicesList devices={devices} />
+        <DevicesList devices={devices.devices} incomplete={devices.incomplete} revokeAvailable={deviceRevokeAvailable()} />
       ) : (
         <Card>
           <CardHeader>
@@ -83,7 +85,7 @@ export default async function DevicesPage() {
         </Card>
       )}
       <LinkDeviceCard
-        devices={devices?.map((d) => ({ deviceId: d.deviceId, platform: d.platform })) ?? null}
+        devices={devices?.devices.map((d) => ({ deviceId: d.deviceId, platform: d.platform })) ?? null}
       />
     </div>
   );

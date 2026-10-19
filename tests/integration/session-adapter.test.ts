@@ -75,6 +75,22 @@ describe("hashed sessions (Postgres)", () => {
     expect(new Date(row!.last_seen_at).getTime()).toBe(seen.getTime());
   });
 
+  it("records how each session signed in, and refuses an unknown method (migration 0029)", async () => {
+    const pw = randomUUID();
+    const google = randomUUID();
+    await adapter.createSession!({ sessionToken: pw, userId, expires: new Date(Date.now() + 86_400_000), authMethod: "password" } as never);
+    await adapter.createSession!({ sessionToken: google, userId, expires: new Date(Date.now() + 86_400_000) });
+    const rows = await sql<{ sessionToken: string; auth_method: string }[]>`SELECT "sessionToken", auth_method FROM sessions`;
+    const method = (t: string) => rows.find((r) => r.sessionToken === hashSessionToken(t))?.auth_method;
+    expect(method(pw)).toBe("password");
+    expect(method(google)).toBe("oauth");
+    const code = await sql`UPDATE sessions SET auth_method = 'magic' WHERE "sessionToken" = ${hashSessionToken(pw)}`
+      .then(() => undefined)
+      .catch((err: { code?: string }) => err.code);
+    expect(code).toBe("23514");
+    await sql`DELETE FROM sessions WHERE "sessionToken" IN (${hashSessionToken(pw)}, ${hashSessionToken(google)})`;
+  });
+
   it("deletes by the raw token", async () => {
     await adapter.deleteSession!(raw);
     const [row] = await sql<{ count: string }[]>`SELECT count(*)::text AS count FROM sessions`;

@@ -46,13 +46,18 @@ export const LinkedDeviceSchema = z.object({
   appVersion: z.string().nullable(),
   createdAt: z.string().min(1),
   lastSeenAt: z.string().min(1),
+  // device_revoke.md rev 1.1 §3.6 / rev 2: a user-revoked phone stays listed.
+  // Null on a live phone; absent from nodes not yet on rev 1.1.
+  userRevokedAt: z.string().nullable().optional(),
+  revokeReason: z.enum(["lost", "stolen", "user"]).nullable().optional(),
+  revokeMode: z.enum(["limited", "full"]).nullable().optional(),
 });
 
 /** One device linked to the user's AvServ account, for the read-only
  *  /settings/devices view. Shape is derived from {@link LinkedDeviceSchema}. */
 export type LinkedDevice = z.infer<typeof LinkedDeviceSchema>;
 
-const ListDevicesResponseSchema = z.object({
+export const ListDevicesResponseSchema = z.object({
   devices: z.array(LinkedDeviceSchema),
 });
 
@@ -94,7 +99,7 @@ function mockLinkCode(accountId: string): string {
 // + a macOS desktop, the second with a null appVersion) exercise list rendering,
 // most-recently-seen-first ordering, and the nullable-version path. Timestamps are
 // fixed (not Date.now) so the mock is reproducible across processes and assertable.
-function mockDevices(accountId: string): LinkedDevice[] {
+export function mockDevices(accountId: string): LinkedDevice[] {
   const deviceUuid = (salt: string): string => {
     const hex = createHash("sha256").update(`${salt}:${accountId}`).digest("hex").slice(0, 32);
     const variant = ((parseInt(hex.charAt(16), 16) & 0x3) | 0x8).toString(16);
@@ -259,60 +264,6 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
     throw new AvServError("AvServ response missing code/expiresAt");
   }
   return { code: body.code, expiresAt: body.expiresAt };
-}
-
-/**
- * List the devices linked to an AvServ account (P-B3, read-only). Powers the
- * /settings/devices view. Throws {@link AvServError} on any failure so the page
- * renders an error state rather than 500ing. An account that owns no devices is
- * a successful empty list, never an error (AvServ proves account existence in
- * its store — 404 means the account is unknown, not that it has zero devices).
- */
-export async function listDevices(accountId: string): Promise<LinkedDevice[]> {
-  if (!accountId) {
-    throw new AvServError("listDevices called with an empty accountId");
-  }
-
-  const baseUrl = env.AVSERV_BASE_URL;
-  if (!baseUrl) {
-    throw new AvServError(
-      "AVSERV_BASE_URL is not set — cannot list linked devices. " +
-        "Set it to mock://localhost for local dev or the real AvServ base URL.",
-    );
-  }
-
-  if (isMock(baseUrl)) {
-    return mockDevices(accountId);
-  }
-
-  // A read: safe on either node (the failover node may lag by a few seconds).
-  const { res, viaFailover } = await fetchOnAnyNode(
-    baseUrl,
-    `/v1/internal/accounts/${encodeURIComponent(accountId)}/devices`,
-    { method: "GET" },
-  );
-
-  const shared = commonStatusError(res.status);
-  if (shared) throw shared;
-  if (res.status === 400) {
-    throw new AvServError("AvServ rejected the account id as malformed (400)", 400);
-  }
-  if (res.status === 404) {
-    if (viaFailover) throw failoverNotFound();
-    throw new AvServError("AvServ does not know this account (404)", 404);
-  }
-  if (!res.ok) {
-    throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);
-  }
-
-  const json = await res.json().catch(() => null);
-  const parsed = ListDevicesResponseSchema.safeParse(json);
-  if (!parsed.success) {
-    // A drifted/garbled response is an integration bug, not a user condition —
-    // fail loud rather than render undefined fields.
-    throw new AvServError("AvServ devices response failed schema validation");
-  }
-  return parsed.data.devices;
 }
 
 // ── Ad creative publish / unpublish (P2 / v2+, docs/plans/30 §6) ─────────────

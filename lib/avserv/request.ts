@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { env } from "../env";
 import { logger } from "../logger";
-import { signServiceJwt } from "./service-jwt";
+import { signServiceJwt, type KeyRole } from "./service-jwt";
 
 // Shared plumbing for every call on AvServ's internal (S2S) tier: the error
 // type, mock detection, the status causes every endpoint shares, and one fetch
@@ -66,11 +66,12 @@ export async function avservFetch(
   baseUrl: string,
   path: string,
   init: { method: string; headers?: Record<string, string>; body?: string },
+  keyRole: KeyRole = "default",
 ): Promise<Response> {
   // Signed outside the try: a missing or bad signing key is our fault, not an
   // unreachable node, and must not be retried on the other node or shown as
   // an outage.
-  const token = await signServiceJwt();
+  const token = await signServiceJwt(keyRole);
   const requestId = randomUUID();
   try {
     return await fetch(`${baseUrl.replace(/\/$/, "")}${path}`, {

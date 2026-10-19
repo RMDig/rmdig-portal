@@ -250,6 +250,24 @@ AvServ write endpoint"). It gains:
     Nothing downgrades. The device row offers "Make this stronger" on a `limited` revoke once
     the user has a passkey at least 7 days old.
   - The response carries `mode` and `upgraded`; `sessionsRevoked` is gone.
+- **Built (PR 7 + 8, on the mock):** `lib/avserv/device-revoke.ts` (every node,
+  device-admin key, reader header), `device-revoke-mock.ts`, `device-revoke-merge.ts`;
+  `app/(portal)/settings/devices/` (`actions.ts`, `DeviceRevoke.tsx`, `RevokeOthers.tsx`,
+  `revoke-copy.ts`). The preview, the revoke and revoke-others all need a recent login.
+  The page shows which mode the revoke **will** be before the confirm
+  (`predictRevokeMode`, the contract's rule), and why limited matters.
+- **Open trip warning (AvApp, 2026-10-18):** shown before the confirm when the preview
+  has a `checkout`. AvApp's wording names the due-back time ("due back at 4:30 PM"),
+  but rev 2's preview items carry only `{kind, id}`, so the portal says "a check-out
+  under way" until AvServ adds `dueAt` to `checkout` items (asked, §6).
+- **The phone's side** (AvApp plan 54 §7.1a): the next time it connects it says it was
+  signed out (Send Help one tap away), erases trips, contacts and check-out history
+  (keeping only an open trip's due-back time), and locks field observations until it's
+  signed back in. The portal never says "wiped": the lock is a screen lock today (AvApp
+  plan 56 A9 adds a server-held key later), a phone kept offline never hears the revoke,
+  and camera-roll photos aren't covered. The copy says so and suggests the phone's
+  passcode and Find My / Find My Device. `tests/unit/device-revoke-copy.test.ts` keeps
+  "wipe"/"erase" and the claim words out.
 - **What the user is told** (rule 5, honest copy, AvServ's wording for the two modes):
   - Limited: "This phone can still send Send Help and start new trips, but it can't see your
     account or change any trip you started before."
@@ -417,8 +435,12 @@ code, step 4 is security events.
    Nothing changes on the portal's side; its own limit (3 a day, §5.5) stays in front.
 5. **Rev 1.1** (AvServ #303, `897d74a`): the device list keeps revoked phones, with
    `userRevokedAt` and `revokeReason` (§5.1).
-6. **Later (AvServ plan 52):** "S-phone", a revoke started from the phone in hand through the
-   passkey sign-in in the system sheet. Not in this plan yet.
+6. **Later (AvServ plan 52):** "S-phone", "sign out my other phones" started from the phone
+   in hand through the portal's passkey sign-in in the system sheet (never a web view),
+   with the device proof attached. It needs passkeys (PR 10) first; it goes on the roadmap
+   after PR 10.
+6a. **Asked of AvServ (2026-10-18):** a `dueAt` on preview `checkout` items, so the warning
+   can name the due-back time the phone shows.
 7. **Go-live signals** the owner relays: AvServ plan 52 PR A and PR B ship on both nodes;
    `svc-key-portal-device-admin-1` is installed; `svc-key-portal-1` gets `+security_events`
    and the feed ships.
