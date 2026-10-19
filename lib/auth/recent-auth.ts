@@ -42,7 +42,7 @@ export async function currentSessionTokenHash(): Promise<string | null> {
 }
 
 export type RecentAuthResult =
-  | { ok: true; sessionId: string; authMethod: SessionAuthMethod | null }
+  | { ok: true; sessionId: string; authMethod: SessionAuthMethod | null; authPasskeyId: string | null }
   | { ok: false; reauth: true };
 
 /** Whether `userId`'s current session signed in recently enough. Anything
@@ -57,7 +57,7 @@ export async function requireRecentAuth(
     return { ok: false, reauth: true };
   }
   const [row] = await db
-    .select({ id: sessions.id, authTime: sessions.authTime, authMethod: sessions.authMethod })
+    .select({ id: sessions.id, authTime: sessions.authTime, authMethod: sessions.authMethod, authPasskeyId: sessions.authPasskeyId })
     .from(sessions)
     .where(and(eq(sessions.sessionToken, tokenHash), eq(sessions.userId, userId)))
     .limit(1);
@@ -69,7 +69,7 @@ export async function requireRecentAuth(
   }
   const now = opts.now ?? new Date();
   return isRecentAuth(row.authTime, now, opts.maxAgeSec)
-    ? { ok: true, sessionId: row.id, authMethod: row.authMethod }
+    ? { ok: true, sessionId: row.id, authMethod: row.authMethod, authPasskeyId: row.authPasskeyId }
     : { ok: false, reauth: true };
 }
 
@@ -78,12 +78,13 @@ export async function requireRecentAuth(
 export async function markRecentAuth(
   userId: string,
   method: SessionAuthMethod = "password",
+  passkeyId: string | null = null,
 ): Promise<boolean> {
   const tokenHash = await currentSessionTokenHash();
   if (!tokenHash) return false;
   const updated = await db
     .update(sessions)
-    .set({ authTime: new Date(), authMethod: method })
+    .set({ authTime: new Date(), authMethod: method, authPasskeyId: passkeyId })
     .where(and(eq(sessions.sessionToken, tokenHash), eq(sessions.userId, userId)))
     .returning({ id: sessions.id });
   return updated.length > 0;

@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
@@ -11,11 +12,18 @@ const h = vi.hoisted(() => ({
   rlAllowed: true,
   rlKeys: [] as string[],
   secondFactorCalls: 0,
+  passkeysRemoved: 0,
   signedOut: [] as Array<{ userId: string; keep: string | null }>,
   events: [] as Array<{ userId: string; kind: string; sessionId?: string | null }>,
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("@/lib/auth/passkeys", () => ({
+  removeAllPasskeys: () => {
+    h.passkeysRemoved++;
+    return Promise.resolve(1);
+  },
+}));
 vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
 vi.mock("@/lib/auth", () => ({
   auth: () => Promise.resolve(h.sessionUserId ? { user: { id: h.sessionUserId } } : null),
@@ -92,13 +100,19 @@ import {
   regenerateRecoveryCodesAction,
 } from "@/app/(portal)/settings/mfa/actions";
 
-function form(code: string): FormData {
+function form(code: string, password?: string): FormData {
   const fd = new FormData();
   fd.set("code", code);
+  if (password !== undefined) fd.set("password", password);
   return fd;
 }
 
+// Disabling MFA needs the password too (plan 36 §5.4).
+const PW = "correct horse battery";
+const PW_HASH = bcrypt.hashSync(PW, 4);
+
 beforeEach(() => {
+  h.passkeysRemoved = 0;
   h.signedOut = [];
   h.events = [];
   vi.clearAllMocks();
@@ -168,17 +182,28 @@ describe("disableMfaAction", () => {
   });
 
   it("rejects an invalid second factor", async () => {
-    h.selectResult = [{ secret: "enc", enabledAt: new Date() }];
+    h.selectResult = [{ secret: "enc", enabledAt: new Date(), passwordHash: PW_HASH }];
     h.secondFactorValid = false;
-    const res = await disableMfaAction(null, form("000000"));
+    const res = await disableMfaAction(null, form("000000", PW));
     expect(res.ok).toBe(false);
     expect(h.updates).toHaveLength(0);
   });
 
-  it("clears the secret and codes on a valid factor", async () => {
-    h.selectResult = [{ secret: "enc", enabledAt: new Date() }];
-    const res = await disableMfaAction(null, form("123456"));
+  it("needs the password, and refuses a wrong or missing one before the code", async () => {
+    h.selectResult = [{ secret: "enc", enabledAt: new Date(), passwordHash: PW_HASH }];
+    expect(await disableMfaAction(null, form("123456", "wrong"))).toMatchObject({ ok: false, error: expect.stringMatching(/password is incorrect/) });
+    expect(await disableMfaAction(null, form("123456"))).toMatchObject({ ok: false });
+    expect(h.secondFactorCalls).toBe(0);
+    h.selectResult = [{ secret: "enc", enabledAt: new Date(), passwordHash: null }];
+    expect(await disableMfaAction(null, form("123456", "x"))).toMatchObject({ ok: false, error: expect.stringMatching(/Set a password first/) });
+    expect(h.updates).toHaveLength(0);
+  });
+
+  it("clears the secret, codes and passkeys on the password and a valid factor", async () => {
+    h.selectResult = [{ secret: "enc", enabledAt: new Date(), passwordHash: PW_HASH }];
+    const res = await disableMfaAction(null, form("123456", PW));
     expect(res.ok).toBe(true);
+    expect(h.passkeysRemoved).toBe(1);
     expect(h.updates[0]).toMatchObject({ totpSecretEncrypted: null, mfaEnabledAt: null });
     expect(h.deletes).toContain("rc");
     expect(h.signedOut).toEqual([{ userId: "u1", keep: "sess-here" }]);

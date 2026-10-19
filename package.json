@@ -33,6 +33,8 @@
     "@hookform/resolvers": "^5.2.2",
     "@react-email/components": "^1.0.12",
     "@sentry/nextjs": "^10.76.2",
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.0.3",
     "@vercel/blob": "^2.8.0",
     "@vercel/global-config": "^1.5.1",
     "bcryptjs": "^3.0.3",

@@ -4,9 +4,10 @@ const h = vi.hoisted(() => ({
   actor: { ok: true, userId: "u1" } as { ok: true; userId: string } | { ok: false; error: string },
   available: true,
   accountId: "acct-1" as string | null,
-  recent: { ok: true, sessionId: "s1", authMethod: "password" } as
-    | { ok: true; sessionId: string; authMethod: string | null }
+  recent: { ok: true, sessionId: "s1", authMethod: "password", authPasskeyId: null } as
+    | { ok: true; sessionId: string; authMethod: string | null; authPasskeyId: string | null }
     | { ok: false; reauth: true },
+  passkeyCreated: null as Date | null,
   calls: [] as unknown[][],
   answers: [] as unknown[],
   revalidated: [] as string[],
@@ -16,6 +17,7 @@ const h = vi.hoisted(() => ({
 vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
 vi.mock("@/lib/auth/recent-auth", () => ({ requireRecentAuth: () => Promise.resolve(h.recent) }));
+vi.mock("@/lib/auth/passkeys", () => ({ passkeyCreatedAt: () => Promise.resolve(h.passkeyCreated) }));
 vi.mock("@/lib/db/schema", () => ({ users: { __t: "users" } }));
 vi.mock("drizzle-orm", () => ({ eq: () => ({}) }));
 vi.mock("@/lib/db", () => ({
@@ -65,9 +67,10 @@ beforeEach(() => {
   h.actor = { ok: true, userId: "u1" };
   h.available = true;
   h.accountId = "acct-1";
-  h.recent = { ok: true, sessionId: "s1", authMethod: "password" };
+  h.recent = { ok: true, sessionId: "s1", authMethod: "password", authPasskeyId: null };
   h.calls = [];
   h.answers = [];
+  h.passkeyCreated = null;
   h.revalidated = [];
 });
 
@@ -88,7 +91,7 @@ describe("previewRevokeAction", () => {
   it("needs a recent login, the key, a linked account and a real device id, before reading anything", async () => {
     h.recent = { ok: false, reauth: true };
     expect(await previewRevokeAction(DEV)).toMatchObject({ ok: false, reauth: true });
-    h.recent = { ok: true, sessionId: "s1", authMethod: "password" };
+    h.recent = { ok: true, sessionId: "s1", authMethod: "password", authPasskeyId: null };
     h.available = false;
     expect(await previewRevokeAction(DEV)).toMatchObject({ ok: false, error: expect.stringMatching(/isn't available/) });
     h.available = true;
@@ -114,10 +117,35 @@ describe("revokeDeviceAction", () => {
   });
 
   it("sends 'other' for a Google or older session", async () => {
-    h.recent = { ok: true, sessionId: "s1", authMethod: null };
+    h.recent = { ok: true, sessionId: "s1", authMethod: null, authPasskeyId: null };
     h.answers = [revokeOk("n2")];
     await revokeDeviceAction(null, fd({ deviceId: DEV, reason: "user" }));
     expect((h.calls[0]![3] as { authStrength: unknown }).authStrength).toEqual({ method: "other" });
+  });
+
+  it("sends a passkey's enrolment time, which makes the revoke full at 7 days (rev 2 §3.3)", async () => {
+    h.recent = { ok: true, sessionId: "s1", authMethod: "passkey", authPasskeyId: "pk-1" };
+    h.passkeyCreated = new Date("2026-10-01T09:12:00Z");
+    h.answers = [revokeOk("n2")];
+    await revokeDeviceAction(null, fd({ deviceId: DEV, reason: "lost" }));
+    expect((h.calls[0]![3] as { authStrength: unknown }).authStrength).toEqual({ method: "passkey", passkeyCreatedAt: "2026-10-01T09:12:00.000Z" });
+  });
+
+  it("says full before the confirm when the session's passkey is 7+ days old", async () => {
+    h.recent = { ok: true, sessionId: "s1", authMethod: "passkey", authPasskeyId: "pk-1" };
+    h.passkeyCreated = new Date(Date.now() - 8 * 86_400_000);
+    h.answers = [{ node: "n2", ok: true, value: { accountId: "a", deviceId: DEV, node: "n2", revoked: false, live: [] } }];
+    expect(await previewRevokeAction(DEV)).toMatchObject({ ok: true, mode: "full" });
+    h.passkeyCreated = new Date(Date.now() - 2 * 86_400_000);
+    expect(await previewRevokeAction(DEV)).toMatchObject({ ok: true, mode: "limited" });
+  });
+
+  it("treats a passkey since removed as a password", async () => {
+    h.recent = { ok: true, sessionId: "s1", authMethod: "passkey", authPasskeyId: "pk-gone" };
+    h.passkeyCreated = null;
+    h.answers = [revokeOk("n2")];
+    await revokeDeviceAction(null, fd({ deviceId: DEV, reason: "lost" }));
+    expect((h.calls[0]![3] as { authStrength: unknown }).authStrength).toEqual({ method: "password" });
   });
 
   it("is honest about one node missing, and about none answering", async () => {

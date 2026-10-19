@@ -60,6 +60,21 @@ describe("account_security_events (Postgres)", () => {
     expect(row!.n).toBe("2");
   });
 
+  it("keeps a session when its passkey is removed, forgetting which passkey (migration 0031)", async () => {
+    const [pk] = await sql<{ id: string }[]>`
+      INSERT INTO webauthn_credentials (user_id, credential_id, public_key, nickname) VALUES (${userId}, 'cred-1', 'AQID', 'My iPhone') RETURNING id`;
+    await sql`INSERT INTO sessions ("sessionToken", "userId", expires, auth_method, auth_passkey_id)
+              VALUES ('pk-session', ${userId}, now() + interval '1 day', 'passkey', ${pk!.id})`;
+    await sql`INSERT INTO account_security_events (user_id, kind) VALUES (${userId}, 'passkey_added'), (${userId}, 'passkey_removed')`;
+    await sql`DELETE FROM webauthn_credentials WHERE id = ${pk!.id}`;
+    const [s] = await sql<{ auth_passkey_id: string | null; auth_method: string }[]>`SELECT auth_passkey_id, auth_method FROM sessions WHERE "sessionToken" = 'pk-session'`;
+    expect(s).toEqual({ auth_passkey_id: null, auth_method: "passkey" });
+    const dup = await sql`INSERT INTO webauthn_credentials (user_id, credential_id, public_key, nickname) VALUES (${userId}, 'cred-2', 'x', 'a'), (${userId}, 'cred-2', 'y', 'b')`
+      .then(() => undefined)
+      .catch((err: { code?: string }) => err.code);
+    expect(dup).toBe("23505");
+  });
+
   it("is deleted with the user, as their sessions and notice cursors are", async () => {
     await sql`INSERT INTO sessions ("sessionToken", "userId", expires) VALUES ('h', ${userId}, now() + interval '1 day')`;
     await sql`DELETE FROM users WHERE id = ${userId}`;

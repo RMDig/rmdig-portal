@@ -35,7 +35,7 @@ const NOW = new Date("2026-10-18T12:00:00Z");
 const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
 
 function seed(token: string, userId: string, authTime: Date, id = "sess-1", authMethod: string | null = "password") {
-  h.fake!.rows("sessions").push({ sessionToken: hashSessionToken(token), userId, authTime, id, authMethod });
+  h.fake!.rows("sessions").push({ sessionToken: hashSessionToken(token), userId, authTime, id, authMethod, authPasskeyId: null });
 }
 
 beforeEach(() => {
@@ -64,7 +64,7 @@ describe("requireRecentAuth", () => {
   it("passes a session that signed in 2 minutes ago, and names it", async () => {
     h.cookies["__Secure-authjs.session-token"] = "tok-a";
     seed("tok-a", "u1", minutesAgo(2));
-    expect(await requireRecentAuth("u1", { now: NOW })).toEqual({ ok: true, sessionId: "sess-1", authMethod: "password" });
+    expect(await requireRecentAuth("u1", { now: NOW })).toEqual({ ok: true, sessionId: "sess-1", authMethod: "password", authPasskeyId: null });
   });
 
   it("reads the unprefixed cookie on plain-http dev", async () => {

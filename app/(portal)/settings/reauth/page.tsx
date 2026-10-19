@@ -39,7 +39,7 @@ export default async function ReauthPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {options.password ? (
-            <ReauthForm returnTo={returnTo} mfa={options.mfa} />
+            <ReauthForm returnTo={returnTo} mfa={options.mfa} passkey={options.passkey} />
           ) : (
             <p className="text-sm leading-6">
               Set a password first: we&apos;ll email you a link.{" "}
