@@ -4,61 +4,54 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
+const A = "11111111-1111-5111-8111-111111111111";
+const B = "22222222-2222-5222-8222-222222222222";
+
 beforeEach(() => {
   vi.resetModules();
   process.env.AVSERV_BASE_URL = "mock://localhost";
 });
 
-describe("listDevices (mock path)", () => {
-  it("returns a deterministic list per account with UUID-shaped device ids", async () => {
-    const { listDevices } = await import("@/lib/avserv/client");
-
-    const a = await listDevices("acct-1");
-    const b = await listDevices("acct-1");
-
-    expect(a).toEqual(b); // deterministic across calls
-    expect(a.length).toBeGreaterThan(0);
-    for (const d of a) {
+describe("listDevicesEveryNode (mock path)", () => {
+  it("returns a deterministic list per account with UUID-shaped device ids, none signed out", async () => {
+    const { listDevicesEveryNode } = await import("@/lib/avserv/device-revoke");
+    const first = await listDevicesEveryNode(A);
+    const again = await listDevicesEveryNode(A);
+    expect(first).toEqual(again);
+    expect(first.devices).toHaveLength(2);
+    expect(first.incomplete).toBe(false);
+    for (const d of first.devices) {
       expect(d.deviceId).toMatch(UUID_RE);
+      expect(d.userRevokedAt).toBeNull();
     }
   });
 
   it("gives different device ids to different accounts", async () => {
-    const { listDevices } = await import("@/lib/avserv/client");
-
-    const [a] = await listDevices("acct-1");
-    const [b] = await listDevices("acct-2");
-
-    expect(a!.deviceId).not.toBe(b!.deviceId);
+    const { listDevicesEveryNode } = await import("@/lib/avserv/device-revoke");
+    const a = (await listDevicesEveryNode(A)).devices.map((d) => d.deviceId);
+    const b = (await listDevicesEveryNode(B)).devices.map((d) => d.deviceId);
+    expect(a.some((id) => b.includes(id))).toBe(false);
   });
 
-  it("exercises the nullable appVersion path (a device with no reported version)", async () => {
-    const { listDevices } = await import("@/lib/avserv/client");
-
-    const devices = await listDevices("acct-1");
-
+  it("exercises the nullable appVersion path and RFC3339 timestamps", async () => {
+    const { listDevicesEveryNode } = await import("@/lib/avserv/device-revoke");
+    const { devices } = await listDevicesEveryNode(A);
     expect(devices.some((d) => d.appVersion === null)).toBe(true);
-    expect(devices.some((d) => typeof d.appVersion === "string")).toBe(true);
-  });
-
-  it("returns RFC3339-parseable timestamps", async () => {
-    const { listDevices } = await import("@/lib/avserv/client");
-
-    for (const d of await listDevices("acct-1")) {
-      expect(Number.isNaN(new Date(d.createdAt).getTime())).toBe(false);
-      expect(Number.isNaN(new Date(d.lastSeenAt).getTime())).toBe(false);
+    for (const d of devices) {
+      expect(Number.isNaN(Date.parse(d.createdAt))).toBe(false);
+      expect(Number.isNaN(Date.parse(d.lastSeenAt))).toBe(false);
     }
   });
 
-  it("throws on an empty accountId", async () => {
-    const { listDevices } = await import("@/lib/avserv/client");
-    await expect(listDevices("")).rejects.toThrow();
-  });
-
-  it("throws when AVSERV_BASE_URL is unset", async () => {
-    delete process.env.AVSERV_BASE_URL;
-    vi.resetModules();
-    const { listDevices } = await import("@/lib/avserv/client");
-    await expect(listDevices("acct-1")).rejects.toThrow(/AVSERV_BASE_URL/);
+  it("keeps a signed-out phone listed, with when, why and the mode", async () => {
+    const { listDevicesEveryNode, revokeDevice } = await import("@/lib/avserv/device-revoke");
+    const { __resetDeviceRevokeMock } = await import("@/lib/avserv/device-revoke-mock");
+    __resetDeviceRevokeMock();
+    const phone = (await listDevicesEveryNode(A)).devices[0]!;
+    await revokeDevice(A, phone.deviceId, { reason: "lost", authStrength: { method: "password" } }, "u1");
+    const after = (await listDevicesEveryNode(A)).devices.find((d) => d.deviceId === phone.deviceId)!;
+    expect(after.userRevokedAt).toBeTruthy();
+    expect(after.revokeReason).toBe("lost");
+    expect(after.revokeMode).toBe("limited");
   });
 });

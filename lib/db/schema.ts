@@ -108,6 +108,13 @@ export const accounts = pgTable(
   ],
 );
 
+// How a session last proved who it is, for the revoke's authStrength
+// (device_revoke.md rev 2 §3.3): a password (with its second factor when
+// two-factor is on), a Google sign-in, or a passkey (plan 36 PR 10). Null on
+// sessions from before migration 0029, which count as "other".
+export const SESSION_AUTH_METHODS = ["password", "oauth", "passkey"] as const;
+export type SessionAuthMethod = (typeof SESSION_AUTH_METHODS)[number];
+
 // `sessionToken` holds sha256(cookie token), never the token itself
 // (lib/auth/session-adapter.ts; plan 36 §3.2), so a read of this table can't sign
 // anyone in. `id` is the handle the session list and revoke use, so no token or
@@ -128,8 +135,16 @@ export const sessions = pgTable(
     lastSeenAt: timestamp("last_seen_at", { mode: "date", withTimezone: true }),
     // For "Safari on iPhone" in the session list. No IP is kept (plan 36 S-D4).
     userAgent: text("user_agent"),
+    // Set with authTime, at sign-in and at every re-authentication.
+    authMethod: text("auth_method").$type<SessionAuthMethod>(),
   },
-  (t) => [index("sessions_user_id_idx").on(t.userId)],
+  (t) => [
+    index("sessions_user_id_idx").on(t.userId),
+    check(
+      "sessions_auth_method",
+      sql`${t.authMethod} IS NULL OR ${t.authMethod} IN (${sql.raw(SESSION_AUTH_METHODS.map((m) => `'${m}'`).join(", "))})`,
+    ),
+  ],
 );
 
 // Security-relevant changes made through the portal, for the account's

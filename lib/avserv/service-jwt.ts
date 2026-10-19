@@ -1,19 +1,21 @@
 import { importPKCS8, SignJWT } from "jose";
 
 import { env } from "../env";
-import { DEFAULT_KID, parseServiceKey } from "./service-key";
+import { DEFAULT_KID, DEVICE_ADMIN_KID, parseServiceKey } from "./service-key";
 
 // Mints the short-lived Ed25519 service JWT that authenticates this portal to
 // AvServ's internal tier (rmdig-ai docs/plans/05 §"service / S2S trust tier").
 //
 // Shape locked by the cross-repo contract:
-//   header  { alg: "EdDSA", kid: AVSERV_SERVICE_JWT_KID (svc-key-portal-1 today) }
+//   header  { alg: "EdDSA", kid }
 //   claims  { iss: "rmdig-portal", aud: "internal", iat, exp }  (exp <= 5 min)
 //
-// The private key is that kid's PRIVATE half, held only in Vercel env as
-// AVSERV_SERVICE_JWT_SIGNING_KEY_B64 (lib/avserv/service-key.ts). AvServ verifies against the
-// published PUBLIC half. This module is server-only — never import it into a
-// client component (it touches the private key).
+// Two keys, by role (plan 36 S3). "default" (svc-key-portal-1) signs every
+// everyday call. "device_admin" (svc-key-portal-device-admin-1) signs only the
+// device_admin routes (revoke, revoke preview, revoke-others, App Lock reset
+// code), and AvServ grants it nothing else. A role never borrows the other's
+// key. The private halves live only in Vercel env (lib/avserv/service-key.ts).
+// Server-only: never import this into a client component.
 
 const ISS = "rmdig-portal";
 const AUD = "internal";
@@ -23,35 +25,60 @@ const ALG = "EdDSA";
 // for clock skew without ever exceeding the verifier's max-age assumption.
 const TTL_SECONDS = 4 * 60;
 
-let cachedKeyPromise: Promise<CryptoKey> | null = null;
+export type KeyRole = "default" | "device_admin";
 
-async function getSigningKey(): Promise<CryptoKey> {
+const ROLE = {
+  default: {
+    keyVar: "AVSERV_SERVICE_JWT_SIGNING_KEY_B64",
+    key: () => env.AVSERV_SERVICE_JWT_SIGNING_KEY_B64,
+    kid: () => env.AVSERV_SERVICE_JWT_KID || DEFAULT_KID,
+  },
+  device_admin: {
+    keyVar: "AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64",
+    key: () => env.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64,
+    kid: () => env.AVSERV_DEVICE_ADMIN_JWT_KID || DEVICE_ADMIN_KID,
+  },
+} as const;
+
+const cachedKeys = new Map<KeyRole, Promise<CryptoKey>>();
+
+async function getSigningKey(role: KeyRole): Promise<CryptoKey> {
   // Fail loud: callers gate on mock:// before reaching here, so a missing or
   // malformed key on the real path is a misconfiguration, never a runtime
   // condition to paper over. The build check normally stops it first.
-  const key = parseServiceKey(env.AVSERV_SERVICE_JWT_SIGNING_KEY_B64);
+  const key = parseServiceKey(ROLE[role].key(), ROLE[role].keyVar);
   if (!key.ok) throw new Error(`${key.error} Set the service key, or point AVSERV_BASE_URL at mock://localhost for local dev.`);
   // Cache the imported key, not the env read: importPKCS8 is the expensive part
   // and the key is stable for the process lifetime.
-  cachedKeyPromise ??= importPKCS8(key.pem, ALG);
-  return cachedKeyPromise;
+  let cached = cachedKeys.get(role);
+  if (!cached) {
+    cached = importPKCS8(key.pem, ALG);
+    cachedKeys.set(role, cached);
+  }
+  return cached;
 }
 
-/** The key id the portal signs as (AvServ picks the verifying key by it). */
-export function serviceJwtKid(): string {
-  return env.AVSERV_SERVICE_JWT_KID || DEFAULT_KID;
+/** The key id the portal signs as for `role` (AvServ picks the verifying key by it). */
+export function serviceJwtKid(role: KeyRole = "default"): string {
+  return ROLE[role].kid();
+}
+
+/** Whether the device-admin key is configured at all. Without it, revoke is
+ *  "not available yet" rather than a fault (AvServ installs the kid only after
+ *  its revoke build ships). */
+export function deviceAdminKeyConfigured(): boolean {
+  return !!env.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64;
 }
 
 /**
- * Sign a service JWT for an AvServ internal-tier request. Returns the compact
- * JWS string to place in the `Authorization: Bearer` header. Throws if the
- * signing key is absent or unparseable — callers on the real path treat that as
- * fatal; the mock path never calls this.
+ * Sign a service JWT for an AvServ internal-tier request, as `role`. Returns
+ * the compact JWS string for the `Authorization: Bearer` header. Throws if that
+ * role's key is absent or unparseable; the mock path never calls this.
  */
-export async function signServiceJwt(): Promise<string> {
-  const key = await getSigningKey();
+export async function signServiceJwt(role: KeyRole = "default"): Promise<string> {
+  const key = await getSigningKey(role);
   return new SignJWT({})
-    .setProtectedHeader({ alg: ALG, kid: serviceJwtKid() })
+    .setProtectedHeader({ alg: ALG, kid: serviceJwtKid(role) })
     .setIssuer(ISS)
     .setAudience(AUD)
     .setIssuedAt()

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 import { db } from "../db";
-import { sessions } from "../db/schema";
+import { sessions, type SessionAuthMethod } from "../db/schema";
 import { logger } from "../logger";
 import { hashSessionToken } from "./session-adapter";
 
@@ -41,7 +41,9 @@ export async function currentSessionTokenHash(): Promise<string | null> {
   return null;
 }
 
-export type RecentAuthResult = { ok: true; sessionId: string } | { ok: false; reauth: true };
+export type RecentAuthResult =
+  | { ok: true; sessionId: string; authMethod: SessionAuthMethod | null }
+  | { ok: false; reauth: true };
 
 /** Whether `userId`'s current session signed in recently enough. Anything
  *  short of a matching, recent session row asks for re-authentication. */
@@ -55,7 +57,7 @@ export async function requireRecentAuth(
     return { ok: false, reauth: true };
   }
   const [row] = await db
-    .select({ id: sessions.id, authTime: sessions.authTime })
+    .select({ id: sessions.id, authTime: sessions.authTime, authMethod: sessions.authMethod })
     .from(sessions)
     .where(and(eq(sessions.sessionToken, tokenHash), eq(sessions.userId, userId)))
     .limit(1);
@@ -67,18 +69,21 @@ export async function requireRecentAuth(
   }
   const now = opts.now ?? new Date();
   return isRecentAuth(row.authTime, now, opts.maxAgeSec)
-    ? { ok: true, sessionId: row.id }
+    ? { ok: true, sessionId: row.id, authMethod: row.authMethod }
     : { ok: false, reauth: true };
 }
 
-/** Record that the current session just re-authenticated. False when there is
- *  no current session row for `userId` to update. */
-export async function markRecentAuth(userId: string): Promise<boolean> {
+/** Record that the current session just re-authenticated, and how. False when
+ *  there is no current session row for `userId` to update. */
+export async function markRecentAuth(
+  userId: string,
+  method: SessionAuthMethod = "password",
+): Promise<boolean> {
   const tokenHash = await currentSessionTokenHash();
   if (!tokenHash) return false;
   const updated = await db
     .update(sessions)
-    .set({ authTime: new Date() })
+    .set({ authTime: new Date(), authMethod: method })
     .where(and(eq(sessions.sessionToken, tokenHash), eq(sessions.userId, userId)))
     .returning({ id: sessions.id });
   return updated.length > 0;

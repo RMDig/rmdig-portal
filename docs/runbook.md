@@ -309,6 +309,30 @@ Production env vars:
      and its `_SHA256` together, redeploy, and run Admin → AvServ checks.
   4. AvServ **removes** `svc-key-portal-1`. Delete the old key file.
 
+### Device-admin key (signing a phone out)
+
+A second key, `svc-key-portal-device-admin-1`, signs **only** the revoke routes
+(revoke, revoke preview, revoke-others, App Lock reset code; plan 36 S3). AvServ
+grants its kid the `device_admin` group and nothing else, and the everyday key
+never gets `device_admin`. Until it's set, Settings → Devices says signing a phone
+out "isn't available yet"; the portal never signs a revoke with the everyday key.
+
+1. **Wait for AvServ:** they install the kid only after their revoke build (plan 52
+   PR B) ships on both nodes (AvServ runbook "Portal device-admin key").
+2. **Mint it on your machine:** `openssl genpkey -algorithm ed25519 -out
+   svc-key-portal-device-admin-1.pem`. Send AvServ the public half
+   (`openssl pkey -in svc-key-portal-device-admin-1.pem -pubout`) and its fingerprint
+   (`openssl pkey -in svc-key-portal-device-admin-1.pem -pubout -outform DER | shasum -a 256`).
+3. **When AvServ confirms both nodes,** set three Production env vars together:
+   `AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64` (one base64 line, `--sensitive`),
+   `AVSERV_DEVICE_ADMIN_JWT_KID=svc-key-portal-device-admin-1`, and
+   `AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256`. Redeploy. The build checks the key the same
+   way (absent is fine; present and wrong fails the build).
+4. **Check:** Settings → Devices shows "Sign out this phone". Open the preview on a
+   test phone and cancel; no revoke is sent until you confirm.
+
+Store the key file with the everyday one (password manager), never in the repo.
+
 ## SAR alert intake
 
 AvServ delivers team alerts (missed check-ins, Send Help, all-clears,

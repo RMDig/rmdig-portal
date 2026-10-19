@@ -34,8 +34,8 @@ import { createFakeDb } from "./helpers/fake-db";
 const NOW = new Date("2026-10-18T12:00:00Z");
 const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000);
 
-function seed(token: string, userId: string, authTime: Date, id = "sess-1") {
-  h.fake!.rows("sessions").push({ sessionToken: hashSessionToken(token), userId, authTime, id });
+function seed(token: string, userId: string, authTime: Date, id = "sess-1", authMethod: string | null = "password") {
+  h.fake!.rows("sessions").push({ sessionToken: hashSessionToken(token), userId, authTime, id, authMethod });
 }
 
 beforeEach(() => {
@@ -64,7 +64,7 @@ describe("requireRecentAuth", () => {
   it("passes a session that signed in 2 minutes ago, and names it", async () => {
     h.cookies["__Secure-authjs.session-token"] = "tok-a";
     seed("tok-a", "u1", minutesAgo(2));
-    expect(await requireRecentAuth("u1", { now: NOW })).toEqual({ ok: true, sessionId: "sess-1" });
+    expect(await requireRecentAuth("u1", { now: NOW })).toEqual({ ok: true, sessionId: "sess-1", authMethod: "password" });
   });
 
   it("reads the unprefixed cookie on plain-http dev", async () => {
@@ -96,11 +96,14 @@ describe("markRecentAuth", () => {
     h.cookies["__Secure-authjs.session-token"] = "tok-a";
     seed("tok-a", "u1", minutesAgo(60), "sess-a");
     seed("tok-b", "u1", minutesAgo(60), "sess-b");
+    h.fake!.rows("sessions").find((r) => r.id === "sess-a")!.authMethod = "oauth";
     expect(await markRecentAuth("u1")).toBe(true);
     const rows = h.fake!.rows("sessions");
     const a = rows.find((r) => r.id === "sess-a");
     const b = rows.find((r) => r.id === "sess-b");
     expect(isRecentAuth(a!.authTime as Date, new Date())).toBe(true);
+    // A password re-auth also records how this session last proved itself.
+    expect(a!.authMethod).toBe("password");
     expect(b!.authTime).toEqual(minutesAgo(60));
   });
 

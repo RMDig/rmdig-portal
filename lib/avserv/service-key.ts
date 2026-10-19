@@ -8,6 +8,7 @@ import { createHash, createPrivateKey, createPublicKey } from "node:crypto";
 // echo key material.
 
 export const DEFAULT_KID = "svc-key-portal-1";
+export const DEVICE_ADMIN_KID = "svc-key-portal-device-admin-1";
 export const KID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
 export type ServiceKey = { ok: true; pem: string; fingerprint: string } | { ok: false; error: string };
@@ -19,14 +20,17 @@ function fingerprintOf(pem: string): string {
   return createHash("sha256").update(spki).digest("hex");
 }
 
-export function parseServiceKey(b64: string | undefined): ServiceKey {
-  if (!b64) return { ok: false, error: "AVSERV_SERVICE_JWT_SIGNING_KEY_B64 is not set." };
+export function parseServiceKey(
+  b64: string | undefined,
+  name: string = "AVSERV_SERVICE_JWT_SIGNING_KEY_B64",
+): ServiceKey {
+  if (!b64) return { ok: false, error: `${name} is not set.` };
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) {
-    return { ok: false, error: "AVSERV_SERVICE_JWT_SIGNING_KEY_B64 must be one base64 line: no quotes, spaces or line breaks." };
+    return { ok: false, error: `${name} must be one base64 line: no quotes, spaces or line breaks.` };
   }
   const pem = Buffer.from(b64, "base64").toString("utf8");
   if (!pem.startsWith("-----BEGIN PRIVATE KEY-----") || !pem.includes("-----END PRIVATE KEY-----")) {
-    return { ok: false, error: "AVSERV_SERVICE_JWT_SIGNING_KEY_B64 must be the base64 of a PKCS#8 PEM (-----BEGIN PRIVATE KEY-----)." };
+    return { ok: false, error: `${name} must be the base64 of a PKCS#8 PEM (-----BEGIN PRIVATE KEY-----).` };
   }
   try {
     const key = createPrivateKey(pem);
@@ -35,7 +39,7 @@ export function parseServiceKey(b64: string | undefined): ServiceKey {
     }
     return { ok: true, pem, fingerprint: fingerprintOf(pem) };
   } catch {
-    return { ok: false, error: "AVSERV_SERVICE_JWT_SIGNING_KEY_B64 decodes to a PEM that isn't a readable private key." };
+    return { ok: false, error: `${name} decodes to a PEM that isn't a readable private key.` };
   }
 }
 
@@ -57,6 +61,32 @@ export function checkServiceKeyConfig(e: {
   if (!want) return { status: "error", error: `AVSERV_SERVICE_JWT_KEY_SHA256 is not set (this key's is ${key.fingerprint}; check it against AvServ's for ${kid}).` };
   if (want !== key.fingerprint) {
     return { status: "error", error: `The signing key's public half (${key.fingerprint}) doesn't match AVSERV_SERVICE_JWT_KEY_SHA256 (${want}) for ${kid}.` };
+  }
+  return { status: "ok", kid, fingerprint: key.fingerprint };
+}
+
+/** The same check for the device-admin key, which is optional: absent means
+ *  "not installed yet" (the revoke UI says so), not a broken build. Present
+ *  but wrong, or set without its fingerprint, fails like the everyday key. */
+export function checkDeviceAdminKeyConfig(e: {
+  AVSERV_BASE_URL?: string;
+  AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64?: string;
+  AVSERV_DEVICE_ADMIN_JWT_KID?: string;
+  AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256?: string;
+}): { status: "skipped" | "absent" | "ok"; kid?: string; fingerprint?: string } | { status: "error"; error: string } {
+  if (!e.AVSERV_BASE_URL || e.AVSERV_BASE_URL.startsWith("mock://")) return { status: "skipped" };
+  if (!e.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64) return { status: "absent" };
+  const kid = e.AVSERV_DEVICE_ADMIN_JWT_KID || DEVICE_ADMIN_KID;
+  if (!KID_PATTERN.test(kid)) return { status: "error", error: `AVSERV_DEVICE_ADMIN_JWT_KID "${kid}" isn't a valid key id.` };
+  if (kid === (DEFAULT_KID as string)) {
+    return { status: "error", error: `AVSERV_DEVICE_ADMIN_JWT_KID must not be the everyday kid ${DEFAULT_KID}.` };
+  }
+  const key = parseServiceKey(e.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64, "AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64");
+  if (!key.ok) return { status: "error", error: key.error };
+  const want = e.AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256?.toLowerCase();
+  if (!want) return { status: "error", error: `AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256 is not set (this key's is ${key.fingerprint}; check it against AvServ's for ${kid}).` };
+  if (want !== key.fingerprint) {
+    return { status: "error", error: `The device-admin key's public half (${key.fingerprint}) doesn't match AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256 (${want}) for ${kid}.` };
   }
   return { status: "ok", kid, fingerprint: key.fingerprint };
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "sessions" ADD COLUMN "auth_method" text;--> statement-breakpoint
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_auth_method" CHECK ("sessions"."auth_method" IS NULL OR "sessions"."auth_method" IN ('password', 'oauth', 'passkey'));

@@ -15,6 +15,35 @@ beforeEach(() => {
   vi.resetModules();
   delete process.env.AVSERV_SERVICE_JWT_SIGNING_KEY_B64;
   delete process.env.AVSERV_SERVICE_JWT_KID;
+  delete process.env.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64;
+  delete process.env.AVSERV_DEVICE_ADMIN_JWT_KID;
+});
+
+describe("signServiceJwt by role (plan 36 S3)", () => {
+  it("signs device_admin calls with the device-admin key and kid, never the everyday one", async () => {
+    const other = generateKeyPairSync("ed25519");
+    process.env.AVSERV_SERVICE_JWT_SIGNING_KEY_B64 = b64;
+    process.env.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64 = Buffer.from(
+      other.privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+    ).toString("base64");
+    const { signServiceJwt } = await import("@/lib/avserv/service-jwt");
+
+    const admin = await signServiceJwt("device_admin");
+    expect(decodeProtectedHeader(admin).kid).toBe("svc-key-portal-device-admin-1");
+    const adminPub = await importSPKI(other.publicKey.export({ type: "spki", format: "pem" }).toString(), "EdDSA");
+    await expect(jwtVerify(admin, adminPub)).resolves.toBeTruthy();
+    // The everyday key's public half must not verify a device-admin token.
+    await expect(jwtVerify(admin, await importSPKI(spki, "EdDSA"))).rejects.toThrow();
+
+    expect(decodeProtectedHeader(await signServiceJwt()).kid).toBe("svc-key-portal-1");
+  });
+
+  it("fails loud without the device-admin key rather than borrowing the everyday one", async () => {
+    process.env.AVSERV_SERVICE_JWT_SIGNING_KEY_B64 = b64;
+    const { signServiceJwt, deviceAdminKeyConfigured } = await import("@/lib/avserv/service-jwt");
+    expect(deviceAdminKeyConfigured()).toBe(false);
+    await expect(signServiceJwt("device_admin")).rejects.toThrow(/AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64/);
+  });
 });
 
 describe("signServiceJwt", () => {
