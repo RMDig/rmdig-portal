@@ -65,7 +65,8 @@ test.describe("device-link flow (mock AvServ)", () => {
     const phone = page.getByRole("listitem").filter({ hasText: /^iOS/ });
     await phone.getByRole("button", { name: "Sign out this phone" }).click();
 
-    await expect(phone.getByText(/has a check-out under way/)).toBeVisible();
+    // The mock trip is due back two hours out (rev 2.1 dueAt).
+    await expect(phone.getByText(/has a check-out due back at .+ (MDT|MST)\./)).toBeVisible();
     await expect(phone.getByText("Send Help still works from that phone.")).toBeVisible();
     await expect(phone.getByText(/limited sign-out/)).toBeVisible();
     // Limited (no passkey yet): field data is kept locked, never erased.

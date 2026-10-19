@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 // Shapes from AvServ docs/contracts/device_revoke.md rev 2 (AvServ #310,
-// c51f63d). Specified, not built: the portal runs them against the mock.
+// c51f63d), and rev 2.1 (#311): a `checkout` preview item carries its dueAt.
+// Specified, not built: the portal runs them against the mock.
 
 export const REVOKE_REASONS = ["lost", "stolen", "user"] as const;
 export type RevokeReason = (typeof REVOKE_REASONS)[number];
@@ -22,7 +23,8 @@ export const PreviewSchema = z.object({
   deviceId: z.string(),
   node: z.string(),
   revoked: z.boolean(),
-  live: z.array(z.object({ kind: z.string(), id: z.string().nullable() })),
+  // dueAt (rev 2.1) is optional so a node still on rev 2 parses.
+  live: z.array(z.object({ kind: z.string(), id: z.string().nullable(), dueAt: z.string().optional() })),
 });
 export type Preview = z.infer<typeof PreviewSchema>;
 

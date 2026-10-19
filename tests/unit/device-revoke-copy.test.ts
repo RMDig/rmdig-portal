@@ -6,7 +6,12 @@ import { FORBIDDEN_PUBLIC_PHRASES } from "@/lib/legal/compliance-copy";
 // The revoke copy promises no more than the phone and AvServ do (AvApp plan 54
 // §7.1a; device_revoke.md rev 2), and carries no claim words (doc 16 §6.2).
 
-const all = (o: unknown): string[] => (typeof o === "string" ? [o] : Object.values(o as object).flatMap(all));
+const all = (o: unknown): string[] =>
+  typeof o === "string"
+    ? [o]
+    : typeof o === "function"
+      ? [(o as (t: string | null) => string)(null), (o as (t: string | null) => string)("Mon, Oct 19, 4:30 PM MDT")]
+      : Object.values(o as object).flatMap(all);
 const text = all(REVOKE_COPY).join(" ");
 
 describe("revoke copy", () => {
@@ -17,6 +22,11 @@ describe("revoke copy", () => {
     expect(REVOKE_COPY.limits).toMatch(/offline/);
     expect(REVOKE_COPY.limits).toMatch(/camera roll/);
     expect(REVOKE_COPY.permanent).toMatch(/can't be undone/);
+  });
+
+  it("names the due-back time when AvServ sends one, as the phone does", () => {
+    expect(REVOKE_COPY.liveCheckout("Mon, Oct 19, 4:30 PM MDT")).toMatch(/^This phone has a check-out due back at Mon, Oct 19, 4:30 PM MDT\./);
+    expect(REVOKE_COPY.liveCheckout(null)).toMatch(/^This phone has a check-out under way\./);
   });
 
   it("warns that field data is erased only on a full revoke, and keeps it locked on a limited one", () => {

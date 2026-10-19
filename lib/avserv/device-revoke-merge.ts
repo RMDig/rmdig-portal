@@ -4,7 +4,14 @@ import type { NodeAnswer, Preview, RevokeAnswer, RevokeMode, RevokeOthersAnswer 
 // Pure merges of every node's answers (device_revoke.md rev 2: each node answers
 // for itself; one success reaches the rest by replication). Unit-tested.
 
-export type LiveSummary = { checkouts: number; helpRequests: number; other: number };
+export type LiveSummary = {
+  checkouts: number;
+  helpRequests: number;
+  other: number;
+  /** The soonest due-back time of a trip under way (rev 2.1), or null when no
+   *  node sent one. */
+  nextDueAt: string | null;
+};
 
 export interface MergedPreview {
   live: LiveSummary;
@@ -20,10 +27,14 @@ export function mergePreviews(answers: NodeAnswer<Preview>[]): MergedPreview {
   const ok = answers.filter((a): a is Extract<NodeAnswer<Preview>, { ok: true }> => a.ok);
   const seen = new Map<string, "checkouts" | "helpRequests" | "other">();
   let heldMax = 0;
+  let nextDueAt: string | null = null;
   for (const a of ok) {
     let held = 0;
     for (const item of a.value.live) {
-      if (item.kind === "checkout" && item.id) seen.set(`c:${item.id}`, "checkouts");
+      if (item.kind === "checkout" && item.id) {
+        seen.set(`c:${item.id}`, "checkouts");
+        if (item.dueAt && !Number.isNaN(Date.parse(item.dueAt)) && (!nextDueAt || item.dueAt < nextDueAt)) nextDueAt = item.dueAt;
+      }
       else if (item.kind === "help_request" && item.id) seen.set(`h:${item.id}`, "helpRequests");
       // `held` and any kind the portal doesn't know: counted, never named.
       // Held items carry no id, so take the largest count any node reports.
@@ -31,7 +42,7 @@ export function mergePreviews(answers: NodeAnswer<Preview>[]): MergedPreview {
     }
     heldMax = Math.max(heldMax, held);
   }
-  const live: LiveSummary = { checkouts: 0, helpRequests: 0, other: heldMax };
+  const live: LiveSummary = { checkouts: 0, helpRequests: 0, other: heldMax, nextDueAt };
   for (const k of seen.values()) live[k]++;
   return {
     live,

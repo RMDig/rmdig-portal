@@ -257,9 +257,10 @@ AvServ write endpoint"). It gains:
   The page shows which mode the revoke **will** be before the confirm
   (`predictRevokeMode`, the contract's rule), and why limited matters.
 - **Open trip warning (AvApp, 2026-10-18):** shown before the confirm when the preview
-  has a `checkout`. AvApp's wording names the due-back time ("due back at 4:30 PM"),
-  but rev 2's preview items carry only `{kind, id}`, so the portal says "a check-out
-  under way" until AvServ adds `dueAt` to `checkout` items (asked, §6).
+  has a `checkout`, naming the soonest due-back time in Mountain time ("This phone has a
+  check-out due back at Mon, Oct 19, 4:30 PM MDT…"), from `dueAt` on `checkout` items
+  (device_revoke rev 2.1, AvServ #311). A node still on rev 2 sends none, and the warning
+  says "a check-out under way".
 - **The phone's side** (AvApp plan 54 §7.1a): the next time it connects it says it was
   signed out (Send Help one tap away), erases trips, contacts and check-out history
   (keeping only an open trip's due-back time), and locks field observations until it's
@@ -458,12 +459,11 @@ code, step 4 is security events.
    in hand through the portal's passkey sign-in in the system sheet (never a web view),
    with the device proof attached. It needs passkeys (PR 10) first; it goes on the roadmap
    after PR 10.
-6a. **Asked of AvServ (2026-10-18):** a `dueAt` on preview `checkout` items, so the warning
-   can name the due-back time the phone shows.
-6b. **Asked of AvServ (2026-10-18):** `security_events.md` §4 says `nextCursor` is null "when
-   there's nothing newer yet" and to keep the last non-null cursor. Is it null after a page
-   that **has** events (so the next poll re-reads that page), or only on an empty page?
-   The portal handles both (by time, §5.3); the contract should say which.
+6a. **Answered (AvServ #311, rev 2.1):** preview `checkout` items carry `dueAt`. Built.
+6b. **Answered (AvServ #312, security_events rev 1.1):** `nextCursor` is never null on a
+   page with events (it's the position after the last one); it's null only on an empty
+   page, and the reader polls again later with the same cursor. That's how the portal
+   reads the feed; the time filter in §5.3 stays as a second guard.
 7. **Go-live signals** the owner relays: AvServ plan 52 PR A and PR B ship on both nodes;
    `svc-key-portal-device-admin-1` is installed; `svc-key-portal-1` gets `+security_events`
    and the feed ships.
