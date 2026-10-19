@@ -53,6 +53,9 @@ export const users = pgTable("users", {
   // shown, code not yet verified); mfaEnabledAt being set means MFA is active.
   totpSecretEncrypted: text("totp_secret_encrypted"),
   mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
+  // Opt-in security notices to the account email (plan 36 §5.3): off by
+  // default, because the inbox may be the abuser's (rule 2). Set = on, since then.
+  securityNoticesAt: timestamp("security_notices_at", { mode: "date", withTimezone: true }),
   // Nullable: pre-dropdown accounts (and OAuth sign-ups, which skip the form)
   // have no recorded intent and get the default explorer experience.
   signupIntent: signupIntent("signup_intent"),
@@ -106,6 +109,22 @@ export const accounts = pgTable(
   (account) => [
     primaryKey({ columns: [account.provider, account.providerAccountId] }),
   ],
+);
+
+// Where the security-notice cron last read each AvServ node's security_events
+// feed for one opted-in user (security_events.md §4: cursors are per node and
+// opaque). Deleted with the user, and when notices are turned off.
+export const securityNoticeCursors = pgTable(
+  "security_notice_cursors",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    node: text("node").notNull(),
+    cursor: text("cursor"),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.node] })],
 );
 
 // How a session last proved who it is, for the revoke's authStrength
@@ -162,6 +181,8 @@ export const ACCOUNT_SECURITY_EVENT_KINDS = [
   "recovery_codes_regenerated",
   "session_revoked",
   "sessions_revoked_others",
+  "notices_on",
+  "notices_off",
 ] as const;
 export type AccountSecurityEventKind = (typeof ACCOUNT_SECURITY_EVENT_KINDS)[number];
 

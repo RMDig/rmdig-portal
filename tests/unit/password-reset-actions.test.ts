@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
 vi.mock("@/lib/auth", () => ({ signIn: vi.fn(), signOut: vi.fn() }));
 // actions.ts imports AuthError from next-auth at module load; stub it so the
 // test doesn't pull in the full next-auth runtime (which needs next/server).

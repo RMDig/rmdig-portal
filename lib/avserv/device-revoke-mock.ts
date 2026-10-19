@@ -104,3 +104,10 @@ export function mockRevokeOthers(
     .map(({ deviceId, revokedAt, mode: m, alreadyRevoked, upgraded }) => ({ deviceId, revokedAt, mode: m, alreadyRevoked, upgraded }));
   return { node: NODE, ok: true, value: { accountId, node: NODE, keptDeviceId: body.keepDeviceId, revoked: out } };
 }
+
+/** The mock's revokes for one account, for the security-events mock feed. */
+export function mockRevokedDevices(accountId: string): Array<{ deviceId: string; revokedAt: string }> {
+  return [...revoked.entries()]
+    .filter(([k]) => k.startsWith(`${accountId}:`))
+    .map(([k, r]) => ({ deviceId: k.slice(accountId.length + 1), revokedAt: r.revokedAt }));
+}

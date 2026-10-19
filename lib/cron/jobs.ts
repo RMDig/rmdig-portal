@@ -6,7 +6,13 @@
 // the scheduled hour, so every schedule here is daily and each monitor allows
 // a 90-minute margin before it calls a run missed.
 
-export type CronJob = "patrol_reverify" | "sar_retention" | "avserv_checks" | "sar_alert_notify" | "deletion_clock";
+export type CronJob =
+  | "patrol_reverify"
+  | "sar_retention"
+  | "avserv_checks"
+  | "sar_alert_notify"
+  | "deletion_clock"
+  | "security_notices";
 
 export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monitorSlug: string }> = {
   patrol_reverify: { path: "/api/cron/patrol-reverify", schedule: "0 15 * * *", monitorSlug: "portal-patrol-reverify" },
@@ -16,6 +22,9 @@ export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monito
   // (lib/sar/alert-notify.ts). Daily is the Hobby plan's limit.
   sar_alert_notify: { path: "/api/cron/sar-alert-notify", schedule: "0 12 * * *", monitorSlug: "portal-sar-alert-notify" },
   deletion_clock: { path: "/api/cron/deletion-clock", schedule: "0 16 * * *", monitorSlug: "portal-deletion-clock" },
+  // Opt-in security notices for changes made on the phones (AvServ's feed,
+  // plan 36 §5.3). Daily on Hobby (owner S-D8); every 10 minutes after Pro.
+  security_notices: { path: "/api/cron/security-notices", schedule: "0 17 * * *", monitorSlug: "portal-security-notices" },
 };
 
 export const MONITOR_CHECKIN_MARGIN_MINUTES = 90;

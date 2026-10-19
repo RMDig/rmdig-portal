@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
 vi.mock("@/lib/auth", () => ({
   auth: () => Promise.resolve(h.sessionUserId ? { user: { id: h.sessionUserId } } : null),
 }));

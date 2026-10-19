@@ -5,7 +5,8 @@
 // `drizzle-orm` with the exports below.
 //
 // Scope is deliberately small: select/insert/update/delete with eq, ne, and, isNull,
-// isNotNull and gt predicates, `.limit()`, `.returning()`, and `transaction()`. Anything
+// isNotNull and gt predicates, `.limit()`, `.returning()`, `.onConflictDoUpdate()`
+// and `transaction()`. Anything
 // else throws, so a query shape the fake doesn't model fails the test loudly
 // instead of silently matching nothing.
 
@@ -97,9 +98,24 @@ export function createFakeDb(): FakeDb {
     insert: (table: Table) => ({
       values: (vals: Row) => {
         const row = { ...vals };
-        rows(table.__t).push(row);
-        return Object.assign(Promise.resolve(), {
-          returning: (fields?: Record<string, string>) => Promise.resolve([project(row, fields)]),
+        // Deferred one tick so .onConflictDoUpdate() can replace the plain insert.
+        let upsert: { target: string[]; set: Row } | null = null;
+        const run = Promise.resolve().then(() => {
+          if (upsert) {
+            const { target, set } = upsert;
+            const hit = rows(table.__t).find((r) => target.every((c) => r[c] === row[c]));
+            if (hit) Object.assign(hit, set);
+            else rows(table.__t).push(row);
+          } else {
+            rows(table.__t).push(row);
+          }
+        });
+        return Object.assign(run, {
+          returning: (fields?: Record<string, string>) => run.then(() => [project(row, fields)]),
+          onConflictDoUpdate: (opts: { target: string | string[]; set: Row }) => {
+            upsert = { target: Array.isArray(opts.target) ? opts.target : [opts.target], set: opts.set };
+            return run;
+          },
         });
       },
     }),

@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
 vi.mock("@/lib/auth/recent-auth", () => ({ requireRecentAuth: () => Promise.resolve(h.recent) }));
 vi.mock("@/lib/auth/sessions", () => ({

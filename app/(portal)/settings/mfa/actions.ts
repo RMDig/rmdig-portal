@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/mfa";
 import { verifySecondFactor } from "@/lib/auth/mfa-verify";
 import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { currentSessionId, signOutOtherSessions } from "@/lib/auth/sessions";
 import { db } from "@/lib/db";
 import { mfaRecoveryCodes, users } from "@/lib/db/schema";
@@ -91,6 +92,7 @@ export async function confirmMfaEnrollmentAction(
   await recordSecurityEvent(db, { userId, kind: "mfa_enabled", sessionId: await currentSessionId(userId) });
 
   logger.info({ event: "mfa.enrolled", userId });
+  await notifySecurityChange(userId);
   return { ok: true, recoveryCodes };
 }
 
@@ -137,6 +139,7 @@ export async function disableMfaAction(
   });
 
   logger.info({ event: "mfa.disabled", userId });
+  await notifySecurityChange(userId);
   return { ok: true };
 }
 
@@ -178,5 +181,6 @@ export async function regenerateRecoveryCodesAction(
     await recordSecurityEvent(tx, { userId, kind: "recovery_codes_regenerated", sessionId: keep });
   });
   logger.info({ event: "mfa.recovery_codes_regenerated", userId });
+  await notifySecurityChange(userId);
   return { ok: true, recoveryCodes };
 }
