@@ -29,6 +29,7 @@ import {
 import type { SessionAuthMethod } from "@/lib/db/schema";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { formatMountain } from "@/lib/format/time";
 import { logger } from "@/lib/logger";
 
 // Signing a phone out (plan 36 §5.1; AvServ device_revoke.md rev 2). Every
@@ -74,7 +75,7 @@ async function ready(): Promise<Ready> {
 const deviceId = z.string().uuid();
 
 export type PreviewResult =
-  | { ok: true; live: LiveSummary; revoked: boolean; incomplete: boolean; mode: RevokeMode }
+  | { ok: true; live: LiveSummary; dueText: string | null; revoked: boolean; incomplete: boolean; mode: RevokeMode }
   | Failure;
 
 export async function previewRevokeAction(rawDeviceId: string): Promise<PreviewResult> {
@@ -91,6 +92,8 @@ export async function previewRevokeAction(rawDeviceId: string): Promise<PreviewR
   return {
     ok: true,
     live: merged.live,
+    // Formatted here, in Mountain time like every portal date.
+    dueText: merged.live.nextDueAt ? formatMountain(new Date(merged.live.nextDueAt)) : null,
     revoked: merged.revoked,
     incomplete: merged.incomplete,
     mode: predictRevokeMode(r.strength, new Date()),

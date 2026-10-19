@@ -16,8 +16,9 @@ export const REVOKE_COPY = {
   } satisfies Record<RevokeMode, string>,
   limitedWhy:
     "This will be a limited sign-out. A full one, which leaves the phone only Send Help, needs a passkey that has been on your account for at least 7 days. That protects you from someone who knows your password but doesn't have your passkey.",
-  liveCheckout:
-    "This phone has a check-out under way. After you sign it out, that check-out can't be checked in from this phone, and your contact will be alerted unless you check in from another phone.",
+  /** With the due-back time when AvServ sends one (rev 2.1), as the phone says it. */
+  liveCheckout: (dueText: string | null) =>
+    `This phone has a check-out ${dueText ? `due back at ${dueText}` : "under way"}. After you sign it out, that check-out can't be checked in from this phone, and your contact will be alerted unless you check in from another phone.`,
   liveHelp: "This phone has an open Send Help. Signing the phone out doesn't close it.",
   liveOther: "This phone has another open safety item. Signing the phone out doesn't stop it.",
   whatThePhoneDoes:

@@ -17,8 +17,16 @@ describe("mergePreviews", () => {
       preview("n2", [{ kind: "checkout", id: "c1" }, { kind: "held", id: null }]),
       preview("n3", [{ kind: "checkout", id: "c1" }, { kind: "help_request", id: "h1" }, { kind: "something_new", id: "x" }]),
     ]);
-    expect(m.live).toEqual({ checkouts: 1, helpRequests: 1, other: 1 });
+    expect(m.live).toEqual({ checkouts: 1, helpRequests: 1, other: 1, nextDueAt: null });
     expect(m).toMatchObject({ incomplete: false, failed: false, revoked: false });
+  });
+
+  it("takes the soonest due-back time across nodes and trips, ignoring a missing or bad one (rev 2.1)", () => {
+    const m = mergePreviews([
+      preview("n2", [{ kind: "checkout", id: "c1", dueAt: "2026-10-19T22:30:00Z" }, { kind: "checkout", id: "c2" }]),
+      preview("n3", [{ kind: "checkout", id: "c3", dueAt: "2026-10-19T21:00:00Z" }, { kind: "checkout", id: "c4", dueAt: "garbage" }]),
+    ]);
+    expect(m.live).toMatchObject({ checkouts: 4, nextDueAt: "2026-10-19T21:00:00Z" });
   });
 
   it("is incomplete with one node down, failed with none, revoked if any node says so", () => {

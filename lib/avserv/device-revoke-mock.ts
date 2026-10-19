@@ -53,7 +53,9 @@ export function mockPreview(accountId: string, deviceId: string): NodeAnswer<Pre
   const devices = mockDevices(accountId);
   const i = devices.findIndex((d) => d.deviceId === deviceId);
   if (i < 0) return notFound("device_not_found");
-  const live = i === 0 ? [{ kind: "checkout", id: mockUuid(`mock-checkout:${deviceId}`) }] : [];
+  // Due back two hours from now, so the warning names a believable time.
+  const dueAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+  const live = i === 0 ? [{ kind: "checkout", id: mockUuid(`mock-checkout:${deviceId}`), dueAt }] : [];
   return {
     node: NODE,
     ok: true,

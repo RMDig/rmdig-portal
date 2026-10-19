@@ -73,10 +73,11 @@ beforeEach(() => {
 
 describe("previewRevokeAction", () => {
   it("merges every node's preview and says the revoke will be limited before passkeys", async () => {
-    h.answers = [{ node: "n2", ok: true, value: { accountId: "a", deviceId: DEV, node: "n2", revoked: false, live: [{ kind: "checkout", id: "c1" }] } }];
+    h.answers = [{ node: "n2", ok: true, value: { accountId: "a", deviceId: DEV, node: "n2", revoked: false, live: [{ kind: "checkout", id: "c1", dueAt: "2026-10-19T22:30:00Z" }] } }];
     expect(await previewRevokeAction(DEV)).toEqual({
       ok: true,
-      live: { checkouts: 1, helpRequests: 0, other: 0 },
+      live: { checkouts: 1, helpRequests: 0, other: 0, nextDueAt: "2026-10-19T22:30:00Z" },
+      dueText: "Mon, Oct 19, 4:30 PM MDT",
       revoked: false,
       incomplete: false,
       mode: "limited",
