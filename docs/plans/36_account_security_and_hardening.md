@@ -552,12 +552,12 @@ rules:
 | 1 | **This plan**, the S1 infrastructure doc, `00_status` row | ✅ #161, #162 |
 | 2 | S2 schema + hashed adapter + `auth_time` + recent-auth helper (migration: prod before merge) | ✅ #164 (0027) |
 | 3 | S2 `/settings/sessions` + revoke on password change + transactional reset + portal events table | ✅ #165 (0028); re-auth password-only #166 |
-| 4 | H5 + H6 + H2 (small, independent) | ⬜ not started |
+| 4 | H5 + H6 + H2 (small, independent) | ✅ built (0033): DB TLS required except loopback; AvServ URLs https/mock/http-localhost only; IPs pseudonymized in logs; phones redacted in logs and Sentry; rate-limit keys hashed after the prefix; OAuth tokens no longer stored, old ones cleared |
 | 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | ⬜ not started |
 | 6 | H1 CSP Report-Only, then a one-line enforce PR | ⬜ not started |
 | 7 | S3 scoped kid in the portal (mock first) | ✅ #167 (with PR 8); live when AvServ installs the kid |
 | 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | ✅ #167 (0029), #169 (due time); live with AvServ plan 52 |
-| 9 | S4 security-events view + opt-in notices (migration: cursors table) | ✅ #168 (0030); phone-side rows live with plan 52 step 4 |
+| 9 | S4 security-events view + opt-in notices (migration: cursors table) | ✅ #168 (0030); phone-side rows live since AvServ rc80 (2026-10-20 18:25Z) |
 | 10 | S4 passkeys + password-to-disable (migration) | ✅ #170 (0031) |
 | 11 | S4 App Lock reset code + link-code rate limit | ✅ built (0032); live now (device-admin key set 2026-10-20) |
 | 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | ✅ 2026-10-19 |

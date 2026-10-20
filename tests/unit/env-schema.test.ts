@@ -32,4 +32,14 @@ describe("Env schema", () => {
     expect(r.FEATURE_RESTRICTION_REVIEW).toBe("off");
     expect(Env.safeParse({ ...base, FEATURE_ADVERTISER_PORTAL: "true" }).success).toBe(false);
   });
+
+  it("accepts AvServ only over https, the mock, or http to localhost (plan 36 H5)", () => {
+    for (const v of ["https://avserv-2.rmdig.ai", "mock://localhost", "http://localhost:8080", "http://127.0.0.1:8080/"]) {
+      expect(Env.safeParse({ ...base, AVSERV_BASE_URL: v, AVSERV_FAILOVER_BASE_URL: v }).success, v).toBe(true);
+    }
+    for (const v of ["http://avserv-2.rmdig.ai", "http://localhost.evil.example", "ftp://x", "avserv-2.rmdig.ai"]) {
+      expect(Env.safeParse({ ...base, AVSERV_BASE_URL: v }).success, v).toBe(false);
+      expect(Env.safeParse({ ...base, AVSERV_FAILOVER_BASE_URL: v }).success, v).toBe(false);
+    }
+  });
 });

@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { incrementRateLimit, peekRateLimit } from "@/lib/rate-limit";
+import { incrementRateLimit, peekRateLimit, storedKey } from "@/lib/rate-limit";
 
 const OPTS = { limit: 3, windowSec: 60 };
 
@@ -45,5 +45,20 @@ describe("peekRateLimit", () => {
     h.rows = [{ attempts: 3, window_start: new Date() }];
     await expect(incrementRateLimit("k", OPTS)).resolves.toMatchObject({ allowed: true });
     await expect(peekRateLimit("k", OPTS)).resolves.toMatchObject({ allowed: false });
+  });
+});
+
+describe("storedKey (plan 36 H6)", () => {
+  it("keeps the bucket's prefix and hashes what identifies a person", () => {
+    const k = storedKey("signin:pat@example.org:203.0.113.7");
+    expect(k).toMatch(/^signin:[0-9a-f]{32}$/);
+    expect(k).not.toContain("example.org");
+    expect(storedKey("otp-phone:+17205550123")).not.toContain("5550123");
+  });
+
+  it("is stable, distinct per key, and leaves a bare prefix alone", () => {
+    expect(storedKey("signin-ip:203.0.113.7")).toBe(storedKey("signin-ip:203.0.113.7"));
+    expect(storedKey("signin-ip:203.0.113.7")).not.toBe(storedKey("signin-ip:203.0.113.8"));
+    expect(storedKey("global")).toBe("global");
   });
 });

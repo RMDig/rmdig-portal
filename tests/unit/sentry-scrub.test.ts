@@ -35,4 +35,11 @@ describe("scrubEvent", () => {
     expect(out).toContain("user-agent");
     expect(event.extra).toMatchObject({ count: 2 });
   });
+
+  it("masks phone numbers and IP addresses, but leaves times, dates and ids alone (plan 36 H6)", () => {
+    expect(scrubString("call +17205550123 or (720) 555-0123")).toBe("call [phone] or [phone]");
+    expect(scrubString("from 203.0.113.7 and 2001:db8:85a3:0:0:8a2e:370:7334")).toBe("from [ip] and [ip]");
+    const keep = "at 12:34:56 on 2026-10-20, device abcdef12-3456-5789-8abc-def012345678, v1.5.0";
+    expect(scrubString(keep)).toBe(keep);
+  });
 });

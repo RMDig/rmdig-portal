@@ -1,6 +1,18 @@
+import { createHash } from "node:crypto";
+
 import { sql } from "drizzle-orm";
 
 import { db } from "./db";
+
+// Keys name what they throttle (`signin:<email>:<ip>`, `otp-phone:<E.164>`), so
+// stored as given they'd keep a list of addresses, IPs and phone numbers in the
+// table (plan 36 H6). The stored key keeps the readable prefix (to tell buckets
+// apart) and hashes the rest. Exported for tests.
+export function storedKey(key: string): string {
+  const i = key.indexOf(":");
+  const [prefix, rest] = i < 0 ? [key, ""] : [key.slice(0, i), key.slice(i + 1)];
+  return rest ? `${prefix}:${createHash("sha256").update(rest).digest("hex").slice(0, 32)}` : prefix;
+}
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -23,7 +35,7 @@ export async function incrementRateLimit(
 
   const rows = (await db.execute(sql`
     INSERT INTO rate_limits (key, attempts, window_start)
-    VALUES (${key}, 1, now())
+    VALUES (${storedKey(key)}, 1, now())
     ON CONFLICT (key) DO UPDATE
     SET
       attempts = CASE
@@ -57,7 +69,7 @@ export async function incrementRateLimit(
 // Clear a rate-limit row — used after a successful sign-in so a future failed
 // attempt starts the window over rather than inheriting prior failures.
 export async function resetRateLimit(key: string): Promise<void> {
-  await db.execute(sql`DELETE FROM rate_limits WHERE key = ${key}`);
+  await db.execute(sql`DELETE FROM rate_limits WHERE key = ${storedKey(key)}`);
 }
 
 // Read a window without counting against it — for limits that only count
@@ -74,7 +86,7 @@ export async function peekRateLimit(
 
   const rows = (await db.execute(sql`
     SELECT attempts, window_start FROM rate_limits
-    WHERE key = ${key}
+    WHERE key = ${storedKey(key)}
       AND window_start >= now() - (${windowSec}::int * INTERVAL '1 second')
   `)) as unknown as Array<{ attempts: number; window_start: string | Date }>;
 

@@ -36,6 +36,14 @@ const redactPaths = [
   "req.headers.Cookie",
   "headers.authorization",
   "headers.cookie",
+  // Phone numbers are never needed in a log line (plan 36 H6): user and SAR org
+  // phones, contact numbers. Redacted outright, not pseudonymized.
+  "phone",
+  "phoneE164",
+  "contactPhone",
+  "*.phone",
+  "*.phoneE164",
+  "*.contactPhone",
 ];
 
 // Email addresses are pseudonymized rather than removed: the same address gives
@@ -46,8 +54,22 @@ const redactPaths = [
 // `to` is every email send's recipient (lib/email/send.ts).
 const pseudonymPaths = ["email", "to", "*.email"];
 
+// Client IPs the same way (plan 36 H6): still traceable across lines (a rate-
+// limited network, a burst of sign-ins) without the log holding the address.
+const ipPaths = ["ip", "*.ip"];
+
 function pseudonymKey(): Buffer {
   return createHmac("sha256", env.NEXTAUTH_SECRET).update("rmdig log email pseudonym v1").digest();
+}
+
+function ipPseudonymKey(): Buffer {
+  return createHmac("sha256", env.NEXTAUTH_SECRET).update("rmdig log ip pseudonym v1").digest();
+}
+
+/** "i:" plus 16 hex characters of HMAC-SHA256 over the address. */
+export function pseudonymizeIp(value: unknown): unknown {
+  if (typeof value !== "string") return "[REDACTED]";
+  return `i:${createHmac("sha256", ipPseudonymKey()).update(value.trim().toLowerCase()).digest("hex").slice(0, 16)}`;
 }
 
 /** "e:" plus 16 hex characters of HMAC-SHA256 over the trimmed, lowercased
@@ -62,9 +84,13 @@ export function pseudonymizeEmail(value: unknown): unknown {
 
 /** Pino's redact config: secrets become "[REDACTED]", addresses a pseudonym. */
 export const redactOptions = {
-  paths: [...redactPaths, ...pseudonymPaths],
+  paths: [...redactPaths, ...pseudonymPaths, ...ipPaths],
   censor: (value: unknown, path: string[]): unknown =>
-    pseudonymPaths.some((p) => matchesPath(p, path)) ? pseudonymizeEmail(value) : "[REDACTED]",
+    pseudonymPaths.some((p) => matchesPath(p, path))
+      ? pseudonymizeEmail(value)
+      : ipPaths.some((p) => matchesPath(p, path))
+        ? pseudonymizeIp(value)
+        : "[REDACTED]",
 };
 
 function matchesPath(pattern: string, path: string[]): boolean {
