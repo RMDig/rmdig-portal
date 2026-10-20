@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 import { scrubEvent } from "@/lib/sentry-scrub";
+import "@/lib/zod-browser";
 
 // Browser Sentry. Next loads instrumentation-client.ts on the client under
 // Turbopack and webpack alike; the old sentry.client.config.ts was only
