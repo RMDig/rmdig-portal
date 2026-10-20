@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({ env: { NODE_ENV: "test", NEXTAUTH_SECRET: "a".repeat(64) } }));
 
-import { pseudonymizeEmail, redactOptions } from "@/lib/logger";
+import { pseudonymizeEmail, pseudonymizeIp, redactOptions } from "@/lib/logger";
 
 function capture(): { log: pino.Logger; lines: () => Array<Record<string, unknown>> } {
   const out: string[] = [];
@@ -44,5 +44,22 @@ describe("log redaction", () => {
     const { log, lines } = capture();
     log.info({ password: "hunter2hunter2", token: "t" });
     expect(lines()[0]).toMatchObject({ password: "[REDACTED]", token: "[REDACTED]" });
+  });
+
+  it("pseudonymizes client IPs, consistently and separately from emails (plan 36 H6)", () => {
+    const { log, lines } = capture();
+    log.info({ event: "signup.ip_rate_limited", ip: "203.0.113.7" });
+    log.info({ event: "x", req: { ip: "203.0.113.7" } });
+    const [a, b] = lines();
+    expect(a!.ip).toMatch(/^i:[0-9a-f]{16}$/);
+    expect((b!.req as { ip: string }).ip).toBe(a!.ip);
+    expect(JSON.stringify(lines())).not.toContain("203.0.113.7");
+    expect(pseudonymizeIp("203.0.113.7")).not.toBe(pseudonymizeIp("203.0.113.8"));
+  });
+
+  it("redacts phone numbers outright", () => {
+    const { log, lines } = capture();
+    log.info({ event: "x", phone: "+17205550123", org: { contactPhone: "+17205550123", phoneE164: "+17205550123" } });
+    expect(JSON.stringify(lines())).not.toContain("5550123");
   });
 });

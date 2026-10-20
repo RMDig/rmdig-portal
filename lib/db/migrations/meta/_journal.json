@@ -232,6 +232,13 @@
       "when": 1792516973486,
       "tag": "0032_app_lock_reset_code_event",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792520689922,
+      "tag": "0033_clear_oauth_tokens_and_raw_rate_keys",
+      "breakpoints": true
     }
   ]
 }

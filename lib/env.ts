@@ -11,6 +11,16 @@ import { previewSafetyProblems } from "./preview-guard";
 // static analysis don't have the full secret set). Production deploys validate
 // because Vercel injects the full env before the server starts.
 
+// An AvServ node: https only (plan 36 H5), so the service JWT and every body
+// travel encrypted. mock:// is the in-process mock (local dev, previews, E2E);
+// plain http only to a loopback host, for an AvServ run on this machine.
+const avservUrl = z
+  .string()
+  .refine(
+    (v) => v.startsWith("mock://") || v.startsWith("https://") || /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?(\/|$)/.test(v),
+    "must be https:// (or mock:// for the mock, or http:// to localhost)",
+  );
+
 export const Env = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
@@ -77,7 +87,7 @@ export const Env = z.object({
   // 05_portal_identity_integration.md). Optional until AvServ ships the
   // /v1/internal/accounts endpoints; `mock://localhost` exercises the portal
   // half without a live AvServ.
-  AVSERV_BASE_URL: z.string().optional(),
+  AVSERV_BASE_URL: avservUrl.optional(),
   // The Ed25519 private key that signs the short-lived service JWT for
   // /v1/internal/*: ONE base64 line, the base64 of the PKCS#8 PEM file
   // (lib/avserv/service-key.ts). Held only in Vercel env, never committed.
@@ -102,7 +112,7 @@ export const Env = z.object({
   // same Idempotency-Key when the primary is unreachable or answers 5xx/503
   // (AvServ contract account_agreement.md §4, failover). Optional: unset means
   // acceptances go to AVSERV_BASE_URL alone, and a failure there is shown.
-  AVSERV_FAILOVER_BASE_URL: z.string().optional(),
+  AVSERV_FAILOVER_BASE_URL: avservUrl.optional(),
   // E2E-only seam (docs/plans/31 §4): with AVSERV_BASE_URL=mock://* it lets the
   // agreement page present a labelled test fixture while no version is pinned.
   // Production never sets it, and it is ignored against a real AvServ.

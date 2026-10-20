@@ -6,15 +6,26 @@ import type { ErrorEvent } from "@sentry/nextjs";
 //
 // What leaves the portal for Sentry: no email addresses (users, SAR members,
 // deletion requesters: an email in a CPA deletion request is exactly what must
-// not be copied elsewhere), no cookies or auth headers, no tokens in URLs
-// (reset, invite and deletion links carry them in the query string).
+// not be copied elsewhere), no phone numbers or IP addresses (plan 36 H6), no
+// cookies or auth headers, no tokens in URLs (reset, invite and deletion links
+// carry them in the query string).
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// E.164 (the form every stored phone takes) and US formats people type.
+const PHONE = /\+\d{8,15}\b|\(?\b\d{3}\)?[ .-]\d{3}[ .-]\d{4}\b/g;
+const IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+// Five or more hex groups, so a time like 12:34:56 is left alone.
+const IPV6 = /\b(?:[0-9a-f]{1,4}:){4,7}[0-9a-f]{1,4}\b/gi;
 const SECRET_HEADERS = new Set(["authorization", "cookie", "set-cookie", "x-avai-signature", "proxy-authorization"]);
 const MAX_DEPTH = 8;
 
 export function scrubString(s: string): string {
-  return s.replace(EMAIL, "[email]").replace(/([?&](?:token|code)=)[^&#\s]+/gi, "$1[redacted]");
+  return s
+    .replace(EMAIL, "[email]")
+    .replace(/([?&](?:token|code)=)[^&#\s]+/gi, "$1[redacted]")
+    .replace(IPV6, "[ip]")
+    .replace(IPV4, "[ip]")
+    .replace(PHONE, "[phone]");
 }
 
 export function scrubValue(v: unknown, depth = 0): unknown {

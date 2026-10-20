@@ -10,6 +10,7 @@ import { headers } from "next/headers";
 import { mapUserToAvServAccountOnLogin } from "./avserv/account-link";
 import { authorizeCredentials, type AuthorizedUser } from "./auth/credentials-authorize";
 import { markOAuthUserVerified, oauthEmailVerified, secureOAuthEmailLink } from "./auth/oauth-link";
+import { withoutOAuthTokens } from "./auth/oauth-tokens";
 import { withHashedSessions } from "./auth/session-adapter";
 import { db } from "./db";
 import { accounts, sessions, users, verificationTokens } from "./db/schema";
@@ -24,13 +25,16 @@ const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 // Hoisted so the credentials encode override (below) can call createSession on
 // the same adapter instance NextAuth uses for everything else. Session tokens are
 // stored hashed (lib/auth/session-adapter.ts); the cookie keeps the raw token.
+// Google's tokens are dropped before an account is linked (lib/auth/oauth-tokens.ts).
 const adapter = withHashedSessions(
-  DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
+  withoutOAuthTokens(
+    DrizzleAdapter(db, {
+      usersTable: users,
+      accountsTable: accounts,
+      sessionsTable: sessions,
+      verificationTokensTable: verificationTokens,
+    }),
+  ),
   { userAgent: async () => (await headers()).get("user-agent") },
 );
 

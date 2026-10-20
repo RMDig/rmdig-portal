@@ -30,10 +30,12 @@ vi.mock("next-auth", () => ({
 vi.mock("next-auth/jwt", () => ({ encode: vi.fn() }));
 vi.mock("next-auth/providers/credentials", () => ({ default: (c: unknown) => c }));
 vi.mock("next-auth/providers/google", () => ({ default: (c: unknown) => c }));
-// lib/auth wraps the adapter's session methods (lib/auth/session-adapter.ts),
-// which refuses an adapter without them; these tests never call them.
+// lib/auth wraps the adapter's session methods (lib/auth/session-adapter.ts)
+// and linkAccount (lib/auth/oauth-tokens.ts), each refusing an adapter
+// without them; these tests never call them.
 vi.mock("@auth/drizzle-adapter", () => ({
   DrizzleAdapter: () => ({
+    linkAccount: vi.fn(),
     createSession: vi.fn(),
     getSessionAndUser: vi.fn(),
     updateSession: vi.fn(),

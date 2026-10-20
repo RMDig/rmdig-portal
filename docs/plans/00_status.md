@@ -17,10 +17,10 @@ previews and limited revokes recorded by both nodes (first at 06:44Z, more 17:48
 reset codes redeemed in AvAI. Every check in AvApp's list passed.
 
 **AvServ**
-- **`+security_events` on `svc-key-portal-1` and plan 52 step 4** (the events feed, contract
-  rev 1.1, no wire change): **built, ships in AvServ's next rc**; they send the rc number, then
-  the owner adds the group on both nodes. Switches on phone-side rows in Settings → Security and their
-  notices (#168). No portal change needed.
+- ~~Security-events feed~~ **Live 2026-10-20 18:25Z** in AvServ v1.5.0-rc80 (`d33e0e3`) on both
+  nodes; `svc-key-portal-1` holds `security_events`. Phone-side rows in Settings → Security and
+  their notices (#168) are on; no portal change was needed. The feed starts empty: actions before
+  18:25Z were never recorded.
 - Plan 52 PR C (link codes hashed, D14 yes): nothing needed from the portal.
 - **Plan 39 restrictions**: unblocks plan 32 (restriction review, on the mock) and plan 57.
 - **Plan 57 contracts**: `false_alarm_reports.md`, restrictions rev 2, the per-user block,
