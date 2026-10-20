@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { createSubmitGuard } from "@/components/forms/single-submit";
 
-// Two reset codes one second apart in production (2026-10-20): a second click
-// landed before React re-rendered the disabled button. The guard drops it.
+// A quick second click can land before React re-renders the disabled button,
+// and useActionState would run both. The guard drops it.
 describe("createSubmitGuard", () => {
   it("lets the first submit through and drops the next until it finishes", () => {
     const g = createSubmitGuard();

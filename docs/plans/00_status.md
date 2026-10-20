@@ -18,8 +18,8 @@ reset codes redeemed in AvAI. Every check in AvApp's list passed.
 
 **AvServ**
 - **`+security_events` on `svc-key-portal-1` and plan 52 step 4** (the events feed, contract
-  rev 1.1): **not built yet**, next on AvServ's list; they send the rc number, then the owner
-  adds the group on both nodes. Switches on phone-side rows in Settings → Security and their
+  rev 1.1, no wire change): **built, ships in AvServ's next rc**; they send the rc number, then
+  the owner adds the group on both nodes. Switches on phone-side rows in Settings → Security and their
   notices (#168). No portal change needed.
 - Plan 52 PR C (link codes hashed, D14 yes): nothing needed from the portal.
 - **Plan 39 restrictions**: unblocks plan 32 (restriction review, on the mock) and plan 57.
@@ -93,7 +93,9 @@ the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
 | [34 Team areas on the public map](34_public_team_area_map.md) | Planned (not re-checked this pass) | Counsel |
 | [35 Automated deletion](35_automated_deletion.md) | Draft; deletions are by hand (runbook) | AvServ plan 47 erasure key; counsel |
 | [36 Account security and hardening](36_account_security_and_hardening.md) | **Live:** hashed sessions + `auth_time` (#164), sessions page + re-auth + sign-out on credential changes (#165, #166), passkeys (#170), `MFA_ENFORCEMENT=all`, security activity + opt-in notices (#168). **On the mock:** phone sign-out, limited/full, due-back time (#167, #169); phone-side security events (#168). **Built and verified 2026-10-20:** PR 11 (App Lock reset code + link-code mint limit, #172);
-a double-click guard on both code buttons. **Not built:** hardening H1–H8 (PRs 4–6, 13), S6 / plan 57 | AvServ plan 52 (§0); counsel (security log retention); plan 57 gates |
+a double-click guard on both code buttons (#173). The three codes minted at 17:57–17:58Z were
+two phones' requests (8ddef600, then 4b93adf6 twice), not a double click: all on avserv-2,
+two redeemed, one expired unused. **Not built:** hardening H1–H8 (PRs 4–6, 13), S6 / plan 57 | AvServ plan 52 (§0); counsel (security log retention); plan 57 gates |
 
 ## 4. Incident Detection re-filing (AvServ plans 38/38a/38b)
 
