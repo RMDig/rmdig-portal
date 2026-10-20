@@ -2,6 +2,7 @@ import { createClient } from "@vercel/global-config";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { buildCsp, MAINTENANCE_CSP, makeNonce, sentryReportUri } from "@/lib/csp";
 import { maintenancePage, readSwitch, retryAfterSeconds, staysUp } from "@/lib/maintenance/portal-switch";
 
 // Why this is so thin: the authoritative MFA-enforcement gate lives in the
@@ -13,7 +14,8 @@ import { maintenancePage, readSwitch, retryAfterSeconds, staysUp } from "@/lib/m
 // (2) serve the planned-maintenance page for portal routes while the operator's
 // switch is on (lib/maintenance/portal-switch.ts), and (3) forward the request
 // path as `x-pathname` so the layout can tell which route is rendering and
-// avoid redirect-looping the user on the enrollment page itself. No DB, no auth — cheap and Edge-safe (and per CLAUDE.md §3.6,
+// avoid redirect-looping the user on the enrollment page itself, and (4) give
+// every page a fresh CSP nonce (lib/csp.ts). No DB, no auth — cheap and Edge-safe (and per CLAUDE.md §3.6,
 // no lib/env import; the host names are public routing config, not secrets).
 
 // One canonical browsing host, matching NEXTAUTH_URL. Auth session cookies
@@ -31,6 +33,17 @@ const LEGACY_HOSTS = new Set(["app.rmdig.ai", "www.rmdig.ai"]);
 // store) means the switch is off.
 const configConnection = process.env.GLOBAL_CONFIG || process.env.EDGE_CONFIG;
 const configClient = configConnection ? createClient(configConnection) : null;
+
+// Report-Only for its first week (owner decision S-D9); enforcing it is this
+// one line, "Content-Security-Policy" (runbook "Content-Security-Policy").
+const CSP_HEADER = "Content-Security-Policy-Report-Only";
+
+// CSP reports go to Sentry from production only: previews and local dev show
+// violations in the browser console, and don't spend the Sentry quota.
+const cspReportUri =
+  process.env.VERCEL_ENV === "production"
+    ? sentryReportUri(process.env.NEXT_PUBLIC_SENTRY_DSN, "production", process.env.VERCEL_GIT_COMMIT_SHA)
+    : undefined;
 
 export async function middleware(req: NextRequest) {
   const host = req.headers.get("host") ?? "";
@@ -51,6 +64,7 @@ export async function middleware(req: NextRequest) {
           "content-type": "text/html; charset=utf-8",
           "retry-after": String(retryAfterSeconds(sw, new Date())),
           "cache-control": "no-store",
+          "content-security-policy": MAINTENANCE_CSP,
         },
       });
     }
@@ -61,7 +75,20 @@ export async function middleware(req: NextRequest) {
   // Where a signed-out visitor was going, so the portal layout can send them
   // back after sign-in (lib/auth/return-to.ts validates it there).
   headers.set("x-return-to", req.nextUrl.pathname + req.nextUrl.search);
-  return NextResponse.next({ request: { headers } });
+
+  // Next reads the nonce from the request's CSP header (either name) and puts
+  // it on its own scripts; the response header is what the browser checks.
+  const csp = buildCsp({
+    nonce: makeNonce(),
+    dev: process.env.NODE_ENV === "development",
+    sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    reportUri: cspReportUri,
+  });
+  headers.set(CSP_HEADER, csp);
+  const res = NextResponse.next({ request: { headers } });
+  res.headers.set(CSP_HEADER, csp);
+  if (cspReportUri) res.headers.set("Reporting-Endpoints", `csp="${cspReportUri}"`);
+  return res;
 }
 
 export const config = {

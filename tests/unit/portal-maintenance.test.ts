@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MAINTENANCE_CSP } from "@/lib/csp";
 import {
   maintenancePage,
   parseSwitch,
@@ -150,6 +151,7 @@ describe("middleware with the switch", () => {
     expect(res.status).toBe(503);
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(Number(res.headers.get("retry-after"))).toBeGreaterThanOrEqual(590);
+    expect(res.headers.get("content-security-policy")).toBe(MAINTENANCE_CSP);
     expect(await res.text()).toContain("Back soon.");
   });
 

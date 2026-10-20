@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signIn } from "./helpers";
+import { signIn, watchCspViolations } from "./helpers";
 
 // MapLibre boots in the production build (beta blocker B6). maplibre-gl v6 runs
 // its tile worker from a separate file that only resolves under the bundler when
@@ -14,6 +14,7 @@ test.skip(
 
 test.describe("map rendering (mock)", () => {
   test("the /map page starts MapLibre and its worker without errors", async ({ page }) => {
+    const violations = await watchCspViolations(page);
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => {
@@ -30,5 +31,8 @@ test.describe("map rendering (mock)", () => {
     await expect.poll(() => workerRequests.length, { message: "the MapLibre worker should be fetched" }).toBeGreaterThan(0);
 
     expect(errors.filter((e) => /worker/i.test(e))).toEqual([]);
+    // The worker, tiles and styles all fit the CSP (plan 36 H1).
+    await page.waitForLoadState("networkidle");
+    expect(await violations()).toEqual([]);
   });
 });
