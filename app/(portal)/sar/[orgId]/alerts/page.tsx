@@ -9,7 +9,9 @@ import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { getOrgRole } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { sarAlertAcks, sarAlertViewLog, sarIntakeMessages, sarOrgs } from "@/lib/db/schema";
-import { alertUserName, groupAlerts, type IntakePayload } from "@/lib/sar/intake";
+import { alertUserName, groupAlerts } from "@/lib/sar/intake";
+import { sarPayloadKeys } from "@/lib/sar/payload-keys";
+import { openPayload } from "@/lib/sar/payload-seal";
 
 import { AckButton } from "./AckButton";
 
@@ -64,7 +66,7 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
     .where(eq(sarIntakeMessages.orgId, orgId))
     .orderBy(desc(sarIntakeMessages.receivedAt))
     .limit(300);
-  const alerts = groupAlerts(rows.map((r) => ({ ...r, payload: r.payload as IntakePayload })));
+  const alerts = groupAlerts(rows.map((r) => ({ ...r, payload: openPayload(sarPayloadKeys, r.payload) })));
   const acks = new Map(
     (await db.select().from(sarAlertAcks).where(eq(sarAlertAcks.orgId, orgId))).map((a) => [a.alertId, a]),
   );

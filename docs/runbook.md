@@ -364,6 +364,41 @@ the browser console open.
 redeploy, or promote the previous deployment with `vercel promote <its URL>` (see "Test a
 production env change": Hobby has no `vercel rollback`).
 
+## Key rotation
+
+Every secret the portal holds, in one place (plan 36 H7). **Cadence:** "yearly" means at
+least once a year **and** at once on any suspected leak. **Last rotated:** fill it in on each
+rotation; "—" means never rotated since it was set up. Every change is a Vercel env change,
+so it needs a redeploy (`vercel redeploy <deployment>`). For sensitive vars, keep the value
+in the password manager: Vercel won't show it again.
+
+| Secret | Cadence | How | What rotating it breaks | Last rotated |
+|---|---|---|---|---|
+| `NEXTAUTH_SECRET` | yearly | `openssl rand -hex 32`, set in Vercel **and** the GitHub Actions secret, redeploy | Open sign-in and re-auth forms, passkey challenges (5 min), phone-verify proofs in flight, and log pseudonyms (old and new logs stop correlating). Check you're still signed in after the redeploy | — |
+| `MFA_ENCRYPTION_KEY(S)` | yearly | "Rotating the MFA encryption key" (overlap, `pnpm mfa:reencrypt`) | Nothing, with overlap. Retiring a key before re-encrypting breaks those users' two-factor | — |
+| `SAR_PAYLOAD_KEYS` | yearly | New key **first**, old kept: `s2:<new>,s1:<old>`; redeploy. Old alerts are deleted by retention within 90 days of ending, so remove `s1` after the check below shows 0 | Nothing, with overlap. Removing a key still in use breaks that team's Alerts page (loudly) | — |
+| `AVSERV_SAR_INTAKE_KEYS` | yearly, per node | "SAR alert intake": add the new pair, redeploy, switch the node, remove the old | Nothing, with overlap (a node mid-switch gets `401`, which AvServ retries) | — |
+| AvServ service key (`AVSERV_SERVICE_JWT_*`) | yearly | "AvServ service key": rotate with overlap via AvServ | Nothing, with overlap. Without it, every AvServ call fails (the build check catches a bad key) | — |
+| Device-admin key (`AVSERV_DEVICE_ADMIN_JWT_*`) | yearly | "Device-admin key": same overlap via AvServ | Signing phones out, until AvServ has the new kid | — |
+| `CRON_SECRET` | yearly | `openssl rand -hex 32`, set, redeploy | Nothing: Vercel sends the current value to each cron | — |
+| `DATABASE_URL` (Neon password) | yearly | "Rotating the database password" | Every DB call until the new URL is deployed; backups until the GitHub secret is updated | — |
+| `GOOGLE_CLIENT_SECRET` | yearly | Google Cloud console: add a secret, set it, redeploy, then disable the old one | Google sign-in, if the old one is disabled first | — |
+| `RESEND_API_KEY` | yearly | Resend: new key, set, redeploy, delete the old | Email, until redeployed | — |
+| `TWILIO_AUTH_TOKEN` | yearly | Twilio: secondary token, set, redeploy, promote it | Phone verification, until redeployed | — |
+| `SENTRY_AUTH_TOKEN` | yearly | Sentry: new org token, set (build only) | Source-map upload in builds | — |
+| `BLOB_READ_WRITE_TOKEN` | on leak | Vercel Blob store: rotate token | Proof uploads and the admin proof view, until redeployed | — |
+| `NEXT_PUBLIC_MAPTILER_KEY` | on leak (public by design; locked to our origins) | MapTiler: new key, set, redeploy, delete the old | Map tiles fall back to OpenStreetMap until redeployed | — |
+| GitHub Actions secrets (`NEON_API_KEY`, `R2_*`, `PROD_DATABASE_URL`, `PROD_MIGRATIONS_READ_URL`) | yearly | New value at the provider, update the repo secret (infrastructure.md lists them) | The job using it (backups, the migration guard, E2E branches) until updated | — |
+| Backup age key | on leak | "Database backups": new keypair, update `AGE_PUBLIC_KEY`; **keep the old private key** until its backups expire (30 days) | Nothing new; old backups need the old private key | — |
+
+**`SAR_PAYLOAD_KEYS` check** (read-only, on the production branch): count alerts still sealed
+with the old kid before removing it.
+
+```sql
+SELECT count(*) FROM sar_intake_messages
+WHERE payload::text LIKE '%"v1:s1:%';
+```
+
 ## Rotating the MFA encryption key
 
 TOTP secrets are encrypted with a key id (plan 36 H3, `lib/auth/mfa-keys.ts`), stored as
@@ -414,6 +449,12 @@ maintenance switch.
   `AVSERV_SAR_PORTAL_INTAKE_SECRET`. Redeploy after changing it.
 - **Rotation:** add the new pair alongside the old, redeploy, switch the node,
   then remove the old pair and redeploy again.
+- **Payload key:** an alert's last position, planned route and Send Help note are stored
+  sealed (plan 36 H4) under `SAR_PAYLOAD_KEYS` (Vercel Production, sensitive), packed
+  `kid:hex` (`openssl rand -hex 32`; first entry `s1`). Without it intake answers
+  `503 intake_not_configured` (AvServ retries) and reports `sar.intake.payload_keys_invalid`,
+  and a production build with `AVSERV_SAR_INTAKE_KEYS` set fails in `check-service-key`.
+  Rotation: "Key rotation".
 - **Responses:** `200` stored. `409 duplicate` already stored (AvServ treats it as
   delivered). `401 unknown_key | bad_signature | stale_signature` (clock skew over
   5 minutes counts as stale). `400` bad payload or `Idempotency-Key` not equal to
@@ -1166,8 +1207,8 @@ allowance (infrastructure.md "Maintenance").
 ## Routine maintenance
 
 See [infrastructure.md](infrastructure.md) §Maintenance for the schedule:
-- **Credential rotation** — `RESEND_API_KEY`, `SENTRY_AUTH_TOKEN`,
-  `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET` annually or on suspected compromise.
+- **Credential rotation** — every secret, its cadence and what rotating it breaks:
+  "Key rotation" above.
 - **DMARC tightening** — `p=quarantine` → `p=reject` after clean aggregate reports.
 - **Neon compute** — free tier auto-suspends after 5 min idle; bump to paid once
   real users are on.

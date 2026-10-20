@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+import type { KeySet } from "../crypto/keyed-aes";
 import { db } from "../db";
 import { sarIntakeMessages, sarOrgs } from "../db/schema";
 import { env } from "../env";
@@ -8,6 +9,8 @@ import { logger } from "../logger";
 import { reportError, reportProblem } from "../report-error";
 import { notifyOnIntake } from "./alert-notify";
 import { type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
+import { sarPayloadKeys } from "./payload-keys";
+import { sealPayload } from "./payload-seal";
 
 // AvServ → portal SAR intake (AvServ sar_portal_intake.md), shared by the live
 // route (app/api/sar/intake) and the drill route (app/api/sar/intake/drill).
@@ -41,6 +44,15 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
   }
   if (keys.size === 0) {
     reportProblem("sar.intake.not_configured", "SAR intake has no AVSERV_SAR_INTAKE_KEYS: alerts are refused (503)");
+    return reply(503, "intake_not_configured");
+  }
+  // Alert details are stored sealed (plan 36 H4), never plain: without the
+  // key, refuse like an unconfigured intake so AvServ retries.
+  let sealKeys: KeySet;
+  try {
+    sealKeys = sarPayloadKeys();
+  } catch (err) {
+    reportError("sar.intake.payload_keys_invalid", err);
     return reply(503, "intake_not_configured");
   }
 
@@ -111,7 +123,7 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
         node: payload.node,
         drill: payload.drill,
         sentAt: new Date(payload.sentAt),
-        payload,
+        payload: sealPayload(sealKeys, payload),
       })
       .onConflictDoNothing()
       .returning({ messageId: sarIntakeMessages.messageId });

@@ -561,7 +561,7 @@ rules:
 | 10 | S4 passkeys + password-to-disable (migration) | ✅ #170 (0031) |
 | 11 | S4 App Lock reset code + link-code rate limit | ✅ built (0032); live now (device-admin key set 2026-10-20) |
 | 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | ✅ 2026-10-19 |
-| 13 | H4 SAR payload encryption, H7 rotation table | ⬜ not started (after PR 5) |
+| 13 | H4 SAR payload encryption, H7 rotation table | ✅ built: an alert's position, route and note sealed in the stored payload (`SAR_PAYLOAD_KEYS`, shared helper `lib/crypto/keyed-aes.ts`), intake 503 and a failed production build without the key, retention unchanged; runbook "Key rotation" table |
 | — | S6 (plan 57) | §9 gates |
 
 ## 11. Owner checks (not verifiable from the repo)

@@ -122,6 +122,12 @@ export const Env = z.object({
   // per node, never shared. During rotation both ids are listed. Optional:
   // unset, /api/sar/intake answers 503 (AvServ retries) and logs loudly.
   AVSERV_SAR_INTAKE_KEYS: z.string().optional(),
+  // AES-256 keys sealing an alert's position, route and note at rest (plan 36
+  // H4, lib/sar/payload-seal.ts), packed "kid:hex,kid:hex"; the first seals
+  // new alerts, the rest still open. Optional in the schema, but intake
+  // answers 503 without it, and a production build with intake configured
+  // fails without it (scripts/check-service-key.ts).
+  SAR_PAYLOAD_KEYS: z.string().optional(),
   // Vercel sends it as "Authorization: Bearer <CRON_SECRET>" on scheduled
   // calls (vercel.json crons). Unset: the cron routes answer 503 and log.
   CRON_SECRET: z.string().min(32).optional(),

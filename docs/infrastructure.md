@@ -112,7 +112,7 @@ Local dev uses the `local-dev` branch of the **preview** Neon project (`rmdig-po
 - **DMARC tightening** — currently `p=quarantine`. After 2–4 weeks of clean `rua=` aggregate reports landing in `dennys25@pm.me`, tighten to `p=reject` in Cloudflare DNS. Target window: roughly the P1.5 polish milestone.
 - **Sentry rate plan** — free tier ships 5k errors/month. Watch the usage page once P1.5 soft launch begins; bump plan or filter noisy errors via `beforeSend` if approaching.
 - **Neon compute auto-suspend** — free-tier compute suspends after 5 min idle. First request after suspend has a 1–3s cold-start latency. Worth a paid plan once real users hit `app.rmdig.ai`.
-- **API key rotation** — `RESEND_API_KEY`, `SENTRY_AUTH_TOKEN`, `GOOGLE_CLIENT_SECRET`, and `NEXTAUTH_SECRET` should each be rotated annually or after any suspected compromise. Update both `.env.local` and Vercel env in one sitting.
+- **Key rotation** — every secret, its cadence, procedure and what rotating it breaks: runbook "Key rotation". Update both `.env.local` and Vercel env in one sitting.
 - **Google OAuth redirects** — three URIs registered (`localhost:3000`, `*.vercel.app`, `app.rmdig.ai`). If the Vercel team slug changes, the `*.vercel.app` URI breaks; add the new one before deleting the old.
 
 ## What's NOT set up (deferred to later phases)

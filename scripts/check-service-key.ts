@@ -1,4 +1,5 @@
 import { checkDeviceAdminKeyConfig, checkServiceKeyConfig } from "../lib/avserv/service-key";
+import { checkSarPayloadKeyConfig } from "../lib/sar/payload-seal";
 
 // Runs before `next build` on Vercel (package.json "vercel-build"). When the
 // build talks to a real AvServ, the service-JWT key must load as Ed25519 and
@@ -38,4 +39,21 @@ console.log(
   admin.status === "ok"
     ? `check-service-key: ${admin.kid} (device admin) loads and matches (sha256 ${admin.fingerprint}).`
     : `check-service-key: device-admin key ${admin.status === "absent" ? "not set; signing phones out stays unavailable" : "skipped"}.`,
+);
+
+// The SAR payload keys (plan 36 H4): with intake configured, intake refuses
+// every alert (503) without them, so a build that has intake keys but no
+// usable payload key fails here instead of going live.
+const sarPayload = checkSarPayloadKeyConfig({
+  AVSERV_SAR_INTAKE_KEYS: process.env.AVSERV_SAR_INTAKE_KEYS,
+  SAR_PAYLOAD_KEYS: process.env.SAR_PAYLOAD_KEYS,
+});
+if (sarPayload.status === "error") {
+  console.error(`check-service-key: ${sarPayload.error}`);
+  process.exit(1);
+}
+console.log(
+  sarPayload.status === "ok"
+    ? `check-service-key: SAR payload key ${sarPayload.current} loads.`
+    : "check-service-key: SAR intake not configured, skipping its payload key.",
 );
