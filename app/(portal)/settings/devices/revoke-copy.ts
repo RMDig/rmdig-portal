@@ -32,4 +32,8 @@ export const REVOKE_COPY = {
   limits:
     "A phone that stays offline won't hear about this, so also use the phone's own passcode and Find My (iPhone) or Find My Device (Android). Photos saved to the phone's camera roll aren't covered.",
   permanent: "This can't be undone. To use the phone again, link it as a new phone.",
+  // App Lock reset code (device_revoke.md §3.5; AvApp plan 54 §4.6).
+  resetCodeWhat:
+    "Forgot your App Lock PIN? Enter this code in AvAI on that phone. It starts the same 24-hour wait as \"Forgot PIN\" on the phone, and never makes the wait shorter. Your real PIN still cancels it.",
+  resetCodeOnce: "It works once, only on that phone, and we can't show it again.",
 } as const;

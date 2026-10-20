@@ -5,11 +5,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { portalActor } from "@/lib/auth/portal-actor";
-import { passkeyCreatedAt } from "@/lib/auth/passkeys";
+import { mfaIsOn, passkeyCreatedAt } from "@/lib/auth/passkeys";
+import { recordSecurityEvent } from "@/lib/auth/security-events";
+import { incrementRateLimit } from "@/lib/rate-limit";
 import { requireRecentAuth } from "@/lib/auth/recent-auth";
 import { notifySecurityChange } from "@/lib/auth/security-notices";
 import {
   deviceRevokeAvailable,
+  mintAppLockResetCode,
   revokeDevice,
   revokeOtherDevices,
   revokePreview,
@@ -60,7 +63,7 @@ async function authStrengthFor(method: SessionAuthMethod | null, passkeyId: stri
 }
 
 type Ready =
-  | { ok: true; userId: string; accountId: string; strength: AuthStrength }
+  | { ok: true; userId: string; accountId: string; strength: AuthStrength; sessionId: string }
   | Failure;
 
 async function ready(): Promise<Ready> {
@@ -82,6 +85,7 @@ async function ready(): Promise<Ready> {
     userId: actor.userId,
     accountId: row.avservAccountId,
     strength: await authStrengthFor(recent.authMethod, recent.authPasskeyId),
+    sessionId: recent.sessionId,
   };
 }
 
@@ -172,4 +176,54 @@ export async function revokeOtherDevicesAction(_prev: RevokeResult, formData: Fo
     return { ok: true, status: "done", message: "There were no other phones to sign out." };
   }
   return outcomeMessage(outcome, `Signed out ${outcome.devices} ${outcome.devices === 1 ? "phone" : "phones"}`);
+}
+
+// ── App Lock reset code (plan 36 §5.5; device_revoke.md §3.5) ────────────────
+// It only STARTS the phone's 24-hour "Forgot PIN" wait: it never shortens it,
+// clears the lock or reveals the PIN, and the real PIN still cancels it. So in
+// the wrong hands it does no more than tapping "Forgot PIN" on that phone.
+// Still behind a recent login and two-factor, and 3 a day per account here,
+// in front of AvServ's own 3 per phone and 5 per account a day.
+
+const RESET_CODE_LIMIT = { limit: 3, windowSec: 24 * 60 * 60 };
+
+export type ResetCodeResult = { ok: true; code: string; expiresText: string } | Failure | null;
+
+function retryText(sec: number | undefined): string {
+  if (!sec) return "later today";
+  const hours = Math.ceil(sec / 3600);
+  return hours <= 1 ? "in about an hour" : `in about ${hours} hours`;
+}
+
+export async function mintResetCodeAction(_prev: ResetCodeResult, formData: FormData): Promise<ResetCodeResult> {
+  const id = deviceId.safeParse(formData.get("deviceId"));
+  if (!id.success) return { ok: false, error: "That phone couldn't be found." };
+  const r = await ready();
+  if (!r.ok) return r;
+  if (!(await mfaIsOn(r.userId))) {
+    return { ok: false, error: "Turn on two-factor authentication first. A reset code needs it." };
+  }
+  if (!(await incrementRateLimit(`applock-reset:${r.accountId}`, RESET_CODE_LIMIT)).allowed) {
+    logger.warn({ event: "devices.reset_code.rate_limited", userId: r.userId });
+    return { ok: false, error: "You've made 3 reset codes today. Try again tomorrow." };
+  }
+
+  const answer = await mintAppLockResetCode(r.accountId, id.data, r.userId);
+  if (!answer.ok) {
+    logger.warn({ event: "devices.reset_code.refused", userId: r.userId, node: answer.node, status: answer.status, code: answer.code });
+    if (answer.code === "device_revoked") return { ok: false, error: "This phone is signed out, so it has no App Lock to reset." };
+    if (answer.code === "rate_limited") {
+      return { ok: false, error: `This phone has had too many reset codes. Try again ${retryText(answer.retryAfterSec)}.` };
+    }
+    if (answer.code === "device_not_found") {
+      return { ok: false, error: "The server doesn't know this phone yet. Try again in a minute." };
+    }
+    return { ok: false, error: "Couldn't reach the device service. Nothing changed. Try again in a moment." };
+  }
+
+  // Never the code itself, in the log or the event.
+  await recordSecurityEvent(db, { userId: r.userId, kind: "app_lock_reset_code_issued", sessionId: r.sessionId });
+  logger.info({ event: "devices.reset_code.issued", userId: r.userId, node: answer.node });
+  await notifySecurityChange(r.userId);
+  return { ok: true, code: answer.value.code, expiresText: formatMountain(new Date(answer.value.expiresAt)) };
 }

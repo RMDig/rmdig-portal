@@ -172,3 +172,52 @@ describe("deviceRevokeAvailable", () => {
     expect(deviceRevokeAvailable()).toBe(false);
   });
 });
+
+describe("mintAppLockResetCode (real path)", () => {
+  const ok = (node: string) => json(200, { deviceId: DEV, code: "K7QM3XWP", expiresAt: "2026-10-18T17:12:11Z", node });
+
+  it("asks ONE node, as the device-admin key with the reader, and stops at its answer", async () => {
+    stubNodes((url) => ok(new URL(url).host));
+    const { mintAppLockResetCode } = await import("@/lib/avserv/device-revoke");
+    const r = await mintAppLockResetCode(ACCT, DEV, "u1");
+    expect(r).toMatchObject({ ok: true, value: { code: "K7QM3XWP" } });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toContain(`/devices/${DEV}/app-lock-reset-codes`);
+    expect(h.roles).toEqual(["device_admin"]);
+    expect((calls[0]!.init.headers as Record<string, string>)["x-avai-reader"]).toBe("portal-user:u1");
+  });
+
+  it("tries the other node only on a timeout or a 503", async () => {
+    stubNodes((url) => (url.includes("avserv-2") ? new TypeError("timeout") : ok("avserv-3.example")));
+    const a = await import("@/lib/avserv/device-revoke");
+    expect(await a.mintAppLockResetCode(ACCT, DEV, "u1")).toMatchObject({ ok: true, node: "avserv-3.example" });
+    expect(calls).toHaveLength(2);
+
+    vi.resetModules();
+    calls = [];
+    stubNodes((url) => (url.includes("avserv-2") ? json(503, { code: "device_admin_unavailable" }) : ok("avserv-3.example")));
+    const b = await import("@/lib/avserv/device-revoke");
+    expect(await b.mintAppLockResetCode(ACCT, DEV, "u1")).toMatchObject({ ok: true });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("doesn't retry a refusal: a revoked phone or a rate limit, with its Retry-After", async () => {
+    stubNodes(() => new Response(JSON.stringify({ code: "rate_limited", error: "x" }), { status: 429, headers: { "retry-after": "7200" } }));
+    const a = await import("@/lib/avserv/device-revoke");
+    expect(await a.mintAppLockResetCode(ACCT, DEV, "u1")).toMatchObject({ ok: false, code: "rate_limited", retryAfterSec: 7200 });
+    expect(calls).toHaveLength(1);
+
+    vi.resetModules();
+    calls = [];
+    stubNodes(() => json(409, { code: "device_revoked", error: "x" }));
+    const b = await import("@/lib/avserv/device-revoke");
+    expect(await b.mintAppLockResetCode(ACCT, DEV, "u1")).toMatchObject({ ok: false, status: 409, code: "device_revoked" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("treats a code outside the alphabet as a drifted response", async () => {
+    stubNodes(() => json(200, { deviceId: DEV, code: "IL01OIL0", expiresAt: "t", node: "n" }));
+    const { mintAppLockResetCode } = await import("@/lib/avserv/device-revoke");
+    expect(await mintAppLockResetCode(ACCT, DEV, "u1")).toMatchObject({ ok: false, code: "bad_response" });
+  });
+});

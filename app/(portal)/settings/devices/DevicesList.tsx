@@ -9,6 +9,7 @@ import {
 import { shortDeviceId } from "@/lib/format/device-id";
 import { formatMountainDate } from "@/lib/format/time";
 import { DeviceRevoke } from "./DeviceRevoke";
+import { ResetCode } from "./ResetCode";
 import { RevokeOthers } from "./RevokeOthers";
 import { REVOKE_COPY } from "./revoke-copy";
 
@@ -80,6 +81,7 @@ export function DevicesList({
                     <p>Last seen {formatDate(d.lastSeenAt)}</p>
                     <p>Linked {formatDate(d.createdAt)}</p>
                   </div>
+                  {revokeAvailable && !d.userRevokedAt ? <ResetCode deviceId={d.deviceId} /> : null}
                   {revokeAvailable ? <DeviceRevoke deviceId={d.deviceId} revoked={!!d.userRevokedAt} /> : null}
                 </li>
               ))}

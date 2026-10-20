@@ -82,4 +82,16 @@ test.describe("device-link flow (mock AvServ)", () => {
     await expect(after.getByText(/Signed out .*\(lost\)/)).toBeVisible();
     await expect(after.getByRole("button", { name: "Sign out this phone" })).toHaveCount(0);
   });
+
+  // Plan 36 §5.5 (device_revoke.md §3.5 on the mock): a reset code needs
+  // two-factor, and this persona has none (the E2E server runs
+  // MFA_ENFORCEMENT=optional; production requires it). The code itself, shown
+  // once, is covered by tests/unit/device-revoke-actions.test.ts.
+  test("an App Lock reset code needs two-factor", async ({ page }) => {
+    await signIn(page);
+    await page.goto("/settings/devices");
+    const laptop = page.getByRole("listitem").filter({ hasText: /^macOS/ });
+    await laptop.getByRole("button", { name: "Get an App Lock reset code" }).click();
+    await expect(laptop.getByText("Turn on two-factor authentication first. A reset code needs it.")).toBeVisible();
+  });
 });

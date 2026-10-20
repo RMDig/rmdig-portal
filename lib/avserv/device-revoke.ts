@@ -5,14 +5,16 @@ import { env } from "../env";
 import { logger } from "../logger";
 import { ListDevicesResponseSchema, type LinkedDevice } from "./client";
 import { mergeDeviceLists, type MergedDevices } from "./device-revoke-merge";
-import { mockDeviceList, mockPreview, mockRevoke, mockRevokeOthers } from "./device-revoke-mock";
+import { mockDeviceList, mockPreview, mockResetCode, mockRevoke, mockRevokeOthers } from "./device-revoke-mock";
 import {
   PreviewSchema,
+  ResetCodeSchema,
   RevokeOthersSchema,
   RevokeSchema,
   type AuthStrength,
   type NodeAnswer,
   type Preview,
+  type ResetCode,
   type RevokeAnswer,
   type RevokeOthersAnswer,
   type RevokeReason,
@@ -130,4 +132,43 @@ export async function listDevicesEveryNode(accountId: string): Promise<MergedDev
     throw new AvServError("No AvServ node answered the device list", undefined, "unreachable");
   }
   return merged;
+}
+
+export type ResetCodeAnswer = NodeAnswer<ResetCode> & { retryAfterSec?: number };
+
+/** An App Lock reset code (§3.5). ONE node, and the other only when nothing
+ *  arrived or it answered 503: two codes for one phone are harmless (each is
+ *  single use and only starts the wait), but there's no reason to make two. */
+export async function mintAppLockResetCode(accountId: string, deviceId: string, readerUserId: string): Promise<ResetCodeAnswer> {
+  if (mockMode()) return mockResetCode(accountId, deviceId);
+  const path = `${devicePath(accountId, deviceId)}/app-lock-reset-codes`;
+  let last: ResetCodeAnswer | null = null;
+  for (const { name, baseUrl } of avservNodes()) {
+    try {
+      const res = await avservFetch(
+        baseUrl,
+        path,
+        { method: "POST", headers: { "x-avai-reader": `portal-user:${readerUserId}` } },
+        "device_admin",
+      );
+      if (res.ok) {
+        const parsed = ResetCodeSchema.safeParse(await res.json().catch(() => null));
+        if (parsed.success) return { node: name, ok: true, value: parsed.data };
+        logger.error({ event: "avserv.device_revoke.bad_response", node: name, path });
+        Sentry.captureMessage("AvServ app-lock-reset-codes response failed schema validation", {
+          level: "error",
+          tags: { event: "avserv.device_revoke.bad_response" },
+        });
+        return { node: name, ok: false, status: res.status, code: "bad_response" };
+      }
+      const retry = Number(res.headers.get("retry-after"));
+      const err = await contractFailure(res, false);
+      last = { node: name, ok: false, status: err.status, code: err.code, ...(Number.isFinite(retry) && retry > 0 ? { retryAfterSec: retry } : {}) };
+      if (res.status !== 503) return last;
+    } catch (err) {
+      last = { node: name, ok: false, code: failureCode(err, { node: name, path }) };
+      if (last.code !== "unreachable") return last;
+    }
+  }
+  return last ?? { node: "none", ok: false, code: "no_nodes" };
 }

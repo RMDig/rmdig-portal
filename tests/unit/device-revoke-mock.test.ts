@@ -4,6 +4,7 @@ import { mockDevices } from "@/lib/avserv/client";
 import {
   __resetDeviceRevokeMock,
   mockPreview,
+  mockResetCode,
   mockRevoke,
   mockRevokeOthers,
 } from "@/lib/avserv/device-revoke-mock";
@@ -66,5 +67,13 @@ describe("device revoke mock", () => {
       status: 409,
       code: "keep_device_revoked",
     });
+  });
+
+  it("mints an 8-character reset code for a live phone, valid 10 minutes, and refuses a revoked one", () => {
+    const r = mockResetCode(ACCT, laptop, NOW);
+    expect(r).toMatchObject({ ok: true, value: { deviceId: laptop, expiresAt: "2026-10-18T12:10:00.000Z" } });
+    expect(r.ok && r.value.code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/);
+    mockRevoke(ACCT, laptop, { reason: "lost", authStrength: { method: "password" } });
+    expect(mockResetCode(ACCT, laptop, NOW)).toMatchObject({ ok: false, status: 409, code: "device_revoked" });
   });
 });
