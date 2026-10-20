@@ -76,7 +76,7 @@ vi.mock("@/lib/db", () => {
 });
 vi.mock("@/lib/auth/mfa", () => ({
   decryptSecret: (s: string) => s,
-  verifyTotp: () => Promise.resolve(h.totpValid),
+  verifyTotpStep: () => Promise.resolve(h.totpValid ? 59_000_000 : null),
   generateRecoveryCodes: () => ["AAAA-1111", "BBBB-2222"],
   hashRecoveryCode: (c: string) => `hash(${c})`,
 }));
@@ -166,6 +166,8 @@ describe("confirmMfaEnrollmentAction", () => {
       throw new Error("expected recovery codes");
     }
     expect(h.updates[0]?.mfaEnabledAt).toBeInstanceOf(Date);
+    // The enrolling code counts as used (plan 36 H3).
+    expect(h.updates[0]?.totpLastStep).toBe(59_000_000);
     expect(h.deletes).toContain("rc"); // cleared prior codes
     expect(h.inserts).toHaveLength(1); // inserted new set
     expect(h.events).toEqual([{ userId: "u1", kind: "mfa_enabled", sessionId: "sess-here" }]);

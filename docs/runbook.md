@@ -333,6 +333,35 @@ out "isn't available yet"; the portal never signs a revoke with the everyday key
 
 Store the key file with the everyday one (password manager), never in the repo.
 
+## Rotating the MFA encryption key
+
+TOTP secrets are encrypted with a key id (plan 36 H3, `lib/auth/mfa-keys.ts`), stored as
+`v1:<kid>:…`. The original `MFA_ENCRYPTION_KEY` is kid **`k1`**. `MFA_ENCRYPTION_KEYS`
+(`kid:hex,kid:hex`) adds keys; **its first entry encrypts new secrets** and every listed
+key still decrypts. Both are sensitive Production env vars, so keep each key's value in the
+password manager: Vercel won't show it again.
+
+1. **New key:** `openssl rand -hex 32`. Save it in the password manager as `k2`.
+2. **Add it, keeping k1:** set `MFA_ENCRYPTION_KEYS` = `k2:<new hex>` (Production,
+   `--sensitive`) and leave `MFA_ENCRYPTION_KEY` as it is. Redeploy. New enrollments now
+   use k2, and existing secrets still read with k1.
+3. **Move the existing secrets** (from a checkout of `main`, with both keys from the
+   password manager and the production URL from `neonctl`):
+   ```sh
+   export DATABASE_URL="$(cd ~ && neonctl connection-string production --project-id lingering-waterfall-99928244 --role-name neondb_owner --database-name neondb --pooled)"
+   export MFA_ENCRYPTION_KEY=… MFA_ENCRYPTION_KEYS=k2:…
+   pnpm mfa:reencrypt
+   pnpm mfa:reencrypt --apply
+   unset DATABASE_URL MFA_ENCRYPTION_KEY MFA_ENCRYPTION_KEYS
+   ```
+   The first run is a dry run with counts per key; `--apply` writes. It prints counts
+   only, never a secret or a user. Run it again: it should say "would move 0".
+4. **Retire k1** only after step 3 says 0: remove `MFA_ENCRYPTION_KEY` and set
+   `MFA_ENCRYPTION_KEYS` = `k2:…` alone. Redeploy. A secret still on a key that's no longer
+   configured fails to decrypt, loudly, at that user's next sign-in.
+
+The next rotation is the same with `k3` first: `MFA_ENCRYPTION_KEYS` = `k3:…,k2:…`.
+
 ## SAR alert intake
 
 AvServ delivers team alerts (missed check-ins, Send Help, all-clears,

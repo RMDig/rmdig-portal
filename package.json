@@ -26,7 +26,8 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
-    "test:e2e:live": "playwright test device-link.live.spec.ts"
+    "test:e2e:live": "playwright test device-link.live.spec.ts",
+    "mfa:reencrypt": "tsx scripts/mfa-reencrypt.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

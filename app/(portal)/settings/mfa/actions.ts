@@ -8,7 +8,7 @@ import {
   decryptSecret,
   generateRecoveryCodes,
   hashRecoveryCode,
-  verifyTotp,
+  verifyTotpStep,
 } from "@/lib/auth/mfa";
 import { verifySecondFactor } from "@/lib/auth/mfa-verify";
 import { removeAllPasskeys } from "@/lib/auth/passkeys";
@@ -84,12 +84,13 @@ export async function confirmMfaEnrollmentAction(
     return { ok: false, error: "Start enrollment again — no pending setup was found." };
   }
 
-  const valid = await verifyTotp(decryptSecret(user.secret), code);
-  if (!valid) {
+  const step = await verifyTotpStep(decryptSecret(user.secret), code);
+  if (step === null) {
     return { ok: false, error: "That code didn't match. Check your authenticator and try again." };
   }
 
-  await db.update(users).set({ mfaEnabledAt: new Date() }).where(eq(users.id, userId));
+  // The enrolling code counts as used, so it can't also pass the next sign-in.
+  await db.update(users).set({ mfaEnabledAt: new Date(), totpLastStep: step }).where(eq(users.id, userId));
   const recoveryCodes = await issueRecoveryCodes(userId);
   await recordSecurityEvent(db, { userId, kind: "mfa_enabled", sessionId: await currentSessionId(userId) });
 

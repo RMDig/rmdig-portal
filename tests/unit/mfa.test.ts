@@ -11,7 +11,7 @@ import {
   hashRecoveryCode,
   normalizeRecoveryCode,
   totpKeyUri,
-  verifyTotp,
+  verifyTotpStep,
 } from "@/lib/auth/mfa";
 
 beforeAll(() => {
@@ -33,9 +33,10 @@ describe("TOTP secret encryption", () => {
 
   it("rejects a tampered ciphertext (GCM auth)", () => {
     const stored = encryptSecret("secret-value");
-    const [iv, tag, ct] = stored.split(":");
+    const [v, kid, iv, tag, ct] = stored.split(":");
+    expect([v, kid]).toEqual(["v1", "k1"]);
     const flipped = ct!.slice(0, -2) + (ct!.endsWith("AA") ? "BB" : "AA");
-    expect(() => decryptSecret(`${iv}:${tag}:${flipped}`)).toThrow();
+    expect(() => decryptSecret(`${v}:${kid}:${iv}:${tag}:${flipped}`)).toThrow();
   });
 });
 
@@ -43,14 +44,14 @@ describe("TOTP verify", () => {
   it("accepts a freshly generated code and rejects a wrong one", async () => {
     const secret = generateTotpSecret();
     const code = await generate({ secret });
-    expect(await verifyTotp(secret, code)).toBe(true);
-    expect(await verifyTotp(secret, "000000")).toBe(false);
+    expect(await verifyTotpStep(secret, code)).toBe(Math.floor(Date.now() / 1000 / 30));
+    expect(await verifyTotpStep(secret, "000000")).toBeNull();
   });
 
   it("rejects non-6-digit input without throwing", async () => {
     const secret = generateTotpSecret();
-    expect(await verifyTotp(secret, "abc")).toBe(false);
-    expect(await verifyTotp(secret, "12345")).toBe(false);
+    expect(await verifyTotpStep(secret, "abc")).toBeNull();
+    expect(await verifyTotpStep(secret, "12345")).toBeNull();
   });
 
   it("produces a scannable otpauth URI", () => {

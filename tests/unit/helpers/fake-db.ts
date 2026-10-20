@@ -4,8 +4,8 @@
 // CLAUDE.md §4.3): the test mocks `@/lib/db`, `@/lib/db/schema` and
 // `drizzle-orm` with the exports below.
 //
-// Scope is deliberately small: select/insert/update/delete with eq, ne, and, isNull,
-// isNotNull and gt predicates, `.limit()`, `.returning()`, `.onConflictDoUpdate()`
+// Scope is deliberately small: select/insert/update/delete with eq, ne, and, or,
+// isNull, isNotNull, gt and lt predicates, `.limit()`, `.returning()`, `.onConflictDoUpdate()`
 // and `transaction()`. Anything
 // else throws, so a query shape the fake doesn't model fails the test loudly
 // instead of silently matching nothing.
@@ -16,6 +16,8 @@ type Pred =
   | { op: "eq"; col: string; val: unknown }
   | { op: "ne"; col: string; val: unknown }
   | { op: "gt"; col: string; val: unknown }
+  | { op: "lt"; col: string; val: unknown }
+  | { op: "or"; preds: Pred[] }
   | { op: "isNull"; col: string }
   | { op: "isNotNull"; col: string }
   | { op: "and"; preds: Pred[] };
@@ -35,6 +37,11 @@ export const fakeOperators = {
   eq: (col: string, val: unknown): Pred => ({ op: "eq", col, val }),
   ne: (col: string, val: unknown): Pred => ({ op: "ne", col, val }),
   gt: (col: string, val: unknown): Pred => ({ op: "gt", col, val }),
+  lt: (col: string, val: unknown): Pred => ({ op: "lt", col, val }),
+  or: (...preds: Array<Pred | undefined>): Pred => ({
+    op: "or",
+    preds: preds.filter((p): p is Pred => p !== undefined),
+  }),
   isNull: (col: string): Pred => ({ op: "isNull", col }),
   isNotNull: (col: string): Pred => ({ op: "isNotNull", col }),
   and: (...preds: Array<Pred | undefined>): Pred => ({
@@ -53,6 +60,11 @@ function matches(row: Row, pred: Pred): boolean {
       return row[pred.col] !== pred.val;
     case "gt":
       return (row[pred.col] as number | Date) > (pred.val as number | Date);
+    case "lt":
+      // SQL semantics: a NULL compares as unknown, never true.
+      return row[pred.col] !== null && row[pred.col] !== undefined && (row[pred.col] as number | Date) < (pred.val as number | Date);
+    case "or":
+      return pred.preds.some((p) => matches(row, p));
     case "isNull":
       return row[pred.col] === null || row[pred.col] === undefined;
     case "isNotNull":
