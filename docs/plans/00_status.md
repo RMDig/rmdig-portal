@@ -1,21 +1,26 @@
 # 00 — Portal status and what's left
 
-> **As of 2026-10-19** (main `e8f5c0b`): §0, §3 row 36, §5 and §7 are current; rows
+> **As of 2026-10-20**: §0, §3 row 36, §5 and §7 are current; rows
 > not touched since **2026-10-02** say so. This is the one place to see where every
 > portal plan stands. The plans themselves stay the specs; update this file when a
 > milestone moves. Sources: [CLAUDE_BOOTSTRAP.md](../../CLAUDE_BOOTSTRAP.md) §4 (Phase 1),
 > rmdig-ai `docs/plans/00–09`, this folder's plans 30–36, and the AvApp/AvServ plans
 > that name portal work.
 
-## 0. Waiting on others (as of 2026-10-19)
+## 0. Waiting on others (as of 2026-10-20)
+
+**Done 2026-10-20:** AvServ plan 52 B1/B2 live (rc74; doctor OK on rc79). The device-admin key
+`svc-key-portal-device-admin-1` is installed on both nodes (`device_admin` only;
+`svc-key-portal-1` doesn't hold it) and set in Vercel Production (the build check passed).
+Phone sign-out and the App Lock reset code are live and proven on the owner's devices:
+previews and limited revokes recorded by both nodes (first at 06:44Z, more 17:48–17:58Z);
+reset codes redeemed in AvAI. Every check in AvApp's list passed.
 
 **AvServ**
-- **Plan 52 PR A + PR B on both nodes** (device revoke, revoke preview, revoke-others,
-  App Lock reset code). Then they install `svc-key-portal-device-admin-1`
-  (`device_admin` only) and the owner sets the three `AVSERV_DEVICE_ADMIN_JWT_*` vars
-  (runbook "Device-admin key"). Switches on phone sign-out (plan 36 §5.1, #167/#169).
-- **`+security_events` on `svc-key-portal-1` and plan 52 step 4** (the events feed).
-  Switches on phone-side rows in Settings → Security and their notices (#168).
+- **`+security_events` on `svc-key-portal-1` and plan 52 step 4** (the events feed, contract
+  rev 1.1, no wire change): **built, ships in AvServ's next rc**; they send the rc number, then
+  the owner adds the group on both nodes. Switches on phone-side rows in Settings → Security and their
+  notices (#168). No portal change needed.
 - Plan 52 PR C (link codes hashed, D14 yes): nothing needed from the portal.
 - **Plan 39 restrictions**: unblocks plan 32 (restriction review, on the mock) and plan 57.
 - **Plan 57 contracts**: `false_alarm_reports.md`, restrictions rev 2, the per-user block,
@@ -33,8 +38,11 @@
   SAR disposition terms) with a DV-advocate review shared with AvApp plan 55.
 
 **Owner**
-- When AvServ ships plan 52: mint and send the device-admin key's public half, then set
-  the env vars and redeploy (runbook "Device-admin key").
+- **About 2026-10-26** (the passkey's 7th day): test a **full** phone sign-out on a stale
+  test device, confirmed with the passkey; expect the "Unsynced observations and photos…
+  will be erased" warning. AvApp then checks the phone's side.
+- App Lock in tester store builds: whether v1 TestFlight / Play internal include
+  `AVAPP_APP_LOCK=true` (AvApp doc 41 row 11). Device builds have it since 2026-10-20.
 - Sentry: "Prevent storing IP addresses" and server-side scrubbing (plan 36 §11), if not done.
 - HSTS preload: eligible, not submitted (a deliberate, near-permanent choice; plan 36 §11).
 
@@ -84,7 +92,10 @@ the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
 | [33 Map and SAR workspace](33_map_and_sar_workspace.md) | Phase 1 `/map` ✅ (own SAR areas, own ad targets, staff overview) | Phases 2–4 (own history; SAR teams as opt-in contacts with team terms; red/orange SAR layers): doc amendments, AvServ contracts, counsel addendum (§4) |
 | [34 Team areas on the public map](34_public_team_area_map.md) | Planned (not re-checked this pass) | Counsel |
 | [35 Automated deletion](35_automated_deletion.md) | Draft; deletions are by hand (runbook) | AvServ plan 47 erasure key; counsel |
-| [36 Account security and hardening](36_account_security_and_hardening.md) | **Live:** hashed sessions + `auth_time` (#164), sessions page + re-auth + sign-out on credential changes (#165, #166), passkeys (#170), `MFA_ENFORCEMENT=all`, security activity + opt-in notices (#168). **On the mock:** phone sign-out, limited/full, due-back time (#167, #169); phone-side security events (#168). **Built 2026-10-20:** PR 11 (App Lock reset code + link-code mint limit). **Not built:** hardening H1–H8 (PRs 4–6, 13), S6 / plan 57 | AvServ plan 52 (§0); counsel (security log retention); plan 57 gates |
+| [36 Account security and hardening](36_account_security_and_hardening.md) | **Live:** hashed sessions + `auth_time` (#164), sessions page + re-auth + sign-out on credential changes (#165, #166), passkeys (#170), `MFA_ENFORCEMENT=all`, security activity + opt-in notices (#168). **On the mock:** phone sign-out, limited/full, due-back time (#167, #169); phone-side security events (#168). **Built and verified 2026-10-20:** PR 11 (App Lock reset code + link-code mint limit, #172);
+a double-click guard on both code buttons (#173). The three codes minted at 17:57–17:58Z were
+two phones' requests (8ddef600, then 4b93adf6 twice), not a double click: all on avserv-2,
+two redeemed, one expired unused. **Not built:** hardening H1–H8 (PRs 4–6, 13), S6 / plan 57 | AvServ plan 52 (§0); counsel (security log retention); plan 57 gates |
 
 ## 4. Incident Detection re-filing (AvServ plans 38/38a/38b)
 
