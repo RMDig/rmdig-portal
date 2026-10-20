@@ -4,6 +4,8 @@ const h = vi.hoisted(() => ({
   sessionUserId: "u1" as string | undefined,
   selectRows: [] as Array<{ avservAccountId: string | null }>,
   mintLinkCode: vi.fn(),
+  rlAllowed: true,
+  rlKeys: [] as string[],
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -23,6 +25,12 @@ vi.mock("@/lib/db/schema", () => ({
 }));
 vi.mock("@/lib/avserv/client", () => ({ mintLinkCode: h.mintLinkCode }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@/lib/rate-limit", () => ({
+  incrementRateLimit: (key: string) => {
+    h.rlKeys.push(key);
+    return Promise.resolve({ allowed: h.rlAllowed, attempts: 1, resetAt: new Date() });
+  },
+}));
 
 import { mintDeviceLinkCodeAction } from "@/app/(portal)/settings/actions";
 
@@ -32,6 +40,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.sessionUserId = "u1";
   h.selectRows = [];
+  h.rlAllowed = true;
+  h.rlKeys = [];
 });vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 
 
@@ -44,6 +54,15 @@ describe("mintDeviceLinkCodeAction", () => {
 
     expect(h.mintLinkCode).toHaveBeenCalledWith("acc-1");
     expect(res).toEqual({ ok: true, code: "ABCD-2345", expiresAt: "2026-06-04T00:10:00Z" });
+  });
+
+  it("stops at ten codes a day, before asking AvServ", async () => {
+    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.rlAllowed = false;
+    const res = await mintDeviceLinkCodeAction(null, fd);
+    expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/10 link codes today/) });
+    expect(h.rlKeys).toEqual(["linkcode:u1"]);
+    expect(h.mintLinkCode).not.toHaveBeenCalled();
   });
 
   it("refuses when not signed in", async () => {

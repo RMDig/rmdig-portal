@@ -31,6 +31,7 @@ const PORTAL_LABEL: Record<AccountSecurityEventKind, string> = {
   notices_off: "Security notices turned off",
   passkey_added: "A passkey was added",
   passkey_removed: "A passkey was removed",
+  app_lock_reset_code_issued: "An App Lock reset code was made for a phone",
 };
 
 const AVSERV_LABEL: Record<AvServSecurityEventKind, string> = {

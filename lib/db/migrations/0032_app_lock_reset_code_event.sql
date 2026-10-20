@@ -1,0 +1,2 @@
+ALTER TABLE "account_security_events" DROP CONSTRAINT "account_security_events_kind";--> statement-breakpoint
+ALTER TABLE "account_security_events" ADD CONSTRAINT "account_security_events_kind" CHECK ("account_security_events"."kind" IN ('password_changed', 'password_reset', 'mfa_enabled', 'mfa_disabled', 'recovery_codes_regenerated', 'session_revoked', 'sessions_revoked_others', 'notices_on', 'notices_off', 'passkey_added', 'passkey_removed', 'app_lock_reset_code_issued'));

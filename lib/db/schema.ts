@@ -213,6 +213,9 @@ export const ACCOUNT_SECURITY_EVENT_KINDS = [
   "notices_off",
   "passkey_added",
   "passkey_removed",
+  // AvServ doesn't log App Lock reset codes (security_events.md §1), so the
+  // portal records issuing one. Never the code itself.
+  "app_lock_reset_code_issued",
 ] as const;
 export type AccountSecurityEventKind = (typeof ACCOUNT_SECURITY_EVENT_KINDS)[number];
 

@@ -7,6 +7,12 @@ import { mintLinkCode } from "@/lib/avserv/client";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { incrementRateLimit } from "@/lib/rate-limit";
+
+// A code lasts 10 minutes, so ten a day covers a fumbled link or two and a new
+// phone. AvServ's own backstop is 10 per account per day per node (plan 52
+// D14); this one sits in front of it (plan 36 §5.5).
+const LINK_CODE_LIMIT = { limit: 10, windowSec: 24 * 60 * 60 };
 
 // Device-link settings action (P-B2, rmdig-ai docs/plans/05). The portal MINTS a
 // single-use link-code for the signed-in user's AvServ account; the user types
@@ -44,6 +50,11 @@ export async function mintDeviceLinkCodeAction(
       error:
         "Your account isn't linked to the device service yet. Sign out and back in, then try again.",
     };
+  }
+
+  if (!(await incrementRateLimit(`linkcode:${userId}`, LINK_CODE_LIMIT)).allowed) {
+    logger.warn({ event: "avserv.linkcode.rate_limited", userId });
+    return { ok: false, error: "You've made 10 link codes today. Try again tomorrow." };
   }
 
   try {

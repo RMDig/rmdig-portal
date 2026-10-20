@@ -225,6 +225,13 @@
       "when": 1792380988339,
       "tag": "0031_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792516973486,
+      "tag": "0032_app_lock_reset_code_event",
+      "breakpoints": true
     }
   ]
 }

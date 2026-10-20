@@ -4,6 +4,7 @@ import { mockDevices, type LinkedDevice } from "./client";
 import {
   predictRevokeMode,
   type AuthStrength,
+  type ResetCode,
   type NodeAnswer,
   type Preview,
   type RevokeAnswer,
@@ -112,4 +113,15 @@ export function mockRevokedDevices(accountId: string): Array<{ deviceId: string;
   return [...revoked.entries()]
     .filter(([k]) => k.startsWith(`${accountId}:`))
     .map(([k, r]) => ({ deviceId: k.slice(accountId.length + 1), revokedAt: r.revokedAt }));
+}
+
+const RESET_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/** §3.5 on the mock: an 8-character code, 10 minutes, refused for a revoked phone. */
+export function mockResetCode(accountId: string, deviceId: string, now: Date = new Date()): NodeAnswer<ResetCode> {
+  if (!mockDevices(accountId).some((d) => d.deviceId === deviceId)) return notFound("device_not_found");
+  if (revoked.has(key(accountId, deviceId))) return { node: NODE, ok: false, status: 409, code: "device_revoked" };
+  const h = createHash("sha256").update(`mock-reset:${deviceId}:${now.getTime()}`).digest();
+  const code = Array.from(h.subarray(0, 8), (b) => RESET_ALPHABET[b % RESET_ALPHABET.length]).join("");
+  return { node: NODE, ok: true, value: { deviceId, code, expiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(), node: NODE } };
 }

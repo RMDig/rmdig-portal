@@ -8,6 +8,11 @@ const h = vi.hoisted(() => ({
     | { ok: true; sessionId: string; authMethod: string | null; authPasskeyId: string | null }
     | { ok: false; reauth: true },
   passkeyCreated: null as Date | null,
+  mfaOn: true,
+  rlAllowed: true,
+  rlKeys: [] as string[],
+  events: [] as string[],
+  resetAnswer: null as unknown,
   calls: [] as unknown[][],
   answers: [] as unknown[],
   revalidated: [] as string[],
@@ -17,7 +22,22 @@ const h = vi.hoisted(() => ({
 vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
 vi.mock("@/lib/auth/recent-auth", () => ({ requireRecentAuth: () => Promise.resolve(h.recent) }));
-vi.mock("@/lib/auth/passkeys", () => ({ passkeyCreatedAt: () => Promise.resolve(h.passkeyCreated) }));
+vi.mock("@/lib/auth/passkeys", () => ({
+  passkeyCreatedAt: () => Promise.resolve(h.passkeyCreated),
+  mfaIsOn: () => Promise.resolve(h.mfaOn),
+}));
+vi.mock("@/lib/auth/security-events", () => ({
+  recordSecurityEvent: (_db: unknown, e: { kind: string }) => {
+    h.events.push(e.kind);
+    return Promise.resolve();
+  },
+}));
+vi.mock("@/lib/rate-limit", () => ({
+  incrementRateLimit: (key: string) => {
+    h.rlKeys.push(key);
+    return Promise.resolve({ allowed: h.rlAllowed, attempts: 1, resetAt: new Date() });
+  },
+}));
 vi.mock("@/lib/db/schema", () => ({ users: { __t: "users" } }));
 vi.mock("drizzle-orm", () => ({ eq: () => ({}) }));
 vi.mock("@/lib/db", () => ({
@@ -37,6 +57,10 @@ vi.mock("@/lib/avserv/device-revoke", () => ({
     h.calls.push(["revoke", ...a]);
     return Promise.resolve(h.answers);
   },
+  mintAppLockResetCode: (...a: unknown[]) => {
+    h.calls.push(["reset", ...a]);
+    return Promise.resolve(h.resetAnswer);
+  },
   revokeOtherDevices: (...a: unknown[]) => {
     h.calls.push(["others", ...a]);
     return Promise.resolve(h.answers);
@@ -46,6 +70,7 @@ vi.mock("next/cache", () => ({ revalidatePath: (p: string) => h.revalidated.push
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
 import {
+  mintResetCodeAction,
   previewRevokeAction,
   revokeDeviceAction,
   revokeOtherDevicesAction,
@@ -71,6 +96,11 @@ beforeEach(() => {
   h.calls = [];
   h.answers = [];
   h.passkeyCreated = null;
+  h.mfaOn = true;
+  h.rlAllowed = true;
+  h.rlKeys = [];
+  h.events = [];
+  h.resetAnswer = { node: "n2", ok: true, value: { deviceId: DEV, code: "K7QM3XWP", expiresAt: "2026-10-20T22:30:00Z", node: "n2" } };
   h.revalidated = [];
 });
 
@@ -183,5 +213,37 @@ describe("revokeOtherDevicesAction", () => {
     expect(await revokeOtherDevicesAction(null, fd({}))).toMatchObject({ ok: false });
     h.answers = [othersOk("n2", ["p1"]), { node: "n3", ok: false, status: 404, code: "device_not_found" }];
     expect(await revokeOtherDevicesAction(null, fd({ keep: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/doesn't know the phone/) });
+  });
+});
+
+describe("mintResetCodeAction", () => {
+  it("gives the code once, records the issue (never the code) and limits per account", async () => {
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toEqual({ ok: true, code: "K7QM3XWP", expiresText: "Tue, Oct 20, 4:30 PM MDT" });
+    expect(h.calls[0]).toEqual(["reset", "acct-1", DEV, "u1"]);
+    expect(h.rlKeys).toEqual(["applock-reset:acct-1"]);
+    expect(h.events).toEqual(["app_lock_reset_code_issued"]);
+    expect(JSON.stringify([h.log.info.mock.calls, h.log.warn.mock.calls])).not.toContain("K7QM3XWP");
+  });
+
+  it("needs two-factor, a recent login and room under the daily limit, before asking AvServ", async () => {
+    h.mfaOn = false;
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/two-factor/) });
+    h.mfaOn = true;
+    h.rlAllowed = false;
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/3 reset codes today/) });
+    h.rlAllowed = true;
+    h.recent = { ok: false, reauth: true };
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, reauth: true });
+    expect(h.calls).toEqual([]);
+  });
+
+  it("explains a revoked phone, AvServ's rate limit and an unreachable service, recording nothing", async () => {
+    h.resetAnswer = { node: "n2", ok: false, status: 409, code: "device_revoked" };
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/signed out/) });
+    h.resetAnswer = { node: "n2", ok: false, status: 429, code: "rate_limited", retryAfterSec: 7200 };
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/about 2 hours/) });
+    h.resetAnswer = { node: "n3", ok: false, code: "unreachable" };
+    expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/Nothing changed/) });
+    expect(h.events).toEqual([]);
   });
 });

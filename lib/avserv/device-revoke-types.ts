@@ -58,6 +58,15 @@ export const RevokeOthersSchema = z.object({
 });
 export type RevokeOthersAnswer = z.infer<typeof RevokeOthersSchema>;
 
+// §3.5: the code is returned once, here, and AvServ keeps only its hash.
+export const ResetCodeSchema = z.object({
+  deviceId: z.string(),
+  code: z.string().regex(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/),
+  expiresAt: z.string(),
+  node: z.string(),
+});
+export type ResetCode = z.infer<typeof ResetCodeSchema>;
+
 /** One node's answer to a fan-out call: its body, or why it has none. */
 export type NodeAnswer<T> =
   | { node: string; ok: true; value: T }

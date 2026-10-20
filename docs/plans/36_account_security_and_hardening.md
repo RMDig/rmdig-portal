@@ -409,9 +409,15 @@ AvServ write endpoint"). It gains:
 - Copy (§0 rule 8; counsel only if it becomes binding): "Entering this code on your phone
   starts the same 24-hour wait as 'Forgot PIN'. It never makes the wait shorter. Your real PIN
   still cancels it."
-- Mint is rate limited in the portal: 3 per day per account. Link-code mint is rate limited the
-  same way, because today it has no portal limit (`settings/actions.ts:24`). Minting a code is
-  an event (§3.3).
+- Mint is rate limited in the portal: 3 per day per account. Link-code mint gets a portal
+  limit too: **10 a day per user**, matching AvServ's own backstop (plan 52 D14), since a code
+  lasts 10 minutes and a fumbled link or two must still work. Minting a reset code is a portal
+  event (`app_lock_reset_code_issued`, migration 0032; AvServ deliberately doesn't log reset
+  codes, `security_events.md` §1). The code itself is never stored or logged.
+- **Built (PR 11):** "Get an App Lock reset code" per live phone on Settings → Devices
+  (`ResetCode.tsx`, `mintResetCodeAction`, `mintAppLockResetCode`: one node, the other only on
+  a timeout or 503; `409 device_revoked` and `429` with `Retry-After` explained, never
+  retried).
 
 ### 5.6 Tests
 
@@ -553,7 +559,7 @@ rules:
 | 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | ✅ #167 (0029), #169 (due time); live with AvServ plan 52 |
 | 9 | S4 security-events view + opt-in notices (migration: cursors table) | ✅ #168 (0030); phone-side rows live with plan 52 step 4 |
 | 10 | S4 passkeys + password-to-disable (migration) | ✅ #170 (0031) |
-| 11 | S4 App Lock reset code + link-code rate limit | ⬜ not started (contract §3.5 ready) |
+| 11 | S4 App Lock reset code + link-code rate limit | ✅ built (0032); live now (device-admin key set 2026-10-20) |
 | 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | ✅ 2026-10-19 |
 | 13 | H4 SAR payload encryption, H7 rotation table | ⬜ not started (after PR 5) |
 | — | S6 (plan 57) | §9 gates |
