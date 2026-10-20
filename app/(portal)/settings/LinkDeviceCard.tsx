@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 
 import { mintDeviceLinkCodeAction } from "./actions";
 import { codeStillLive, LINK_POLL_MS, newlyLinked, type DeviceSummary } from "./link-watch";
+import { useSingleSubmit } from "@/components/forms/single-submit";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,6 +27,8 @@ function formatExpiry(iso: string): string {
 // that redeems the code appears without a manual reload, then stops and says so.
 export function LinkDeviceCard({ devices }: { devices: DeviceSummary[] | null }) {
   const [state, formAction, pending] = useActionState(mintDeviceLinkCodeAction, null);
+  // Each code uses one of the 10 a day: a double click mustn't make two.
+  const singleSubmit = useSingleSubmit(pending);
   const router = useRouter();
   // The device ids present when the current code was requested.
   const [baseline, setBaseline] = useState<string[] | null>(null);
@@ -86,7 +89,10 @@ export function LinkDeviceCard({ devices }: { devices: DeviceSummary[] | null })
 
         <form
           action={formAction}
-          onSubmit={() => setBaseline(devices ? devices.map((d) => d.deviceId) : null)}
+          onSubmit={(e) => {
+            singleSubmit(e);
+            if (!e.defaultPrevented) setBaseline(devices ? devices.map((d) => d.deviceId) : null);
+          }}
         >
           <Button type="submit" disabled={pending}>
             {pending ? "Generating…" : state?.ok ? "Generate a new code" : "Generate link code"}
