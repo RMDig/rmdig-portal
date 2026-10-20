@@ -109,13 +109,16 @@ describe("middleware CSP headers", () => {
     return new NextRequest(u, { headers: { host: u.host } });
   }
 
-  it("sends a Report-Only policy and hands Next the same nonce, new per request", async () => {
+  it("sends only the Report-Only policy and hands Next the same nonce, new per request", async () => {
     const middleware = await load();
     const a = await middleware(req("/privacy"));
     const csp = a.headers.get("Content-Security-Policy-Report-Only")!;
     expect(csp).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
+    // A nonce-less enforced CSP beside it would replace the nonce on Vercel.
     expect(a.headers.get("Content-Security-Policy")).toBeNull();
-    expect(a.headers.get("x-middleware-request-content-security-policy-report-only")).toBe(csp);
+    // Next reads the nonce from the request side under the enforced name.
+    expect(a.headers.get("x-middleware-request-content-security-policy")).toBe(csp);
+    expect(a.headers.get("x-middleware-request-content-security-policy-report-only")).toBeNull();
     const b = await middleware(req("/settings"));
     expect(b.headers.get("Content-Security-Policy-Report-Only")).not.toBe(csp);
   });

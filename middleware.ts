@@ -35,8 +35,8 @@ const configConnection = process.env.GLOBAL_CONFIG || process.env.EDGE_CONFIG;
 const configClient = configConnection ? createClient(configConnection) : null;
 
 // Report-Only for its first week (owner decision S-D9); enforcing it is this
-// one line, "Content-Security-Policy" (runbook "Content-Security-Policy").
-const CSP_HEADER = "Content-Security-Policy-Report-Only";
+// one line (runbook "Content-Security-Policy").
+const ENFORCE_CSP = false;
 
 // CSP reports go to Sentry from production only: previews and local dev show
 // violations in the browser console, and don't spend the Sentry quota.
@@ -76,17 +76,23 @@ export async function middleware(req: NextRequest) {
   // back after sign-in (lib/auth/return-to.ts validates it there).
   headers.set("x-return-to", req.nextUrl.pathname + req.nextUrl.search);
 
-  // Next reads the nonce from the request's CSP header (either name) and puts
-  // it on its own scripts; the response header is what the browser checks.
+  // Next reads the nonce from the request's Content-Security-Policy header
+  // and puts it on its own scripts; the response header is what the browser
+  // checks. Nothing else may send a Content-Security-Policy header: on Vercel,
+  // response headers (next.config.ts ones and this file's) are copied onto the
+  // request after this runs, and a nonce-less one there replaced this one
+  // before the render (2026-10-20: no nonce on any production script, though
+  // `next start` had them). So while Report-Only there is no enforced CSP
+  // beside it; X-Frame-Options still blocks framing.
   const csp = buildCsp({
     nonce: makeNonce(),
     dev: process.env.NODE_ENV === "development",
     sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
     reportUri: cspReportUri,
   });
-  headers.set(CSP_HEADER, csp);
+  headers.set("Content-Security-Policy", csp);
   const res = NextResponse.next({ request: { headers } });
-  res.headers.set(CSP_HEADER, csp);
+  res.headers.set(ENFORCE_CSP ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only", csp);
   if (cspReportUri) res.headers.set("Reporting-Endpoints", `csp="${cspReportUri}"`);
   return res;
 }
