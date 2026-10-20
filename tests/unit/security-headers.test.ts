@@ -28,7 +28,10 @@ describe("security headers", () => {
     expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
-  it("does not restrict scripts yet (a nonce policy needs per-route work)", async () => {
+  // The nonce policy is per request, so middleware.ts sends it (Report-Only
+  // until S-D9's week is up; tests/unit/csp.test.ts). This static header stays
+  // the enforced baseline.
+  it("does not restrict scripts in the static header", async () => {
     const csp = (await headersFor("/:path*")).get("Content-Security-Policy") ?? "";
     expect(csp).not.toMatch(/script-src|default-src/);
   });

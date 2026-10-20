@@ -181,3 +181,17 @@ export async function clearReviewRequests(email: string): Promise<void> {
     await sql.end();
   }
 }
+
+/** Collects the CSP violations a page fires (plan 36 H1). Report-Only blocks
+ *  nothing, but the browser still fires securitypolicyviolation for everything
+ *  the policy would block once enforced. Call before the first navigation. */
+export async function watchCspViolations(page: Page): Promise<() => Promise<string[]>> {
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { __csp: string[] }).__csp = seen;
+    document.addEventListener("securitypolicyviolation", (e) => {
+      seen.push(`${e.effectiveDirective} ${e.blockedURI || "(inline)"} at ${e.sourceFile}:${e.lineNumber}`);
+    });
+  });
+  return () => page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
+}

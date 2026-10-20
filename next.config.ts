@@ -5,13 +5,12 @@ import type { NextConfig } from "next";
 // these don't prevent application bugs, but they shrink the blast radius of
 // many class-of-bug exploits (clickjacking, MIME sniffing, referrer leaks).
 //
-// Content-Security-Policy is a baseline only: the three directives below are
-// safe against every route (none of them restricts what the page may load or
-// run). A full policy with a nonce-based script-src needs per-route care
-// (Next.js inline boot scripts, Sentry endpoints, Vercel Live preview
-// comments, MapLibre tile servers and workers) and follows separately
-// (beta blocker plan, B6). frame-ancestors is the CSP successor of
-// X-Frame-Options; both are sent for older browsers.
+// Content-Security-Policy here is the enforced baseline: the three directives
+// below are safe against every route (none of them restricts what the page may
+// load or run). The full nonce-based policy is per request, so middleware.ts
+// sends it (lib/csp.ts, plan 36 H1), Report-Only for its first week.
+// frame-ancestors is the CSP successor of X-Frame-Options; both are sent for
+// older browsers.
 //
 // Strict-Transport-Security is only set in production — local dev runs http.
 const baselineContentSecurityPolicy = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'";

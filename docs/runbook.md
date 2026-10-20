@@ -333,6 +333,32 @@ out "isn't available yet"; the portal never signs a revoke with the everyday key
 
 Store the key file with the everyday one (password manager), never in the repo.
 
+## Content-Security-Policy
+
+The full policy (plan 36 H1) is built per request in `lib/csp.ts` and sent by `middleware.ts`
+with a fresh nonce. `next.config.ts` separately enforces the baseline (`frame-ancestors`,
+`object-src`, `base-uri`) on every response. The maintenance 503 page sends its own closed
+policy (`MAINTENANCE_CSP`).
+
+**Report-Only first (S-D9).** The policy ships as `Content-Security-Policy-Report-Only`: it blocks
+nothing and reports what it would block. Production reports go to Sentry (the portal project,
+Issues, search `event.type:csp`). Previews and local dev report to the browser console only.
+
+**Reading reports.** Each names the directive and the blocked URL. Browser extensions cause
+noise (`chrome-extension://`, `moz-extension://`, injected inline scripts): ignore those. A real
+one is a host or script the site itself loads: add it to `lib/csp.ts` (with a test) or remove the
+load.
+
+**Enforcing.** After a week with no real reports: in `middleware.ts`, set
+`CSP_HEADER = "Content-Security-Policy"`. Update the header assertions in
+`tests/unit/csp.test.ts` and `tests/e2e/csp.mock.spec.ts`, then ship it. Check after deploy:
+`curl -sI https://rmdig.ai/ | grep -i content-security`, then sign in and open `/map` with
+the browser console open.
+
+**Rolling back an enforced policy** that breaks a page: set it back to `…-Report-Only` and
+redeploy, or promote the previous deployment with `vercel promote <its URL>` (see "Test a
+production env change": Hobby has no `vercel rollback`).
+
 ## Rotating the MFA encryption key
 
 TOTP secrets are encrypted with a key id (plan 36 H3, `lib/auth/mfa-keys.ts`), stored as

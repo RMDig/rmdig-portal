@@ -15,12 +15,10 @@ export const metadata: Metadata = pageMetadata({
 });
 
 // Public and auth-free (CLAUDE.md §3.7): checks only the alert servers'
-// public readiness endpoints, cached for a minute. If this page loads, the
+// public readiness endpoints, cached for a minute (lib/status/check.ts). If this page loads, the
 // website is up; the full history lives on the UptimeRobot page. Error and
 // maintenance pages link straight to UptimeRobot, since this page goes down
 // with the site.
-export const revalidate = 60;
-
 const HEADLINE = {
   up: "AvAI's alert servers are answering.",
   partial: "One of AvAI's alert servers isn't answering. The other is.",

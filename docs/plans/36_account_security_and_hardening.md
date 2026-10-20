@@ -554,7 +554,7 @@ rules:
 | 3 | S2 `/settings/sessions` + revoke on password change + transactional reset + portal events table | ✅ #165 (0028); re-auth password-only #166 |
 | 4 | H5 + H6 + H2 (small, independent) | ✅ built (0033): DB TLS required except loopback; AvServ URLs https/mock/http-localhost only; IPs pseudonymized in logs; phones redacted in logs and Sentry; rate-limit keys hashed after the prefix; OAuth tokens no longer stored, old ones cleared |
 | 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | ✅ built (0034): `v1:<kid>:…` with the original key as k1 (no env change needed), `MFA_ENCRYPTION_KEYS` for rotation, `pnpm mfa:reencrypt`, a used code refused within its window (runbook "Rotating the MFA encryption key") |
-| 6 | H1 CSP Report-Only, then a one-line enforce PR | ⬜ not started |
+| 6 | H1 CSP Report-Only, then a one-line enforce PR | ✅ built (Report-Only): per-request nonce in `middleware.ts`, policy in `lib/csp.ts`, reports to Sentry from production only, every page renders per request (S-D10), maintenance page has its own closed policy. Enforce after a week of clean reports (runbook "Content-Security-Policy"). Previews: Vercel's toolbar script has no nonce, so enforcing blocks it there (accepted; turn the toolbar off for the project if it gets in the way) |
 | 7 | S3 scoped kid in the portal (mock first) | ✅ #167 (with PR 8); live when AvServ installs the kid |
 | 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | ✅ #167 (0029), #169 (due time); live with AvServ plan 52 |
 | 9 | S4 security-events view + opt-in notices (migration: cursors table) | ✅ #168 (0030); phone-side rows live since AvServ rc80 (2026-10-20 18:25Z) |

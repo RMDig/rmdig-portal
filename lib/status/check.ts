@@ -1,6 +1,6 @@
 // The public /status page's checks: is each AvAI alert server answering its
 // public readiness check? No session, no database (CLAUDE.md §3.7), and
-// cached (the page revalidates every 60 s) so crawlers and a spike of "is it
+// each answer is cached for 60 s (the fetch below) so crawlers and a spike of "is it
 // down?" visits can't load the servers.
 
 export type NodeCheck = { name: string; up: boolean };

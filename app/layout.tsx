@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { connection } from "next/server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,11 +31,16 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-export default function RootLayout({
+// Every page renders per request, because Next can only put the per-request
+// CSP nonce (middleware.ts) on scripts in a page it renders then: a prerendered
+// page's scripts would carry none and be blocked once the policy is enforced
+// (owner decision S-D10). Public pages stay DB-free (CLAUDE.md §3.7).
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
   return (
     <html
       lang="en"
