@@ -3,6 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { sarAlertAcks, sarIntakeMessages } from "../db/schema";
 import type { IntakePayload } from "../sar/intake";
+import { sarPayloadKeys } from "../sar/payload-keys";
+import { openPayload } from "../sar/payload-seal";
 import type { RedItem } from "./sar-feeds";
 
 // The mock AvServ RED feed (AVSERV_BASE_URL=mock://, previews and local dev):
@@ -29,7 +31,7 @@ export async function mockRedFeed(orgId: string): Promise<RedItem[]> {
     const primary = msgs.filter((m) => PRIMARY.has(m.kind)).sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime());
     const first = primary[0];
     if (!first) continue;
-    const p = primary[primary.length - 1]!.payload as Extract<IntakePayload, { kind: "overdue" | "send_help" }>;
+    const p = openPayload(sarPayloadKeys, primary[primary.length - 1]!.payload) as Extract<IntakePayload, { kind: "overdue" | "send_help" }>;
     const close = msgs.find((m) => m.kind === "all_clear" || m.kind === "disregard");
     const ack = acks.get(alertId);
     items.push({

@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // and never changes the answer.
 
 const SECRET = "s".repeat(64);
+const PAYLOAD_KEY = "ab".repeat(32);
 const h = vi.hoisted(() => ({
   env: { AVSERV_SAR_INTAKE_KEYS: "", NEXTAUTH_URL: "https://rmdig.ai" } as Record<string, string | undefined>,
   team: [{ name: "Summit SAR", status: "approved" }] as unknown[],
@@ -51,6 +52,7 @@ vi.mock("@/lib/db", () => {
 
 import { POST as POST_DRILL } from "@/app/api/sar/intake/drill/route";
 import { POST } from "@/app/api/sar/intake/route";
+import { openPayload, parseSarPayloadKeys } from "@/lib/sar/payload-seal";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
 const payload = (o: Record<string, unknown> = {}) => ({
@@ -86,6 +88,7 @@ function request(body: object, o: { keyId?: string; t?: number; secret?: string;
 beforeEach(() => {
   vi.clearAllMocks();
   h.env.AVSERV_SAR_INTAKE_KEYS = `sarintake-avserv-2-1:${SECRET}`;
+  h.env.SAR_PAYLOAD_KEYS = `s1:${PAYLOAD_KEY}`;
   h.team = [{ name: "Summit SAR", status: "approved" }];
   h.inserted = [{ messageId: "m1" }];
   h.insertedValues = [];
@@ -94,6 +97,29 @@ beforeEach(() => {
 });
 
 describe("POST /api/sar/intake", () => {
+  it("stores the position and route sealed, never plain (plan 36 H4)", async () => {
+    const fix = { lat: 39.61234, lon: -106.05678, accuracyMeters: 10, at: "2026-10-04T09:59:00Z" };
+    const body = payload({ alert: { checkoutId: "c", userDisplayName: "Pat", lastFix: fix, plannedRoute: null, expectedReturnAt: "2026-10-04T09:00:00Z", alertedAt: "2026-10-04T10:00:00Z" } });
+    expect((await POST(request(body))).status).toBe(200);
+    const stored = (h.insertedValues[0] as { payload: { alert: { lastFix: string } } }).payload;
+    expect(stored.alert.lastFix).toMatch(/^v1:s1:/);
+    expect(JSON.stringify(stored)).not.toContain("39.61");
+    expect(openPayload(() => parseSarPayloadKeys(`s1:${PAYLOAD_KEY}`), stored)).toMatchObject({ alert: { lastFix: fix } });
+    // The team email gets the alert as received.
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ alert: expect.objectContaining({ lastFix: fix }) }));
+  });
+
+  it("refuses with 503 (retried) and reports when the payload key is missing, storing nothing", async () => {
+    h.env.SAR_PAYLOAD_KEYS = undefined;
+    vi.resetModules();
+    const { POST: post } = await import("@/app/api/sar/intake/route");
+    const res = await post(request(payload()));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ code: "intake_not_configured" });
+    expect(h.insertedValues).toEqual([]);
+    expect(h.capture).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ tags: { event: "sar.intake.payload_keys_invalid" } }));
+  });
+
   it("stores a signed alert, answers 200 and hands it to the team email", async () => {
     const res = await POST(request(payload()));
     expect(res.status).toBe(200);
