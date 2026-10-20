@@ -239,6 +239,13 @@
       "when": 1792520689922,
       "tag": "0033_clear_oauth_tokens_and_raw_rate_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792521506751,
+      "tag": "0034_totp_last_step",
+      "breakpoints": true
     }
   ]
 }

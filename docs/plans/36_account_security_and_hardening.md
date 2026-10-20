@@ -553,7 +553,7 @@ rules:
 | 2 | S2 schema + hashed adapter + `auth_time` + recent-auth helper (migration: prod before merge) | ✅ #164 (0027) |
 | 3 | S2 `/settings/sessions` + revoke on password change + transactional reset + portal events table | ✅ #165 (0028); re-auth password-only #166 |
 | 4 | H5 + H6 + H2 (small, independent) | ✅ built (0033): DB TLS required except loopback; AvServ URLs https/mock/http-localhost only; IPs pseudonymized in logs; phones redacted in logs and Sentry; rate-limit keys hashed after the prefix; OAuth tokens no longer stored, old ones cleared |
-| 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | ⬜ not started |
+| 5 | H3 TOTP key id, re-encrypt script, last-step (migration) | ✅ built (0034): `v1:<kid>:…` with the original key as k1 (no env change needed), `MFA_ENCRYPTION_KEYS` for rotation, `pnpm mfa:reencrypt`, a used code refused within its window (runbook "Rotating the MFA encryption key") |
 | 6 | H1 CSP Report-Only, then a one-line enforce PR | ⬜ not started |
 | 7 | S3 scoped kid in the portal (mock first) | ✅ #167 (with PR 8); live when AvServ installs the kid |
 | 8 | S4 revoke UI + preview on the mock (rev 2: `authStrength`, modes; migration: `sessions.auth_method`) | ✅ #167 (0029), #169 (due time); live with AvServ plan 52 |

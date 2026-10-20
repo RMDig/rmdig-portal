@@ -1,60 +1,31 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { generateSecret, generateURI, verify } from "otplib";
 
 import { env } from "../env";
+import { decryptWith, encryptWith, parseMfaKeys, type MfaKeySet } from "./mfa-keys";
 
 // MFA primitives — TOTP secrets, their at-rest encryption, and recovery codes.
 // Pure crypto + otplib only (no DB); the DB-touching second-factor check lives
-// in mfa-verify.ts. Server-only: this module reads the encryption key.
+// in mfa-verify.ts. Server-only: this module reads the encryption keys.
 
 const ISSUER = "rmdig";
-const CIPHER = "aes-256-gcm";
 
-// ---- TOTP secret encryption (AES-256-GCM) ----
-//
-// Stored form is "ivB64:tagB64:ciphertextB64". GCM gives us authenticated
-// encryption: decrypt throws if the ciphertext or tag was tampered with.
+// ---- TOTP secret encryption (AES-256-GCM, with a key id: lib/auth/mfa-keys.ts) ----
 
-function getKey(): Buffer {
-  const hex = env.MFA_ENCRYPTION_KEY;
-  if (!hex) {
-    throw new Error(
-      "MFA_ENCRYPTION_KEY is not set — cannot encrypt/decrypt TOTP secrets. " +
-        "Generate one with `openssl rand -hex 32` and set it in the environment.",
-    );
-  }
-  const key = Buffer.from(hex, "hex");
-  if (key.length !== 32) {
-    throw new Error("MFA_ENCRYPTION_KEY must be 32 bytes (64 hex chars).");
-  }
-  return key;
+let keySet: MfaKeySet | null = null;
+
+function keys(): MfaKeySet {
+  keySet ??= parseMfaKeys(env.MFA_ENCRYPTION_KEYS, env.MFA_ENCRYPTION_KEY);
+  return keySet;
 }
 
 export function encryptSecret(plaintext: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv(CIPHER, getKey(), iv);
-  const enc = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return [iv.toString("base64"), tag.toString("base64"), enc.toString("base64")].join(":");
+  return encryptWith(keys(), plaintext);
 }
 
 export function decryptSecret(stored: string): string {
-  const [ivB64, tagB64, encB64] = stored.split(":");
-  if (!ivB64 || !tagB64 || !encB64) {
-    throw new Error("Malformed encrypted TOTP secret.");
-  }
-  const decipher = createDecipheriv(CIPHER, getKey(), Buffer.from(ivB64, "base64"));
-  decipher.setAuthTag(Buffer.from(tagB64, "base64"));
-  return Buffer.concat([
-    decipher.update(Buffer.from(encB64, "base64")),
-    decipher.final(),
-  ]).toString("utf8");
+  return decryptWith(keys(), stored);
 }
 
 // ---- TOTP ----
@@ -69,12 +40,13 @@ export function totpKeyUri(email: string, secret: string): string {
 }
 
 /** Verify a 6-digit TOTP against the secret, tolerating ±1 time step (±30s) of
- *  clock skew. Returns false for any non-6-digit input rather than throwing. */
-export async function verifyTotp(secret: string, token: string): Promise<boolean> {
+ *  clock skew. Returns the time step it matched (for the replay check in
+ *  mfa-verify.ts), or null for a wrong or non-6-digit code. */
+export async function verifyTotpStep(secret: string, token: string): Promise<number | null> {
   const cleaned = token.replace(/\s+/g, "");
-  if (!/^\d{6}$/.test(cleaned)) return false;
+  if (!/^\d{6}$/.test(cleaned)) return null;
   const result = await verify({ secret, token: cleaned, epochTolerance: 30 });
-  return result.valid;
+  return result.valid && "timeStep" in result ? result.timeStep : null;
 }
 
 // ---- Recovery codes ----

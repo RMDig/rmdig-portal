@@ -141,6 +141,10 @@ export const Env = z.object({
   // schema so builds/CI without MFA configured still boot; lib/auth/mfa fails
   // loud if MFA is exercised without it. Generate with: openssl rand -hex 32
   MFA_ENCRYPTION_KEY: z.string().optional(),
+  // Rotation (plan 36 H3; lib/auth/mfa-keys.ts): "kid:hex,kid:hex", the first
+  // encrypts new secrets, the rest still decrypt. MFA_ENCRYPTION_KEY above is
+  // kid k1. Validated on first use, like the original key.
+  MFA_ENCRYPTION_KEYS: z.string().optional(),
 
   // Commit SHA surfaced by /healthz. Vercel sets VERCEL_GIT_COMMIT_SHA;
   // GIT_COMMIT_SHA is the local-dev fallback.

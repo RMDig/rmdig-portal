@@ -53,6 +53,9 @@ export const users = pgTable("users", {
   // shown, code not yet verified); mfaEnabledAt being set means MFA is active.
   totpSecretEncrypted: text("totp_secret_encrypted"),
   mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
+  // The TOTP time step (RFC 6238 counter) of the last code accepted, so a code
+  // can't be used twice within its window (plan 36 H3). Moves only forward.
+  totpLastStep: integer("totp_last_step"),
   // Opt-in security notices to the account email (plan 36 §5.3): off by
   // default, because the inbox may be the abuser's (rule 2). Set = on, since then.
   securityNoticesAt: timestamp("security_notices_at", { mode: "date", withTimezone: true }),
