@@ -5,18 +5,15 @@ import type { NextConfig } from "next";
 // these don't prevent application bugs, but they shrink the blast radius of
 // many class-of-bug exploits (clickjacking, MIME sniffing, referrer leaks).
 //
-// Content-Security-Policy here is the enforced baseline: the three directives
-// below are safe against every route (none of them restricts what the page may
-// load or run). The full nonce-based policy is per request, so middleware.ts
-// sends it (lib/csp.ts, plan 36 H1), Report-Only for its first week.
-// frame-ancestors is the CSP successor of X-Frame-Options; both are sent for
-// older browsers.
+// No Content-Security-Policy here: middleware.ts sends it (lib/csp.ts, plan 36
+// H1) with a per-request nonce. On Vercel these headers are also copied onto
+// the request, so a static CSP here replaced the nonce one before the render
+// and left every script without a nonce (2026-10-20). X-Frame-Options blocks
+// framing everywhere, including while the CSP is Report-Only.
 //
 // Strict-Transport-Security is only set in production — local dev runs http.
-const baselineContentSecurityPolicy = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: baselineContentSecurityPolicy },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

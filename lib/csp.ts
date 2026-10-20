@@ -3,8 +3,8 @@
 // passes in what it reads from process.env.
 //
 // It ships as Report-Only first (owner decision S-D9: one week, then a one-line
-// enforce change). next.config.ts keeps sending the enforced baseline
-// (frame-ancestors, object-src, base-uri) alongside it the whole time.
+// enforce change). It must be the only CSP header a page gets (middleware.ts
+// says why), so it carries the old baseline directives too.
 
 /** Map hosts (components/map/basemap.ts): MapTiler's style, tiles, glyphs and
  *  sprites, and the OpenStreetMap raster fallback. MapLibre fetches them, so

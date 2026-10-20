@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import nextConfig from "@/next.config";
 
-// Beta blocker B6: every response carries the baseline CSP alongside the
-// legacy framing header. The directives are deliberately limited to ones that
-// can't break a route (no script-src/default-src yet), so the test pins the
-// exact value: widening it is a reviewed change, not drift.
+// Static headers on every response. The CSP is deliberately NOT one of them:
+// middleware.ts sends it with a per-request nonce (tests/unit/csp.test.ts),
+// and on Vercel a static CSP here is copied onto the request and replaces the
+// nonce one before the render (2026-10-20).
 
 async function headersFor(source: string): Promise<Map<string, string>> {
   const rules = await nextConfig.headers!();
@@ -15,24 +15,14 @@ async function headersFor(source: string): Promise<Map<string, string>> {
 }
 
 describe("security headers", () => {
-  it("applies the baseline Content-Security-Policy to every path", async () => {
+  it("sets no Content-Security-Policy statically (it would replace the nonce on Vercel)", async () => {
     const headers = await headersFor("/:path*");
-    expect(headers.get("Content-Security-Policy")).toBe(
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
-    );
+    expect([...headers.keys()].filter((k) => /content-security-policy/i.test(k))).toEqual([]);
   });
 
-  it("keeps X-Frame-Options and nosniff for browsers without CSP framing support", async () => {
+  it("keeps X-Frame-Options and nosniff for every path, including those middleware skips", async () => {
     const headers = await headersFor("/:path*");
     expect(headers.get("X-Frame-Options")).toBe("DENY");
     expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
-  });
-
-  // The nonce policy is per request, so middleware.ts sends it (Report-Only
-  // until S-D9's week is up; tests/unit/csp.test.ts). This static header stays
-  // the enforced baseline.
-  it("does not restrict scripts in the static header", async () => {
-    const csp = (await headersFor("/:path*")).get("Content-Security-Policy") ?? "";
-    expect(csp).not.toMatch(/script-src|default-src/);
   });
 });

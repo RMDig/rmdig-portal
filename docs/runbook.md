@@ -336,9 +336,14 @@ Store the key file with the everyday one (password manager), never in the repo.
 ## Content-Security-Policy
 
 The full policy (plan 36 H1) is built per request in `lib/csp.ts` and sent by `middleware.ts`
-with a fresh nonce. `next.config.ts` separately enforces the baseline (`frame-ancestors`,
-`object-src`, `base-uri`) on every response. The maintenance 503 page sends its own closed
-policy (`MAINTENANCE_CSP`).
+with a fresh nonce. It is the **only** CSP header a page gets, and it carries the old baseline
+(`frame-ancestors`, `object-src`, `base-uri`). The maintenance 503 page sends its own closed
+policy (`MAINTENANCE_CSP`). **Never add another `Content-Security-Policy` header** (in
+`next.config.ts` or the middleware): Vercel copies response headers onto the request after the
+middleware runs, where a nonce-less one replaced the nonce policy before the render and left
+every script without a nonce (2026-10-20; `next start` doesn't do this, so local e2e can't catch
+it). So while Report-Only, nothing CSP is enforced; `X-Frame-Options: DENY` still blocks framing. Check a deploy with
+`curl -s https://rmdig.ai/ | grep -c 'nonce="'`: it should be well above zero.
 
 **Report-Only first (S-D9).** The policy ships as `Content-Security-Policy-Report-Only`: it blocks
 nothing and reports what it would block. Production reports go to Sentry (the portal project,
@@ -350,12 +355,12 @@ one is a host or script the site itself loads: add it to `lib/csp.ts` (with a te
 load.
 
 **Enforcing.** After a week with no real reports: in `middleware.ts`, set
-`CSP_HEADER = "Content-Security-Policy"`. Update the header assertions in
+`ENFORCE_CSP = true`. Update the header assertions in
 `tests/unit/csp.test.ts` and `tests/e2e/csp.mock.spec.ts`, then ship it. Check after deploy:
 `curl -sI https://rmdig.ai/ | grep -i content-security`, then sign in and open `/map` with
 the browser console open.
 
-**Rolling back an enforced policy** that breaks a page: set it back to `…-Report-Only` and
+**Rolling back an enforced policy** that breaks a page: set `ENFORCE_CSP = false` and
 redeploy, or promote the previous deployment with `vercel promote <its URL>` (see "Test a
 production env change": Hobby has no `vercel rollback`).
 
