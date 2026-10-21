@@ -1,6 +1,6 @@
 # 00 — Portal status and what's left
 
-> **As of 2026-10-20**: §0, §3 row 36, §5 and §7 are current; rows
+> **As of 2026-10-20 (evening)**: §0, §3 row 36, §5 and §7 are current; rows
 > not touched since **2026-10-02** say so. This is the one place to see where every
 > portal plan stands. The plans themselves stay the specs; update this file when a
 > milestone moves. Sources: [CLAUDE_BOOTSTRAP.md](../../CLAUDE_BOOTSTRAP.md) §4 (Phase 1),
@@ -45,6 +45,12 @@ reset codes redeemed in AvAI. Every check in AvApp's list passed.
   `AVAPP_APP_LOCK=true` (AvApp doc 41 row 11). Device builds have it since 2026-10-20.
 - Sentry: "Prevent storing IP addresses" and server-side scrubbing (plan 36 §11), if not done.
 - HSTS preload: eligible, not submitted (a deliberate, near-permanent choice; plan 36 §11).
+- **CSP Report-Only week** (2026-10-20 → about 10-27): check Sentry `event.type:csp` every
+  couple of days (ignore browser-extension noise) and send real ones over; then the enforce PR.
+  First report (RMDIG-PORTAL-A, Zod's eval probe) is fixed in #178.
+- **SAR payload sealing:** confirm the next real or drill alert reads normally on the team's
+  Alerts page (#179).
+- **Key rotation table** (runbook): fill in "Last rotated" as keys are rotated.
 
 ## 1. Production gaps (operator, do first; rows 1–3 last checked 2026-10-02)
 
@@ -92,10 +98,7 @@ the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
 | [33 Map and SAR workspace](33_map_and_sar_workspace.md) | Phase 1 `/map` ✅ (own SAR areas, own ad targets, staff overview) | Phases 2–4 (own history; SAR teams as opt-in contacts with team terms; red/orange SAR layers): doc amendments, AvServ contracts, counsel addendum (§4) |
 | [34 Team areas on the public map](34_public_team_area_map.md) | Planned (not re-checked this pass) | Counsel |
 | [35 Automated deletion](35_automated_deletion.md) | Draft; deletions are by hand (runbook) | AvServ plan 47 erasure key; counsel |
-| [36 Account security and hardening](36_account_security_and_hardening.md) | **Live:** hashed sessions + `auth_time` (#164), sessions page + re-auth + sign-out on credential changes (#165, #166), passkeys (#170), `MFA_ENFORCEMENT=all`, security activity + opt-in notices (#168). **On the mock:** phone sign-out, limited/full, due-back time (#167, #169); phone-side security events (#168). **Built and verified 2026-10-20:** PR 11 (App Lock reset code + link-code mint limit, #172);
-a double-click guard on both code buttons (#173). The three codes minted at 17:57–17:58Z were
-two phones' requests (8ddef600, then 4b93adf6 twice), not a double click: all on avserv-2,
-two redeemed, one expired unused. **Not built:** hardening H1–H8 (PRs 4–6, 13), S6 / plan 57 | AvServ plan 52 (§0); counsel (security log retention); plan 57 gates |
+| [36 Account security and hardening](36_account_security_and_hardening.md) | **Live:** hashed sessions + `auth_time` (#164), sessions page + re-auth + sign-out on credential changes (#165, #166), passkeys (#170), `MFA_ENFORCEMENT=all`, security activity + opt-in notices (#168, phone-side rows since AvServ rc80), phone sign-out limited/full + due-back time (#167, #169), App Lock reset code + link-code limit (#172, #173). **Hardening live 2026-10-20:** PR 4 DB TLS / https / no PII in logs / no OAuth tokens (#174); PR 5 TOTP key id + reused-code refusal (#175, 0034); PR 6 nonce CSP **Report-Only** (#176, fixed on Vercel by #177; Zod jitless #178); PR 13 SAR alert details sealed + "Key rotation" table (#179). **Left:** enforce the CSP after a clean week (about 2026-10-27, one line); S6 / plan 57 | Owner: full sign-out test about 10-26; counsel (security log retention); plan 57 gates |
 
 ## 4. Incident Detection re-filing (AvServ plans 38/38a/38b)
 
@@ -128,6 +131,14 @@ visibly unfinished legal pages.
 | 4 | Stripe Connect, payouts, W-9, `/settings/tax`, period close; SAR donations page; "Download my data" | ⬜ Deliberately gated |
 
 ## 7. Done recently
+
+**2026-10-20:** plan 36 hardening live: DB TLS, https-only AvServ URLs, IP pseudonyms,
+phone redaction, hashed rate-limit keys, OAuth tokens no longer stored (#174) · TOTP
+secrets with a key id, `pnpm mfa:reencrypt`, a used code refused within its window
+(#175, migration 0034) · nonce CSP Report-Only (#176); on Vercel any second CSP header
+replaced the nonce one, so it's now the only one (#177) · Zod jitless in the browser
+(#178) · SAR alert position, route and note sealed at rest, intake 503 and a failed
+build without the key, runbook "Key rotation" (#179).
 
 **2026-10-15 → 10-19:** `/collection_signup` restored at its press-linked path, with
 volunteer emails to staff (#160) · `/founder` (#160) · plan 36 written and decided
