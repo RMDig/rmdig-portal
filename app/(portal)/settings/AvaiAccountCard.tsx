@@ -43,14 +43,21 @@ export async function AvaiAccountCard({
   // Keep the try/catch to data-fetching only; JSX is built after.
   let account: AvaiAccount | null = null;
   let unavailableMessage: string | null = null;
+  let setupClosed = false;
   try {
     account = await getAccount(avservAccountId);
   } catch (err) {
     const failure = classifyAgreementError(err);
     reportAgreementFailure("avai.account.read_failed", failure, err, { userId });
+    setupClosed = failure.kind === "unavailable";
     unavailableMessage =
       failure.kind === "fault" ? "We couldn't load your AvAI account. Refresh in a moment." : failure.message;
   }
+
+  // While AvServ has capture off or nothing published there is nothing the
+  // user can do here, so show no card rather than a dead end (AvApp hides its
+  // setup card the same way). It returns with an action once AvServ publishes.
+  if (setupClosed) return null;
 
   if (!account) {
     return <Shell description={unavailableMessage ?? "We couldn't load your AvAI account."} />;
