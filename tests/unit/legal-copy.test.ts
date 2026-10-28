@@ -112,6 +112,8 @@ function publicSourceFiles(): string[] {
   for (const entry of readdirSync(review)) {
     if (entry.endsWith(".tsx")) files.push(join(review, entry));
   }
+  // Emergency contacts (AvServ plan 63 A10): says what accepting means for checking out.
+  files.push(join(settings, "contacts", "page.tsx"), join(settings, "contacts", "contacts-view.ts"));
   files.push(
     join(settings, "AvaiAccountCard.tsx"),
     join(settings, "AvaiIdentityForm.tsx"),
