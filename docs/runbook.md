@@ -1105,10 +1105,12 @@ allows 90 minutes before it calls a run missed.
 | Route | UTC | Monitor | Does |
 |---|---|---|---|
 | `/api/cron/sar-retention` | 09:30 | `portal-sar-retention` | SAR alert retention |
+| `/api/cron/expired-rows` | 10:00 | `portal-expired-rows` | deletes expired sessions, reset and verification tokens, unconfirmed deletion requests and spent rate-limit rows (`lib/retention/expired-rows.ts`) |
 | `/api/cron/sar-alert-notify` | 12:00 | `portal-sar-alert-notify` | retries owed SAR team emails |
 | `/api/cron/avserv-checks` | 14:00 | `portal-avserv-checks` | Admin → AvServ checks |
 | `/api/cron/patrol-reverify` | 15:00 | `portal-patrol-reverify` | ski patrol re-verification reminders |
 | `/api/cron/deletion-clock` | 16:00 | `portal-deletion-clock` | CPA 45-day clock warnings |
+| `/api/cron/security-notices` | 17:00 | `portal-security-notices` | opt-in security notices for changes made on the phones |
 
 Each run checks in with Sentry (`lib/cron/run.ts`): a run that throws, or
 reports a failure, is a failed check-in plus an issue; a run that never

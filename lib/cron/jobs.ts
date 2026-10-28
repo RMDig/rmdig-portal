@@ -12,7 +12,8 @@ export type CronJob =
   | "avserv_checks"
   | "sar_alert_notify"
   | "deletion_clock"
-  | "security_notices";
+  | "security_notices"
+  | "expired_rows";
 
 export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monitorSlug: string }> = {
   patrol_reverify: { path: "/api/cron/patrol-reverify", schedule: "0 15 * * *", monitorSlug: "portal-patrol-reverify" },
@@ -25,6 +26,8 @@ export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monito
   // Opt-in security notices for changes made on the phones (AvServ's feed,
   // plan 36 §5.3). Daily on Hobby (owner S-D8); every 10 minutes after Pro.
   security_notices: { path: "/api/cron/security-notices", schedule: "0 17 * * *", monitorSlug: "portal-security-notices" },
+  // Sessions, tokens and rate-limit rows past use (lib/retention/expired-rows.ts).
+  expired_rows: { path: "/api/cron/expired-rows", schedule: "0 10 * * *", monitorSlug: "portal-expired-rows" },
 };
 
 export const MONITOR_CHECKIN_MARGIN_MINUTES = 90;
