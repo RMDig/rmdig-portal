@@ -4,6 +4,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import { E2E_PERSONAS } from "./helpers";
+import { E2E_MFA_ENCRYPTION_KEYS } from "./mfa-key";
+import { encryptWith, parseMfaKeys } from "../../lib/auth/mfa-keys";
 import { userPlatformRoles, users } from "../../lib/db/schema";
 
 // Seed the E2E role personas (helpers.E2E_PERSONAS): the default member the
@@ -46,8 +48,13 @@ export default async function globalSetup(): Promise<void> {
   const db = drizzle(client, { schema: { users, userPlatformRoles } });
   try {
     const now = new Date();
+    const mfaKeys = parseMfaKeys(E2E_MFA_ENCRYPTION_KEYS, undefined);
     for (const { user, platformRoles } of E2E_PERSONAS) {
       const passwordHash = await bcrypt.hash(user.password, 10);
+      // Two-factor on, under the e2e server's key, for the personas that have it.
+      const mfa = user.totpSecret
+        ? { totpSecretEncrypted: encryptWith(mfaKeys, user.totpSecret), mfaEnabledAt: now, totpLastStep: null }
+        : {};
       const [row] = await db
         .insert(users)
         .values({
@@ -55,6 +62,7 @@ export default async function globalSetup(): Promise<void> {
           passwordHash,
           emailVerified: now,
           displayName: user.displayName,
+          ...mfa,
         })
         .onConflictDoUpdate({
           target: users.email,
@@ -62,7 +70,7 @@ export default async function globalSetup(): Promise<void> {
           // verified, and clear any prior AvServ mapping so the map-on-login
           // assertion is honest. returning() gives the id either way (insert or
           // update) for the role grant below.
-          set: { passwordHash, emailVerified: now, avservAccountId: null },
+          set: { passwordHash, emailVerified: now, avservAccountId: null, ...mfa },
         })
         .returning({ id: users.id });
 

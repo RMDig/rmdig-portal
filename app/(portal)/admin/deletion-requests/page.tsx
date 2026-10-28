@@ -6,10 +6,12 @@ import { formatMountain } from "@/lib/format/time";
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { hasPlatformRole } from "@/lib/auth/roles";
+import { erasureAvailable } from "@/lib/avserv/erasure";
 import { db } from "@/lib/db";
 import { deletionRequests, users } from "@/lib/db/schema";
 import { cpaDaysLeft } from "@/lib/deletion/share-log";
 
+import { ErasurePanel } from "./ErasurePanel";
 import { MarkCompletedForm } from "./MarkCompletedForm";
 import { ShareLogLookupForm } from "./ShareLogLookup";
 
@@ -17,8 +19,8 @@ export const metadata = { title: "Deletion requests — rmdig admin" };
 
 // The confirmed deletion queue (runbook "Data-deletion requests"), with each
 // request's Colorado Privacy Act deadline and, per request, which SAR teams
-// AvAI sent the account's data to. Fulfilment itself stays the runbook's
-// operator steps.
+// AvAI sent the account's data to, and the AvServ erasure (runbook step 3)
+// when the erasure key is configured. Every step is the operator's click.
 export default async function DeletionRequestsPage() {
   const session = await auth();
   if (!session?.user?.id) return redirectToSignIn();
@@ -38,6 +40,7 @@ export default async function DeletionRequestsPage() {
     : [];
   const accountFor = new Map(linked.map((l) => [l.email, l.accountId]));
   const now = new Date();
+  const canErase = erasureAvailable();
 
   return (
     <div className="space-y-6">
@@ -70,6 +73,16 @@ export default async function DeletionRequestsPage() {
                   No portal account is linked to this email. Find its AvAI accounts above, or use the account id from the AvServ deletion step.
                 </p>
               ) : null}
+              <div className="mt-4">
+                {canErase ? (
+                  <ErasurePanel requestId={q.id} suggestedAccountId={accountFor.get(q.email.toLowerCase()) ?? null} />
+                ) : (
+                  <p className="text-muted-foreground border-t pt-4 text-sm">
+                    Erasure from the portal isn&apos;t set up (no erasure key). Erase in AvServ by hand: runbook
+                    &quot;Data-deletion requests&quot;, step 3.
+                  </p>
+                )}
+              </div>
               <div className="mt-4">
                 <MarkCompletedForm requestId={q.id} />
               </div>

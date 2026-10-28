@@ -1,5 +1,11 @@
 # 35 — Automated data-deletion requests (DRAFT)
 
+**Update 2026-10-28:** the manual path (D6) now has an "Erase in AvServ" button
+on `/admin/deletion-requests` (owner-approved; AvServ plan 47 shipped except 4c,
+which waits on counsel). A person clicks every step with their own reader id;
+the worker, cancel window and §2 automation stay unbuilt until 4c and the
+decisions below.
+
 Status: **draft, 2026-10-11, revised after a three-lens security review the same day
 (§9). Owner decisions (§6) and counsel review (§7) pending.** Nothing here is built.
 Today a confirmed request is carried out by hand from the runbook "Data-deletion

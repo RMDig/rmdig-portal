@@ -1,7 +1,7 @@
 import { importPKCS8, SignJWT } from "jose";
 
 import { env } from "../env";
-import { DEFAULT_KID, DEVICE_ADMIN_KID, parseServiceKey } from "./service-key";
+import { DEFAULT_KID, DEVICE_ADMIN_KID, ERASURE_KID, parseServiceKey } from "./service-key";
 
 // Mints the short-lived Ed25519 service JWT that authenticates this portal to
 // AvServ's internal tier (rmdig-ai docs/plans/05 §"service / S2S trust tier").
@@ -10,11 +10,12 @@ import { DEFAULT_KID, DEVICE_ADMIN_KID, parseServiceKey } from "./service-key";
 //   header  { alg: "EdDSA", kid }
 //   claims  { iss: "rmdig-portal", aud: "internal", iat, exp }  (exp <= 5 min)
 //
-// Two keys, by role (plan 36 S3). "default" (svc-key-portal-1) signs every
-// everyday call. "device_admin" (svc-key-portal-device-admin-1) signs only the
+// Three keys, by role. "default" (svc-key-portal-1) signs every everyday call.
+// "device_admin" (svc-key-portal-device-admin-1, plan 36 S3) signs only the
 // device_admin routes (revoke, revoke preview, revoke-others, App Lock reset
-// code), and AvServ grants it nothing else. A role never borrows the other's
-// key. The private halves live only in Vercel env (lib/avserv/service-key.ts).
+// code). "erasure" (svc-key-portal-erasure, AvServ plan 47 §2) signs only
+// account erasure. AvServ grants each nothing else, and a role never borrows
+// another's key. The private halves live only in Vercel env (lib/avserv/service-key.ts).
 // Server-only: never import this into a client component.
 
 const ISS = "rmdig-portal";
@@ -25,7 +26,7 @@ const ALG = "EdDSA";
 // for clock skew without ever exceeding the verifier's max-age assumption.
 const TTL_SECONDS = 4 * 60;
 
-export type KeyRole = "default" | "device_admin";
+export type KeyRole = "default" | "device_admin" | "erasure";
 
 const ROLE = {
   default: {
@@ -37,6 +38,11 @@ const ROLE = {
     keyVar: "AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64",
     key: () => env.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64,
     kid: () => env.AVSERV_DEVICE_ADMIN_JWT_KID || DEVICE_ADMIN_KID,
+  },
+  erasure: {
+    keyVar: "AVSERV_ERASURE_JWT_SIGNING_KEY_B64",
+    key: () => env.AVSERV_ERASURE_JWT_SIGNING_KEY_B64,
+    kid: () => env.AVSERV_ERASURE_JWT_KID || ERASURE_KID,
   },
 } as const;
 
@@ -68,6 +74,12 @@ export function serviceJwtKid(role: KeyRole = "default"): string {
  *  its revoke build ships). */
 export function deviceAdminKeyConfigured(): boolean {
   return !!env.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64;
+}
+
+/** Whether the erasure key is configured. Without it, the admin queue says
+ *  to erase by hand (runbook); it never falls back to another key. */
+export function erasureKeyConfigured(): boolean {
+  return !!env.AVSERV_ERASURE_JWT_SIGNING_KEY_B64;
 }
 
 /**

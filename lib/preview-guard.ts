@@ -23,6 +23,7 @@ export function previewSafetyProblems(e: {
   AVSERV_BASE_URL?: string;
   AVSERV_FAILOVER_BASE_URL?: string;
   AVSERV_SERVICE_JWT_SIGNING_KEY_B64?: string;
+  AVSERV_ERASURE_JWT_SIGNING_KEY_B64?: string;
 }): string[] {
   const problems: string[] = [];
   if (isProductionDatabaseUrl(e.DATABASE_URL)) {
@@ -53,6 +54,12 @@ export function previewSafetyProblems(e: {
     problems.push(
       "AVSERV_SERVICE_JWT_SIGNING_KEY_B64 is set; the portal's AvServ signing key must be " +
         "Production-scoped only in Vercel.",
+    );
+  }
+  // The erasure key can delete accounts on production AvServ: never on a preview.
+  if (e.AVSERV_ERASURE_JWT_SIGNING_KEY_B64) {
+    problems.push(
+      "AVSERV_ERASURE_JWT_SIGNING_KEY_B64 is set; the erasure key must be Production-scoped only in Vercel.",
     );
   }
   return problems;

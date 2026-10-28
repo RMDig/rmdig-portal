@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { E2E_MFA_ENCRYPTION_KEYS } from "./tests/e2e/mfa-key";
+
 // E2E harness for the device-link flow — the bootstrap §6 gate for P1.3. It
 // drives a real browser through credentials login → the AvServ account map
 // (P-B1, fired in the signIn event) → the linked-devices view (P-B3) → mint a
@@ -65,6 +67,9 @@ export default defineConfig({
       // Restriction review is off by default (lib/features.ts, H14); the e2e
       // server turns it on so restriction-review.mock keeps exercising it.
       FEATURE_RESTRICTION_REVIEW: "on",
+      // Test-only TOTP key, so MFA_ADMIN_USER (seeded by global-setup under the
+      // same key) can sign in with two-factor (tests/e2e/helpers.ts).
+      MFA_ENCRYPTION_KEYS: E2E_MFA_ENCRYPTION_KEYS,
     },
   },
 });
