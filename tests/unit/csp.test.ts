@@ -109,25 +109,25 @@ describe("middleware CSP headers", () => {
     return new NextRequest(u, { headers: { host: u.host } });
   }
 
-  it("sends only the Report-Only policy and hands Next the same nonce, new per request", async () => {
+  it("enforces one policy and hands Next the same nonce, new per request", async () => {
     const middleware = await load();
     const a = await middleware(req("/privacy"));
-    const csp = a.headers.get("Content-Security-Policy-Report-Only")!;
+    const csp = a.headers.get("Content-Security-Policy")!;
     expect(csp).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
-    // A nonce-less enforced CSP beside it would replace the nonce on Vercel.
-    expect(a.headers.get("Content-Security-Policy")).toBeNull();
+    // One policy only: a second CSP header would replace the nonce on Vercel.
+    expect(a.headers.get("Content-Security-Policy-Report-Only")).toBeNull();
     // Next reads the nonce from the request side under the enforced name.
     expect(a.headers.get("x-middleware-request-content-security-policy")).toBe(csp);
     expect(a.headers.get("x-middleware-request-content-security-policy-report-only")).toBeNull();
     const b = await middleware(req("/settings"));
-    expect(b.headers.get("Content-Security-Policy-Report-Only")).not.toBe(csp);
+    expect(b.headers.get("Content-Security-Policy")).not.toBe(csp);
   });
 
   it("reports to Sentry from production only", async () => {
     vi.stubEnv("NEXT_PUBLIC_SENTRY_DSN", DSN);
     vi.stubEnv("VERCEL_ENV", "preview");
     let res = await (await load())(req("/"));
-    expect(res.headers.get("Content-Security-Policy-Report-Only")).not.toMatch(/report-uri/);
+    expect(res.headers.get("Content-Security-Policy")).not.toMatch(/report-uri/);
     expect(res.headers.get("Reporting-Endpoints")).toBeNull();
 
     vi.resetModules();
@@ -135,13 +135,13 @@ describe("middleware CSP headers", () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "86cc27a");
     res = await (await load())(req("/"));
     const uri = sentryReportUri(DSN, "production", "86cc27a");
-    expect(res.headers.get("Content-Security-Policy-Report-Only")).toContain(`report-uri ${uri}`);
+    expect(res.headers.get("Content-Security-Policy")).toContain(`report-uri ${uri}`);
     expect(res.headers.get("Reporting-Endpoints")).toBe(`csp="${uri}"`);
   });
 
   it("adds no policy to the legacy-host redirect", async () => {
     const res = await (await load())(new NextRequest("https://app.rmdig.ai/", { headers: { host: "app.rmdig.ai" } }));
     expect(res.status).toBe(308);
-    expect(res.headers.get("Content-Security-Policy-Report-Only")).toBeNull();
+    expect(res.headers.get("Content-Security-Policy")).toBeNull();
   });
 });

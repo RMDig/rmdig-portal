@@ -3,7 +3,8 @@ import { logger } from "@/lib/logger";
 import { deleteExpiredRows } from "@/lib/retention/expired-rows";
 
 // Daily (vercel.json crons): deletes sessions, tokens, unconfirmed deletion
-// requests and rate-limit rows past use (lib/retention/expired-rows.ts).
+// requests, unaccepted invitations and rate-limit rows past use
+// (lib/retention/expired-rows.ts).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
