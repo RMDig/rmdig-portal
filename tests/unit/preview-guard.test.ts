@@ -75,6 +75,15 @@ describe("previewSafetyProblems", () => {
     expect(problems[0]).toMatch(/Production-scoped/);
   });
 
+  it("rejects the erasure key on a preview: it can delete production accounts", () => {
+    const problems = previewSafetyProblems({
+      DATABASE_URL: previewUrl,
+      AVSERV_BASE_URL: "mock://localhost",
+      AVSERV_ERASURE_JWT_SIGNING_KEY_B64: "LS0tLS1CRUdJTi...",
+    });
+    expect(problems).toEqual([expect.stringMatching(/AVSERV_ERASURE_JWT_SIGNING_KEY_B64 .*Production-scoped/)]);
+  });
+
   it("reports both problems at once", () => {
     expect(previewSafetyProblems({ DATABASE_URL: prodUrl, AVSERV_BASE_URL: "https://avserv-3.rmdig.ai" })).toHaveLength(2);
   });

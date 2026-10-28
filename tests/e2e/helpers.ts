@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { generate } from "otplib";
 import postgres from "postgres";
 
 // Shared E2E fixtures: a small roster of role personas and the helpers used
@@ -12,6 +13,8 @@ export interface E2eUser {
   email: string;
   password: string;
   displayName: string;
+  /** Base32 TOTP secret: global-setup turns two-factor on with it. */
+  totpSecret?: string;
 }
 
 /** Verified, no platform role, no MFA — the default user. Device-link + SAR
@@ -47,12 +50,22 @@ export const RESTRICTED_USER: E2eUser = {
   displayName: "E2E Review",
 } as const;
 
+/** An rmdig_admin with two-factor on, for the actions that need it (the
+ *  operator erasure). Signs in with signInWithTotp. */
+export const MFA_ADMIN_USER: E2eUser = {
+  email: "e2e-mfa-admin@rmdig.test",
+  password: "E2e-mfa-admin-6t3v!K",
+  displayName: "E2E MFA Admin",
+  totpSecret: "66YI3GK2UDFTFADFG4HQPTFM5OLKSYGI",
+} as const;
+
 /** The roster global-setup seeds, with the platform role (if any) to grant. */
 export const E2E_PERSONAS: { user: E2eUser; platformRoles: Array<"rmdig_admin" | "rmdig_sar_approver"> }[] = [
   { user: E2E_USER, platformRoles: [] },
   { user: STAFF_USER, platformRoles: ["rmdig_admin", "rmdig_sar_approver"] },
   { user: INVITEE_USER, platformRoles: [] },
   { user: RESTRICTED_USER, platformRoles: [] },
+  { user: MFA_ADMIN_USER, platformRoles: ["rmdig_admin"] },
 ];
 
 /** Sign in via the real credentials form (single-factor; seeded users have no
@@ -62,6 +75,18 @@ export async function signInAs(page: Page, user: E2eUser): Promise<void> {
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Password", { exact: true }).fill(user.password);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL("**/dashboard");
+}
+
+/** Sign in with password, then the current TOTP code. */
+export async function signInWithTotp(page: Page, user: E2eUser): Promise<void> {
+  if (!user.totpSecret) throw new Error(`${user.email} has no TOTP secret`);
+  await page.goto("/sign-in");
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password", { exact: true }).fill(user.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Authenticator code").fill(await generate({ secret: user.totpSecret }));
+  await page.getByRole("button", { name: "Verify and sign in" }).click();
   await page.waitForURL("**/dashboard");
 }
 

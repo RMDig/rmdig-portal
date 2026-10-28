@@ -108,6 +108,14 @@ export const Env = z.object({
   AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64: z.string().optional(),
   AVSERV_DEVICE_ADMIN_JWT_KID: z.string().optional(),
   AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256: z.string().optional(),
+  // A third key, granted ONLY AvServ's account_erasure group (account_erasure.md;
+  // AvServ plan 47 §2), for the operator's "Erase in AvServ" on the deletion
+  // queue. Same shape and build check. Production-scoped only, never on a
+  // preview (lib/preview-guard.ts). Optional: unset, the queue says to erase
+  // by hand (runbook), and it never falls back to another key.
+  AVSERV_ERASURE_JWT_SIGNING_KEY_B64: z.string().optional(),
+  AVSERV_ERASURE_JWT_KID: z.string().optional(),
+  AVSERV_ERASURE_JWT_KEY_SHA256: z.string().optional(),
   // The second AvServ node, used only to retry an agreement acceptance with the
   // same Idempotency-Key when the primary is unreachable or answers 5xx/503
   // (AvServ contract account_agreement.md §4, failover). Optional: unset means

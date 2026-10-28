@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { checkDeviceAdminKeyConfig, checkServiceKeyConfig, parseServiceKey } from "@/lib/avserv/service-key";
+import { checkDeviceAdminKeyConfig, checkErasureKeyConfig, checkServiceKeyConfig, parseServiceKey } from "@/lib/avserv/service-key";
 
 // The key format and the build-time check (scripts/check-service-key.ts).
 const ed = generateKeyPairSync("ed25519");
@@ -83,5 +83,33 @@ describe("checkDeviceAdminKeyConfig (plan 36 S3)", () => {
     expect(
       checkDeviceAdminKeyConfig({ ...base, AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256: fp, AVSERV_DEVICE_ADMIN_JWT_KID: "svc-key-portal-1" }),
     ).toMatchObject({ status: "error", error: expect.stringMatching(/everyday kid/) });
+  });
+});
+
+describe("checkErasureKeyConfig (AvServ plan 47 §2)", () => {
+  it("is fine absent (erasure stays by hand) and skipped on the mock", () => {
+    expect(checkErasureKeyConfig({ AVSERV_BASE_URL: REAL })).toEqual({ status: "absent" });
+    expect(checkErasureKeyConfig({ AVSERV_BASE_URL: "mock://localhost", AVSERV_ERASURE_JWT_SIGNING_KEY_B64: "junk" })).toEqual({ status: "skipped" });
+  });
+
+  it("passes a matching key under the erasure kid", () => {
+    expect(
+      checkErasureKeyConfig({ AVSERV_BASE_URL: REAL, AVSERV_ERASURE_JWT_SIGNING_KEY_B64: b64, AVSERV_ERASURE_JWT_KEY_SHA256: fp }),
+    ).toEqual({ status: "ok", kid: "svc-key-portal-erasure", fingerprint: fp });
+  });
+
+  it("fails a present key that's unfingerprinted, mismatched, or under another key's kid", () => {
+    const base = { AVSERV_BASE_URL: REAL, AVSERV_ERASURE_JWT_SIGNING_KEY_B64: b64 };
+    expect(checkErasureKeyConfig(base)).toMatchObject({ status: "error", error: expect.stringMatching(/AVSERV_ERASURE_JWT_KEY_SHA256 is not set/) });
+    expect(checkErasureKeyConfig({ ...base, AVSERV_ERASURE_JWT_KEY_SHA256: "00".repeat(32) })).toMatchObject({
+      status: "error",
+      error: expect.stringMatching(/erasure key's public half/),
+    });
+    for (const [kid, name] of [["svc-key-portal-1", "everyday"], ["svc-key-portal-device-admin-1", "device-admin"]]) {
+      expect(checkErasureKeyConfig({ ...base, AVSERV_ERASURE_JWT_KEY_SHA256: fp, AVSERV_ERASURE_JWT_KID: kid })).toMatchObject({
+        status: "error",
+        error: expect.stringMatching(new RegExp(`${name} kid`)),
+      });
+    }
   });
 });

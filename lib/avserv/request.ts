@@ -65,7 +65,7 @@ export function commonStatusError(status: number): AvServError | null {
 export async function avservFetch(
   baseUrl: string,
   path: string,
-  init: { method: string; headers?: Record<string, string>; body?: string },
+  init: { method: string; headers?: Record<string, string>; body?: string; timeoutMs?: number },
   keyRole: KeyRole = "default",
 ): Promise<Response> {
   // Signed outside the try: a missing or bad signing key is our fault, not an
@@ -78,7 +78,7 @@ export async function avservFetch(
       method: init.method,
       headers: { authorization: `Bearer ${token}`, "x-request-id": requestId, ...init.headers },
       body: init.body,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(init.timeoutMs ?? REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
     throw new AvServError(`AvServ request ${requestId} failed: ${(err as Error).message}`, undefined, "unreachable");

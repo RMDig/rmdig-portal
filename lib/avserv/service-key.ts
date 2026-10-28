@@ -9,6 +9,7 @@ import { createHash, createPrivateKey, createPublicKey } from "node:crypto";
 
 export const DEFAULT_KID = "svc-key-portal-1";
 export const DEVICE_ADMIN_KID = "svc-key-portal-device-admin-1";
+export const ERASURE_KID = "svc-key-portal-erasure";
 export const KID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
 export type ServiceKey = { ok: true; pem: string; fingerprint: string } | { ok: false; error: string };
@@ -65,28 +66,60 @@ export function checkServiceKeyConfig(e: {
   return { status: "ok", kid, fingerprint: key.fingerprint };
 }
 
-/** The same check for the device-admin key, which is optional: absent means
- *  "not installed yet" (the revoke UI says so), not a broken build. Present
- *  but wrong, or set without its fingerprint, fails like the everyday key. */
+const KID_NAMES: Array<[string, string]> = [
+  [DEFAULT_KID, "everyday"],
+  [DEVICE_ADMIN_KID, "device-admin"],
+  [ERASURE_KID, "erasure"],
+];
+
+export type OptionalKeyCheck =
+  | { status: "skipped" | "absent" | "ok"; kid?: string; fingerprint?: string }
+  | { status: "error"; error: string };
+
+/** The check for a single-purpose key (device admin, erasure), which is
+ *  optional: absent means "not installed yet" (its UI says so), not a broken
+ *  build. Present but wrong, set without its fingerprint, or sharing another
+ *  key's kid, fails like the everyday key. */
+function checkOptionalKey(
+  e: { AVSERV_BASE_URL?: string } & Record<string, string | undefined>,
+  prefix: string,
+  defaultKid: string,
+  label: string,
+): OptionalKeyCheck {
+  if (!e.AVSERV_BASE_URL || e.AVSERV_BASE_URL.startsWith("mock://")) return { status: "skipped" };
+  const b64 = e[`${prefix}_SIGNING_KEY_B64`];
+  if (!b64) return { status: "absent" };
+  const kid = e[`${prefix}_KID`] || defaultKid;
+  if (!KID_PATTERN.test(kid)) return { status: "error", error: `${prefix}_KID "${kid}" isn't a valid key id.` };
+  const taken = KID_NAMES.find(([k]) => k === kid && k !== defaultKid);
+  if (taken) return { status: "error", error: `${prefix}_KID must not be the ${taken[1]} kid ${kid}.` };
+  const key = parseServiceKey(b64, `${prefix}_SIGNING_KEY_B64`);
+  if (!key.ok) return { status: "error", error: key.error };
+  const want = e[`${prefix}_KEY_SHA256`]?.toLowerCase();
+  if (!want) return { status: "error", error: `${prefix}_KEY_SHA256 is not set (this key's is ${key.fingerprint}; check it against AvServ's for ${kid}).` };
+  if (want !== key.fingerprint) {
+    return { status: "error", error: `The ${label} key's public half (${key.fingerprint}) doesn't match ${prefix}_KEY_SHA256 (${want}) for ${kid}.` };
+  }
+  return { status: "ok", kid, fingerprint: key.fingerprint };
+}
+
+/** The device-admin key (plan 36 S3): revoke and the App Lock reset code. */
 export function checkDeviceAdminKeyConfig(e: {
   AVSERV_BASE_URL?: string;
   AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64?: string;
   AVSERV_DEVICE_ADMIN_JWT_KID?: string;
   AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256?: string;
-}): { status: "skipped" | "absent" | "ok"; kid?: string; fingerprint?: string } | { status: "error"; error: string } {
-  if (!e.AVSERV_BASE_URL || e.AVSERV_BASE_URL.startsWith("mock://")) return { status: "skipped" };
-  if (!e.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64) return { status: "absent" };
-  const kid = e.AVSERV_DEVICE_ADMIN_JWT_KID || DEVICE_ADMIN_KID;
-  if (!KID_PATTERN.test(kid)) return { status: "error", error: `AVSERV_DEVICE_ADMIN_JWT_KID "${kid}" isn't a valid key id.` };
-  if (kid === (DEFAULT_KID as string)) {
-    return { status: "error", error: `AVSERV_DEVICE_ADMIN_JWT_KID must not be the everyday kid ${DEFAULT_KID}.` };
-  }
-  const key = parseServiceKey(e.AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64, "AVSERV_DEVICE_ADMIN_JWT_SIGNING_KEY_B64");
-  if (!key.ok) return { status: "error", error: key.error };
-  const want = e.AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256?.toLowerCase();
-  if (!want) return { status: "error", error: `AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256 is not set (this key's is ${key.fingerprint}; check it against AvServ's for ${kid}).` };
-  if (want !== key.fingerprint) {
-    return { status: "error", error: `The device-admin key's public half (${key.fingerprint}) doesn't match AVSERV_DEVICE_ADMIN_JWT_KEY_SHA256 (${want}) for ${kid}.` };
-  }
-  return { status: "ok", kid, fingerprint: key.fingerprint };
+}): OptionalKeyCheck {
+  return checkOptionalKey(e, "AVSERV_DEVICE_ADMIN_JWT", DEVICE_ADMIN_KID, "device-admin");
+}
+
+/** The erasure key (AvServ account_erasure.md, plan 47 §2): account erasure
+ *  and nothing else. Production-scoped only in Vercel. */
+export function checkErasureKeyConfig(e: {
+  AVSERV_BASE_URL?: string;
+  AVSERV_ERASURE_JWT_SIGNING_KEY_B64?: string;
+  AVSERV_ERASURE_JWT_KID?: string;
+  AVSERV_ERASURE_JWT_KEY_SHA256?: string;
+}): OptionalKeyCheck {
+  return checkOptionalKey(e, "AVSERV_ERASURE_JWT", ERASURE_KID, "erasure");
 }

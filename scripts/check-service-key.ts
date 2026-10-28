@@ -1,4 +1,4 @@
-import { checkDeviceAdminKeyConfig, checkServiceKeyConfig } from "../lib/avserv/service-key";
+import { checkDeviceAdminKeyConfig, checkErasureKeyConfig, checkServiceKeyConfig } from "../lib/avserv/service-key";
 import { checkSarPayloadKeyConfig } from "../lib/sar/payload-seal";
 
 // Runs before `next build` on Vercel (package.json "vercel-build"). When the
@@ -39,6 +39,24 @@ console.log(
   admin.status === "ok"
     ? `check-service-key: ${admin.kid} (device admin) loads and matches (sha256 ${admin.fingerprint}).`
     : `check-service-key: device-admin key ${admin.status === "absent" ? "not set; signing phones out stays unavailable" : "skipped"}.`,
+);
+
+// The erasure key (AvServ plan 47 §2) is optional the same way: absent keeps
+// erasure by hand; present and wrong fails the build.
+const erasure = checkErasureKeyConfig({
+  AVSERV_BASE_URL: process.env.AVSERV_BASE_URL,
+  AVSERV_ERASURE_JWT_SIGNING_KEY_B64: process.env.AVSERV_ERASURE_JWT_SIGNING_KEY_B64,
+  AVSERV_ERASURE_JWT_KID: process.env.AVSERV_ERASURE_JWT_KID,
+  AVSERV_ERASURE_JWT_KEY_SHA256: process.env.AVSERV_ERASURE_JWT_KEY_SHA256,
+});
+if (erasure.status === "error") {
+  console.error(`check-service-key: ${erasure.error}`);
+  process.exit(1);
+}
+console.log(
+  erasure.status === "ok"
+    ? `check-service-key: ${erasure.kid} (erasure) loads and matches (sha256 ${erasure.fingerprint}).`
+    : `check-service-key: erasure key ${erasure.status === "absent" ? "not set; erasure stays by hand" : "skipped"}.`,
 );
 
 // The SAR payload keys (plan 36 H4): with intake configured, intake refuses

@@ -728,10 +728,29 @@ under the CPA — treat every request as covering it.
    completed.
    Write down every AvAI account id the requester controls before going on.
 
-3. **AvServ data.** Erase each AvAI account with AvServ's operator CLI (AvServ
-   runbook "Account erasure (CPA deletion requests)", since `v1.5.0-rc53`). The
-   portal doesn't call AvServ's erasure endpoint yet, so this is by hand, on the
-   nodes, from the AvServ deploy directory:
+3. **AvServ data.** Erase each AvAI account. **From the portal** (when the
+   erasure key is installed: AvServ `account_erasure.md`, kid
+   `svc-key-portal-erasure`): on the request's card, **Erase in AvServ**.
+   Needs two-factor and a recent login.
+   - Enter the account id, then **Check every node**. **Erase** is offered only
+     when every node answers *erasable* or *already erased*. A node that's
+     unreachable, doesn't have the account yet, or has a live item blocks it.
+   - Type the id again and **Erase this account**. It goes to the primary node
+     only, then every node's record is read back. Paste the summary it shows
+     into the completion note.
+   - **Stopped** (`email_mismatch`, `account_newer_than_request`) means this
+     account isn't the requester's, or is newer than the request. Nothing was
+     erased and AvServ paged. Don't retry: review which account the request
+     covers.
+   - **No answer** means it may or may not have run. The page reads every node
+     instead of re-sending; use **Read erasure status on every node** later.
+     Never erase again on the other node by hand.
+   - Limits: 5 erasures a day in the portal, and 5 per node per day on AvServ
+     (`erasure_rate_limited`). Erasures from the CLI below don't count.
+
+   **By hand** (no erasure key, or the portal is down), with AvServ's operator
+   CLI (AvServ runbook "Account erasure (CPA deletion requests)", since
+   `v1.5.0-rc53`), on the nodes, from the AvServ deploy directory:
 
    ```sh
    # a. dry run on EVERY node: "nothing blocks erasure", or the live safety items
