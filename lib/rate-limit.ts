@@ -14,6 +14,17 @@ export function storedKey(key: string): string {
   return rest ? `${prefix}:${createHash("sha256").update(rest).digest("hex").slice(0, 32)}` : prefix;
 }
 
+/** The longest window any limit may use. The daily cleanup
+ *  (lib/retention/expired-rows.ts) deletes rows whose window started longer
+ *  ago than its grace period, so a longer window would be reset early. */
+export const MAX_RATE_LIMIT_WINDOW_SEC = 24 * 60 * 60;
+
+function assertWindow(windowSec: number): void {
+  if (windowSec > MAX_RATE_LIMIT_WINDOW_SEC) {
+    throw new Error(`rate-limit window ${windowSec}s exceeds MAX_RATE_LIMIT_WINDOW_SEC (${MAX_RATE_LIMIT_WINDOW_SEC}s)`);
+  }
+}
+
 export interface RateLimitResult {
   allowed: boolean;
   attempts: number;
@@ -32,6 +43,7 @@ export async function incrementRateLimit(
   options: { limit: number; windowSec: number },
 ): Promise<RateLimitResult> {
   const { limit, windowSec } = options;
+  assertWindow(windowSec);
 
   const rows = (await db.execute(sql`
     INSERT INTO rate_limits (key, attempts, window_start)
@@ -83,6 +95,7 @@ export async function peekRateLimit(
   options: { limit: number; windowSec: number },
 ): Promise<RateLimitResult> {
   const { limit, windowSec } = options;
+  assertWindow(windowSec);
 
   const rows = (await db.execute(sql`
     SELECT attempts, window_start FROM rate_limits

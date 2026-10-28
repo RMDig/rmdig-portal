@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { incrementRateLimit, peekRateLimit, storedKey } from "@/lib/rate-limit";
+import { incrementRateLimit, MAX_RATE_LIMIT_WINDOW_SEC, peekRateLimit, storedKey } from "@/lib/rate-limit";
 
 const OPTS = { limit: 3, windowSec: 60 };
 
@@ -60,5 +60,16 @@ describe("storedKey (plan 36 H6)", () => {
     expect(storedKey("signin-ip:203.0.113.7")).toBe(storedKey("signin-ip:203.0.113.7"));
     expect(storedKey("signin-ip:203.0.113.7")).not.toBe(storedKey("signin-ip:203.0.113.8"));
     expect(storedKey("global")).toBe("global");
+  });
+});
+
+describe("window cap", () => {
+  // The daily cleanup deletes windows older than its grace period, so a longer
+  // window must fail loudly rather than be reset early without anyone knowing.
+  it("refuses a window longer than MAX_RATE_LIMIT_WINDOW_SEC, before touching the DB", async () => {
+    const opts = { limit: 3, windowSec: MAX_RATE_LIMIT_WINDOW_SEC + 1 };
+    await expect(incrementRateLimit("k", opts)).rejects.toThrow(/exceeds MAX_RATE_LIMIT_WINDOW_SEC/);
+    await expect(peekRateLimit("k", opts)).rejects.toThrow(/exceeds MAX_RATE_LIMIT_WINDOW_SEC/);
+    expect(h.executes).toBe(0);
   });
 });
