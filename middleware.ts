@@ -34,9 +34,9 @@ const LEGACY_HOSTS = new Set(["app.rmdig.ai", "www.rmdig.ai"]);
 const configConnection = process.env.GLOBAL_CONFIG || process.env.EDGE_CONFIG;
 const configClient = configConnection ? createClient(configConnection) : null;
 
-// Report-Only for its first week (owner decision S-D9); enforcing it is this
-// one line (runbook "Content-Security-Policy").
-const ENFORCE_CSP = false;
+// Enforced after its Report-Only week (owner decision S-D9, 2026-10-20 → 28).
+// false is the rollback: back to Report-Only (runbook "Content-Security-Policy").
+const ENFORCE_CSP = true;
 
 // CSP reports go to Sentry from production only: previews and local dev show
 // violations in the browser console, and don't spend the Sentry quota.
@@ -82,8 +82,8 @@ export async function middleware(req: NextRequest) {
   // response headers (next.config.ts ones and this file's) are copied onto the
   // request after this runs, and a nonce-less one there replaced this one
   // before the render (2026-10-20: no nonce on any production script, though
-  // `next start` had them). So while Report-Only there is no enforced CSP
-  // beside it; X-Frame-Options still blocks framing.
+  // `next start` had them). So there is never a second CSP header beside this
+  // one; X-Frame-Options also blocks framing.
   const csp = buildCsp({
     nonce: makeNonce(),
     dev: process.env.NODE_ENV === "development",
