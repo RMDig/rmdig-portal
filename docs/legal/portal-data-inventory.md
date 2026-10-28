@@ -26,10 +26,11 @@ prefix. Sentry runs in the browser for error reporting with
 
 ## What the portal database keeps, and for how long
 
-Only SAR alert data has a scheduled purge
-([lib/sar/retention.ts](../../lib/sar/retention.ts), daily cron). Everything
-else is kept while the account or organisation exists and is removed by the
-CPA deletion process ([runbook](../runbook.md) "Data-deletion requests", 45
+Two daily jobs delete data on a schedule: SAR alert retention
+([lib/sar/retention.ts](../../lib/sar/retention.ts)) and the cleanup of rows
+past use ([lib/retention/expired-rows.ts](../../lib/retention/expired-rows.ts)).
+Everything else is kept while the account or organisation exists and is
+removed by the CPA deletion process ([runbook](../runbook.md) "Data-deletion requests", 45
 days from confirmation). Deleting a user row cascades to their sessions,
 sign-in accounts, MFA rows, passkeys, memberships, tokens and security events.
 
@@ -38,11 +39,11 @@ sign-in accounts, MFA rows, passkeys, memberships, tokens and security events.
 | Users | Email, name and display name, Google profile image (Google sign-in), salted password hash, encrypted TOTP secret, security-notice preference, linked AvAI account id | Until account deletion |
 | Sign-in accounts | Google account link (provider ids and tokens) | Until account deletion |
 | Passkeys, MFA recovery codes | Public key and metadata; recovery codes hashed | Until removed by the user, or account deletion |
-| Sessions | Hashed token, created / last-seen / last-auth times, how the user signed in, browser user-agent string. No IP address. | Deleted at sign-out; expire after 30 days. No scheduled purge of expired rows. |
+| Sessions | Hashed token, created / last-seen / last-auth times, how the user signed in, browser user-agent string. No IP address. | Deleted at sign-out, or within a day of expiring (30 days without use) |
 | Account security events | What changed and when: password, MFA, recovery codes, passkeys, sessions signed out, security-notice setting, App Lock reset code issued (never the code) | Until account deletion |
-| Password-reset, email-verification, deletion-confirmation tokens | Hashed token, email, expiry | Valid 60 minutes / 24 hours / 24 hours. No scheduled purge of expired rows. |
-| Rate-limit counters | Hashed key (email, IP or phone hashed), attempt count, window start | Overwritten each window. No scheduled purge. |
-| Deletion requests | Email, hashed token, requested / confirmed / completed times, operator's completion note | Kept as the record that the request was handled; not deleted |
+| Password-reset, email-verification, deletion-confirmation tokens | Hashed token, email, expiry | Valid 60 minutes / 24 hours / 24 hours; deleted 7 days after expiry. A deletion request someone confirmed is kept (next row). |
+| Rate-limit counters | Hashed key (email, IP or phone hashed), attempt count, window start | Reset each window (at most 24 hours); deleted 7 days after the window started |
+| Deletion requests | Email, hashed token, requested / confirmed / completed times, operator's completion note | Confirmed requests: kept as the record that the request was handled. Unconfirmed: deleted 7 days after the link expires. |
 | SAR organisations | Team details, contact name, email, verified phone; status history; the team's terms for its members | Kept as evidence once the team has history; never deleted (runbook "Removing a SAR org") |
 | SAR memberships, invitations, staff roles | Who belongs to which team or role, who invited them, history logs | Until removed; logs kept as evidence |
 | SAR alerts received from AvServ | Alert, follow-ups, acknowledgements | Position and planned route removed 24 hours after the alert ends; the alert, follow-ups and acknowledgements deleted 90 days after it ends |

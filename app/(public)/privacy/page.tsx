@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: October 19, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: October 28, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -76,8 +76,8 @@ export default function PrivacyPolicyPage() {
           <h3 className="mt-5">Emergency contact details</h3>
           <p className="mt-2">
             To run the check-out/check-in feature you give AvAI the name and contact
-            details (email address and, where provided, phone number) of the emergency
-            contact you choose. We store these on AvServ and use them for exactly one
+            details (a mobile phone number, required because alerts go by text, and
+            optionally an email address) of the emergency contact you choose. We store these on AvServ and use them for exactly one
             thing: delivering your overdue and all-clear alerts. If you name someone as
             your emergency contact, please tell them — we hold their contact details on
             your instruction.
@@ -147,8 +147,8 @@ export default function PrivacyPolicyPage() {
             AvAI does not track you across other companies&apos; apps or websites and sends
             no data to advertising or data-broker networks. The iOS privacy manifest
             declares tracking: none, with an empty tracking-domain list, and every data
-            type it declares (precise location, coarse location, photos) is marked
-            &quot;not used for tracking.&quot; We do not sell personal data.
+            type it declares (listed under &quot;Apple privacy-manifest disclosures&quot;
+            below) is marked &quot;not used for tracking.&quot; We do not sell personal data.
           </p>
         </section>
 
@@ -357,10 +357,14 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>Apple privacy-manifest disclosures</h2>
           <p className="mt-3">
-            For transparency, the iOS app&apos;s privacy manifest declares exactly the
-            collection described above: precise location, coarse location, and photos —
-            each linked to your account, used for app functionality only, and not used for
-            tracking. The manifest also declares the app&apos;s use of four
+            For transparency, the iOS app&apos;s privacy manifest declares the data the app
+            sends, each used for app functionality only and not used for tracking. Linked to
+            your account: your name and email address; the emergency contacts you enter;
+            precise and coarse location; a device ID the app generates (not Apple&apos;s
+            advertising or vendor identifier); other content you enter (return times and the
+            Send Help note); and other diagnostic data (your phone&apos;s state during a
+            check-out). Not linked to you: crash data. Photos are not declared because they
+            stay on your phone. The manifest also declares the app&apos;s use of four
             &quot;required-reason&quot; system APIs, in each case for ordinary app
             operation rather than fingerprinting: user preferences storage (CA92.1), file
             timestamps (C617.1), free disk space (E174.1), and system boot time (35F9.1).
