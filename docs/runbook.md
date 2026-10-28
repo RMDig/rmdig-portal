@@ -342,11 +342,14 @@ policy (`MAINTENANCE_CSP`). **Never add another `Content-Security-Policy` header
 `next.config.ts` or the middleware): Vercel copies response headers onto the request after the
 middleware runs, where a nonce-less one replaced the nonce policy before the render and left
 every script without a nonce (2026-10-20; `next start` doesn't do this, so local e2e can't catch
-it). So while Report-Only, nothing CSP is enforced; `X-Frame-Options: DENY` still blocks framing. Check a deploy with
-`curl -s https://rmdig.ai/ | grep -c 'nonce="'`: it should be well above zero.
+it). `X-Frame-Options: DENY` also blocks framing. Check a deploy with
+`curl -s https://rmdig.ai/ | grep -o '<script[^>]*nonce=' | wc -l`: it should be well above zero
+(the page is one line, so `grep -c` reads 1). The only scripts without a nonce are
+`application/ld+json` blocks, which browsers don't run.
 
-**Report-Only first (S-D9).** The policy ships as `Content-Security-Policy-Report-Only`: it blocks
-nothing and reports what it would block. Production reports go to Sentry (the portal project,
+**Report-Only first (S-D9).** The policy shipped as `Content-Security-Policy-Report-Only` for
+2026-10-20 → 28: it blocked nothing and reported what it would block. Violations are still
+reported the same way now that it's enforced. Production reports go to Sentry (the portal project,
 Issues, search `event.type:csp`). Previews and local dev report to the browser console only.
 
 **Reading reports.** Each names the directive and the blocked URL. Browser extensions cause
@@ -354,9 +357,9 @@ noise (`chrome-extension://`, `moz-extension://`, injected inline scripts): igno
 one is a host or script the site itself loads: add it to `lib/csp.ts` (with a test) or remove the
 load.
 
-**Enforcing.** After a week with no real reports: in `middleware.ts`, set
-`ENFORCE_CSP = true`. Update the header assertions in
-`tests/unit/csp.test.ts` and `tests/e2e/csp.mock.spec.ts`, then ship it. Check after deploy:
+**Enforcing.** Enforced since 2026-10-28 (`ENFORCE_CSP = true` in `middleware.ts`), after
+a Report-Only week. Reports keep arriving in Sentry the same way; a real one now means
+something was blocked, so fix it promptly. Check after any deploy that touches it:
 `curl -sI https://rmdig.ai/ | grep -i content-security`, then sign in and open `/map` with
 the browser console open.
 

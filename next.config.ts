@@ -9,7 +9,7 @@ import type { NextConfig } from "next";
 // H1) with a per-request nonce. On Vercel these headers are also copied onto
 // the request, so a static CSP here replaced the nonce one before the render
 // and left every script without a nonce (2026-10-20). X-Frame-Options blocks
-// framing everywhere, including while the CSP is Report-Only.
+// framing everywhere, alongside the CSP's frame-ancestors 'none'.
 //
 // Strict-Transport-Security is only set in production — local dev runs http.
 

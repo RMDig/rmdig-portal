@@ -2,9 +2,9 @@
 // env-free: middleware.ts imports it into the Edge bundle (CLAUDE.md §3.6) and
 // passes in what it reads from process.env.
 //
-// It ships as Report-Only first (owner decision S-D9: one week, then a one-line
-// enforce change). It must be the only CSP header a page gets (middleware.ts
-// says why), so it carries the old baseline directives too.
+// Enforced since 2026-10-28, after a Report-Only week (owner decision S-D9).
+// It must be the only CSP header a page gets (middleware.ts says why), so it
+// carries the old baseline directives too.
 
 /** Map hosts (components/map/basemap.ts): MapTiler's style, tiles, glyphs and
  *  sprites, and the OpenStreetMap raster fallback. MapLibre fetches them, so
