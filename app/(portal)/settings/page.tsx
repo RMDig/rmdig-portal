@@ -108,6 +108,19 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
           <div className="space-y-1.5">
+            <CardTitle>Emergency contacts</CardTitle>
+            <CardDescription>
+              See which of your emergency contacts have replied YES to accept.
+            </CardDescription>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/settings/contacts">View contacts</Link>
+          </Button>
+        </CardHeader>
+      </Card>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
             <CardTitle>Sessions</CardTitle>
             <CardDescription>
               See the browsers signed in to your account, and sign out any you don&apos;t recognise.
