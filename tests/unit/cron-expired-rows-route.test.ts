@@ -21,7 +21,7 @@ beforeEach(() => {
   h.sentry.withMonitor.mockImplementation((_slug: string, cb: () => unknown) => cb());
   h.sentry.flush.mockResolvedValue(true);
   h.env.CRON_SECRET = SECRET;
-  h.run.mockResolvedValue({ sessions: 4, passwordResetTokens: 0, verificationTokens: 1, unconfirmedDeletionRequests: 0, rateLimits: 9 });
+  h.run.mockResolvedValue({ sessions: 4, passwordResetTokens: 0, verificationTokens: 1, unconfirmedDeletionRequests: 0, unacceptedInvitations: 2, rateLimits: 9 });
 });
 
 describe("GET /api/cron/expired-rows", () => {
