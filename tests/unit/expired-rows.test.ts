@@ -42,12 +42,22 @@ beforeEach(() => {
 
 describe("deleteExpiredRows", () => {
   it("counts what it deleted from each table, in one transaction", async () => {
-    h.rows = { sessions: [{}, {}], password_reset_tokens: [{}], verification_tokens: [], deletion_requests: [{}], rate_limits: [{}, {}, {}] };
+    h.rows = {
+      sessions: [{}, {}],
+      password_reset_tokens: [{}],
+      verification_tokens: [],
+      deletion_requests: [{}],
+      org_invitations: [{}],
+      platform_role_invitations: [{}],
+      advertiser_invitations: [{}, {}],
+      rate_limits: [{}, {}, {}],
+    };
     expect(await deleteExpiredRows(NOW)).toEqual({
       sessions: 2,
       passwordResetTokens: 1,
       verificationTokens: 0,
       unconfirmedDeletionRequests: 1,
+      unacceptedInvitations: 4,
       rateLimits: 3,
     });
   });
@@ -69,6 +79,16 @@ describe("deleteExpiredRows", () => {
     expect(q.sql).toMatch(/"status" = \$1 and "deletion_requests"\."token_expires_at" < \$2/);
     expect(q.params[0]).toBe("pending_confirmation");
   });
+
+  it.each(["org_invitations", "platform_role_invitations", "advertiser_invitations"])(
+    "deletes only unaccepted %s, after the grace period: an accepted one records who invited whom",
+    async (table) => {
+      await deleteExpiredRows(NOW);
+      const q = query(table);
+      expect(q.sql).toMatch(/"accepted_at" is null and "\w+"\."expires_at" < \$1/);
+      expect(new Date(q.params[0] as string).toISOString()).toBe(new Date(NOW.getTime() - GRACE_DAYS * 86_400_000).toISOString());
+    },
+  );
 
   it("never deletes a rate-limit window that could still be counting", () => {
     expect(GRACE_DAYS * 86_400).toBeGreaterThanOrEqual(MAX_RATE_LIMIT_WINDOW_SEC);

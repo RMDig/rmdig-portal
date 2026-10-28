@@ -1108,7 +1108,7 @@ allows 90 minutes before it calls a run missed.
 | Route | UTC | Monitor | Does |
 |---|---|---|---|
 | `/api/cron/sar-retention` | 09:30 | `portal-sar-retention` | SAR alert retention |
-| `/api/cron/expired-rows` | 10:00 | `portal-expired-rows` | deletes expired sessions, reset and verification tokens, unconfirmed deletion requests and spent rate-limit rows (`lib/retention/expired-rows.ts`) |
+| `/api/cron/expired-rows` | 10:00 | `portal-expired-rows` | deletes expired sessions, reset and verification tokens, unconfirmed deletion requests, unaccepted invitations and spent rate-limit rows (`lib/retention/expired-rows.ts`) |
 | `/api/cron/sar-alert-notify` | 12:00 | `portal-sar-alert-notify` | retries owed SAR team emails |
 | `/api/cron/avserv-checks` | 14:00 | `portal-avserv-checks` | Admin → AvServ checks |
 | `/api/cron/patrol-reverify` | 15:00 | `portal-patrol-reverify` | ski patrol re-verification reminders |

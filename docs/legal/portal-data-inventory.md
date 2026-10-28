@@ -45,7 +45,8 @@ sign-in accounts, MFA rows, passkeys, memberships, tokens and security events.
 | Rate-limit counters | Hashed key (email, IP or phone hashed), attempt count, window start | Reset each window (at most 24 hours); deleted 7 days after the window started |
 | Deletion requests | Email, hashed token, requested / confirmed / completed times, operator's completion note | Confirmed requests: kept as the record that the request was handled. Unconfirmed: deleted 7 days after the link expires. |
 | SAR organisations | Team details, contact name, email, verified phone; status history; the team's terms for its members | Kept as evidence once the team has history; never deleted (runbook "Removing a SAR org") |
-| SAR memberships, invitations, staff roles | Who belongs to which team or role, who invited them, history logs | Until removed; logs kept as evidence |
+| SAR memberships, staff roles | Who belongs to which team or role, history logs | Until removed; logs kept as evidence |
+| Invitations (team, staff, advertiser) | Invitee email, role, hashed token, who invited them | Valid 14 days. Unaccepted: deleted 7 days after expiry. Accepted: kept as the record of who invited whom |
 | SAR alerts received from AvServ | Alert, follow-ups, acknowledgements | Position and planned route removed 24 hours after the alert ends; the alert, follow-ups and acknowledgements deleted 90 days after it ends |
 | SAR alert and map view logs | Which team member viewed which alert or the map, when | 365 days |
 | Restriction review requests | The user's message and the operator's decision note | Until account deletion |
