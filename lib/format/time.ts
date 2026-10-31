@@ -21,3 +21,10 @@ export function formatMountain(d: Date): string {
 export function formatMountainDate(d: Date): string {
   return d.toLocaleDateString("en-US", { timeZone: ZONE, year: "numeric", month: "short", day: "numeric" });
 }
+
+/** "in about 5 hours", for a refusal that carried Retry-After seconds. */
+export function retryInText(sec: number | undefined): string {
+  if (!sec) return "later today";
+  const hours = Math.ceil(sec / 3600);
+  return hours <= 1 ? "in about an hour" : `in about ${hours} hours`;
+}
