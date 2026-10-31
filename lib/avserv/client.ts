@@ -3,7 +3,15 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { env } from "../env";
-import { AvServError, avservFetch, commonStatusError, fetchOnAnyNode, isMock } from "./request";
+import {
+  AvServError,
+  AvServRateLimitedError,
+  avservFetch,
+  commonStatusError,
+  fetchOnAnyNode,
+  isMock,
+  retryAfterSec,
+} from "./request";
 
 export { AvServError } from "./request";
 
@@ -207,9 +215,11 @@ export async function findOrCreateAccount(email: string): Promise<AvServAccount>
 /**
  * Mint a single-use device link-code for an AvServ account (P-B2, portal mints
  * / app consumes). The user types the returned code into AvApp to bind a device
- * to this account. Throws {@link AvServError} on any failure; the caller surfaces
- * a retry-friendly message. Unlike the login map, this is user-initiated, so a
- * failure is shown rather than silently retried.
+ * to this account. Throws {@link AvServError} on any failure, and
+ * {@link AvServRateLimitedError} past the node's cap of 10 mints per account per
+ * day (P-B2). Unlike the login map, this is user-initiated, so a failure is shown
+ * rather than silently retried. AvServ stores only a hash: the code in this
+ * response can't be fetched again, and a lost code means minting a new one.
  */
 export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
   if (!accountId) {
@@ -242,6 +252,9 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
 
   const shared = commonStatusError(res.status);
   if (shared) throw shared;
+  if (res.status === 429) {
+    throw new AvServRateLimitedError("AvServ refused the link code: account over its daily cap (429)", retryAfterSec(res));
+  }
   if (res.status === 400) {
     // Malformed accountId. We only ever mint for an id AvServ itself returned,
     // so this means our stored mapping is corrupt — surface it distinctly.
