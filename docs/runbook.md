@@ -851,7 +851,7 @@ Two independent mechanisms, different failure domains:
 
 **Restore drill** (quarterly — an untested backup is a hope, not a backup):
 
-Last run: 2026-10-11, passed (AvServ `docs/drills/log.md`).
+Last run: 2026-10-11, passed (`avserv-ops` `docs/drills/log.md`).
 
 1. Download the newest `portal-db/*.dump.age` from R2.
 2. Decrypt it in a temporary directory, and `cd ~` before step 3 (a shell left in a

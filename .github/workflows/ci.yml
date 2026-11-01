@@ -119,7 +119,9 @@ jobs:
     # main has already passed this on its PR, so we don't re-run (or spin up a
     # Neon branch) on every push to main.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    # Pinned: Playwright installs browsers per OS, and ubuntu-latest moving to
+    # 26.04 fails the install on Playwright 1.60. Move this with an upgrade.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
