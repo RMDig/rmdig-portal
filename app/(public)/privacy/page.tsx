@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: October 28, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 1, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -167,7 +167,8 @@ export default function PrivacyPolicyPage() {
             <li>
               <span className="font-medium text-neutral-900 dark:text-neutral-50">Service providers</span> — we
               use Vercel (web hosting), Neon (database), Resend (transactional email),
-              Twilio (SMS alert delivery), Sentry (error reporting), and Cloudflare
+              Postmark (email from the AvAI servers), Twilio (SMS alert delivery), Sentry
+              (error reporting), and Cloudflare
               (DNS/network) to run the service. They process data on our behalf and are not
               permitted to use it for their own purposes.
             </li>
