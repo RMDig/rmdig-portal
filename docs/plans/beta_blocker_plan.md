@@ -239,7 +239,7 @@ This workstream is lower urgency and can start after the blockers.
   - real dispatch is live on both nodes;
   - the service-key route groups are on both nodes;
   - `AVSERV_SAR_INTAKE_KEYS` is set.
-- [x] Run a portal restore drill and record it. (2026-10-11, AvServ `docs/drills/log.md`.)
+- [x] Run a portal restore drill and record it. (2026-10-11, `avserv-ops` `docs/drills/log.md`.)
 
 ## 5. Decisions
 
@@ -302,7 +302,8 @@ This workstream is lower urgency and can start after the blockers.
 ## 5c. Drill programme
 
 Every drill has a written pass criterion and is recorded (date, tag, result, follow-ups)
-in the AvServ runbook drill log. The **pre-beta** set runs on the beta release tag.
+in the private `avserv-ops` repo, `docs/drills/log.md`. The **pre-beta** set runs on the
+beta release tag, so the passes below are owed again on that tag.
 
 | Drill | What it proves | Pass criterion | When |
 |---|---|---|---|
@@ -311,28 +312,29 @@ in the AvServ runbook drill log. The **pre-beta** set runs on the beta release t
 | Dead canary | The peer notices a canary that stops reporting | Page within the documented window | Pre-beta, then quarterly |
 | Avalanche (burst) | Many simultaneous overdues dispatch within budget | All delivered within the capacity target; no pool exhaustion | Pre-beta, then before raising cohort size |
 | Carrier failure (B2) | A carrier-failed SMS reopens, re-sends and pages | Undelivered SMS to a landline-type number; reopen, page and re-send observed | Pre-beta, then after any dispatch change |
-| Carrier failover (W8) | A primary provider outage falls over to the secondary | Alert arrives through the secondary within one window | Once W8 ships, then quarterly |
+| Carrier failover (W8) | A primary provider outage falls over to the secondary | Alert arrives through the secondary within one window | Once Telnyx is sending, then quarterly |
 | Monitoring dead-man | A dead Alertmanager or Prometheus pages externally | `make monitoring-down` leads to an external page | Pre-beta on each node, then quarterly |
 | Operator escalation | An unacked critical page reaches the secondary | The secondary is contacted within 15 min | Pre-beta, then quarterly |
 | Incident rehearsal | The "alert not delivered" runbook works end to end | Tabletop exercise completed; runbook gaps filed | Pre-beta, then twice a year |
 | Portal restore | A nightly backup restores to a working database | Restored branch passes `/readyz`; row counts match | Pre-beta, then quarterly |
 | CPA deletion end to end | A deletion request finishes within 45 days across services | A test account erased in portal and AvServ; reminders fired | Once W5 ships, then twice a year |
 
-**Status on `v1.5.0-rc53` (2026-10-09), logged in AvServ `docs/drills/log.md`:**
+**Status on `v1.5.0-rc53` (2026-10-09), logged in `avserv-ops` `docs/drills/log.md`:**
 
 - **Passed:**
   - Dead canary, in both directions.
   - Kill a node, on both nodes.
   - Clock skew.
   - Avalanche burst: a capacity ramp to 10× a 100-user target with no knee, 200 simultaneous on the harness, 25 live on production.
-- **Ran but not logged yet:** monitoring dead-man. Log it.
+  - Monitoring dead-man, on both nodes.
 - **Still to run, and what each needs:**
-  - **Carrier failure (B2):** an owned landline to send the undeliverable SMS to.
-  - **Operator escalation:** the secondary contact set up in PagerDuty.
+  - **Carrier failure (B2):** an owned landline to send the undeliverable SMS to. Run it while plan 63 is `off` or `notice`: a landline can't reply YES, so `enforced` refuses the check-out.
+  - **Operator escalation:** routing passed on 2026-10-12; the 15-minute leg needs the secondary contact set up in PagerDuty.
   - **Incident rehearsal:** the same secondary contact.
-  - **CPA deletion end to end: PASSED 2026-10-11** (logged in AvServ `docs/drills/log.md`; a drill account with no app data; a re-run with a check-out and a contact is a follow-up). It ran by hand. Follow portal runbook "Data-deletion requests" in its order: the teams lookup and AvAI account ids first (both are lost once the portal user is deleted or the AvServ account erased), then W5's erasure CLI on the nodes, then delete the portal user, then Mark completed. The portal doesn't call AvServ's erasure endpoint, and doesn't need to for the drill. Automating that (with the `account_erasure` route group on the portal's key) is a later portal change. The runbook names the CLI since 2026-10-10.
+  - **CPA deletion end to end: PASSED 2026-10-11** (logged in `avserv-ops` `docs/drills/log.md`; a drill account with no app data; a re-run with a check-out and a contact is a follow-up). It ran by hand. Since #186 an operator erases from the request's card in the deletion queue, with W5's CLI as the fallback; AvServ `docs/drills/cpa-deletion.md` and portal runbook "Data-deletion requests" have the order. No worker does this yet (plan 35).
   - **Portal restore: PASSED 2026-10-11.** The 10-10 nightly dump went into an emptied scratch branch; 35/35 tables matched; `db:migrate`; then `/readyz` ready. The runbook steps were updated from it (#155).
-  - **Carrier failover (W8):** waits until W8 is implemented.
+  - **Carrier failover (W8):** the code is live but not sending; waits on the Telnyx rollout (plan 45).
+- **Before plan 63 moves to `enforced`:** `fleet drill` registers a new account on every run, so each check-out it arms would be refused. AvServ's fixed-device option is a gate for `enforced` (AvServ plan 63 A9).
 
 ## 5a. Progress log
 
@@ -387,7 +389,7 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
   - #234 adds `AlertmanagerNotifyFailing`, which pages when any receiver fails to deliver.
   - #237 labels Pushover recoveries "RESOLVED:" at normal priority.
 - **§7.4 monitoring is done on both nodes:** PagerDuty per node, plus healthchecks.io dead-man checks. §7.4 below now has the three setup gotchas.
-- **§5c pre-beta drills on rc53:** see §5c for what passed and what remains. Results are in AvServ `docs/drills/log.md`.
+- **§5c pre-beta drills on rc53:** see §5c for what passed and what remains. Results are in `avserv-ops` `docs/drills/log.md`.
 - **Finding:** both live nodes are on Comcast (§5b S3; owner decision recorded there).
 
 **2026-10-08 to 10-09, portal wave merged.**
@@ -648,7 +650,7 @@ Done on both nodes as of 2026-10-09 (§5a).
 ### 7.5 Pre-beta drills (on the release tag)
 
 Run the §5c pre-beta set using `AvServ/docs/drills/` and `go run ./cmd/fleet drill`.
-Record each in `docs/drills/log.md`.
+Record each in `avserv-ops` `docs/drills/log.md`.
 
 ## 8. Session kickoff prompts (one session per repo or role)
 
