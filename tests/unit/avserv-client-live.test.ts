@@ -90,6 +90,21 @@ describe("failover to AVSERV_FAILOVER_BASE_URL (real path)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("reports a 429 with its Retry-After and never asks the other node", async () => {
+    const res = jsonResponse(429, { code: "rate_limited", error: "too many link codes" });
+    res.headers.set("retry-after", "7200");
+    const fetchMock = vi.fn().mockResolvedValue(res);
+    vi.stubGlobal("fetch", fetchMock);
+    const { mintLinkCode } = await import("@/lib/avserv/client");
+
+    await expect(mintLinkCode(ACCOUNT)).rejects.toMatchObject({
+      name: "AvServRateLimitedError",
+      status: 429,
+      retryAfterSec: 7200,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("does not fail over on a 4xx from the primary", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(404, { error: "account not found" }));
     vi.stubGlobal("fetch", fetchMock);

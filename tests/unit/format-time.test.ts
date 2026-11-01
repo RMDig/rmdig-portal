@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMountain, formatMountainDate } from "@/lib/format/time";
+import { formatMountain, formatMountainDate, retryInText } from "@/lib/format/time";
 
 // Every date the portal shows is Mountain time, whatever zone the server runs
 // in (UTC on Vercel), so a team and staff read the same clock.
@@ -37,5 +37,16 @@ describe("no date in the server's zone", () => {
     };
     for (const root of ["app", "components", "lib"]) walk(join(process.cwd(), root));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("retryInText", () => {
+  it("rounds up to whole hours", () => {
+    expect(retryInText(5 * 3600 - 60)).toBe("in about 5 hours");
+    expect(retryInText(1800)).toBe("in about an hour");
+  });
+
+  it("says later today with no usable number", () => {
+    expect(retryInText(undefined)).toBe("later today");
   });
 });

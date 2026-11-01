@@ -31,6 +31,25 @@ export class AvServError extends Error {
   }
 }
 
+/** AvServ refused for now (429). The caller tells the user and never retries:
+ *  each node keeps its own count, so asking the other node would only spend
+ *  that node's allowance too. */
+export class AvServRateLimitedError extends AvServError {
+  constructor(
+    message: string,
+    readonly retryAfterSec: number | undefined,
+  ) {
+    super(message, 429, "rate_limited");
+    this.name = "AvServRateLimitedError";
+  }
+}
+
+/** The Retry-After header in seconds, when it holds a usable number. */
+export function retryAfterSec(res: Response): number | undefined {
+  const sec = Number(res.headers.get("retry-after"));
+  return Number.isFinite(sec) && sec > 0 ? sec : undefined;
+}
+
 export function isMock(baseUrl: string): boolean {
   return baseUrl.startsWith(MOCK_SCHEME);
 }

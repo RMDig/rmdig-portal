@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { codeStillLive, LINK_POLL_MS, newlyLinked } from "@/app/(portal)/settings/link-watch";
+import { codeStillLive, groupLinkCode, LINK_POLL_MS, newlyLinked } from "@/app/(portal)/settings/link-watch";
 
 const ios = { deviceId: "dev-ios", platform: "iOS" };
 const android = { deviceId: "dev-android", platform: "Android" };
@@ -39,5 +39,16 @@ describe("codeStillLive", () => {
 
   it("polls at most 120 times over a 10-minute code", () => {
     expect((10 * 60 * 1000) / LINK_POLL_MS).toBe(120);
+  });
+});
+
+describe("groupLinkCode", () => {
+  it("groups AvServ's 8-character code", () => {
+    expect(groupLinkCode("ABCD2345")).toBe("ABCD-2345");
+  });
+
+  it("leaves an already grouped or unexpected code alone", () => {
+    expect(groupLinkCode("ABCD-2345")).toBe("ABCD-2345");
+    expect(groupLinkCode("ABC")).toBe("ABC");
   });
 });

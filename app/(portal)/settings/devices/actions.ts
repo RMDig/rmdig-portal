@@ -33,7 +33,7 @@ import {
 import type { SessionAuthMethod } from "@/lib/db/schema";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { formatMountain } from "@/lib/format/time";
+import { formatMountain, retryInText } from "@/lib/format/time";
 import { logger } from "@/lib/logger";
 
 // Signing a phone out (plan 36 §5.1; AvServ device_revoke.md rev 2). Every
@@ -189,12 +189,6 @@ const RESET_CODE_LIMIT = { limit: 3, windowSec: 24 * 60 * 60 };
 
 export type ResetCodeResult = { ok: true; code: string; expiresText: string } | Failure | null;
 
-function retryText(sec: number | undefined): string {
-  if (!sec) return "later today";
-  const hours = Math.ceil(sec / 3600);
-  return hours <= 1 ? "in about an hour" : `in about ${hours} hours`;
-}
-
 export async function mintResetCodeAction(_prev: ResetCodeResult, formData: FormData): Promise<ResetCodeResult> {
   const id = deviceId.safeParse(formData.get("deviceId"));
   if (!id.success) return { ok: false, error: "That phone couldn't be found." };
@@ -213,7 +207,7 @@ export async function mintResetCodeAction(_prev: ResetCodeResult, formData: Form
     logger.warn({ event: "devices.reset_code.refused", userId: r.userId, node: answer.node, status: answer.status, code: answer.code });
     if (answer.code === "device_revoked") return { ok: false, error: "This phone is signed out, so it has no App Lock to reset." };
     if (answer.code === "rate_limited") {
-      return { ok: false, error: `This phone has had too many reset codes. Try again ${retryText(answer.retryAfterSec)}.` };
+      return { ok: false, error: `This phone has had too many reset codes. Try again ${retryInText(answer.retryAfterSec)}.` };
     }
     if (answer.code === "device_not_found") {
       return { ok: false, error: "The server doesn't know this phone yet. Try again in a minute." };

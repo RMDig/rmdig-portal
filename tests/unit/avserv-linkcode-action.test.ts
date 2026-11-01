@@ -33,6 +33,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 import { mintDeviceLinkCodeAction } from "@/app/(portal)/settings/actions";
+import { AvServRateLimitedError } from "@/lib/avserv/request";
 
 const fd = new FormData();
 
@@ -83,6 +84,27 @@ describe("mintDeviceLinkCodeAction", () => {
     if (!res.ok) expect(res.error).toMatch(/isn't linked/i);
     expect(h.mintLinkCode).not.toHaveBeenCalled();
     expect(h.log.warn).toHaveBeenCalled();
+  });
+
+  it("says when AvServ's own cap refuses, without retrying", async () => {
+    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.mintLinkCode.mockRejectedValue(new AvServRateLimitedError("over cap", 5 * 3600));
+
+    const res = await mintDeviceLinkCodeAction(null, fd);
+
+    expect(res).toEqual({ ok: false, error: "Too many link codes today. Try again in about 5 hours." });
+    expect(h.mintLinkCode).toHaveBeenCalledTimes(1);
+    expect(h.log.warn).toHaveBeenCalled();
+    expect(h.log.error).not.toHaveBeenCalled();
+  });
+
+  it("falls back to 'later today' when the refusal has no Retry-After", async () => {
+    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.mintLinkCode.mockRejectedValue(new AvServRateLimitedError("over cap", undefined));
+
+    const res = await mintDeviceLinkCodeAction(null, fd);
+
+    expect(res).toEqual({ ok: false, error: "Too many link codes today. Try again later today." });
   });
 
   it("surfaces a friendly error when minting fails", async () => {

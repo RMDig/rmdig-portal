@@ -4,8 +4,10 @@ import { eq } from "drizzle-orm";
 
 import { portalActor } from "@/lib/auth/portal-actor";
 import { mintLinkCode } from "@/lib/avserv/client";
+import { AvServRateLimitedError } from "@/lib/avserv/request";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
+import { retryInText } from "@/lib/format/time";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
 
@@ -62,6 +64,12 @@ export async function mintDeviceLinkCodeAction(
     logger.info({ event: "avserv.linkcode.minted", userId });
     return { ok: true, code, expiresAt };
   } catch (err) {
+    // Our limit runs from the first code of the day and AvServ's on each node
+    // separately, so AvServ can refuse while ours still allows one.
+    if (err instanceof AvServRateLimitedError) {
+      logger.warn({ event: "avserv.linkcode.node_rate_limited", userId, retryAfterSec: err.retryAfterSec });
+      return { ok: false, error: `Too many link codes today. Try again ${retryInText(err.retryAfterSec)}.` };
+    }
     // User-initiated, so surface the failure rather than silently retrying.
     logger.error({ event: "avserv.linkcode.failed", userId, err });
     return {

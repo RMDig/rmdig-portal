@@ -19,7 +19,7 @@ import {
   type RevokeOthersAnswer,
   type RevokeReason,
 } from "./device-revoke-types";
-import { AvServError, avservFetch, contractFailure, failureCode, isMock } from "./request";
+import { AvServError, avservFetch, contractFailure, failureCode, isMock, retryAfterSec } from "./request";
 import { avservNodes } from "./sar-teams";
 import { deviceAdminKeyConfigured, type KeyRole } from "./service-jwt";
 
@@ -161,9 +161,9 @@ export async function mintAppLockResetCode(accountId: string, deviceId: string, 
         });
         return { node: name, ok: false, status: res.status, code: "bad_response" };
       }
-      const retry = Number(res.headers.get("retry-after"));
+      const retry = retryAfterSec(res);
       const err = await contractFailure(res, false);
-      last = { node: name, ok: false, status: err.status, code: err.code, ...(Number.isFinite(retry) && retry > 0 ? { retryAfterSec: retry } : {}) };
+      last = { node: name, ok: false, status: err.status, code: err.code, ...(retry ? { retryAfterSec: retry } : {}) };
       if (res.status !== 503) return last;
     } catch (err) {
       last = { node: name, ok: false, code: failureCode(err, { node: name, path }) };

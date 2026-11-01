@@ -25,3 +25,9 @@ export function codeStillLive(expiresAt: string, now: number): boolean {
   const t = new Date(expiresAt).getTime();
   return !Number.isNaN(t) && now < t;
 }
+
+/** ABCD-EFGH: easier to read off a screen. AvServ ignores case, spaces and
+ *  dashes when the code is typed, so the dash is display only. */
+export function groupLinkCode(code: string): string {
+  return /^[A-Z0-9]{8}$/.test(code) ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+}

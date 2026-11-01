@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
 import { mintDeviceLinkCodeAction } from "./actions";
-import { codeStillLive, LINK_POLL_MS, newlyLinked, type DeviceSummary } from "./link-watch";
+import { codeStillLive, groupLinkCode, LINK_POLL_MS, newlyLinked, type DeviceSummary } from "./link-watch";
 import { useSingleSubmit } from "@/components/forms/single-submit";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,12 +71,13 @@ export function LinkDeviceCard({ devices }: { devices: DeviceSummary[] | null })
           <div className="space-y-2">
             <div className="rounded-md border bg-muted px-4 py-3 text-center">
               <span className="font-mono text-2xl tracking-widest tabular-nums">
-                {state.code}
+                {groupLinkCode(state.code)}
               </span>
             </div>
             <p className="text-muted-foreground text-sm">
               Enter this code in the AvAI app before {formatExpiry(state.expiresAt)}. This page
-              updates on its own once your device is linked. Generate a new code if it expires.
+              updates on its own once your device is linked. We can&apos;t show this code again, so
+              generate a new one if it expires or you lose it.
             </p>
           </div>
         ) : null}
