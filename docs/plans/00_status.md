@@ -18,8 +18,9 @@ reset codes redeemed in AvAI. Every check in AvApp's list passed. The security-e
 live the same day (rc80); actions before 18:25Z were never recorded.
 
 **AvServ**
-- **Plan 63 contact acceptance**: the gate and cutover are in §4a. The fixed-device option for
-  `fleet drill` is a gate for `enforced`; AvServ is building it next.
+- **Plan 63 contact acceptance**: the gates and cutover are in §4a. The fixed drill device
+  (AvServ #436) and the plan 64 notice are gates for `enforced`.
+- **Six retention changes**, then `data_retention.md` rev 3 (§4a).
 - Plan 52 PR C: live in rc106, along with the link-code 429 (#188). The code format stays
   8 characters of `[A-Z0-9]`.
 - **Plan 39 restrictions**: unblocks plan 32 (restriction review, on the mock) and plan 57.
@@ -47,8 +48,7 @@ live the same day (rc80); actions before 18:25Z were never recorded.
   `docs/drills/cpa-deletion.md`). It also closes the 10-11 deletion follow-up.
 - **After #188:** generate a link code on `/settings` and link a device by typing it with the dash.
 - **Contacts page after #187:** check `/settings/contacts` on production against the app's list.
-- **Retention:** confirm AvServ's production periods, the 30-day R2 backup lifecycle and the gaps
-  in its §4 (§4a).
+- **AvServ:** confirm the 30-day R2 lifecycle rule, merge #436, #437 and ops #9, and tag rc107.
 - App Lock in tester store builds: whether v1 TestFlight / Play internal include
   `AVAPP_APP_LOCK=true` (AvApp doc 41 row 11). Device builds have it since 2026-10-20.
 - Sentry: "Prevent storing IP addresses" and server-side scrubbing (plan 36 §11), if not done.
@@ -124,16 +124,16 @@ Counsel's User Agreement, Terms and Privacy Policy say a contact must accept bef
 check out, and the Terms say SMS consent comes from that acceptance. Today the gate is off and the
 approved A2P filing says YES is optional. So they go live in one cutover, not one at a time.
 
-**Gates** (facts from AvServ at `395ae02`, 2026-10-30)
+**Gates** (facts from AvServ, 2026-11-01)
 
 | Gate | Owner | State |
 |---|---|---|
 | Final text of all three, the assent line and the tick boxes | Counsel | Owner's tracked suggestions and questions go to counsel first |
 | User Agreement step (b) says "a text message and/or email" | Counsel | At launch a text reply is the only way to accept; email acceptance is plan 63 phase 2, with no route today. The text should say so, or the owner accepts it running ahead of the build |
-| User Agreement §4 says "we'll tell you" when a contact stops | Owner, counsel | Not true as written. On STOP, OPTOUT, REVOKE or RESIGN the account holder gets no message: the app shows `opted_out` or `declined`, and a new check-out naming that contact is refused. Either the text means "show in the app", or AvServ builds a notice. The plan 63 "Declined" text ("…we have let them know") is planned, not built, and needs the same answer |
-| Privacy Policy retention chart | AvServ, owner | AvServ reports `docs/contracts/data_retention.md` rev 1, but it isn't on AvServ `origin/main` yet. It's rebuilt from code defaults, so the owner confirms the production settings, the 30-day R2 lifecycle and the §4 gaps (for example, a removed contact's phone stays in consent records until the account is deleted). The portal's invitations row is still to add |
+| Plan 64 notice to the account holder | AvServ, AvApp, counsel | **Gate for `enforced`.** Decided, not built (AvServ #437): email plus AvApp's in-app notice, no SMS, so nothing joins the re-filing. Counsel's §4 sentence ("we will try to let you know by email… and in the app") is true only once both are live. Counsel also reads the "no one will be alerted" line, which changes if a SAR team covers the area |
+| Privacy Policy retention chart | AvServ, counsel | Both nodes run the defaults. `data_retention.md` on AvServ main (`6df7b11`) was still rev 1, with the six gaps open. Those are decided and need code; rows marked "Decided, being built" publish only once rev 3 marks them built. The portal drafts the server rows from it and adds its invitations row |
 | Second SMS provider stays in brackets | AvServ | Telnyx carries no live traffic; both nodes send through Twilio only |
-| `fleet drill` fixed-device option | AvServ | **Gate for `enforced`.** Every drill run registers a new account today, so each check-out would be refused with `contact_not_accepted`. Design is with the owner |
+| Fixed drill device | AvServ, owner | **Gate for `enforced`.** Built and tested (AvServ #436, draft; ops #9). Its credentials live in a private file on the operator's Mac, not in a repo. Kill-a-node, burst and clock skew all work under `enforced` |
 | Drills that must run before `enforced` | Owner | Carrier failure, because its landline can't reply YES (only while the stage is `off` or `notice`); plan 63 production drill (refused before the YES, armed after); harness drill on the build being switched |
 | Plan 38a A2P re-filing approved | AvServ, owner | Not approved yet; replying YES becomes required (plan 63 A6) |
 

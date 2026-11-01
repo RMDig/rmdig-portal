@@ -145,6 +145,16 @@ describe("compliance copy pins", () => {
     // render before it (AvApp doc 02 P0-13: "first paragraph").
     expect(src).toMatch(/<\/h1>\s*<p[^>]*>\{OPERATOR_CONTINUITY_DISCLOSURE\}<\/p>/);
   });
+
+  it("privacy page names both email providers", () => {
+    // Resend sends the portal's email, Postmark AvServ's.
+    const src = readFileSync(
+      join(process.cwd(), "app", "(public)", "privacy", "page.tsx"),
+      "utf8",
+    );
+    expect(src).toContain("Resend");
+    expect(src).toContain("Postmark");
+  });
 });
 
 describe("forbidden-phrase scan (doc 16 §6.2)", () => {
