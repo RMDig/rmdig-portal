@@ -176,6 +176,14 @@ describe("STOP and phone sign-out copy", () => {
     expect(page("alerts")).not.toMatch(/opts you out of all messages/i);
   });
 
+  it("says a contact who stopped can be chosen again after START", () => {
+    expect(page("terms")).toContain("can&apos;t be chosen for a new trip unless they reply START");
+  });
+
+  it("says a precise location goes with a check-out and Send Help", () => {
+    expect(page("privacy")).toContain("a precise location also goes with your check-out and any Send&nbsp;Help");
+  });
+
   it("doesn't call a phone revoke the end of the phone's session", () => {
     expect(page("privacy")).not.toContain("browsers or phones signed out");
   });

@@ -30,7 +30,7 @@ live the same day (rc80); actions before 18:25Z were never recorded.
   erasure key itself is installed on AvServ and set in Vercel Production.
 
 **Counsel**
-- **v10.26.26 User Agreement, Terms and Privacy Policy**: our v3 markup and questions went to
+- **v10.26.26 User Agreement, Terms and Privacy Policy**: our v4 markup and questions went to
   counsel 2026-11-02, after AvServ and AvApp checked them. Waiting on the reply (§4a).
 - **Security change log**: retention (AvServ proposes 400 days, held while live) and what
   account erasure does to it (default: deleted). `/privacy` has the `[LAWYER]` slot.
@@ -129,15 +129,15 @@ approved A2P filing says YES is optional. So they go live in one cutover, not on
 
 | Gate | Owner | State |
 |---|---|---|
-| Final text of all three, the assent line and the tick boxes | Counsel | v3 markup sent 2026-11-02. It corrects STOP (ends texts, not alerts), Send Help under acceptance, how a SAR team is reached, and removes the planned route, which isn't built |
-| User Agreement step (b) says "a text message and/or email" | Counsel | At launch a text reply is the only way to accept; email acceptance is plan 63 phase 2, with no route today. v3 suggests text only |
-| Plan 64 notice to the account holder | AvServ, AvApp, counsel | **Gate for `enforced`.** Designed, first parts merged or in review, not live on any node (AvServ #437): email plus AvApp's in-app notice, no SMS, so nothing joins the re-filing. Live means the email is on every node and the AvApp build with the notice is the minimum build. Counsel's §4 sentence ("we will try to let you know by email… and in the app") is true only once both are live. Counsel has the notice text; "no one will be alerted" goes out only when no contact can be reached by text or email and no SAR team is bound to the trip |
-| Privacy Policy retention chart | AvServ, counsel | Rev 2 is on AvServ main; rev 3 isn't written. v3 carries the rows, including the portal's invitations row. Rows marked "Decided, being built" publish only once rev 3 marks them built. R2's 30-day rule is unverified |
-| Email opt-out for contacts | AvServ, counsel | STOP doesn't end alert emails, and nothing stops them today. Decided, not built. It ships first, or the text says what a contact can do until it does |
-| Contact email field | AvApp | Not built: Add Contact takes name and phone, and the portal's contacts page is read-only. Owner, 2026-11-02: it can be developed during the beta and ships before live alpha. v3 marks it "when that option is available" |
-| Avalanche wording off the filing and `/sms` | AvServ, portal | Owner removed it 2026-11-01. Plan 38a's text and draft #85 still have it, and #79 has it in `/privacy` |
+| Final text of all three, the assent line and the tick boxes | Counsel | v4 markup sent 2026-11-02. It corrects STOP (ends texts, not alerts), Send Help under acceptance, how a SAR team is reached, and removes the planned route, which isn't built |
+| User Agreement step (b) says "a text message and/or email" | Counsel | At launch a text reply is the only way to accept; email acceptance is plan 63 phase 2, with no route today. v4 suggests text only |
+| Plan 64 notice to the account holder | AvServ, AvApp, counsel | **Gate for `enforced`.** Not live: AvServ steps 1–3 are merged and the sweep sends nothing; the email is being built (AvServ #437 merged the design). AvApp's in-app notice is merged (#430, #431) and ships in 1.0.0+8, but it can't fire until AvServ deploys contract rev 13. No SMS, so nothing joins the re-filing. Live means the email is on every node and the AvApp build with the notice is the minimum build. Counsel has the notice text; "no one will be alerted" goes out only when no contact can be reached by text or email and no SAR team is bound to the trip |
+| Privacy Policy retention chart | AvServ, counsel | Rev 2 is on AvServ main; rev 3 isn't written. v4 carries the rows, including the portal's invitations row. Rows marked "Decided, being built" publish only once rev 3 marks them built. R2's 30-day rule is unverified |
+| Email opt-out for contacts | AvServ, counsel | Moves with the contact email field: no real contact has an email stored on either node (AvServ, 2026-11-02). The field must not ship first, or a contact who replies STOP gets alert emails they can't stop. Both come before live alpha, and neither gates `enforced` |
+| Contact email field | AvApp | Not built: Add Contact takes name and phone, and the portal's contacts page is read-only. Owner, 2026-11-02: it can be developed during the beta and ships before live alpha. v4 marks it "when that option is available" |
+| Avalanche wording off the filing and `/sms` | AvServ, portal | Owner removed it 2026-11-01. It's out of plan 38a's description; drafts #85 and #79 still have it |
 | Second SMS provider stays in brackets | AvServ | Telnyx carries no live traffic; both nodes send through Twilio only |
-| Fixed drill device | AvServ, owner | **Gate for `enforced`.** Built and tested (AvServ #436, draft; ops #9). Its credentials live in a private file on the operator's Mac, not in a repo. Kill-a-node, burst and clock skew all work under `enforced` |
+| Fixed drill device | AvServ, owner | **Gate for `enforced`.** Built and merged (AvServ #436, ops #9). Its credentials live in a private file on the operator's Mac, not in a repo. Kill-a-node, burst and clock skew all work under `enforced` |
 | Drills that must run before `enforced` | Owner | Carrier failure, because its landline can't reply YES (only while the stage is `off` or `notice`); plan 63 production drill (refused before the YES, armed after); harness drill on the build being switched |
 | Plan 38a A2P re-filing approved | AvServ, owner | Not approved yet; replying YES becomes required (plan 63 A6) |
 
@@ -149,6 +149,8 @@ approved A2P filing says YES is optional. So they go live in one cutover, not on
 - AvServ and AvApp publish the agreement, then `pnpm agreement:pin v1` within 30 days (plan 31).
 - `/privacy` also gets the problem-reports section, if it hasn't shipped already. AvApp plan 61 needs it live before
   build 1.0.0+8, with the draft now with counsel.
+- `/terms` loses "We don't yet notify you when this happens" once a user can get the notice: AvServ on contract
+  rev 13 and AvApp 1.0.0+8 available. Word it for the app alone if AvServ's email isn't live yet.
 - `/settings/contacts` changes from "moving to require" to "required". Decide then whether to also
   say only accepted contacts get alerts (plan 63 A12).
 

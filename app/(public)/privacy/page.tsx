@@ -51,7 +51,9 @@ export default function PrivacyPolicyPage() {
             to AvServ — servers we run ourselves. It is used for one purpose: app
             functionality. Concretely, that means keeping your last-known location current
             while a check-out is armed, sending that location to your emergency contact if
-            you don&apos;t check in on time, and periodic device heartbeat reports. Photos
+            you don&apos;t check in on time, and periodic device heartbeat reports. If you
+            have allowed location access, a precise location also goes with your check-out
+            and any Send&nbsp;Help. Photos
             you capture may also embed the capture location in their metadata; at this
             stage of the beta those stay on your device (see below).
           </p>
