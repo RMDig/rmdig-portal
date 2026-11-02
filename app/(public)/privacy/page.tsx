@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 1, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 2, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -104,10 +104,11 @@ export default function PrivacyPolicyPage() {
           </p>
           <p className="mt-2">
             We also keep a log of security changes to your account (password and two-factor
-            changes, passkeys added or removed, browsers or phones signed out, and changes made
-            on your phones such as a phone linked or a contact added or removed). The log says
-            what happened and when. It doesn&apos;t name your contacts or record locations. You
-            can see it in Settings → Security.
+            changes, passkeys added or removed, browsers signed out, sign-outs requested for a
+            phone, and changes made on your phones such as a phone linked or a contact added or
+            removed). The log says what happened, when, and on which device, and it may not
+            capture every change. It doesn&apos;t name your contacts or record locations. You can
+            see it in Settings → Security.
           </p>
           <p className="mt-2">
             Security notices by email are off unless you turn them on. If you do, we email your
@@ -194,7 +195,7 @@ export default function PrivacyPolicyPage() {
           <p className="mt-3">
             You have the same rights as any data subject: reply{" "}
             <span className="font-medium text-neutral-900 dark:text-neutral-50">STOP</span>{" "}
-            to end messages or{" "}
+            to end text messages from AvAI or{" "}
             <span className="font-medium text-neutral-900 dark:text-neutral-50">HELP</span>{" "}
             for assistance, and you can{" "}
             <Link href="/account/delete" className="font-medium underline">
@@ -229,12 +230,14 @@ export default function PrivacyPolicyPage() {
             number as their emergency contact; alerts identify the user who named you. We
             ask users to get their contact&apos;s permission first. Reply{" "}
             <span className="font-medium text-neutral-900 dark:text-neutral-50">STOP</span>{" "}
-            to opt out of further messages or{" "}
+            to opt out of further text messages or{" "}
             <span className="font-medium text-neutral-900 dark:text-neutral-50">HELP</span>{" "}
             (or email {SUPPORT_EMAIL}) for assistance. Be aware of what opting out means
-            here: if you text STOP, you will not receive that person&apos;s safety alerts,
-            including a real overdue or Send&nbsp;Help alert — tell them so they can choose
-            a different emergency contact.
+            here: if you text STOP, AvAI&apos;s text messages to your number end, for every
+            user who named it, including real overdue and Send&nbsp;Help alerts. If we hold
+            your email address, we will try to continue alerts for a trip already under way
+            by email; if we don&apos;t, nothing reaches you. Tell the user who named you so
+            they can choose a different emergency contact.
           </p>
           <p className="mt-3">
             No mobile information will be shared with third parties or affiliates for
@@ -289,9 +292,9 @@ export default function PrivacyPolicyPage() {
                 <tr>
                   <td>Security change log</td>
                   <td>
-                    Changes made in the portal: until you delete your account. Changes made on your
-                    phones: held on AvServ for a period set in the legal review below, and longer
-                    while a check-out or Send Help is open
+                    Kept by this website: until you delete your account. Kept on AvServ, including
+                    a phone sign-out requested here: for a period set in the legal review below,
+                    and longer while a check-out or Send Help is open
                   </td>
                 </tr>
                 <tr>

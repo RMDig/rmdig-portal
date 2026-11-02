@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Incident Detection research — sensing backcountry accidents | RMDig",
   description:
-    "Early-stage AvAI research into whether a phone's motion sensors can recognize signs of a backcountry accident, such as a hard impact or avalanche involvement. Field testing is planned; there are no results yet.",
+    "Early-stage AvAI research into whether a phone's motion sensors can recognize signs of a backcountry accident, such as a hard impact. Field testing is planned; there are no results yet.",
   path: "/research/incident-detection",
 });
 
@@ -24,8 +24,7 @@ export default function IncidentDetectionPage() {
         <p>
           A missed check-in only raises the alarm once your return time has passed. We&apos;re
           researching whether a phone&apos;s motion sensors could recognize signs of an
-          accident sooner: for example, a hard impact followed by stillness, or the tumbling of
-          being caught in an avalanche.
+          accident sooner: for example, a hard impact followed by stillness.
         </p>
 
         <section className="space-y-3">

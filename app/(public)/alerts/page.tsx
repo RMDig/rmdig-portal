@@ -107,9 +107,11 @@ export default function AlertsExplainerPage() {
             <Link href="/account/delete" className="font-medium underline">
               request deletion
             </Link>
-            . Replying <strong>STOP</strong> to a text opts you out of all messages —
-            including real safety alerts about that person — so if you opt out, tell them
-            to choose a different emergency contact.
+            . Replying <strong>STOP</strong> to a text ends AvAI&apos;s text messages to your
+            number, for every AvAI user who named it, including real safety alerts. If we hold
+            your email address, we will try to continue alerts for a trip already under way by
+            email. If you opt out, tell the person who named you to choose a different
+            emergency contact.
           </p>
         </section>
 
