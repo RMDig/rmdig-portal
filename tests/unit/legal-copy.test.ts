@@ -157,6 +157,34 @@ describe("compliance copy pins", () => {
   });
 });
 
+// STOP ends texts, not alerts: AvServ keeps alerting by email when the trip
+// holds the contact's address (findings 2026-11-01, rows 3.1-3.4). The account
+// holder notice isn't built, so no page may say the user is told.
+describe("STOP and phone sign-out copy", () => {
+  const page = (path: string) =>
+    readFileSync(join(process.cwd(), "app/(public)", path, "page.tsx"), "utf8").replace(/\s+/g, " ");
+
+  it("says STOP ends text messages on every page that explains it", () => {
+    expect(page("privacy")).toContain("text messages to your number end, for every user who named it");
+    expect(page("terms")).toContain("for every user who named that number");
+    expect(page("alerts")).toContain("for every AvAI user who named it");
+  });
+
+  it("makes no claim that STOP ends all alerts or that the user is told", () => {
+    expect(page("privacy")).not.toMatch(/you will not receive that person/i);
+    expect(page("terms")).not.toMatch(/stops receiving your alerts|and you are told/i);
+    expect(page("alerts")).not.toMatch(/opts you out of all messages/i);
+  });
+
+  it("doesn't call a phone revoke the end of the phone's session", () => {
+    expect(page("privacy")).not.toContain("browsers or phones signed out");
+  });
+
+  it("doesn't describe avalanche detection on the research page", () => {
+    expect(page("research/incident-detection")).not.toMatch(/caught in an avalanche|avalanche involvement/i);
+  });
+});
+
 describe("forbidden-phrase scan (doc 16 §6.2)", () => {
   const files = publicSourceFiles();
 

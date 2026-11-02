@@ -25,7 +25,7 @@ export default function TermsPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: July 26, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 2, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -65,9 +65,12 @@ export default function TermsPage() {
             emergency contact, alerts flow to them by default — no confirmation from the
             contact is required first — and the delivery design favors sending an alert
             twice over risking not sending it at all, so your contact may occasionally
-            receive duplicate messages. A contact who opts out (for example by replying
-            STOP to a text) stops receiving your alerts, and you are told so you can
-            designate someone else.
+            receive duplicate messages. A contact who replies STOP to a text stops receiving
+            AvAI&apos;s text messages, for every user who named that number, and can&apos;t be
+            chosen for a new trip. If we hold their email address, we will try to continue
+            alerts for a trip already under way by email. We don&apos;t yet notify you when
+            this happens, so ask your contact to tell you if they opt out, and designate
+            someone else.
           </p>
           <LawyerPlaceholder>
             Assumption-of-risk and no-reliance clause for backcountry activity, consistent

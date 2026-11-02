@@ -1,13 +1,13 @@
 # 00 — Portal status and what's left
 
-> **As of 2026-11-01**: §0, §3 rows 35–36, §4, §4a, §5 and §7 are current; rows
+> **As of 2026-11-02**: §0, §3 rows 35–36, §4, §4a, §5 and §7 are current; rows
 > not touched since **2026-10-02** say so. This is the one place to see where every
 > portal plan stands. The plans themselves stay the specs; update this file when a
 > milestone moves. Sources: [CLAUDE_BOOTSTRAP.md](../../CLAUDE_BOOTSTRAP.md) §4 (Phase 1),
 > rmdig-ai `docs/plans/00–09`, this folder's plans 30–36, and the AvApp/AvServ plans
 > that name portal work.
 
-## 0. Waiting on others (as of 2026-11-01)
+## 0. Waiting on others (as of 2026-11-02)
 
 **Done 2026-10-20:** AvServ plan 52 B1/B2 live (rc74; doctor OK on rc79). The device-admin key
 `svc-key-portal-device-admin-1` is installed on both nodes (`device_admin` only;
@@ -30,7 +30,8 @@ live the same day (rc80); actions before 18:25Z were never recorded.
   erasure key itself is installed on AvServ and set in Vercel Production.
 
 **Counsel**
-- **v10.26.26 User Agreement, Terms and Privacy Policy**: §4a.
+- **v10.26.26 User Agreement, Terms and Privacy Policy**: our v3 markup and questions went to
+  counsel 2026-11-02, after AvServ and AvApp checked them. Waiting on the reply (§4a).
 - **Security change log**: retention (AvServ proposes 400 days, held while live) and what
   account erasure does to it (default: deleted). `/privacy` has the `[LAWYER]` slot.
 - **Review the 2026-10-19 `/privacy` additions** (sign-in records, passkeys, security log,
@@ -128,10 +129,13 @@ approved A2P filing says YES is optional. So they go live in one cutover, not on
 
 | Gate | Owner | State |
 |---|---|---|
-| Final text of all three, the assent line and the tick boxes | Counsel | Owner's tracked suggestions and questions go to counsel first |
-| User Agreement step (b) says "a text message and/or email" | Counsel | At launch a text reply is the only way to accept; email acceptance is plan 63 phase 2, with no route today. The text should say so, or the owner accepts it running ahead of the build |
-| Plan 64 notice to the account holder | AvServ, AvApp, counsel | **Gate for `enforced`.** Decided, not built (AvServ #437): email plus AvApp's in-app notice, no SMS, so nothing joins the re-filing. Counsel's §4 sentence ("we will try to let you know by email… and in the app") is true only once both are live. Counsel also reads the "no one will be alerted" line, which changes if a SAR team covers the area |
-| Privacy Policy retention chart | AvServ, counsel | Both nodes run the defaults. `data_retention.md` on AvServ main (`6df7b11`) was still rev 1, with the six gaps open. Those are decided and need code; rows marked "Decided, being built" publish only once rev 3 marks them built. The portal drafts the server rows from it and adds its invitations row |
+| Final text of all three, the assent line and the tick boxes | Counsel | v3 markup sent 2026-11-02. It corrects STOP (ends texts, not alerts), Send Help under acceptance, how a SAR team is reached, and removes the planned route, which isn't built |
+| User Agreement step (b) says "a text message and/or email" | Counsel | At launch a text reply is the only way to accept; email acceptance is plan 63 phase 2, with no route today. v3 suggests text only |
+| Plan 64 notice to the account holder | AvServ, AvApp, counsel | **Gate for `enforced`.** Designed, first parts merged or in review, not live on any node (AvServ #437): email plus AvApp's in-app notice, no SMS, so nothing joins the re-filing. Live means the email is on every node and the AvApp build with the notice is the minimum build. Counsel's §4 sentence ("we will try to let you know by email… and in the app") is true only once both are live. Counsel has the notice text; "no one will be alerted" goes out only when no contact can be reached by text or email and no SAR team is bound to the trip |
+| Privacy Policy retention chart | AvServ, counsel | Rev 2 is on AvServ main; rev 3 isn't written. v3 carries the rows, including the portal's invitations row. Rows marked "Decided, being built" publish only once rev 3 marks them built. R2's 30-day rule is unverified |
+| Email opt-out for contacts | AvServ, counsel | STOP doesn't end alert emails, and nothing stops them today. Decided, not built. It ships first, or the text says what a contact can do until it does |
+| Contact email field | AvApp | Not built: Add Contact takes name and phone, and the portal's contacts page is read-only. Owner, 2026-11-02: it can be developed during the beta and ships before live alpha. v3 marks it "when that option is available" |
+| Avalanche wording off the filing and `/sms` | AvServ, portal | Owner removed it 2026-11-01. Plan 38a's text and draft #85 still have it, and #79 has it in `/privacy` |
 | Second SMS provider stays in brackets | AvServ | Telnyx carries no live traffic; both nodes send through Twilio only |
 | Fixed drill device | AvServ, owner | **Gate for `enforced`.** Built and tested (AvServ #436, draft; ops #9). Its credentials live in a private file on the operator's Mac, not in a repo. Kill-a-node, burst and clock skew all work under `enforced` |
 | Drills that must run before `enforced` | Owner | Carrier failure, because its landline can't reply YES (only while the stage is `off` or `notice`); plan 63 production drill (refused before the YES, armed after); harness drill on the build being switched |
@@ -143,6 +147,8 @@ approved A2P filing says YES is optional. So they go live in one cutover, not on
 - `/sms` changes with the approved filing, because it quotes the filed text word for word (#85, with #82).
 - `/privacy` and `/terms` carry counsel's final text (#79); effective dates set at publish.
 - AvServ and AvApp publish the agreement, then `pnpm agreement:pin v1` within 30 days (plan 31).
+- `/privacy` also gets the problem-reports section, if it hasn't shipped already. AvApp plan 61 needs it live before
+  build 1.0.0+8, with the draft now with counsel.
 - `/settings/contacts` changes from "moving to require" to "required". Decide then whether to also
   say only accepted contacts get alerts (plan 63 A12).
 
