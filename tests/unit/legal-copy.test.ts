@@ -146,6 +146,15 @@ describe("compliance copy pins", () => {
     expect(src).toMatch(/<\/h1>\s*<p[^>]*>\{OPERATOR_CONTINUITY_DISCLOSURE\}<\/p>/);
   });
 
+  // AvApp plan 61 rule 7: this section is live before build 1.0.0+8 ships.
+  it("privacy page explains problem reports and how long they're kept", () => {
+    const privacy = readFileSync(join(process.cwd(), "app/(public)/privacy/page.tsx"), "utf8").replace(/\s+/g, " ");
+    expect(privacy).toContain("Settings → Privacy → Report a problem");
+    expect(privacy).toContain("never keep one longer than 30 days");
+    expect(privacy).toContain("Anonymous or with your account:");
+    expect(privacy).toContain("<td>Problem reports</td>");
+  });
+
   it("privacy page names both email providers", () => {
     // Resend sends the portal's email, Postmark AvServ's.
     const src = readFileSync(

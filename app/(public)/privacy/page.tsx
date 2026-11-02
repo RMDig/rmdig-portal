@@ -142,6 +142,40 @@ export default function PrivacyPolicyPage() {
             reachable&quot; reports). These exist so the watchdog can work and so we can
             audit that an alert really fired.
           </p>
+
+          <h3 className="mt-5">Problem reports</h3>
+          <p className="mt-2">
+            If something in the app doesn&apos;t work as expected, you can send us a
+            problem report from Settings → Privacy → Report a problem. We receive one only
+            when you send it. Before it&apos;s sent, the app shows you everything in it.
+          </p>
+          <p className="mt-2">
+            <em>What it contains:</em> your own description of the problem; a record of
+            how the app&apos;s safety features behaved on your phone over the previous 7
+            days (for example, which reminders were scheduled and shown, the steps of your
+            check-outs and check-ins, messages waiting to be sent and how our servers
+            answered, background activity and app errors); and your phone&apos;s make,
+            model, operating system version, language and clock setting, with its
+            notification, battery, background and location settings. It never contains
+            your location, your contacts&apos; names or phone numbers, your notes, or your
+            App Lock PIN. Identifiers in it are replaced with stand-ins.
+          </p>
+          <p className="mt-2">
+            <em>Anonymous or with your account:</em> you choose each time. An anonymous
+            report contains nothing that identifies you or your phone, and two anonymous
+            reports can&apos;t be connected. A report sent with your account also contains
+            your phone&apos;s AvAI device identifier and your display name, so we can
+            match it to our servers&apos; records.
+          </p>
+          <p className="mt-2">
+            <em>How it&apos;s handled:</em> the report is encrypted on your phone so that
+            only RMDig support can read it, then delivered through Sentry, our
+            error-reporting service provider, which stores it but cannot read it. We use
+            it only to diagnose and fix the problem you reported. We delete each report
+            once the problem is resolved, and never keep one longer than 30 days. To have
+            a report deleted sooner, email support@rmdig.ai with its report number.
+            Sending a report is never required to get support.
+          </p>
         </section>
 
         <section>
@@ -300,6 +334,10 @@ export default function PrivacyPolicyPage() {
                   </td>
                 </tr>
                 <tr>
+                  <td>Problem reports</td>
+                  <td>Until the problem is resolved, and never longer than 30 days</td>
+                </tr>
+                <tr>
                   <td>Volunteer sign-ups</td>
                   <td>In our staff email until you ask us to delete them</td>
                 </tr>
@@ -368,8 +406,9 @@ export default function PrivacyPolicyPage() {
             your account: your name and email address; the emergency contacts you enter;
             precise and coarse location; a device ID the app generates (not Apple&apos;s
             advertising or vendor identifier); other content you enter (return times and the
-            Send Help note); and other diagnostic data (your phone&apos;s state during a
-            check-out). Not linked to you: crash data. Photos are not declared because they
+            Send Help note); other diagnostic data (your phone&apos;s state during a check-out,
+            and what a problem report contains); and customer support data (your problem
+            reports). Not linked to you: crash data. Photos are not declared because they
             stay on your phone. The manifest also declares the app&apos;s use of four
             &quot;required-reason&quot; system APIs, in each case for ordinary app
             operation rather than fingerprinting: user preferences storage (CA92.1), file
