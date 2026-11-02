@@ -67,7 +67,7 @@ export default function TermsPage() {
             twice over risking not sending it at all, so your contact may occasionally
             receive duplicate messages. A contact who replies STOP to a text stops receiving
             AvAI&apos;s text messages, for every user who named that number, and can&apos;t be
-            chosen for a new trip. If we hold their email address, we will try to continue
+            chosen for a new trip unless they reply START. If we hold their email address, we will try to continue
             alerts for a trip already under way by email. We don&apos;t yet notify you when
             this happens, so ask your contact to tell you if they opt out, and designate
             someone else.
