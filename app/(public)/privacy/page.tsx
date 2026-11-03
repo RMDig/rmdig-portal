@@ -162,10 +162,13 @@ export default function PrivacyPolicyPage() {
           </p>
           <p className="mt-2">
             <em>Anonymous or with your account:</em> you choose each time. An anonymous
-            report contains nothing that identifies you or your phone, and two anonymous
-            reports can&apos;t be connected. A report sent with your account also contains
-            your phone&apos;s AvAI device identifier and your display name, so we can
-            match it to our servers&apos; records.
+            report contains no name, account or device ID. Each report includes your
+            phone&apos;s recent activity, so two reports from the same phone can overlap,
+            and support could tell they came from the same phone. That includes matching
+            an anonymous report to one you sent with your account. A report sent with your
+            account also contains your phone&apos;s AvAI device identifier, your display
+            name, and a map from the report&apos;s stand-ins to the real identifiers, so we
+            can match it to our servers&apos; records.
           </p>
           <p className="mt-2">
             <em>How it&apos;s handled:</em> the report is encrypted on your phone so that

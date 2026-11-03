@@ -152,6 +152,9 @@ describe("compliance copy pins", () => {
     expect(privacy).toContain("Settings → Privacy → Report a problem");
     expect(privacy).toContain("never keep one longer than 30 days");
     expect(privacy).toContain("Anonymous or with your account:");
+    expect(privacy).toContain("support could tell they came from the same phone");
+    expect(privacy).toContain("a map from the report&apos;s stand-ins to the real identifiers");
+    expect(privacy).not.toContain("two anonymous reports can&apos;t be connected");
     expect(privacy).toContain("<td>Problem reports</td>");
   });
 
