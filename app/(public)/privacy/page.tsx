@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 2, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 5, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -50,9 +50,11 @@ export default function PrivacyPolicyPage() {
             device&apos;s precise and coarse location, linked to your account, and sends it
             to AvServ — servers we run ourselves. It is used for one purpose: app
             functionality. Concretely, that means keeping your last-known location current
-            while a check-out is armed, sending that location to your emergency contact if
-            you don&apos;t check in on time, and periodic device heartbeat reports. If you
-            have allowed location access, a precise location also goes with your check-out
+            while a check-out is armed, and sending that location to your emergency contact
+            if you don&apos;t check in on time. While you&apos;re checked out, your phone
+            sends its location to AvAI, up to every 15 minutes. While the phone is locked,
+            iOS and Android decide when, sometimes an hour or more apart. With power saver
+            on, it&apos;s up to once an hour. If you have allowed location access, a precise location also goes with your check-out
             and any Send&nbsp;Help. Photos
             you capture may also embed the capture location in their metadata; at this
             stage of the beta those stay on your device (see below).
@@ -138,8 +140,8 @@ export default function PrivacyPolicyPage() {
           <h3 className="mt-5">Safety and telemetry records</h3>
           <p className="mt-2">
             AvServ keeps your check-out/check-in history (times, statuses, and the alerts
-            it dispatched) and device heartbeat telemetry (periodic &quot;the device is
-            reachable&quot; reports). These exist so the watchdog can work and so we can
+            it dispatched) and device heartbeat telemetry (the reports your phone sends
+            while you&apos;re checked out, described above). These exist so the watchdog can work and so we can
             audit that an alert really fired.
           </p>
 
@@ -162,10 +164,9 @@ export default function PrivacyPolicyPage() {
           </p>
           <p className="mt-2">
             <em>Anonymous or with your account:</em> you choose each time. An anonymous
-            report contains no name, account or device ID. Each report includes your
-            phone&apos;s recent activity, so two reports from the same phone can overlap,
-            and support could tell they came from the same phone. That includes matching
-            an anonymous report to one you sent with your account. A report sent with your
+            report goes to RMDig support with no name, account or device ID. Reports from
+            one phone can overlap, so support could tell two came from the same phone, even
+            if one was sent with your account. A report sent with your
             account also contains your phone&apos;s AvAI device identifier, your display
             name, and a map from the report&apos;s stand-ins to the real identifiers, so we
             can match it to our servers&apos; records.

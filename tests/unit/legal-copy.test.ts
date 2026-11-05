@@ -152,10 +152,26 @@ describe("compliance copy pins", () => {
     expect(privacy).toContain("Settings → Privacy → Report a problem");
     expect(privacy).toContain("never keep one longer than 30 days");
     expect(privacy).toContain("Anonymous or with your account:");
-    expect(privacy).toContain("support could tell they came from the same phone");
+    // Twin of AvApp #436: anonymous reports can be linked by phone, never "unknown sender".
+    expect(privacy).toContain(
+      "Reports from one phone can overlap, so support could tell two came from the same phone, even if one was sent with your account.",
+    );
+    expect(privacy).not.toContain("without knowing who sent it");
+    // Twin of AvApp #437.
     expect(privacy).toContain("a map from the report&apos;s stand-ins to the real identifiers");
     expect(privacy).not.toContain("two anonymous reports can&apos;t be connected");
     expect(privacy).toContain("<td>Problem reports</td>");
+  });
+
+  // Twin of AvApp #442: state the 15-minute ceiling and that the OS sets the
+  // cadence while locked; never promise a steady interval.
+  it("privacy page states how often a checked-out phone sends its location", () => {
+    const privacy = readFileSync(join(process.cwd(), "app/(public)/privacy/page.tsx"), "utf8").replace(/\s+/g, " ");
+    expect(privacy).toContain(
+      "While you&apos;re checked out, your phone sends its location to AvAI, up to every 15 minutes. While the phone is locked, iOS and Android decide when, sometimes an hour or more apart.",
+    );
+    expect(privacy).toContain("up to once an hour");
+    expect(privacy).not.toMatch(/about every 15 minutes|regularly|periodic/i);
   });
 
   it("privacy page names both email providers", () => {
