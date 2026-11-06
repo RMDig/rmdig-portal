@@ -1,9 +1,13 @@
 # 33 — The portal map and the SAR workspace
 
-> **Status:** Phase 1 built (this PR). Phases 2–4 are planned. They wait on cross-repo
-> contracts, doc amendments and counsel. The owner decided these on 2026-10-03, after two
-> parallel reviews: one of the map, with five lenses, and a SAR-enablement deep dive across
-> AvServ, AvApp, the portal and legal/operations.
+> **Status:** Phase 1 is built. Phase 2 (your own history) is not started. Most of the
+> portal half of Phases 3–4 is built (§4 "Built"); ORANGE and the suspension email are
+> not. The original decisions date from 2026-10-03, after two parallel reviews: one of
+> the map, with five lenses, and a SAR-enablement deep dive across AvServ, AvApp, the
+> portal and legal/operations.
+>
+> **Revision 2 (2026-11-04):** the owner's SAR check-out-partner decisions D1–D9 and the
+> portal's +9 PR sequence (§6).
 
 ## 1. Owner decisions (2026-10-03)
 
@@ -34,8 +38,8 @@ Rules that come from the reviews:
 - **No routing claim.** Nothing routes alerts to SAR orgs today. The portal no longer
   says it does: the under-review banner, the members page and the dashboard card were
   corrected in this PR.
-- **Approval stays manual.** An approved org's service area or terms change only through
-  operator review.
+- **Approval stays manual.** Staff approve each organization's status and each terms
+  version (O2); a team edits its own area (D3, §6.1).
 
 ## 2. Phase 1 (built)
 
@@ -48,8 +52,7 @@ Rules that come from the reviews:
 - **Scoped on the server.** The scoping happens in `lib/map/queries.ts` (one query per
   layer; polygons simplified to about 50 m and 5 decimal places). The builders in
   `lib/map/layers.ts` are pure, and the client only draws what it receives.
-- **View-only.** Editing an approved org's area would change routing without review
-  (§0), so areas stay on the forms where they were set.
+- **View-only.** Areas are edited in the team's area editor (§6.3), not on `/map`.
 - **Accessible.** There's a layer checkbox panel, a legend in plain words, and every
   shape is also a list item: selecting one zooms to it. A failed layer says so; it never
   renders as an empty map.
@@ -58,7 +61,8 @@ Rules that come from the reviews:
   `lib/map/geometry.ts`.
 - **Tiles.** Free OpenStreetMap raster tiles have no service guarantee. That's fine for
   editors and overviews. **Any safety layer (Phases 3–4) needs a tile provider with a
-  guarantee.** That's an owner cost decision.
+  guarantee.** That's an owner cost decision. Since #130 the basemap is MapTiler
+  Outdoor when keyed, with OpenStreetMap as the unkeyed fallback.
 
 ## 3. Phase 2: your own history
 
@@ -86,12 +90,12 @@ Rules that come from the reviews:
    (`account × team × version × hash`) that replicate across nodes.
 4. **Offering teams at check-out.** A "teams covering here" query, kept separate from
    the public directory (plan 34 §0).
-5. **Check-outs with more than one target.** A check-out can carry several SAR targets,
-   which are additive: the personal contact stays required. A missing or stale
-   acceptance is rejected, never dropped silently.
+5. **At most one SAR team per check-out** (D1), additive: the personal contact stays
+   required. A missing or stale acceptance is rejected, never dropped silently.
 6. **SAR dispatch.**
    - Sent in parallel with the contacts, never delaying them.
-   - Channel order: webhook (HMAC), then SMS, then email.
+   - Every usable channel in parallel: `portal` and `email` at +9 (D9); `sms` and
+     `webhook` later.
    - A ledger key per target; an `Idempotency-Key` per delivery; the duplicate
      disclaimer goes to teams too.
    - Org-level consent and opt-out records, never the per-user `partner_notices` or
@@ -100,9 +104,8 @@ Rules that come from the reviews:
    propagate through it.
 8. **Map feeds.**
    - **Red:** alerts dispatched to the team, at full detail.
-   - **Orange:** alerts in the area whose user didn't add the team. De-identified by
-     default (a coarse cell, the type and an age bucket); more detail only under a new
-     consent.
+   - **Orange:** open alerts in the area whose user didn't add the team, as
+     de-identified per-cell counts with a k floor (D8, §6.6).
    - Both read from both nodes and are merged. An outage returns 503, never an empty
      list.
 9. **Contact removal** (`DELETE /v1/contacts/{id}`), and an acknowledgement endpoint
@@ -133,14 +136,13 @@ Rules that come from the reviews:
 1. **Organization type** (`sar_team` or `ski_patrol`, AvApp doc 36 §9.3), with
    type-specific proof and a call back to the patrol's published number.
 2. **Resubmit** after the operator requests changes (`/sar/[orgId]/edit`).
-3. **Changing an approved org's area.** A proposal table plus operator review, comparing
-   old and new areas side by side. An edit never touches the live area.
+3. **Area edits** by the team's admins at any time, synced on save (D3, §6.3).
 4. **Team terms authoring.**
    - An editor for org admins, with the forbidden-claims check.
-   - The operator approves every version.
+   - The operator approves every version (O2).
    - Published versions are immutable.
 5. **Org → AvServ sync.**
-   - Sent on approve, suspend, reactivate, area approval and terms publish.
+   - Sent on approve, suspend, reactivate, area edit and terms publish.
    - Loud on failure, with `avserv_synced_at` and an operator resync button.
 6. **SAR workspace on `/map`.**
    - Red and orange layers with a legend, for dispatchers and admins only.
@@ -152,15 +154,29 @@ Rules that come from the reviews:
 8. **Proof documents become private** (signed URLs, staff only).
 9. **Email notifications:**
    - terms submitted or decided;
-   - area change decided;
    - suspension or reactivation;
    - sync failure.
 10. **Runbook sections:**
     - the verification checklist (call-back, roster check, test drill);
     - re-verification;
-    - terms review and area-change review;
+    - terms review;
     - resync;
     - map audit pulls.
+
+### Built (portal origin/main, checked 2026-11-04)
+
+| Portal item | State |
+|---|---|
+| 1 Org type, incl. ski patrol | ✅ `orgType` `sar_team`/`ski_patrol`, patrol re-verify cron |
+| 2 Resubmit | ✅ `/sar/[orgId]/edit`, pending only |
+| 3 Area edits | ⬜ 9.3–9.6 (§6.3) |
+| 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` is still offered (9.1) |
+| 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; no `publicListing` or `serviceAreaLabels` (9.2) |
+| 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
+| 7 Roles and membership | ✅ remove, change role, revoke invite, last-admin rule, `org_membership_log` |
+| 8 Private proof | ✅ staff-only route; production Blob not yet verified (status §1) |
+| 9 Emails | Terms submitted and decided ✅, team alert email ✅ (daily retry cron); suspension/reactivation ⬜ (9.13) |
+| 10 Runbook | ✅ review, sync, terms, intake, alerts layer, members, removal, suspend |
 
 ### Legal, carrier, store (counsel)
 
@@ -171,7 +187,7 @@ Rules that come from the reviews:
    - When must the user re-accept (new team, new terms version)?
 3. **Orange map.**
    - Does it need its own opt-in?
-   - Does coarsening to about 1–3 km take it out of "precise geolocation"?
+   - Does AvServ's 0.02° cell (about 2 km) take it out of "precise geolocation"?
 4. **Team-written terms.**
    - Who is party to them, and which document controls when they conflict with ours?
    - What floor of clauses can a team not waive?
@@ -221,3 +237,161 @@ Rules that come from the reviews:
    - store and privacy updates, all at once;
    - a staging drill that kills both nodes;
    - a soft launch with 3–5 teams.
+
+## 6. +9: SAR check-out partners
+
+Wire names are AvServ's PROPOSED 2026-11-04, unbuilt contracts: `sar_team_sync.md` §5
+(sync revision 2), `sar_terms.md` §6 (approvals), `sar_feeds.md` §2a (ORANGE v1); the
+server side is AvServ plan 41 §17. Nothing ships to real teams until counsel lands the
+[COUNSEL] items.
+
+### 6.1 Decisions (owner, 2026-11-04)
+
+Final; they override plan 34, AvApp plan 47 and AvServ plan 41 where those conflict.
+
+| ID | Decision | Portal |
+|---|---|---|
+| D1 | Up to 3 check-out partners, **at most one a SAR team**; a personal contact still required | — |
+| D2 | "One at a time" mode alerts the team at once, in parallel with the first contact | — |
+| D3 | Admins edit the team's area freely, pending or approved; staff approve the org's status only; area review dropped; bound check-outs keep the team | 9.3–9.6 |
+| D4 | `acceptanceMode` `open` or `confirm_first`; approval per user, once per terms version, never per check-out (mirrors AvServ plan 63) | 9.7, 9.8 |
+| D5 | Optional `maxActiveCheckouts`, enforced at bind; covering marks a full team; a cross-node race may go one over (accepted) | 9.7 |
+| D6 | The team's ack is signed like the contacts' safety acks | — |
+| D7 | The contact's alert says the team "was also sent" it, with its verified public phone; never implies a response; needs the A2P 38a re-filing | 9.9 |
+| D8 | ORANGE built in +9 behind a flag, release gated on counsel and the k floor; `area_map` hidden until then | 9.1, 9.14 |
+| D9 | AvServ emails the team's verified on-call address directly; the portal's notify retry goes from daily to minutes | 9.10–9.12 |
+
+- **D3.** The abuse guard is AvServ's bind-time area check (B2), the §6.3 warnings, an
+  append-only area log staff can read, and suspension. [ESCALATE O1]
+- **D4.** Pending list: `GET …/approval-requests` from both nodes, merged by
+  `acceptanceId`; decisions `POST …/approvals/{acceptanceId}` (`approved` | `declined`)
+  to **both** nodes; route group `sar_approve`. The team sees `userDisplayName` and
+  `acceptedAt` only [COUNSEL]. A mode switch applies to new binds only (AvServ plan 41
+  §17.6 [ESCALATE]).
+- **D5.** 1–10,000 or `null`. The team page shows each node's `activeCheckouts` and
+  `overCapacity` (`GET` §5.4).
+- **D7.** `publicPhone {e164, verifiedAt, publishConsentAt}`, separate from
+  `contact_phone` (the operator's callback), verified with the existing Twilio Verify
+  flow, publication consent [COUNSEL]. `contactLineName` (1–32 GSM-7) names the team.
+- **D8.** `area_map` is `offered: true` today (`lib/sar/terms-rules.ts:45–48`). At
+  revision 2 AvServ refuses the **whole** PUT naming it (`422 capability_not_available`)
+  while `AVSERV_SAR_AREA_FEED` isn't `on`: strip, never retry. Terms versions are
+  immutable, so a published version carrying it needs a remove-only successor
+  (`requiresReacceptance: false`) before revision 2 reaches production.
+- **D9.** The `email` channel carries the on-call `address`. AvServ `origin/main`
+  accepts it (`internal/api/sarteams.go:385`) but doesn't dispatch it (B1); revision 2
+  does (§5.5), with bounces in `channelStatus` (`bouncedAt`).
+
+### 6.2 Version gate
+
+The portal sends **any** §5 field (`acceptanceMode`, `maxActiveCheckouts`,
+`publicPhone`, `contactLineName`) only once **every** node's `GET` reports
+`syncRevision ≥ 2` (absent means 1): a revision 1 node ignores unknown fields and would
+store a confirm-first team as open. Until then the team page doesn't offer those
+settings and says why. A revision 2 node answers `503 sar_capture_unavailable`
+(`Retry-After: 300`) while a peer runs `SARApplierVersion < 6`: a per-node failure,
+shown and retried. New refusals the team page surfaces: `capacity_invalid`,
+`public_phone_invalid`, `contact_line_name_invalid`.
+
+### 6.3 Area editor
+
+One editor for `/sar/new`, resubmit and the post-approval edit
+(`app/(portal)/sar/[orgId]/area`). Server checks at save run on the geometry the sync
+sends (`ST_SimplifyPreserveTopology` 0.0005°, 6 decimals, `lib/sar/sync.ts:34`).
+
+1. **Overlap warns, never blocks.** It names the other live orgs (approved, pending,
+   suspended, leaving) and offers a previewed clip, `ST_Difference(new,
+   ST_Union(others))`. A clip that leaves nothing or a MultiPolygon is refused with the
+   reason: the portal stores and sends one `Polygon` (`lib/sar/geo.ts:7`,
+   `lib/sar/sync-body.ts:97`). Covering returns every overlapping team; the user picks
+   at most one (D1). Public display: portal plan 34 §3.
+2. **Large area: soft warning** above a threshold (`ST_Area` on geography, km²)
+   [ESCALATE O8].
+3. **AvServ's caps, checked first.** `serviceArea` ≤ **1 MiB compacted** (`413
+   area_too_large`; sync body ≤ 2 MiB; `internal/api/sarteams.go:34–36, 333`); ≤ 50
+   polygons, 10,000 vertices per ring and 100,000 per org (`area_invalid`,
+   `internal/sargeo/sargeo.go:29–33`). `lib/sar/geo.ts:13–14` allows 50 × 10,000, so
+   without this check a portal save succeeds and every node refuses the sync. The
+   refusal says how much to simplify.
+4. **Keyboard vertex entry:** a coordinates table that round-trips with the drawing
+   (WCAG 2.1.1; the drawing map has no keyboard path today).
+5. **Sync on save:** area plus an area-log row (who, when, old and new), then
+   `syncSarOrg`. A failed node shows on the team page and is retried (9.11); staff can
+   resync and get an informational email of each change.
+
+### 6.4 Gaps folded into +9
+
+- **Reachability** on the team page and staff queue: a member with a deliverable
+  email, `usable` on every node (`unusableReason`, incl. `no_usable_channel`), and a
+  verified on-call email. An unreachable approved team is flagged to staff.
+- **No ack** after N minutes [ESCALATE]: re-email members and the on-call address, then
+  RMDig staff. Informational; never suppresses the contacts' escalation.
+- **No admin left.** `lib/sar/membership.ts` stops removal and demotion, not account
+  deletion or staff removal; cover that path with a staff email and a team-page
+  banner. What follows is [ESCALATE].
+- **Suspension email.** None today (`emailDecision: null`,
+  `app/(portal)/admin/sar-approvals/actions.ts:73, 75`); admins get one each way.
+- **`serviceAreaLabels`** from `regionName` (≤ 20 labels of 1–100 characters,
+  `internal/api/sarteams.go:293–299`) and **`publicListing`** `{consent, consentAt,
+  websiteUrl, givingUrl, blurb ≤ 280, logoRef ≤ 200}` with `consent: false` until
+  portal plan 34's toggle. AvServ accepts both; the portal sends neither.
+
+### 6.5 PR sequence
+
+Each PR carries its tests and passes the pre-PR gate; migrations reach production
+before merge (§3.8); new strings join `legal-copy.test.ts`.
+
+| ID | Scope | Gate |
+|---|---|---|
+| 9.0 | This revision (plans 33, 34, 00) | Owner review |
+| 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it | None |
+| 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`) | None |
+| 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB | None |
+| 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email | 9.3; [ESCALATE O1] |
+| 9.5 | Overlap (clip preview) and large-area warnings | 9.4; [ESCALATE O8] |
+| 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe | 9.4 |
+| 9.7 | `acceptanceMode`, `maxActiveCheckouts` | §6.2 gate |
+| 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
+| 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | §6.2 gate; [COUNSEL]; A2P 38a re-filing |
+| 9.10 | On-call `email` channel: add, verify by link, re-verify on change | AvServ dispatches `email` on both nodes |
+| 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | [ESCALATE O7] |
+| 9.12 | Reachability; no-ack escalation (once per alert) | 9.10, 9.11; N [ESCALATE] |
+| 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back) | None |
+| 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
+
+9.1, 9.2, 9.3 and 9.13 can start now.
+
+### 6.6 ORANGE layer (D8)
+
+`GET …/area-alerts` (`sar_feeds.md` §2a) from both nodes. Cells carry `cellId`,
+`cell {lat, lon, sizeDeg: 0.02}`, `count`, `kinds`, `ages` (`lt_1h` … `gt_24h`); the
+page carries `suppressed`, `kFloor`, `asOf`. Merge per `cellId` taking the **larger**
+`count` and buckets (never sum), and the larger `suppressed`. Show `kFloor` and
+`suppressed` so a sparse map never reads as "all clear". `503 area_feed_disabled` and
+`503 feed_unavailable` are explicit states. `sar_map_view_log` is written first.
+
+### 6.7 +10: what AvApp plan 63 needs
+
+AvApp plan 63 makes the app a team surface; AvServ plan 65 lists the server hooks. The
+portal stays the source of truth for membership: members need a linked account
+(AvServ plan 23); a membership sync (`accountId`, role, since; AvServ plan 65 §1; wire
+shape [AVSERV]) lets each node check roles itself; a removal or role change syncs at
+once and is retried (9.11). Its own plan, written with AvApp plan 63.
+
+### 6.8 Open decisions
+
+- **O1.** CLAUDE.md §0 "never add a path around the approval queue" conflicts with D3
+  (`sar/[orgId]/edit/actions.ts` cites it). Rec: owner rewords §0 to "staff approve the
+  organization; the area is the team's own". Blocks 9.4.
+- **O2.** Do staff still approve each terms version? Rec: yes; users agree to that
+  text, and the lint can't catch everything.
+- **O7.** Hobby runs a cron at most daily (`lib/cron/jobs.ts:5`); 9.11 needs minutes.
+  Vercel Pro (about $20 per member per month; confirm on Vercel's pricing page), which
+  plan 36 S-D8 also needs, or an external scheduler with `CRON_SECRET` (free, but runs
+  can be late or skipped, and it's a new dependency). AvServ's email (D9) is the
+  independent path; this retry is the backstop. Rec: Pro.
+- **O8.** Large-area threshold. Anchors (Census land area, approximate; 9.5 computes
+  them from TIGER/Gazetteer): Broomfield 85 km² (smallest CO county), San Juan 1,000,
+  Summit 1,600, Gunnison 8,400, Las Animas 12,400 (largest), Colorado 270,000. Options:
+  the largest county, a multiple of the median county, or a multiple of the largest
+  approved area (a regression guard). Rec: owner picks.

@@ -5,6 +5,8 @@ plan 33 (the portal map) and reuses AvServ plan 34 (the public SAR partner
 directory). Repo-qualified references: "AvServ plan 34" is the directory, and
 "plan 33" is this repo's map plan.
 
+Revision 2 (2026-11-04): overlapping areas are allowed and shown alike (§3), and areas follow the team's own edits (portal plan 33 D3).
+
 ## 0. Goal and safety framing
 
 **Ask (owner, 2026-10-09):** any signed-in user can open `/map` and see which SAR
@@ -26,8 +28,8 @@ These rules hold for every phase:
   34 §0.2). It shares no query or type with alert routing, the "teams covering here"
   offer at check-out (plan 33 §4), or the red map.
 - **Opt-in per team.** No team's area appears without its admin's explicit,
-  recorded consent. That's separate from approval and from AvServ's directory
-  consent, unless D2 merges them.
+  recorded consent. That's separate from approval; D2 makes it the same consent as
+  AvServ's directory listing.
 - **The user's location never leaves the browser.** "Use my location" calls the
   browser's geolocation API and only moves the map. It isn't sent to the server,
   logged, or stored. Precise geolocation is sensitive data under the CPA (CLAUDE.md §0).
@@ -74,8 +76,16 @@ display.
   (for example `ST_SimplifyPreserveTopology` to about 100 m) so the outline doesn't
   imply precision or point at a base location. No member, contact, phone or
   proof-document data is shown.
-- **Approval stays manual (§0).** Consent can only hide or show an approved area; it
-  never changes the area itself. Changing the area still goes through review.
+- **Consent shows or hides; it never changes the area.** The team edits its own area
+  (portal plan 33 D3), and the listed outline follows within the cache time.
+- **Overlapping areas** are allowed (portal plan 33 §6.3) and shown honestly:
+  - every listed area is drawn whole in the same style (§4 D3), so a shared region
+    looks darker: no union, no clipping, no colour or order implying a primary team;
+  - a click, tap or the keyboard list names **every** listed team at that point,
+    alphabetically, each with its name and website link;
+  - with more than one, the popup says so in plain words (`[COUNSEL]`, e.g. "More than
+    one team lists this area."), never which team covers or responds. The §2 notice
+    still applies.
 - **Read path.** A server component on `/map` reads the consenting teams'
   simplified areas in one query and caches them for a few minutes. Area changes are
   rare and consent changes take effect within the cache time. No AvServ call is made
@@ -88,8 +98,9 @@ display.
 - **D2: one shared consent.** A team decides once, in the portal: "list our team and
   show our service area". The portal syncs that consent to AvServ in the team
   sync, and AvServ's directory `public_listing_consent` follows it, so the map
-  and the directory never disagree. This adds one field to the team sync contract
-  (an AvServ change, §6 step 6).
+  and the directory never disagree. It is the existing `publicListing.consent`
+  (AvServ `sar_team_sync.md` §1, "Shared listing consent"): no new field and no AvServ
+  change.
 - **D3: outline plus a light fill,** with the area simplified to about 100 m
   (`ST_SimplifyPreserveTopology`). That's readable at a regional zoom without
   implying street-level precision. A thin outline with a roughly 10% fill keeps
@@ -119,11 +130,11 @@ display.
    server call.
 5. **Tests:** the copy scan covers the new strings; e2e checks that a plain user sees
    the layer and no alert layers; unit tests check the role gates.
-6. **AvServ (D2):** carry the consent in the team sync, so AvServ's directory
-   `public_listing_consent` follows it. Coordinate that contract change with
-   the AvServ session before the portal side ships.
+6. **Sync (D2):** send the toggle as `publicListing.consent` with `consentAt` and the
+   team's `websiteUrl`. The toggle can't turn on without a website: AvServ refuses the
+   whole PUT for `consent: true` without `websiteUrl` (`400 invalid_request`).
 
 ## 7. Open questions
 
-- Should a team's public website link be required before it can be listed?
-- What does a user see for an area where two teams overlap? (Both, with no ranking.)
+None. A website is required to be listed (owner, recorded in AvServ
+`sar_team_sync.md` §1); overlap display is set in §3.
