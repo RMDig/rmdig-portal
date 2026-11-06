@@ -147,8 +147,6 @@ approved A2P filing says YES is optional. So they go live in one cutover, not on
 - `/sms` changes with the approved filing, because it quotes the filed text word for word (#85, with #82).
 - `/privacy` and `/terms` carry counsel's final text (#79); effective dates set at publish.
 - AvServ and AvApp publish the agreement, then `pnpm agreement:pin v1` within 30 days (plan 31).
-- `/privacy` also gets the problem-reports section, if it hasn't shipped already. AvApp plan 61 needs it live before
-  build 1.0.0+8, with the draft now with counsel.
 - `/terms` loses "We don't yet notify you when this happens" once a user can get the notice: AvServ on contract
   rev 13 and AvApp 1.0.0+8 available. Word it for the app alone if AvServ's email isn't live yet.
 - `/settings/contacts` changes from "moving to require" to "required". Decide then whether to also

@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 2, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 5, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -50,9 +50,11 @@ export default function PrivacyPolicyPage() {
             device&apos;s precise and coarse location, linked to your account, and sends it
             to AvServ — servers we run ourselves. It is used for one purpose: app
             functionality. Concretely, that means keeping your last-known location current
-            while a check-out is armed, sending that location to your emergency contact if
-            you don&apos;t check in on time, and periodic device heartbeat reports. If you
-            have allowed location access, a precise location also goes with your check-out
+            while a check-out is armed, and sending that location to your emergency contact
+            if you don&apos;t check in on time. While you&apos;re checked out, your phone
+            sends its location to AvAI, up to every 15 minutes. While the phone is locked,
+            iOS and Android decide when, sometimes an hour or more apart. With power saver
+            on, it&apos;s up to once an hour. If you have allowed location access, a precise location also goes with your check-out
             and any Send&nbsp;Help. Photos
             you capture may also embed the capture location in their metadata; at this
             stage of the beta those stay on your device (see below).
@@ -138,9 +140,45 @@ export default function PrivacyPolicyPage() {
           <h3 className="mt-5">Safety and telemetry records</h3>
           <p className="mt-2">
             AvServ keeps your check-out/check-in history (times, statuses, and the alerts
-            it dispatched) and device heartbeat telemetry (periodic &quot;the device is
-            reachable&quot; reports). These exist so the watchdog can work and so we can
+            it dispatched) and device heartbeat telemetry (the reports your phone sends
+            while you&apos;re checked out, described above). These exist so the watchdog can work and so we can
             audit that an alert really fired.
+          </p>
+
+          <h3 className="mt-5">Problem reports</h3>
+          <p className="mt-2">
+            If something in the app doesn&apos;t work as expected, you can send us a
+            problem report from Settings → Privacy → Report a problem. We receive one only
+            when you send it. Before it&apos;s sent, the app shows you everything in it.
+          </p>
+          <p className="mt-2">
+            <em>What it contains:</em> your own description of the problem; a record of
+            how the app&apos;s safety features behaved on your phone over the previous 7
+            days (for example, which reminders were scheduled and shown, the steps of your
+            check-outs and check-ins, messages waiting to be sent and how our servers
+            answered, background activity and app errors); and your phone&apos;s make,
+            model, operating system version, language and clock setting, with its
+            notification, battery, background and location settings. It never contains
+            your location, your contacts&apos; names or phone numbers, your notes, or your
+            App Lock PIN. Identifiers in it are replaced with stand-ins.
+          </p>
+          <p className="mt-2">
+            <em>Anonymous or with your account:</em> you choose each time. An anonymous
+            report goes to RMDig support with no name, account or device ID. Reports from
+            one phone can overlap, so support could tell two came from the same phone, even
+            if one was sent with your account. A report sent with your
+            account also contains your phone&apos;s AvAI device identifier, your display
+            name, and a map from the report&apos;s stand-ins to the real identifiers, so we
+            can match it to our servers&apos; records.
+          </p>
+          <p className="mt-2">
+            <em>How it&apos;s handled:</em> the report is encrypted on your phone so that
+            only RMDig support can read it, then delivered through Sentry, our
+            error-reporting service provider, which stores it but cannot read it. We use
+            it only to diagnose and fix the problem you reported. We delete each report
+            once the problem is resolved, and never keep one longer than 30 days. To have
+            a report deleted sooner, email support@rmdig.ai with its report number.
+            Sending a report is never required to get support.
           </p>
         </section>
 
@@ -300,6 +338,10 @@ export default function PrivacyPolicyPage() {
                   </td>
                 </tr>
                 <tr>
+                  <td>Problem reports</td>
+                  <td>Until the problem is resolved, and never longer than 30 days</td>
+                </tr>
+                <tr>
                   <td>Volunteer sign-ups</td>
                   <td>In our staff email until you ask us to delete them</td>
                 </tr>
@@ -368,8 +410,9 @@ export default function PrivacyPolicyPage() {
             your account: your name and email address; the emergency contacts you enter;
             precise and coarse location; a device ID the app generates (not Apple&apos;s
             advertising or vendor identifier); other content you enter (return times and the
-            Send Help note); and other diagnostic data (your phone&apos;s state during a
-            check-out). Not linked to you: crash data. Photos are not declared because they
+            Send Help note); other diagnostic data (your phone&apos;s state during a check-out,
+            and what a problem report contains); and customer support data (your problem
+            reports). Not linked to you: crash data. Photos are not declared because they
             stay on your phone. The manifest also declares the app&apos;s use of four
             &quot;required-reason&quot; system APIs, in each case for ordinary app
             operation rather than fingerprinting: user preferences storage (CA92.1), file
