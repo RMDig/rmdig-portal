@@ -262,7 +262,7 @@ Final; they override plan 34, AvApp plan 47 and AvServ plan 41 where those confl
 | D9 | AvServ emails the team's verified on-call address directly; the portal's notify retry goes from daily to minutes | 9.10–9.12 |
 
 - **D3.** The abuse guard is AvServ's bind-time area check (B2), the §6.3 warnings, an
-  append-only area log staff can read, and suspension. [ESCALATE O1]
+  append-only area log staff can read, and suspension. §0 reworded for this (O1, decided).
 - **D4.** Pending list: `GET …/approval-requests` from both nodes, merged by
   `acceptanceId`; decisions `POST …/approvals/{acceptanceId}` (`approved` | `declined`)
   to **both** nodes; route group `sar_approve`. The team sees `userDisplayName` and
@@ -305,8 +305,8 @@ sends (`ST_SimplifyPreserveTopology` 0.0005°, 6 decimals, `lib/sar/sync.ts:34`)
    reason: the portal stores and sends one `Polygon` (`lib/sar/geo.ts:7`,
    `lib/sar/sync-body.ts:97`). Covering returns every overlapping team; the user picks
    at most one (D1). Public display: portal plan 34 §3.
-2. **Large area: soft warning** above a threshold (`ST_Area` on geography, km²)
-   [ESCALATE O8].
+2. **Large area: soft warning** above the land area of the largest Colorado county,
+   about 12,400 km² (`ST_Area` on geography; O8, decided).
 3. **AvServ's caps, checked first.** `serviceArea` ≤ **1 MiB compacted** (`413
    area_too_large`; sync body ≤ 2 MiB; `internal/api/sarteams.go:34–36, 333`); ≤ 50
    polygons, 10,000 vertices per ring and 100,000 per org (`area_invalid`,
@@ -347,14 +347,14 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it | None |
 | 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`) | None |
 | 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB | None |
-| 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email | 9.3; [ESCALATE O1] |
-| 9.5 | Overlap (clip preview) and large-area warnings | 9.4; [ESCALATE O8] |
+| 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email | 9.3 |
+| 9.5 | Overlap (clip preview) and large-area warnings | 9.4 |
 | 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe | 9.4 |
 | 9.7 | `acceptanceMode`, `maxActiveCheckouts` | §6.2 gate |
 | 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
 | 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | §6.2 gate; [COUNSEL]; A2P 38a re-filing |
 | 9.10 | On-call `email` channel: add, verify by link, re-verify on change | AvServ dispatches `email` on both nodes |
-| 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | [ESCALATE O7] |
+| 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | Vercel Pro (O7) |
 | 9.12 | Reachability; no-ack escalation (once per alert) | 9.10, 9.11; N [ESCALATE] |
 | 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back) | None |
 | 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
@@ -380,18 +380,21 @@ once and is retried (9.11). Its own plan, written with AvApp plan 63.
 
 ### 6.8 Open decisions
 
-- **O1.** CLAUDE.md §0 "never add a path around the approval queue" conflicts with D3
-  (`sar/[orgId]/edit/actions.ts` cites it). Rec: owner rewords §0 to "staff approve the
-  organization; the area is the team's own". Blocks 9.4.
-- **O2.** Do staff still approve each terms version? Rec: yes; users agree to that
-  text, and the lint can't catch everything.
-- **O7.** Hobby runs a cron at most daily (`lib/cron/jobs.ts:5`); 9.11 needs minutes.
-  Vercel Pro (about $20 per member per month; confirm on Vercel's pricing page), which
-  plan 36 S-D8 also needs, or an external scheduler with `CRON_SECRET` (free, but runs
-  can be late or skipped, and it's a new dependency). AvServ's email (D9) is the
-  independent path; this retry is the backstop. Rec: Pro.
-- **O8.** Large-area threshold. Anchors (Census land area, approximate; 9.5 computes
-  them from TIGER/Gazetteer): Broomfield 85 km² (smallest CO county), San Juan 1,000,
-  Summit 1,600, Gunnison 8,400, Las Animas 12,400 (largest), Colorado 270,000. Options:
-  the largest county, a multiple of the median county, or a multiple of the largest
-  approved area (a regression guard). Rec: owner picks.
+All four decided by the owner on 2026-11-05.
+
+- **O1. Decided: §0 reworded.** CLAUDE.md §0 said "never add a path around the
+  approval queue", which conflicted with D3. It now reads: staff approve every
+  organization by hand, never automated or bypassed; an approved team edits its own
+  service area, and every edit is logged, synced and emailed to staff. 9.4 is unblocked.
+  9.4 also updates the comment in `sar/[orgId]/edit/actions.ts` that cites the old rule.
+- **O2. Decided: yes.** Staff approve each terms version, because users agree to that
+  text and the lint can't catch everything.
+- **O7. Decided: Vercel Pro.** Hobby runs a cron at most daily (`lib/cron/jobs.ts:5`), and
+  9.11 needs minutes. Pro costs about $20 per member per month (confirm on Vercel's pricing
+  page), and plan 36 S-D8 also needs it. An external scheduler was rejected: its runs can
+  be late or skipped, and it adds a dependency. AvServ's email (D9) is the independent
+  path; this retry is the backstop. 9.11 ships only after the project is on Pro.
+- **O8. Decided: the largest Colorado county.** The large-area warning shows above Las
+  Animas County's land area, about 12,400 km². 9.5 computes the exact figure from the
+  Census TIGER/Gazetteer data. Other anchors, for reference: Broomfield 85 km² (smallest
+  county), San Juan 1,000, Summit 1,600, Gunnison 8,400, Colorado 270,000.
