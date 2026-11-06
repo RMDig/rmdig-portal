@@ -16,8 +16,10 @@ here are load-bearing for the platform's safety and legal story:
 
 - **SAR org verification.** Approved SAR orgs receive safety-of-life alert
   routing. An unverified org reaching `approved` is a critical failure mode.
-  **Manual operator approval is non-negotiable** — never automate it, never
-  add a path around the approval queue.
+  **Staff approve every organization by hand; that approval is
+  non-negotiable** — never automate it, never add a path around the approval
+  queue. An approved team edits its own service area (plan 33 D3, decided
+  2026-11-05); every edit is logged, synced and emailed to staff.
 - **Public safety-claim copy.** Every public page is a claim surface under
   AvApp doc 16 §6.2. Forbidden at the current beta rung: "always",
   "guaranteed", "real-time", "24/7", "never miss", "fail-safe", "redundant"
