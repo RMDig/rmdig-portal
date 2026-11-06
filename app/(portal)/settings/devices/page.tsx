@@ -5,8 +5,10 @@ import Link from "next/link";
 import { DevicesList } from "./DevicesList";
 import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
+import { listPasskeys } from "@/lib/auth/passkeys";
 import { deviceRevokeAvailable, listDevicesEveryNode } from "@/lib/avserv/device-revoke";
 import type { MergedDevices } from "@/lib/avserv/device-revoke-merge";
+import { hasPasskeyForFullRevoke } from "@/lib/avserv/device-revoke-types";
 import { isAvServOutage } from "@/lib/avserv/request";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
@@ -68,11 +70,23 @@ export default async function DevicesPage() {
     }
   }
 
+  const revokeAvailable = deviceRevokeAvailable();
+  // Only worth reading when there's a limited sign-out to offer it on.
+  const canStrengthen =
+    revokeAvailable && !!devices?.devices.some((d) => d.userRevokedAt && d.revokeMode === "limited")
+      ? hasPasskeyForFullRevoke((await listPasskeys(session.user.id)).map((p) => p.createdAt), new Date())
+      : false;
+
   return (
     <div className="space-y-6">
       <Header />
       {devices ? (
-        <DevicesList devices={devices.devices} incomplete={devices.incomplete} revokeAvailable={deviceRevokeAvailable()} />
+        <DevicesList
+          devices={devices.devices}
+          incomplete={devices.incomplete}
+          revokeAvailable={revokeAvailable}
+          canStrengthen={canStrengthen}
+        />
       ) : (
         <Card>
           <CardHeader>

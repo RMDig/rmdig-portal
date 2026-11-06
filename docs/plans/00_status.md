@@ -44,7 +44,8 @@ live the same day (rc80); actions before 18:25Z were never recorded.
 **Owner**
 - **Due since about 2026-10-26** (the passkey's 7th day): test a **full** phone sign-out on a
   stale test device, confirmed with the passkey; expect the "Unsynced observations and photos…
-  will be erased" warning. AvApp then checks the phone's side.
+  will be erased" warning. AvApp then checks the phone's side. A phone already signed out as
+  limited (one was, 2026-11-05, signed in by code) can be made full with "Make this stronger".
 - **Operator erasure drill** with a test account that has a check-out and a contact (#186, AvServ
   `docs/drills/cpa-deletion.md`). It also closes the 10-11 deletion follow-up.
 - **After #188:** generate a link code on `/settings` and link a device by typing it with the dash.

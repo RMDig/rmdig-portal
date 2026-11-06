@@ -44,6 +44,13 @@ describe("revoke copy", () => {
     }
   });
 
+  it("says what 'Make this stronger' needs: a passkey at least 7 days old", () => {
+    expect(REVOKE_COPY.strengthenOffer).toMatch(/limited sign-out/);
+    expect(REVOKE_COPY.strengthenOffer).toMatch(/at least 7 days/);
+    expect(REVOKE_COPY.strengthenNeedsPasskey).toMatch(/passkey that has been on your account for at least 7 days/);
+    expect(REVOKE_COPY.strengthenKeptLimited).toMatch(/nothing changed/);
+  });
+
   it("has no word for duress (plan 36 rule 3)", () => {
     expect(text).not.toMatch(/duress|second pin/i);
   });
