@@ -41,12 +41,15 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
     message: false,
     offered: true,
   },
+  // Not offered until the ORANGE layer ships behind its flag (plan 33 D8,
+  // step 9.14): sync revision 2 refuses a whole team PUT that names it while
+  // AvServ's area feed is off.
   {
     name: "area_map",
     label: "The anonymised area map on the portal",
     message: false,
-    offered: true,
-    note: "Stays off until counsel approves it.",
+    offered: false,
+    note: "Not available yet.",
   },
   {
     name: "incident_alerts",
@@ -69,6 +72,12 @@ export function capabilitySettings(names: CapabilityName[]) {
 }
 
 const OFFERED = CAPABILITIES.filter((c) => c.offered).map((c) => c.name) as [CapabilityName, ...CapabilityName[]];
+
+/** The services in a stored version that aren't offered now, so a draft
+ *  written before a service was withdrawn can't publish with it. */
+export function unofferedCapabilities(settings: Array<{ name: string }>): string[] {
+  return settings.map((s) => s.name).filter((n) => !(OFFERED as string[]).includes(n));
+}
 
 export const termsDraftSchema = z.object({
   body: z
