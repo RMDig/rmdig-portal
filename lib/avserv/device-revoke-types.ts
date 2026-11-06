@@ -82,3 +82,11 @@ export function predictRevokeMode(strength: AuthStrength, now: Date): RevokeMode
   const created = new Date(strength.passkeyCreatedAt).getTime();
   return !Number.isNaN(created) && now.getTime() - created >= FULL_AFTER_MS ? "full" : "limited";
 }
+
+/** Whether any of the user's passkeys is old enough to make a revoke full, so
+ *  "Make this stronger" is worth offering. Same rule as predictRevokeMode. */
+export function hasPasskeyForFullRevoke(passkeyCreatedAts: Date[], now: Date): boolean {
+  return passkeyCreatedAts.some(
+    (d) => predictRevokeMode({ method: "passkey", passkeyCreatedAt: d.toISOString() }, now) === "full",
+  );
+}

@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 
-import { previewRevokeAction, revokeDeviceAction, type PreviewResult, type RevokeResult } from "./actions";
+import {
+  previewRevokeAction,
+  revokeDeviceAction,
+  strengthenRevokeAction,
+  type PreviewResult,
+  type RevokeResult,
+} from "./actions";
 import { REVOKE_COPY } from "./revoke-copy";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -39,6 +45,52 @@ export function RevokeFacts({ mode }: { mode: "limited" | "full" }) {
       )}
       <p className="text-muted-foreground">{REVOKE_COPY.limits}</p>
       <p className="text-muted-foreground">{REVOKE_COPY.permanent}</p>
+    </div>
+  );
+}
+
+// "Make this stronger" on a phone already signed out in limited mode (plan 36
+// §5.1). Offered only when the user has a passkey old enough to make it full;
+// the action still checks that THIS session proved itself with one. The
+// confirm repeats the full-mode facts, field-data erase included. Like
+// DeviceRevoke it stays mounted on every signed-out phone, so its result
+// survives the refresh that turns the row full and withdraws the offer.
+export function StrengthenRevoke({ deviceId, offer }: { deviceId: string; offer: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [result, strengthen, pending] = useActionState<RevokeResult, FormData>(strengthenRevokeAction, null);
+
+  if (result?.ok) {
+    return <p className="w-full text-sm text-green-800 dark:text-green-300">{result.message}</p>;
+  }
+  if (!offer) return null;
+  if (!open) {
+    return (
+      <div className="w-full space-y-1">
+        <p className="text-muted-foreground text-sm">{REVOKE_COPY.strengthenOffer}</p>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          {REVOKE_COPY.strengthenButton}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 w-full space-y-3 rounded-md border p-3">
+      <div className="space-y-2 text-sm leading-6">
+        <p>{REVOKE_COPY.mode.full}</p>
+        <p className="font-medium text-amber-900 dark:text-amber-200">{REVOKE_COPY.fieldData.full}</p>
+        <p className="text-muted-foreground">{REVOKE_COPY.limits}</p>
+        <p className="text-muted-foreground">{REVOKE_COPY.permanent}</p>
+      </div>
+      <form action={strengthen} className="flex flex-wrap gap-2">
+        <input type="hidden" name="deviceId" value={deviceId} />
+        <Button type="submit" variant="destructive" disabled={pending}>
+          {pending ? "Saving…" : REVOKE_COPY.strengthenConfirm}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+          Cancel
+        </Button>
+        <Outcome state={result} />
+      </form>
     </div>
   );
 }

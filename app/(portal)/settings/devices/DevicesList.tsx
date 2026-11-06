@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { shortDeviceId } from "@/lib/format/device-id";
 import { formatMountainDate } from "@/lib/format/time";
-import { DeviceRevoke } from "./DeviceRevoke";
+import { DeviceRevoke, StrengthenRevoke } from "./DeviceRevoke";
 import { ResetCode } from "./ResetCode";
 import { RevokeOthers } from "./RevokeOthers";
 import { REVOKE_COPY } from "./revoke-copy";
@@ -29,10 +29,13 @@ export function DevicesList({
   devices,
   incomplete,
   revokeAvailable,
+  canStrengthen,
 }: {
   devices: LinkedDevice[];
   incomplete: boolean;
   revokeAvailable: boolean;
+  /** The user has a passkey old enough to make a revoke full (7 days). */
+  canStrengthen: boolean;
 }) {
   const live = devices.filter((d) => !d.userRevokedAt);
   return (
@@ -83,6 +86,10 @@ export function DevicesList({
                   </div>
                   {revokeAvailable && !d.userRevokedAt ? <ResetCode deviceId={d.deviceId} /> : null}
                   {revokeAvailable ? <DeviceRevoke deviceId={d.deviceId} revoked={!!d.userRevokedAt} /> : null}
+                  {/* Offered only on a known limited mode: a node too old to report one gets no offer. */}
+                  {revokeAvailable && d.userRevokedAt ? (
+                    <StrengthenRevoke deviceId={d.deviceId} offer={canStrengthen && d.revokeMode === "limited"} />
+                  ) : null}
                 </li>
               ))}
             </ul>

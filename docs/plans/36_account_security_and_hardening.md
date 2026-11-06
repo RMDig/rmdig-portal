@@ -249,7 +249,10 @@ AvServ write endpoint"). It gains:
   - Until passkeys ship (PR 10), every revoke is `limited`.
   - **A repeat with a trusted `authStrength` upgrades** `limited` to `full` (`upgraded: true`).
     Nothing downgrades. The device row offers "Make this stronger" on a `limited` revoke once
-    the user has a passkey at least 7 days old.
+    the user has a passkey at least 7 days old. **Built 2026-11-05**
+    (`strengthenRevokeAction`, `StrengthenRevoke`): it re-sends the revoke only when this
+    session's own strength predicts `full`; otherwise it asks for a passkey sign-in and sends
+    nothing. If AvServ still answers `limited`, that is reported to Sentry as rule drift.
   - The response carries `mode` and `upgraded`; `sessionsRevoked` is gone.
 - **Built (PR 7 + 8, on the mock):** `lib/avserv/device-revoke.ts` (every node,
   device-admin key, reader header), `device-revoke-mock.ts`, `device-revoke-merge.ts`;

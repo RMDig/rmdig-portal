@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -35,6 +36,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { formatMountain, retryInText } from "@/lib/format/time";
 import { logger } from "@/lib/logger";
+import { REVOKE_COPY } from "./revoke-copy";
 
 // Signing a phone out (plan 36 §5.1; AvServ device_revoke.md rev 2). Every
 // step needs a recent login, the preview included: it tells whoever reads it
@@ -148,6 +150,44 @@ export async function revokeDeviceAction(_prev: RevokeResult, formData: FormData
   if (outcome.status !== "failed") await notifySecurityChange(r.userId);
   revalidatePath("/settings/devices");
   return outcomeMessage(outcome, "Signed out");
+}
+
+const strengthenSchema = z.object({ deviceId });
+
+/** "Make this stronger": a limited sign-out made full (plan 36 §5.1). It's the
+ *  same revoke sent again with this session's passkey strength; AvServ keeps
+ *  the first reason, so the one sent here changes nothing (rev 2 §3.3). It runs
+ *  only when the session itself would make a full revoke: anything weaker
+ *  would be a no-op that looks like it worked. */
+export async function strengthenRevokeAction(_prev: RevokeResult, formData: FormData): Promise<RevokeResult> {
+  const parsed = strengthenSchema.safeParse({ deviceId: formData.get("deviceId") });
+  if (!parsed.success) return { ok: false, error: "That phone couldn't be found." };
+  const r = await ready();
+  if (!r.ok) return r;
+  if (predictRevokeMode(r.strength, new Date()) !== "full") {
+    return { ok: false, reauth: true, error: REVOKE_COPY.strengthenNeedsPasskey };
+  }
+
+  const answers = await revokeDevice(r.accountId, parsed.data.deviceId, { reason: "user", authStrength: r.strength }, r.userId);
+  const outcome = summarizeRevoke(answers);
+  for (const node of outcome.missingNodes) logger.warn({ event: "devices.strengthen.node_missing", userId: r.userId, node });
+  if (outcome.status !== "failed" && outcome.mode !== "full") {
+    // The portal's copy of AvServ's 7-day rule said full and AvServ said
+    // limited: the rules have drifted (or the clocks have), which every user
+    // with a passkey would hit. Loud, and the user is told nothing changed.
+    logger.error({ event: "devices.strengthen.kept_limited", userId: r.userId, nodes: answers.length });
+    Sentry.captureMessage("AvServ kept a passkey-strength revoke limited", {
+      level: "error",
+      tags: { event: "devices.strengthen.kept_limited" },
+    });
+    return { ok: false, error: REVOKE_COPY.strengthenKeptLimited };
+  }
+  if (outcome.status !== "failed") {
+    logger.info({ event: "devices.strengthened", userId: r.userId, status: outcome.status, upgraded: outcome.upgraded });
+    await notifySecurityChange(r.userId);
+    revalidatePath("/settings/devices");
+  }
+  return outcomeMessage(outcome, "Made it a full sign-out");
 }
 
 const othersSchema = z.object({ keep: z.union([deviceId, z.literal("none")]) });

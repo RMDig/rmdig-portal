@@ -8,7 +8,7 @@ import {
   mockRevoke,
   mockRevokeOthers,
 } from "@/lib/avserv/device-revoke-mock";
-import { predictRevokeMode } from "@/lib/avserv/device-revoke-types";
+import { hasPasskeyForFullRevoke, predictRevokeMode } from "@/lib/avserv/device-revoke-types";
 
 // The mock follows device_revoke.md rev 2: modes, safe repeats, upgrades, the
 // keep check, and the preview's live items.
@@ -27,6 +27,19 @@ describe("predictRevokeMode (rev 2 §1.1)", () => {
     expect(predictRevokeMode({ method: "passkey", passkeyCreatedAt: "garbage" }, NOW)).toBe("limited");
     expect(predictRevokeMode({ method: "password" }, NOW)).toBe("limited");
     expect(predictRevokeMode({ method: "other" }, NOW)).toBe("limited");
+  });
+});
+
+describe("hasPasskeyForFullRevoke", () => {
+  const at = (n: number) => new Date(daysAgo(n));
+  it("is true when any passkey is 7+ days old, so 'Make this stronger' can work", () => {
+    expect(hasPasskeyForFullRevoke([at(2), at(7)], NOW)).toBe(true);
+    expect(hasPasskeyForFullRevoke([at(30)], NOW)).toBe(true);
+  });
+
+  it("is false with no passkey, or only ones under 7 days old", () => {
+    expect(hasPasskeyForFullRevoke([], NOW)).toBe(false);
+    expect(hasPasskeyForFullRevoke([at(6), at(0)], NOW)).toBe(false);
   });
 });
 

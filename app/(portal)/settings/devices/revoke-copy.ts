@@ -32,6 +32,15 @@ export const REVOKE_COPY = {
   limits:
     "A phone that stays offline won't hear about this, so also use the phone's own passcode and Find My (iPhone) or Find My Device (Android). Photos saved to the phone's camera roll aren't covered.",
   permanent: "This can't be undone. To use the phone again, link it as a new phone.",
+  // Making a limited sign-out full (rev 2 §3.3: a trusted repeat upgrades it,
+  // and nothing downgrades). The phone moves up on its next signed answer.
+  strengthenButton: "Make this stronger",
+  strengthenOffer:
+    "This is a limited sign-out. You have a passkey that has been on your account for at least 7 days, so you can make it a full one.",
+  strengthenConfirm: "Make it a full sign-out",
+  strengthenNeedsPasskey:
+    "To make this a full sign-out, confirm it's you with a passkey that has been on your account for at least 7 days.",
+  strengthenKeptLimited: "The device service kept this a limited sign-out, so nothing changed. Try again in a moment.",
   // App Lock reset code (device_revoke.md §3.5; AvApp plan 54 §4.6).
   resetCodeWhat:
     "Forgot your App Lock PIN? Enter this code in AvAI on that phone. It starts the same 24-hour wait as \"Forgot PIN\" on the phone, and never makes the wait shorter. Your real PIN still cancels it.",

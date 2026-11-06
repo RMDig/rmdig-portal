@@ -17,9 +17,18 @@ const h = vi.hoisted(() => ({
   answers: [] as unknown[],
   revalidated: [] as string[],
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  sentry: [] as string[],
+  notified: 0,
 }));
 
-vi.mock("@/lib/auth/security-notices", () => ({ notifySecurityChange: () => Promise.resolve() }));
+vi.mock("@sentry/nextjs", () => ({ captureMessage: (m: string) => h.sentry.push(m) }));
+
+vi.mock("@/lib/auth/security-notices", () => ({
+  notifySecurityChange: () => {
+    h.notified++;
+    return Promise.resolve();
+  },
+}));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
 vi.mock("@/lib/auth/recent-auth", () => ({ requireRecentAuth: () => Promise.resolve(h.recent) }));
 vi.mock("@/lib/auth/passkeys", () => ({
@@ -74,7 +83,9 @@ import {
   previewRevokeAction,
   revokeDeviceAction,
   revokeOtherDevicesAction,
+  strengthenRevokeAction,
 } from "@/app/(portal)/settings/devices/actions";
+import { REVOKE_COPY } from "@/app/(portal)/settings/devices/revoke-copy";
 
 const DEV = "22222222-2222-4222-8222-222222222222";
 const fd = (f: Record<string, string>) => {
@@ -102,6 +113,9 @@ beforeEach(() => {
   h.events = [];
   h.resetAnswer = { node: "n2", ok: true, value: { deviceId: DEV, code: "K7QM3XWP", expiresAt: "2026-10-20T22:30:00Z", node: "n2" } };
   h.revalidated = [];
+  h.sentry = [];
+  h.notified = 0;
+  h.log.error.mockClear();
 });
 
 describe("previewRevokeAction", () => {
@@ -245,5 +259,81 @@ describe("mintResetCodeAction", () => {
     h.resetAnswer = { node: "n3", ok: false, code: "unreachable" };
     expect(await mintResetCodeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/Nothing changed/) });
     expect(h.events).toEqual([]);
+  });
+});
+
+describe("strengthenRevokeAction (Make this stronger)", () => {
+  const passkeySession = (daysOld: number) => {
+    h.recent = { ok: true, sessionId: "s1", authMethod: "passkey", authPasskeyId: "pk-1" };
+    h.passkeyCreated = new Date(Date.now() - daysOld * 86_400_000);
+  };
+  const full = (node: string, upgraded = true) => ({
+    node,
+    ok: true,
+    value: { accountId: "acct-1", deviceId: DEV, node, revokedAt: "t", reason: "lost", mode: "full", alreadyRevoked: true, upgraded },
+  });
+
+  it("re-sends the revoke with the passkey strength, and says it's full now", async () => {
+    passkeySession(8);
+    h.answers = [full("n2"), full("n3", false)];
+    const res = await strengthenRevokeAction(null, fd({ deviceId: DEV }));
+    expect(res).toEqual({ ok: true, status: "done", message: "Made it a full sign-out. Send Help still works from it." });
+    const body = h.calls[0]![3] as { reason: string; authStrength: { method: string } };
+    expect(h.calls[0]!.slice(0, 3)).toEqual(["revoke", "acct-1", DEV]);
+    expect(body.authStrength.method).toBe("passkey");
+    // AvServ keeps the first reason; the one sent here changes nothing.
+    expect(body.reason).toBe("user");
+    expect(h.notified).toBe(1);
+    expect(h.revalidated).toEqual(["/settings/devices"]);
+  });
+
+  it("is honest when one node didn't answer", async () => {
+    passkeySession(8);
+    h.answers = [full("n2"), { node: "n3", ok: false, code: "unreachable" }];
+    expect(await strengthenRevokeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: true, status: "partial" });
+    expect(h.log.warn).toHaveBeenCalledWith(expect.objectContaining({ event: "devices.strengthen.node_missing", node: "n3" }));
+  });
+
+  it("asks for a passkey sign-in, and sends nothing, when this session wouldn't make it full", async () => {
+    for (const setup of [
+      () => (h.recent = { ok: true, sessionId: "s1", authMethod: "password", authPasskeyId: null }),
+      () => (h.recent = { ok: true, sessionId: "s1", authMethod: null, authPasskeyId: null }),
+      () => passkeySession(3),
+    ]) {
+      setup();
+      expect(await strengthenRevokeAction(null, fd({ deviceId: DEV }))).toEqual({
+        ok: false,
+        reauth: true,
+        error: REVOKE_COPY.strengthenNeedsPasskey,
+      });
+    }
+    expect(h.calls).toEqual([]);
+    expect(h.notified).toBe(0);
+  });
+
+  it("needs a real device id and a recent login", async () => {
+    passkeySession(8);
+    expect(await strengthenRevokeAction(null, fd({ deviceId: "nope" }))).toMatchObject({ ok: false });
+    h.recent = { ok: false, reauth: true };
+    expect(await strengthenRevokeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, reauth: true });
+    expect(h.calls).toEqual([]);
+  });
+
+  it("fails loud, and says nothing changed, when AvServ keeps it limited", async () => {
+    passkeySession(8);
+    h.answers = [revokeOk("n2")];
+    expect(await strengthenRevokeAction(null, fd({ deviceId: DEV }))).toEqual({ ok: false, error: REVOKE_COPY.strengthenKeptLimited });
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "devices.strengthen.kept_limited" }));
+    expect(h.sentry).toHaveLength(1);
+    expect(h.notified).toBe(0);
+  });
+
+  it("says nothing changed when no node answered", async () => {
+    passkeySession(8);
+    h.answers = [{ node: "n2", ok: false, code: "unreachable" }];
+    expect(await strengthenRevokeAction(null, fd({ deviceId: DEV }))).toMatchObject({ ok: false, error: expect.stringMatching(/Nothing changed/) });
+    expect(h.sentry).toEqual([]);
+    expect(h.notified).toBe(0);
+    expect(h.revalidated).toEqual([]);
   });
 });
