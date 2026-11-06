@@ -173,6 +173,11 @@ approved A2P filing says YES is optional. So they go live in one cutover, not on
 
 ## 7. Done recently
 
+**2026-11-01 → 11-05:** status and contact-acceptance cutover gates written, E2E runner
+pinned (#189) · `/privacy` names Postmark (#190) · STOP and phone sign-out claims corrected on
+public pages (#191) · `/privacy` states precise location, `/terms` the START exception (#192) ·
+`/privacy` problem-reports section, matched to AvApp #436/#437/#442 for 1.0.0+8 (#193).
+
 **2026-10-27 → 11-01:** AvAI account card hidden while setup is closed, portal data inventory
 (#181) · expired sessions, tokens and rate-limit rows deleted daily (#182) · `/privacy` matches
 the app's privacy manifest (#183) · CSP enforced (#184) · unaccepted invitations deleted 7 days
@@ -215,4 +220,3 @@ spacing on `/privacy`/`/terms` (#87, open).
   AvApp plan 41 (says no drills have been run).
 - Maintenance: DMARC `p=quarantine` → `p=reject`; Sentry and Neon plan decisions
   ([infrastructure.md](../infrastructure.md) "Maintenance").
-- Prune merged local branches.
