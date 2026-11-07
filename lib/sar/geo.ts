@@ -10,6 +10,11 @@ import { db } from "../db";
 // lib/db/schema.ts on purpose (see the note there). Coordinates are GeoJSON axis
 // order: [longitude, latitude] in WGS84 (SRID 4326).
 
+/** How the sync simplifies an area before sending it (degrees, ~50 m) and the
+ *  decimals it keeps. The area checks (area-checks.ts) run on the same shape. */
+export const SYNC_SIMPLIFY_DEGREES = 0.0005;
+export const SYNC_DECIMALS = 6;
+
 const MAX_VERTICES_PER_RING = 10_000; // guards against pathological client input
 const MAX_RINGS = 50; // one exterior ring + a sane number of interior holes
 
