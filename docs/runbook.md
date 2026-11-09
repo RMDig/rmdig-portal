@@ -164,8 +164,17 @@ The portal is the only place a SAR team is approved, suspended, re-verified or
 withdrawn; AvServ only stores what the portal sends (AvServ
 `sar_team_sync.md`). The portal PUTs the team's current state to **both** nodes
 (`AVSERV_BASE_URL` and `AVSERV_FAILOVER_BASE_URL`) after: approve, suspend, mark
-leaving, withdraw, patrol re-verification, and publishing team terms. Each send
-bumps the org's revision; AvServ keeps the highest per node.
+leaving, withdraw, patrol re-verification, publishing team terms, and an approved
+team changing its own service area. Each send bumps the org's revision; AvServ
+keeps the highest per node.
+
+- **Area changes** (plan 33 D3): an approved team's admins redraw its area on
+  the team's **Service area** tab. Nothing is approved: the area is refused only
+  if AvServ would refuse it (over 1 MiB once simplified, or too many points),
+  saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
+  and every SAR approver gets an informational email. A node that didn't take it
+  shows here as a failed sync (Sentry `sar.area.sync_incomplete`): resync. To
+  stop a team misusing its area, suspend it.
 
 - **Per-node status** is on each org in **Admin → SAR approvals**: revision,
   usable or not, last accepted time, or the failure code. **Resync to AvServ**
@@ -590,7 +599,7 @@ queue instead (**Mark leaving**, then **Withdraw** once no node has check-outs
 bound to it): AvServ stops routing to it and the record stays. The evidence
 tables (`sar_org_status_log`, `sar_intake_messages`, `sar_alert_acks`,
 `sar_alert_view_log`, `sar_map_view_log`, `org_membership_log`,
-`sar_org_terms`, `sar_alert_notifications`) reference `sar_orgs` with
+`sar_org_terms`, `sar_alert_notifications`, `sar_org_area_log`) reference `sar_orgs` with
 `ON DELETE RESTRICT`, so `DELETE FROM sar_orgs` fails while any of it exists.
 Those rows leave only through their own retention (`/api/cron/sar-retention`).
 A pending application that never got anywhere is rejected, not deleted.

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -573,6 +574,29 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
 },
   // History is always read per-org, newest first; index org_id for that lookup.
   (t) => [index("sar_org_status_log_org_id_idx").on(t.orgId)],
+);
+
+// Every change to a team's service area (plan 33 D3, step 9.4): an approved
+// team edits its own area, so each edit is logged with the old and new shape,
+// synced and emailed to staff. Append-only by convention, like the other logs.
+// The shapes are GeoJSON Polygons as stored (not simplified); jsonb, not
+// geography, because the log is read, never matched against.
+export const sarOrgAreaLog = pgTable(
+  "sar_org_area_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    // Null for the first area an org ever had.
+    fromArea: jsonb("from_area").$type<{ type: "Polygon"; coordinates: number[][][] }>(),
+    toArea: jsonb("to_area").$type<{ type: "Polygon"; coordinates: number[][][] }>().notNull(),
+    fromAreaKm2: doublePrecision("from_area_km2"),
+    toAreaKm2: doublePrecision("to_area_km2").notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("sar_org_area_log_org_id_idx").on(t.orgId)],
 );
 
 // The outcome of the last team sync to each AvServ node (sar_team_sync.md):

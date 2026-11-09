@@ -114,3 +114,13 @@ export async function getRegionAsGeoJson(
   if (!raw) return null;
   return RegionPolygonSchema.parse(JSON.parse(raw));
 }
+
+/** An org's stored region area in km² (geography, as stored, not simplified),
+ *  or null when it has none. */
+export async function getRegionAreaKm2(orgId: string, exec: SqlExecutor = db): Promise<number | null> {
+  const rows = (await exec.execute(sql`
+    SELECT ST_Area(region_geom) / 1e6 AS km2 FROM sar_orgs WHERE id = ${orgId}
+  `)) as unknown as Array<{ km2: number | string | null }>;
+  const v = rows[0]?.km2;
+  return v === null || v === undefined ? null : Number(v);
+}

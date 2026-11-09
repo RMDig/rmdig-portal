@@ -17,8 +17,9 @@ import { updateSarOrgSchema } from "@/lib/sar/schema";
 import { portalUrl } from "@/lib/email/links";
 
 // Resubmitting a pending application (docs/plans/33 §4, portal 2). Only the
-// org's admins, only while it's pending: an approved org's area or details
-// change only through operator review (CLAUDE.md §0), never here. The edit,
+// org's admins, only while it's pending. An approved team changes its own
+// service area on its area page (../area; plan 33 D3, CLAUDE.md §0); its
+// other details change through support. The edit,
 // a `resubmitted` log row and clearing the review note land together; staff
 // are emailed afterwards (a failed email is logged, not rolled back).
 
@@ -48,7 +49,7 @@ export async function updateSarOrgAction(
   if (org.status !== "pending") {
     return {
       ok: false,
-      error: "Only an application under review can be edited. To change an approved organization, contact support.",
+      error: "Only an application under review can be edited. An approved team changes its service area on its Service area tab; for anything else, contact support.",
     };
   }
 

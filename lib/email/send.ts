@@ -26,6 +26,7 @@ import PlatformInviteEmail from "./templates/PlatformInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import RestrictionReviewRequestedEmail from "./templates/RestrictionReviewRequestedEmail";
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
+import SarAreaChangedEmail, { type SarAreaChangedEmailProps } from "./templates/SarAreaChangedEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
 import SarAlertNotifyEmail, { type SarAlertNotifyKind } from "./templates/SarAlertNotifyEmail";
@@ -147,6 +148,17 @@ export async function sendSarOrgPendingReviewEmail(
     to,
     subject: `SAR org awaiting review: ${params.orgName}`,
     html,
+  });
+}
+
+/** Informational: a team changed its own service area (plan 33 D3). */
+export async function sendSarAreaChangedEmail(to: string, params: SarAreaChangedEmailProps): Promise<void> {
+  await deliver({
+    kind: "sar_area_changed",
+    label: "SAR-area-changed",
+    to,
+    subject: `SAR team changed its service area: ${params.orgName}`,
+    html: render(SarAreaChangedEmail(params)),
   });
 }
 
