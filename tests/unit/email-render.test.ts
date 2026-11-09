@@ -9,7 +9,9 @@ import CollectionSignupEmail from "@/lib/email/templates/CollectionSignupEmail";
 import AdCreativeDecisionEmail from "@/lib/email/templates/AdCreativeDecisionEmail";
 import DataDeletionAdminEmail from "@/lib/email/templates/DataDeletionAdminEmail";
 import DeletionClockEmail from "@/lib/email/templates/DeletionClockEmail";
+import SarNoAdminStaffEmail from "@/lib/email/templates/SarNoAdminStaffEmail";
 import SarOrgDecisionEmail from "@/lib/email/templates/SarOrgDecisionEmail";
+import SarTeamStatusEmail from "@/lib/email/templates/SarTeamStatusEmail";
 import SarTermsDecisionEmail from "@/lib/email/templates/SarTermsDecisionEmail";
 import SarOrgPendingReviewEmail from "@/lib/email/templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "@/lib/email/templates/SarOrgSubmittedEmail";
@@ -80,6 +82,30 @@ describe("email templates render to HTML", () => {
     expect(html).toContain("https://rmdig.ai/sar/pending");
     expect(html).toContain("San Juan County SAR");
     expect(html).toMatch(/received/i);
+  });
+
+  it("SarTeamStatusEmail says what AvAI does for a suspended team, and for one back under review", async () => {
+    const supportUrl = "https://rmdig.ai/support";
+    const suspended = await render(SarTeamStatusEmail({ orgName: "San Juan SAR", change: "suspended", supportUrl }));
+    expect(suspended).toContain("San Juan SAR");
+    expect(suspended).toContain("is suspended");
+    expect(suspended).toContain("doesn&#x27;t send it alerts, including for check-outs that already named your team");
+    expect(suspended).toContain(supportUrl);
+    const back = await render(SarTeamStatusEmail({ orgName: "San Juan SAR", change: "reactivated", supportUrl }));
+    expect(back).toContain("back under review");
+    expect(back).toContain("until rmdig staff approve it again");
+  });
+
+  it("SarNoAdminStaffEmail lists every team with no admin, singular or plural", async () => {
+    const queueUrl = "https://rmdig.ai/admin/sar-approvals";
+    const one = await render(SarNoAdminStaffEmail({ teams: [{ name: "Alpha SAR", status: "approved" }], queueUrl }));
+    expect(one).toContain("A SAR team has no admin");
+    expect(one).toContain("Alpha SAR");
+    expect(one).toContain(queueUrl);
+    const two = await render(SarNoAdminStaffEmail({ teams: [{ name: "Alpha SAR", status: "approved" }, { name: "Bravo SAR", status: "suspended" }], queueUrl }));
+    expect(two).toContain("SAR teams with no admin");
+    expect(two).toContain("Bravo SAR");
+    expect(two).toContain("repeats each day");
   });
 
   it("SarOrgPendingReviewEmail names the org, submitter, and review link", async () => {

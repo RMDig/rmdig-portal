@@ -175,7 +175,7 @@ Rules that come from the reviews:
 | 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
 | 7 Roles and membership | ✅ remove, change role, revoke invite, last-admin rule, `org_membership_log` |
 | 8 Private proof | ✅ staff-only route; production Blob not yet verified (status §1) |
-| 9 Emails | Terms submitted and decided ✅, team alert email ✅ (daily retry cron); suspension/reactivation ⬜ (9.13) |
+| 9 Emails | Terms submitted and decided ✅, team alert email ✅ (daily retry cron); suspension/reactivation and no-admin ✅ 9.13 (2026-11-06) |
 | 10 Runbook | ✅ review, sync, terms, intake, alerts layer, members, removal, suspend |
 
 ### Legal, carrier, store (counsel)
@@ -356,7 +356,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.10 | On-call `email` channel: add, verify by link, re-verify on change | AvServ dispatches `email` on both nodes |
 | 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | Vercel Pro (O7) |
 | 9.12 | Reachability; no-ack escalation (once per alert) | 9.10, 9.11; N [ESCALATE] |
-| 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back) | None |
+| 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back). **Built 2026-11-06:** team admins emailed on suspend/reactivate (no staff note); no-admin banner on the team pages and a daily approver email (`/api/cron/sar-no-admin`); what staff then do stays [ESCALATE] | None |
 | 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
 
 9.1, 9.2, 9.3 and 9.13 can start now.

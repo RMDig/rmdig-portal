@@ -18,6 +18,9 @@ const h = vi.hoisted(() => ({
   bumpedRevision: [] as boolean[],
   logs: [] as unknown[],
   sync: vi.fn(() => Promise.resolve([])),
+  // The team's admins, for the suspension and reactivation emails.
+  admins: [{ email: "lead@sar.org" }] as Array<{ email: string }>,
+  teamEmail: vi.fn(() => Promise.resolve()),
   nodeViews: [] as Array<{ openBindings: number } | null | Error>,
 }));
 
@@ -41,6 +44,8 @@ vi.mock("@/lib/db", () => {
     innerJoin: () => selChain,
     where: () => selChain,
     limit: () => Promise.resolve(h.org),
+    // Awaited without limit(): the team-admin lookup.
+    then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve(h.admins).then(res, rej),
   };
   return {
     db: {
@@ -54,7 +59,7 @@ vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gat
 // h.staff: whether the caller holds rmdig_sar_approver, the queue's only gate.
 vi.mock("@/lib/auth/roles", () => ({ isSarApprover: vi.fn(() => Promise.resolve(h.staff)) }));
 vi.mock("@/lib/auth/org-roles", () => ({ getOrgRole: vi.fn(() => Promise.resolve(h.memberRole)) }));
-vi.mock("@/lib/email/send", () => ({ sendSarOrgDecisionEmail: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/lib/email/send", () => ({ sendSarOrgDecisionEmail: vi.fn(() => Promise.resolve()), sendSarTeamStatusEmail: h.teamEmail }));
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/sar/sync", () => ({ syncSarOrg: h.sync }));
@@ -98,6 +103,7 @@ beforeEach(() => {
   h.bumpedRevision = [];
   h.staff = true;
   h.memberRole = null;
+  h.admins = [{ email: "lead@sar.org" }];
   authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
 });
 
@@ -128,18 +134,32 @@ describe("reviewSarOrgAction", () => {
     if (!res.ok) expect(res.error).toMatch(/can't approve|approved/i);
   });
 
-  it("suspends an approved org without emailing", async () => {
+  it("suspends an approved org, emailing its admins (not the submitter, and without the note)", async () => {
     h.org = pendingOrg({ status: "approved" });
     const res = await reviewSarOrgAction(null, fd("suspend"));
     expect(res.ok).toBe(true);
     expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+    expect(h.teamEmail).toHaveBeenCalledWith("lead@sar.org", { orgName: "San Juan SAR", change: "suspended", supportUrl: expect.stringMatching(/\/support$/) });
   });
 
-  it("reactivates a suspended org without emailing", async () => {
+  it("reactivates a suspended org, telling its admins it's back under review", async () => {
     h.org = pendingOrg({ status: "suspended" });
     const res = await reviewSarOrgAction(null, fd("reactivate"));
     expect(res.ok).toBe(true);
     expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+    expect(h.teamEmail).toHaveBeenCalledWith("lead@sar.org", expect.objectContaining({ change: "reactivated" }));
+  });
+
+  it("keeps a suspension when the admins can't be emailed, or there are none", async () => {
+    h.org = pendingOrg({ status: "approved" });
+    h.admins = [{ email: "a@sar.org" }, { email: "b@sar.org" }];
+    h.teamEmail.mockRejectedValueOnce(new Error("resend down"));
+    expect(await reviewSarOrgAction(null, fd("suspend"))).toEqual({ ok: true });
+    expect(h.teamEmail).toHaveBeenCalledTimes(2);
+    h.org = pendingOrg({ status: "approved" });
+    h.admins = [];
+    expect(await reviewSarOrgAction(null, fd("suspend"))).toEqual({ ok: true });
+    expect(h.teamEmail).toHaveBeenCalledTimes(2);
   });
 
   it("won't suspend an org that isn't approved", async () => {

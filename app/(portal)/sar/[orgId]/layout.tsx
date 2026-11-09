@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { sarOrgs } from "@/lib/db/schema";
 import { teamTabs } from "@/lib/nav/sections";
 import { TEAM_ROLE_PHRASE } from "@/lib/labels";
+import { teamHasAdmin } from "@/lib/sar/no-admin";
 
 // A team's pages under one name and one tab bar (Members · Alerts · Terms ·
 // Application), each tab shown only to the roles its page admits. Each page
@@ -18,6 +19,8 @@ export default async function TeamLayout({ children, params }: { children: React
   const role = userId && /^[0-9a-f-]{36}$/i.test(orgId) ? await getOrgRole(userId, orgId) : null;
   const [org] = role ? await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1) : [];
   if (!role || !org) return children;
+  // An admin viewing means there is one; otherwise check (plan 33 §6.4).
+  const noAdmin = role !== "admin" && !(await teamHasAdmin(orgId));
 
   return (
     <div className="space-y-6">
@@ -27,6 +30,12 @@ export default async function TeamLayout({ children, params }: { children: React
         </p>
         <SectionTabs label="Team" tabs={teamTabs(orgId, role, org.status)} />
       </div>
+      {noAdmin ? (
+        <p role="status" className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+          Your team has no admin, so nobody can manage its members, terms or service area. rmdig staff have been told;
+          you can also contact rmdig support.
+        </p>
+      ) : null}
       {children}
     </div>
   );
