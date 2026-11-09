@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { operatingStatus, orgType } from "../db/schema";
 import { RegionPolygonSchema } from "./geo";
+import { SERVICE_AREA_LABEL_MAX } from "./sync-body";
 
 // Shared validation for the SAR org creation form (/sar/new). The server action
 // validates submitted FormData against this; the client form mirrors the same
@@ -61,7 +62,8 @@ const editableFields = {
   orgType: z.enum(orgTypeValues).default("sar_team"),
   name: z.string().trim().min(1, "Enter your organization's name.").max(200),
   description: optionalText(2000),
-  regionName: optionalText(200),
+  // Sent to AvServ as the area's label, which it caps at 100 characters.
+  regionName: optionalText(SERVICE_AREA_LABEL_MAX),
   contactName: z.string().trim().min(1, "Enter a primary contact name.").max(200),
   contactEmail: z.string().trim().toLowerCase().email("Enter a valid contact email.").max(320),
   operatingStatus: z.enum(operatingStatusValues),
@@ -87,7 +89,7 @@ export const createSarOrgSchema = z
     orgType: editableFields.orgType,
     name: z.string().trim().min(1, "Enter your organization's name.").max(200),
     description: optionalText(2000),
-    regionName: optionalText(200),
+    regionName: optionalText(SERVICE_AREA_LABEL_MAX),
     contactName: z.string().trim().min(1, "Enter a primary contact name.").max(200),
     contactEmail: z.string().trim().toLowerCase().email("Enter a valid contact email.").max(320),
     contactPhone: optionalText(40),

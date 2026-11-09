@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { planSync, type SyncOrg, type SyncTerms } from "@/lib/sar/sync-body";
+import { planSync, SERVICE_AREA_LABEL_MAX, type SyncOrg, type SyncTerms } from "@/lib/sar/sync-body";
+import { createSarOrgSchema, updateSarOrgSchema } from "@/lib/sar/schema";
 
 // The AvServ team-sync body (sar_team_sync.md §1), from the portal's records.
 
@@ -17,6 +18,7 @@ const org = (o: Partial<SyncOrg> = {}): SyncOrg => ({
   verifiedAt: null,
   reverifyBy: null,
   leavingNoticeAt: null,
+  regionName: "Summit County, CO",
   ...o,
 });
 const terms: SyncTerms = {
@@ -45,11 +47,41 @@ describe("planSync", () => {
         verifiedAt: null,
         reverifyBy: null,
         serviceArea: { type: "Polygon", coordinates: area },
+        serviceAreaLabels: ["Summit County, CO"],
+        publicListing: { consent: false, consentAt: null, websiteUrl: null, givingUrl: null, blurb: null, logoRef: null },
         channels: [{ kind: "portal", verifiedAt: "2026-10-01T09:00:00.000Z" }],
         terms: { ...terms, publishedAt: "2026-10-02T10:00:00.000Z" },
         updatedAt: "2026-10-04T12:00:00.000Z",
       },
     });
+  });
+
+  it("labels the area with the team's region name, trimmed, and none without one", () => {
+    const labels = (regionName: string | null) => {
+      const plan = planSync(org({ regionName }), area, terms, 1, now);
+      return plan.send ? plan.body.serviceAreaLabels : undefined;
+    };
+    expect(labels("  Summit County, CO ")).toEqual(["Summit County, CO"]);
+    expect(labels(null)).toEqual([]);
+    expect(labels("   ")).toEqual([]);
+  });
+
+  it("never lists a team publicly until it consents (portal plan 34)", () => {
+    for (const status of ["approved", "leaving", "suspended", "withdrawn"] as const) {
+      const plan = planSync(org({ status }), area, terms, 1, now);
+      expect(plan.send && plan.body.publicListing.consent).toBe(false);
+    }
+  });
+
+  it("caps the region name at AvServ's label limit when it's entered", () => {
+    const at = (regionName: string) =>
+      [createSarOrgSchema, updateSarOrgSchema].map((schema) => {
+        const r = schema.safeParse({ regionName });
+        return !r.success && r.error.issues.some((i) => i.path[0] === "regionName");
+      });
+    expect(SERVICE_AREA_LABEL_MAX).toBe(100);
+    expect(at("x".repeat(100))).toEqual([false, false]);
+    expect(at("x".repeat(101))).toEqual([true, true]);
   });
 
   it("maps patrols, leaving teams and their notice time", () => {

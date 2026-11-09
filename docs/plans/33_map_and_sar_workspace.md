@@ -171,7 +171,7 @@ Rules that come from the reviews:
 | 2 Resubmit | ✅ `/sar/[orgId]/edit`, pending only |
 | 3 Area edits | ⬜ 9.3–9.6 (§6.3) |
 | 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` is still offered (9.1) |
-| 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; no `publicListing` or `serviceAreaLabels` (9.2) |
+| 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; `serviceAreaLabels` (from `regionName`) and `publicListing` (`consent: false`) since 9.2 (2026-11-06) |
 | 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
 | 7 Roles and membership | ✅ remove, change role, revoke invite, last-admin rule, `org_membership_log` |
 | 8 Private proof | ✅ staff-only route; production Blob not yet verified (status §1) |
@@ -345,7 +345,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 |---|---|---|
 | 9.0 | This revision (plans 33, 34, 00) | Owner review |
 | 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it | None |
-| 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`) | None |
+| 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`). **Built 2026-11-06**; `regionName` capped at AvServ's 100-character label limit (production's longest: 8) | None |
 | 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB | None |
 | 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email | 9.3 |
 | 9.5 | Overlap (clip preview) and large-area warnings | 9.4 |
