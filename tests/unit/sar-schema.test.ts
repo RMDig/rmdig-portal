@@ -99,7 +99,7 @@ describe("createSarOrgSchema", () => {
     for (const region of ["", undefined]) {
       const res = createSarOrgSchema.safeParse({ ...base, region });
       expect(res.success).toBe(false);
-      if (!res.success) expect(res.error.flatten().fieldErrors.region).toEqual(["Draw your service area on the map."]);
+      if (!res.success) expect(res.error.flatten().fieldErrors.region).toEqual(["Draw your service area on the map, or enter its corner points."]);
     }
   });
 

@@ -25,7 +25,7 @@ const optionalText = (max: number) =>
 // The map serializes the drawn polygon to a JSON string in a hidden field. Parse
 // it, then validate the GeoJSON, so a missing or garbled region is a plain
 // field-level error on `region` rather than a 500 deep in the insert.
-export const REGION_MISSING = "Draw your service area on the map.";
+export const REGION_MISSING = "Draw your service area on the map, or enter its corner points.";
 const REGION_UNREADABLE = "That service area couldn't be read. Clear the drawing and draw it again.";
 
 const regionField = z

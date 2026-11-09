@@ -144,7 +144,9 @@ resubmitted application emails every SAR approver with a link to its row.
    - **Request changes** (note required) → stays `pending`; emails the submitter what to fix.
      Their admins see your note on `/sar/pending` and can **edit and resubmit**
      (`/sar/<orgId>/edit`): every field except the verified phone, plus a redrawn
-     area and a replacement document if they choose. A resubmission logs
+     area and a replacement document if they choose. An area AvServ would
+     refuse (over 1 MiB once simplified, or too many points) is refused at
+     submit and resubmit, as on the Service area tab. A resubmission logs
      `resubmitted`, clears your note and emails all staff. Approved orgs
      can't be edited this way (§0).
 
@@ -173,7 +175,9 @@ keeps the highest per node.
   if AvServ would refuse it (over 1 MiB once simplified, or too many points).
   Before saving, the page warns (never blocks) when the area is larger than Las
   Animas County (~12,362 km²) or overlaps other live teams, naming them and
-  offering the area without the overlap. The area is saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
+  offering the area without the overlap. Applicants see the size warning but
+  never other teams' names: you see overlaps when you review. Any area can be
+  drawn or typed as corner points (the keyboard path). The area is saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
   and every SAR approver gets an informational email. A node that didn't take it
   shows here as a failed sync (Sentry `sar.area.sync_incomplete`): resync. To
   stop a team misusing its area, suspend it.

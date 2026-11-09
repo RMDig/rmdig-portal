@@ -2,10 +2,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/app/(portal)/sar/[orgId]/area/actions", () => ({ checkAreaAction: vi.fn(), saveAreaAction: vi.fn() }));
+vi.mock("@/app/(portal)/sar/area-check-action", () => ({ checkAreaAction: vi.fn() }));
 
-import { AreaWarnings } from "@/app/(portal)/sar/[orgId]/area/AreaWarnings";
-import type { CheckAreaResult } from "@/app/(portal)/sar/[orgId]/area/actions";
+import { AreaWarnings } from "@/app/(portal)/sar/AreaWarnings";
+import type { CheckAreaResult } from "@/app/(portal)/sar/area-check-action";
 
 // The warnings shown for a drawn area (plan 33 §6.3, step 9.5): never a block,
 // only what the admin should know before saving.

@@ -12,6 +12,7 @@ import { SAR_APPROVER_ROLE } from "@/lib/auth/roles";
 import { staffEmails } from "@/lib/auth/staff-recipients";
 import { logger } from "@/lib/logger";
 import { reportError, reportProblem } from "@/lib/report-error";
+import { assessArea } from "@/lib/sar/area-checks";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { updateSarOrgSchema } from "@/lib/sar/schema";
 import { portalUrl } from "@/lib/email/links";
@@ -58,6 +59,22 @@ export async function updateSarOrgAction(
     return { ok: false, error: "Please fix the highlighted fields.", fieldErrors: parsed.error.flatten().fieldErrors };
   }
   const data = parsed.data;
+
+  // A new area AvServ would refuse can't be synced once approved (plan 33 §6.3
+  // step 3, step 9.6). Before the upload, so a refused area doesn't orphan one.
+  if (data.region) {
+    let assessment: Awaited<ReturnType<typeof assessArea>>;
+    try {
+      assessment = await assessArea(data.region, orgId);
+    } catch (err) {
+      logger.error({ event: "sar.resubmit.area_check_failed", userId, orgId, err });
+      return { ok: false, error: "Couldn't check the service area. Try again in a moment." };
+    }
+    if (!assessment.ok) {
+      logger.info({ event: "sar.resubmit.area_refused", userId, orgId, code: assessment.code });
+      return { ok: false, error: assessment.message, fieldErrors: { region: [assessment.message] } };
+    }
+  }
 
   // A new proof document is optional; an empty file input means "keep it".
   const file = formData.get("proofDoc");

@@ -48,6 +48,8 @@ vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 // Keep the real RegionPolygonSchema (the schema validates the region with it);
 // only stub the DB-touching write helper.
+const assess = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sar/area-checks", () => ({ assessArea: assess }));
 vi.mock("@/lib/sar/geo", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sar/geo")>()),
   setRegionGeom: vi.fn(() => Promise.resolve()),
@@ -109,6 +111,7 @@ beforeEach(() => {
   h.admins = [{ email: "admin@rmdig.ai" }];
   h.orgRow = [{ id: "org-1" }];
   h.inserted = [];
+  assess.mockResolvedValue({ ok: true, overlaps: [], clip: null });
   // signed-in by default
   authMock.mockResolvedValue({ user: { id: "user-1", email: "submitter@sar.org" } } as never);
 });
@@ -166,6 +169,22 @@ describe("createSarOrgAction", () => {
     vi.mocked(sendSarOrgSubmittedEmail).mockRejectedValueOnce(new Error("resend down"));
     const res = await createSarOrgAction(null, validFormData());
     expect(res.ok).toBe(true);
+  });
+
+  it("refuses an area AvServ would refuse, before the upload, in the check's own words", async () => {
+    assess.mockResolvedValue({ ok: false, code: "area_too_large", message: "Remove about 17% of its points." });
+    const res = await createSarOrgAction(null, validFormData());
+    expect(res).toEqual({ ok: false, error: "Remove about 17% of its points.", fieldErrors: { region: ["Remove about 17% of its points."] } });
+    expect(assess).toHaveBeenCalledWith(expect.objectContaining({ type: "Polygon" }), null);
+    expect(uploadProofDoc).not.toHaveBeenCalled();
+    expect(setRegionGeom).not.toHaveBeenCalled();
+  });
+
+  it("fails loud when the area check itself fails", async () => {
+    assess.mockRejectedValue(new Error("db down"));
+    const res = await createSarOrgAction(null, validFormData());
+    expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/Couldn't check the service area/) });
+    expect(uploadProofDoc).not.toHaveBeenCalled();
   });
 
   it("stores the org type, defaulting to a search & rescue team", async () => {
