@@ -170,7 +170,8 @@ Rules that come from the reviews:
 | 1 Org type, incl. ski patrol | ✅ `orgType` `sar_team`/`ski_patrol`, patrol re-verify cron |
 | 2 Resubmit | ✅ `/sar/[orgId]/edit`, pending only |
 | 3 Area edits | Checks ✅ 9.3 (`lib/sar/area-checks.ts`, 2026-11-06); editor, log, sync on save and warnings ⬜ 9.4–9.6 (§6.3) |
-| 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` is still offered (9.1) |
+| 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` not offered since 9.1 (2026-11-06); staff publish refuses a draft that still names it |
+
 | 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; no `publicListing` or `serviceAreaLabels` (9.2) |
 | 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
 | 7 Roles and membership | ✅ remove, change role, revoke invite, last-admin rule, `org_membership_log` |
@@ -273,11 +274,12 @@ Final; they override plan 34, AvApp plan 47 and AvServ plan 41 where those confl
 - **D7.** `publicPhone {e164, verifiedAt, publishConsentAt}`, separate from
   `contact_phone` (the operator's callback), verified with the existing Twilio Verify
   flow, publication consent [COUNSEL]. `contactLineName` (1–32 GSM-7) names the team.
-- **D8.** `area_map` is `offered: true` today (`lib/sar/terms-rules.ts:45–48`). At
+- **D8.** `area_map` was `offered: true` until 9.1 (`lib/sar/terms-rules.ts`). At
   revision 2 AvServ refuses the **whole** PUT naming it (`422 capability_not_available`)
   while `AVSERV_SAR_AREA_FEED` isn't `on`: strip, never retry. Terms versions are
   immutable, so a published version carrying it needs a remove-only successor
-  (`requiresReacceptance: false`) before revision 2 reaches production.
+  (`requiresReacceptance: false`) before revision 2 reaches production. None exists
+  (checked 2026-11-06); staff publish now refuses any version naming it.
 - **D9.** The `email` channel carries the on-call `address`. AvServ `origin/main`
   accepts it (`internal/api/sarteams.go:385`) but doesn't dispatch it (B1); revision 2
   does (§5.5), with bounces in `channelStatus` (`bouncedAt`).
@@ -344,7 +346,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | ID | Scope | Gate |
 |---|---|---|
 | 9.0 | This revision (plans 33, 34, 00) | Owner review |
-| 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it | None |
+| 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it. **Built 2026-11-06.** No successor needed: production's only terms version (the rejected drill team, v1) has `checkout_alerts` alone (`pnpm prod:read`, 2026-11-06) | None |
 | 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`) | None |
 | 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB. **Built 2026-11-06** (`assessArea`, `checkAvservCaps`); not yet called: 9.4 wires it into the save | None |
 | 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email | 9.3 |
@@ -359,7 +361,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back) | None |
 | 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
 
-9.1, 9.2, 9.3 and 9.13 can start now.
+9.2, 9.3 and 9.13 can start now.
 
 ### 6.6 ORANGE layer (D8)
 

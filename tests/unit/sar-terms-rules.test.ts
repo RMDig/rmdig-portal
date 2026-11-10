@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { requiresReacceptance, termsSha256 } from "@/lib/sar/terms";
-import { CAPABILITIES, capabilitySettings, termsDraftSchema, termsWordingProblems } from "@/lib/sar/terms-rules";
+import { CAPABILITIES, capabilitySettings, termsDraftSchema, termsWordingProblems, unofferedCapabilities } from "@/lib/sar/terms-rules";
 
 // Team terms (docs/plans/33; AvServ plan 41; AvApp plan 47 §2.13).
 
@@ -47,8 +47,20 @@ describe("capabilitySettings", () => {
     ]);
   });
 
-  it("doesn't offer Incident Detection alerts yet", () => {
+  it("doesn't offer Incident Detection alerts or the area map yet", () => {
     expect(CAPABILITIES.find((c) => c.name === "incident_alerts")?.offered).toBe(false);
+    expect(CAPABILITIES.find((c) => c.name === "area_map")?.offered).toBe(false);
+    expect(termsDraftSchema.safeParse({ body: "x", capabilities: ["area_map"] }).success).toBe(false);
+  });
+});
+
+describe("unofferedCapabilities", () => {
+  it("names the services a stored version holds that aren't offered now", () => {
+    expect(unofferedCapabilities([{ name: "checkout_alerts" }, { name: "area_map" }, { name: "incident_alerts" }])).toEqual([
+      "area_map",
+      "incident_alerts",
+    ]);
+    expect(unofferedCapabilities([{ name: "checkout_alerts" }, { name: "named_to_contacts" }])).toEqual([]);
   });
 });
 
