@@ -183,6 +183,31 @@ while it's still free, and the drill area then stays where it is.
   the body. The new copy joins the `legal-copy.test.ts` scan.
 - A real team's drill deliveries (a node in drill mode) still email no one.
 
+### 4.9 Later (P7): a drill AvAI user
+
+Owner, 2026-11-09 (plan 66 O2). Phase D's first production pass uses a device-only
+drill account: the fixed drill device, with no portal user. A planned follow-up adds a
+drill portal user linked to a drill device that is a real AvAI install. This drills the
+user side end to end: device link, portal sign-out (AvApp O15, #470), consent, the SAR
+teams list, the area-share setting, and erasure.
+
+- The user is an `is_drill` row with a plus address at rmdig.ai (DR3). It is created
+  the same way as a drill login (§4.2) but with no team membership, so it holds
+  neither a team role nor a platform role.
+- **Drill status belongs to the account, not only to `AVSERV_DRILL_DEVICE_IDS`.** A
+  link across the line is refused on both sides: a drill portal user with a real
+  AvServ account, or a real user with a drill account. This works like the team-flip
+  refusal (R4). The portal check needs AvServ to report an account's drill status
+  in the device-link exchange; the wire shape is AvServ's (plan 66 §6 follow-up).
+- It is left out of user counts and exports. A drill user's account-security notices
+  and its own alert emails are sent as usual, to the plus address, because those are
+  part of what it tests. Which other emails, if any, it should not receive is settled
+  when P7 is planned.
+- Erasure: the CPA deletion flow runs for it as for anyone. Erasing a drill user is
+  the erasure drill (AvServ `docs/drills/cpa-deletion.md`).
+
+Not built until Phase D's first pass is done. Its own PR sequence is written then.
+
 ## 5. PR sequence
 
 Each PR carries its tests and passes the pre-PR gate (CLAUDE.md §4.2). The migration
@@ -196,6 +221,8 @@ reaches production before merge (§3.8).
 | P4 | Drill registration, drill invitations and logins, the area limits; drill teams left out of real teams' area warnings and clip | P2; plan 33 9.3 and 9.5 merged |
 | P5 | `activate_drill` and the drill section of the approvals page; tests pinning both directions of rule 6 | P2, P4 |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → activate → sync held → drill alert emailed | P3–P5 |
+
+| P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §6 follow-up (account-level drill flag) |
 
 **Operator, after P6 and AvServ plan 66 step 2:**
 1. Register the drill team and choose the area (plan 66 O3).
