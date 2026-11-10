@@ -90,6 +90,48 @@ DATABASE_URL="<that url>" pnpm db:migrate
 those seed/mutate the `users` table (they refuse to run without `E2E_ALLOW_DB=1`
 precisely so this can't happen by accident).
 
+### Read-only production access
+
+For looking things up from the repo without the owner role:
+
+```bash
+pnpm prod:read "SELECT status, count(*) FROM sar_orgs GROUP BY 1"
+pnpm prod:read --json "SELECT id, name FROM sar_orgs WHERE status = 'pending'"
+```
+
+It connects as **`portal_reader`** through `PROD_READ_URL` in `.env.prod-read`
+at the repo root (gitignored by `.env*`; one per machine; never in Vercel or
+GitHub). The role can `SELECT` every portal table but no credential column:
+password hashes, the encrypted TOTP secret, and every token or token hash. So
+`SELECT *` fails on `users`, `sessions`, `accounts` and the token tables:
+name the columns. Emails, names and SAR records are readable, so treat the
+URL like any other secret. Writes fail three ways: the role has no write
+grant, its transactions default to read-only, and the script runs each query
+in a `READ ONLY` transaction and refuses any role but `portal_reader`.
+Statements time out after 30 s; at most 3 connections.
+
+**Set up (once).** In the Neon console, open the SQL editor on the
+`production` branch (database `neondb`, role `neondb_owner`) and run:
+
+1. `CREATE ROLE portal_reader WITH LOGIN PASSWORD '<long random password>';`
+   Create it in SQL, not on the console's Roles page: roles made there join
+   `neon_superuser`.
+2. The whole of [scripts/sql/portal-reader-grants.sql](../scripts/sql/portal-reader-grants.sql).
+3. On each machine, write `.env.prod-read`:
+   `PROD_READ_URL=postgresql://portal_reader:<password>@<production pooled host>/neondb?sslmode=require`
+   (the host is the one in the owner URL, `ep-crimson-thunder-aqloj3r3-pooler…`).
+4. Check: `pnpm prod:read "SELECT current_user"` prints `portal_reader`, and
+   `pnpm prod:read "SELECT password_hash FROM users LIMIT 1"` fails with
+   `permission denied`.
+
+**After a migration** that adds a table or column, re-run the grants file: grants
+are per column, so anything new stays unreadable until then (`permission
+denied` from `prod:read` is the sign). `tests/integration/portal-reader-grants.test.ts`
+checks the file against every migration.
+
+**Revoke:** `DROP OWNED BY portal_reader; DROP ROLE portal_reader;`, or rotate with
+`ALTER ROLE portal_reader PASSWORD '<new>'` and update each `.env.prod-read`.
+
 ## Grant a platform role
 
 Platform roles gate the `/admin` area:
@@ -647,8 +689,12 @@ because the branch also has `ci_migration_reader` (the migration guard):
 export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 \
   --role-name neondb_owner --database-name neondb --pooled)"
 case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) pnpm db:migrate;; *) echo "WRONG URL, not migrating";; esac
+# A new table or column: re-grant portal_reader ("Read-only production access").
+case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) psql "$DATABASE_URL" -f scripts/sql/portal-reader-grants.sql;; esac
 unset DATABASE_URL
 ```
+
+Without psql, paste the grants file into the Neon console SQL editor instead.
 
 After the PR merges, migrate `preview-seed` too ("Preview deployments" →
 Housekeeping).

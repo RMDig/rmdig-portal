@@ -86,7 +86,7 @@ describe("saveTermsAction", () => {
 
   it("submits clean terms, updating the open draft, and emails rmdig admins", async () => {
     h.selects = [[{ name: "Summit SAR", status: "pending" }], [{ id: TERMS }], [{ email: "op@rmdig.ai" }]];
-    const res = await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["send_help_added", "area_map"], intent: "submit" }));
+    const res = await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["send_help_added", "named_to_contacts"], intent: "submit" }));
     expect(res).toEqual({ ok: true, submitted: true });
     expect(h.updates[0]).toMatchObject({ status: "submitted", submittedAt: expect.any(Date) });
     expect(h.pendingEmail).toHaveBeenCalledWith("op@rmdig.ai", expect.objectContaining({ orgName: "Summit SAR" }));
@@ -108,6 +108,14 @@ describe("saveTermsAction", () => {
     expect(await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["checkout_alerts"] }))).toMatchObject({ ok: false, error: expect.stringMatching(/suspended/) });
     h.selects = [[{ name: "S", status: "approved" }]];
     expect(await saveTermsAction(ORG, null, fd({ body: CLEAN, intent: "submit" }))).toMatchObject({ ok: false, fieldErrors: { capabilities: expect.any(Array) } });
+  });
+
+  it("refuses the area map, which isn't offered until the ORANGE layer ships (plan 33 D8)", async () => {
+    h.selects = [[{ name: "Summit SAR", status: "approved" }]];
+    const res = await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["checkout_alerts", "area_map"], intent: "draft" }));
+    expect(res).toMatchObject({ ok: false, fieldErrors: { capabilities: expect.any(Array) } });
+    expect(h.inserts).toEqual([]);
+    expect(h.updates).toEqual([]);
   });
 
   it("fails loud on a database error", async () => {
@@ -152,6 +160,16 @@ describe("decideTermsAction", () => {
     expect(await decideTermsAction(null, fd({ termsId: TERMS, decision: "publish" }))).toMatchObject({ ok: false, error: expect.stringMatching(/wording check/) });
     expect(await decideTermsAction(null, fd({ termsId: TERMS, decision: "reject" }))).toMatchObject({ ok: false, error: "Say what to change." });
     expect(h.updates).toEqual([]);
+  });
+
+  it("won't publish a draft that still names a withdrawn service, but can send it back", async () => {
+    h.selects = [[submittedRow(CLEAN, [cap("checkout_alerts"), { name: "area_map", channels: [] }])]];
+    const res = await decideTermsAction(null, fd({ termsId: TERMS, decision: "publish" }));
+    expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/The anonymised area map on the portal.*Send it back/) });
+    expect(h.updates).toEqual([]);
+    expect(h.decisionEmail).not.toHaveBeenCalled();
+    h.selects = [[submittedRow(CLEAN, [cap("checkout_alerts"), { name: "area_map", channels: [] }])], []];
+    expect(await decideTermsAction(null, fd({ termsId: TERMS, decision: "reject", note: "Remove the area map." }))).toMatchObject({ ok: true, decision: "reject" });
   });
 
   it("sends back with a note", async () => {
