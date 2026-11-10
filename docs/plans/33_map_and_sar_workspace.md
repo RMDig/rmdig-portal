@@ -171,7 +171,7 @@ Rules that come from the reviews:
 | 2 Resubmit | ✅ `/sar/[orgId]/edit`, pending only |
 | 3 Area edits | Checks ✅ 9.3 (`lib/sar/area-checks.ts`); approved-team edit ✅ 9.4 (`/sar/[orgId]/area`, `sar_org_area_log`, sync on save, staff email), both 2026-11-06; overlap and large-area warnings ✅ 9.5; keyboard entry and the one editor ✅ 9.6 (`AreaEditor`, `VertexTable`) on `/sar/new`, resubmit and the area page (§6.3) |
 | 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` not offered since 9.1 (2026-11-06); staff publish refuses a draft that still names it |
-| 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; no `publicListing` or `serviceAreaLabels` (9.2) |
+| 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; `serviceAreaLabels` (from `regionName`) and `publicListing` (`consent: false`) since 9.2 (2026-11-06) |
 | 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
 | 7 Roles and membership | ✅ remove, change role, revoke invite, last-admin rule, `org_membership_log` |
 | 8 Private proof | ✅ staff-only route; production Blob not yet verified (status §1) |
@@ -346,7 +346,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 |---|---|---|
 | 9.0 | This revision (plans 33, 34, 00) | Owner review |
 | 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it. **Built 2026-11-06.** No successor needed: production's only terms version (the rejected drill team, v1) has `checkout_alerts` alone (`pnpm prod:read`, 2026-11-06) | None |
-| 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`) | None |
+| 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`). **Built 2026-11-06**; `regionName` capped at AvServ's 100-character label limit (production's longest: 8) | None |
 | 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB. **Built 2026-11-06** (`assessArea`, `checkAvservCaps`); not yet called: 9.4 wires it into the save | None |
 | 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email. **Built 2026-11-06:** `saveAreaAction`, migration 0035 `sar_org_area_log`, "Service area" tab for approved teams; a pending team still changes its area by resubmitting | 9.3 |
 | 9.5 | Overlap (clip preview) and large-area warnings. **Built 2026-11-06** on `/sar/[orgId]/area` (`checkAreaAction`, `AreaWarnings`): size, overlapping teams by name, "use the area without the overlap", and the O8 threshold `LARGE_AREA_KM2` = 12,361.85 km² (Census 2024 Gazetteer, Las Animas, GEOID 08071). `/sar/new` and resubmit still show none: they move to the one editor with 9.6 | 9.4 |
