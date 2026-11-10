@@ -212,8 +212,10 @@ keeps the highest per node.
 
 - **Area changes** (plan 33 D3): an approved team's admins redraw its area on
   the team's **Service area** tab. Nothing is approved: the area is refused only
-  if AvServ would refuse it (over 1 MiB once simplified, or too many points),
-  saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
+  if AvServ would refuse it (over 1 MiB once simplified, or too many points).
+  Before saving, the page warns (never blocks) when the area is larger than Las
+  Animas County (~12,362 km²) or overlaps other live teams, naming them and
+  offering the area without the overlap. The area is saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
   and every SAR approver gets an informational email. A node that didn't take it
   shows here as a failed sync (Sentry `sar.area.sync_incomplete`): resync. To
   stop a team misusing its area, suspend it.

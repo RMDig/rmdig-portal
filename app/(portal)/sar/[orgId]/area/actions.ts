@@ -13,8 +13,8 @@ import { portalUrl } from "@/lib/email/links";
 import { sendSarAreaChangedEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { reportError, reportProblem } from "@/lib/report-error";
-import { assessArea } from "@/lib/sar/area-checks";
-import { getRegionAreaKm2, getRegionAsGeoJson, setRegionGeom } from "@/lib/sar/geo";
+import { assessArea, LARGE_AREA_KM2 } from "@/lib/sar/area-checks";
+import { getRegionAreaKm2, getRegionAsGeoJson, type RegionPolygon, RegionPolygonSchema, setRegionGeom } from "@/lib/sar/geo";
 import { editSarAreaSchema } from "@/lib/sar/schema";
 import { syncSarOrg } from "@/lib/sar/sync";
 
@@ -39,6 +39,61 @@ export type SaveAreaResult =
   | { ok: false; error: string; fieldErrors?: { region?: string[] } };
 
 class StatusChanged extends Error {}
+
+export type CheckAreaResult =
+  | {
+      ok: true;
+      areaKm2: number;
+      /** Set when above Colorado's largest county (plan 33 O8): a warning, never a block. */
+      large: { thresholdKm2: number } | null;
+      /** Other live teams this area overlaps, by name (§6.3 step 1). */
+      overlaps: Array<{ name: string; overlapKm2: number }>;
+      /** The area without the overlaps, when it's still one shape. */
+      clip: { ok: true; area: RegionPolygon; areaKm2: number } | { ok: false; message: string } | null;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Check a drawn area before saving it (plan 33 §6.3, step 9.5): its size, the
+ * other teams it overlaps and a clipped alternative. Read-only; nothing here
+ * blocks the save except what AvServ would refuse.
+ */
+export async function checkAreaAction(orgId: string, drawn: unknown): Promise<CheckAreaResult> {
+  const actor = await portalActor();
+  if (!actor.ok) return { ok: false, error: actor.error };
+  if (!(await canManageOrg(actor.userId, orgId))) {
+    return { ok: false, error: "Only your team's admins can change its service area." };
+  }
+  // It names other teams, so only an approved (verified) team's admins see it.
+  const [org] = await db.select({ status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
+  if (org?.status !== "approved") return { ok: false, error: "Only an approved team changes its area here." };
+  const parsed = RegionPolygonSchema.safeParse(drawn);
+  if (!parsed.success) return { ok: false, error: "That service area couldn't be read. Clear the drawing and draw it again." };
+
+  let a: Awaited<ReturnType<typeof assessArea>>;
+  try {
+    a = await assessArea(parsed.data, orgId);
+  } catch (err) {
+    logger.error({ event: "sar.area.check_failed", userId: actor.userId, orgId, err });
+    return { ok: false, error: "Couldn't check the area. Try again in a moment." };
+  }
+  if (!a.ok) return { ok: false, error: a.message };
+
+  const clip = a.clip
+    ? a.clip.ok
+      ? a.clip.caps.ok
+        ? { ok: true as const, area: a.clip.area, areaKm2: a.clip.areaKm2 }
+        : { ok: false as const, message: a.clip.caps.message }
+      : { ok: false as const, message: a.clip.message }
+    : null;
+  return {
+    ok: true,
+    areaKm2: a.areaKm2,
+    large: a.areaKm2 > LARGE_AREA_KM2 ? { thresholdKm2: LARGE_AREA_KM2 } : null,
+    overlaps: a.overlaps.map((o) => ({ name: o.name, overlapKm2: o.overlapKm2 })),
+    clip,
+  };
+}
 
 export async function saveAreaAction(orgId: string, _prev: SaveAreaResult | null, formData: FormData): Promise<SaveAreaResult> {
   const actor = await portalActor();

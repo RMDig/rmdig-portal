@@ -29,6 +29,12 @@ export const AVSERV_AREA_CAPS = {
   verticesPerOrg: 100_000,
 } as const;
 
+/** The large-area warning's threshold (plan 33 O8): the land area of Las
+ *  Animas County, Colorado's largest county. Census 2024 Gazetteer, GEOID
+ *  08071, ALAND 12,361,852,647 m² (Moffat is next at 12,284,943,817). A soft
+ *  warning only; a team may serve more. */
+export const LARGE_AREA_KM2 = 12_361.852647;
+
 /** The statuses whose areas AvServ may still match or bind (plan 33 §6.3 step 1). */
 export const LIVE_ORG_STATUSES = ["pending", "approved", "suspended", "leaving"] as const;
 
