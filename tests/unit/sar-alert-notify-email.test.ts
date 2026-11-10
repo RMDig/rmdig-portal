@@ -16,6 +16,15 @@ describe("SarAlertNotifyEmail", () => {
     expect(area).not.toContain("who added");
   });
 
+  it("marks a drill team's drill as a drill before anything else, and a real alert never", async () => {
+    const drill = await text({ ...base, teamName: "AvAI Drill Team", kind: "overdue", fromAreaUser: false, drill: true });
+    expect(drill).toContain("DRILL. This is a test, not a real alert. AvAI Drill Team is an RMDig drill team, and no one is waiting for help.");
+    // The plain-text render capitalises headings.
+    expect(drill.toLowerCase()).toContain("drill: missed check-in alert");
+    expect(drill.indexOf("This is a test")).toBeLessThan(drill.toLowerCase().indexOf("missed check-in alert"));
+    expect(await text({ ...base, kind: "overdue", fromAreaUser: false })).not.toContain("DRILL");
+  });
+
   it("calls a follow-up an update and always ends with 911", async () => {
     const t = await text({ ...base, kind: "all_clear", fromAreaUser: false });
     expect(t).toContain("has an update");

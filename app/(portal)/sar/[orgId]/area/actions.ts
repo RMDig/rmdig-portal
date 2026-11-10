@@ -110,7 +110,7 @@ export async function saveAreaAction(orgId: string, _prev: SaveAreaResult | null
   logger.info({ event: "sar.area.changed", userId, orgId, fromKm2: change.fromKm2, toKm2: change.toKm2 });
 
   const sync = await syncArea(orgId);
-  await notifyStaff(orgId, { orgName: org.name, editorEmail: org.editorEmail, fromAreaKm2: change.fromKm2, toAreaKm2: change.toKm2 });
+  await notifyStaff(orgId, { orgName: org.name, editorEmail: org.editorEmail, fromAreaKm2: change.fromKm2, toAreaKm2: change.toKm2, drill: org.isDrill });
   revalidatePath(`/sar/${orgId}/area`);
   return { ok: true, areaKm2: change.toKm2, sync };
 }
@@ -134,7 +134,7 @@ async function syncArea(orgId: string): Promise<"sent" | "partial"> {
 
 async function notifyStaff(
   orgId: string,
-  params: { orgName: string; editorEmail: string; fromAreaKm2: number | null; toAreaKm2: number },
+  params: { orgName: string; editorEmail: string; fromAreaKm2: number | null; toAreaKm2: number; drill: boolean },
 ): Promise<void> {
   let staff: string[];
   try {
@@ -144,7 +144,8 @@ async function notifyStaff(
     return;
   }
   if (staff.length === 0) reportProblem("sar.area.no_staff_to_notify", "No rmdig staff to tell about a team's area change", { orgId });
-  const orgUrl = portalUrl(`/admin/sar-approvals#org-${orgId}`);
+  // A drill team isn't in the approvals queue: link its own page (plan 37 §4.7).
+  const orgUrl = portalUrl(params.drill ? "/admin/sar-drill" : `/admin/sar-approvals#org-${orgId}`);
   for (const email of staff) {
     try {
       await sendSarAreaChangedEmail(email, { ...params, orgUrl });

@@ -116,7 +116,7 @@ describe("SAR alert email claim (Postgres)", () => {
   });
 
   it("reads the team name and the claiming message's capability", async () => {
-    expect(await store.notifyContext(KEY)).toEqual({ teamName: "Summit SAR", capability: null });
+    expect(await store.notifyContext(KEY)).toEqual({ teamName: "Summit SAR", capability: null, drill: false });
   });
 
   it("restricts deleting an org that has alerts or history", async () => {

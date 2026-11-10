@@ -176,8 +176,9 @@ while it's still free, and the drill area then stays where it is.
 - The new-application email never fires, because registration doesn't go through
   `/sar/new`.
 - The area-changed staff email says "(drill)" in its subject.
-- Public listing consent is forced off in the sync body (plan 33 9.2). Plan 34 and 9.14
-  leave drill teams out when they're built, and their plans say so.
+- Public listing consent is off in every sync body (plan 33 9.2 sends `consent: false`
+  for every team, so nothing extra is needed yet). Plan 34 and 9.14 leave drill teams
+  out when they're built, and their plans now say so.
 - The `portal-sar-no-admin` check (9.13) still covers drill teams. A drill team with no
   admin can't be exercised either.
 
@@ -189,7 +190,9 @@ while it's still free, and the drill area then stays where it is.
   They are also emailed to the team's members (DR2) through the existing fan-out
   (`lib/sar/alert-notify.ts`). `emailsTeam` becomes "not a drill, **or** a drill for a
   drill team". The templates add a DRILL marker to the subject and a line at the top of
-  the body. The new copy joins the `legal-copy.test.ts` scan.
+  the body ("DRILL. This is a test, not a real alert…"). The new copy is in the template,
+  so the `legal-copy.test.ts` scan already covers it. The subject starts `[DRILL] `,
+  like AvServ's own drill emails. A retry is marked from the stored message.
 - A real team's drill deliveries (a node in drill mode) still email no one.
 
 ### 4.9 Later (P7): a drill AvAI user
@@ -230,7 +233,7 @@ reaches production before merge (§3.8).
 | P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Built 2026-11-09** | P2; plan 33 9.3 and 9.5 merged |
 | P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Built 2026-11-09** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
 | P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Built 2026-11-09** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
-| P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → activate → sync held → drill alert emailed | P3–P5 |
+| P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Built 2026-11-09** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
 
 | P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §6 follow-up (account-level drill flag) |
 

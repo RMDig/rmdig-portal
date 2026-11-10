@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   userId: "admin-1" as string | undefined,
   canManage: true,
-  orgRows: [{ name: "Summit SAR", status: "approved", editorEmail: "lead@sar.org" }] as unknown[],
+  orgRows: [{ name: "Summit SAR", status: "approved", isDrill: false, editorEmail: "lead@sar.org" }] as unknown[],
   lockedStatus: "approved" as string | undefined,
   inserts: [] as unknown[],
   txError: null as unknown,
@@ -78,7 +78,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.userId = "admin-1";
   h.canManage = true;
-  h.orgRows = [{ name: "Summit SAR", status: "approved", editorEmail: "lead@sar.org" }];
+  h.orgRows = [{ name: "Summit SAR", status: "approved", isDrill: false, editorEmail: "lead@sar.org" }];
   h.lockedStatus = "approved";
   h.inserts = [];
   h.txError = null;
@@ -103,6 +103,7 @@ describe("saveAreaAction", () => {
       fromAreaKm2: 120,
       toAreaKm2: 380,
       orgUrl: expect.stringContaining(`/admin/sar-approvals#org-${ORG}`),
+      drill: false,
     });
     expect(h.revalidate).toHaveBeenCalledWith(`/sar/${ORG}/area`);
   });
@@ -116,6 +117,8 @@ describe("saveAreaAction", () => {
     expect(h.setRegion).not.toHaveBeenCalled();
     h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 2 });
     expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: true });
+    // Staff hear about it as a drill, linked to the Drill teams page (plan 37 §4.7).
+    expect(h.email).toHaveBeenCalledWith("op@rmdig.ai", expect.objectContaining({ drill: true, orgUrl: expect.stringMatching(/\/admin\/sar-drill$/) }));
   });
 
   it("puts no drill limit on a real team's area, overlaps included", async () => {

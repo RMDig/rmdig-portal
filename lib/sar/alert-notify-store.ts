@@ -101,9 +101,9 @@ export async function recordAttempt(
 
 /** What the email says: the team's name, and whether a Send Help came from a
  *  user in the area (the claiming message's capability). */
-export async function notifyContext(key: NotifyKey): Promise<{ teamName: string; capability: string | null } | null> {
+export async function notifyContext(key: NotifyKey): Promise<{ teamName: string; capability: string | null; drill: boolean } | null> {
   const [row] = await db
-    .select({ teamName: sarOrgs.name, capability: sarIntakeMessages.capability })
+    .select({ teamName: sarOrgs.name, capability: sarIntakeMessages.capability, drill: sarIntakeMessages.drill })
     .from(sarAlertNotifications)
     .innerJoin(sarIntakeMessages, eq(sarIntakeMessages.messageId, sarAlertNotifications.messageId))
     .innerJoin(sarOrgs, eq(sarOrgs.id, sarAlertNotifications.orgId))

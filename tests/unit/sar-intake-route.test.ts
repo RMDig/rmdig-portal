@@ -11,7 +11,7 @@ const SECRET = "s".repeat(64);
 const PAYLOAD_KEY = "ab".repeat(32);
 const h = vi.hoisted(() => ({
   env: { AVSERV_SAR_INTAKE_KEYS: "", NEXTAUTH_URL: "https://rmdig.ai" } as Record<string, string | undefined>,
-  team: [{ name: "Summit SAR", status: "approved" }] as unknown[],
+  team: [{ name: "Summit SAR", status: "approved", isDrill: false }] as unknown[],
   inserted: [{ messageId: "m1" }] as unknown[],
   insertedValues: [] as unknown[],
   dbError: null as unknown,
@@ -89,7 +89,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.env.AVSERV_SAR_INTAKE_KEYS = `sarintake-avserv-2-1:${SECRET}`;
   h.env.SAR_PAYLOAD_KEYS = `s1:${PAYLOAD_KEY}`;
-  h.team = [{ name: "Summit SAR", status: "approved" }];
+  h.team = [{ name: "Summit SAR", status: "approved", isDrill: false }];
   h.inserted = [{ messageId: "m1" }];
   h.insertedValues = [];
   h.dbError = null;
@@ -106,7 +106,7 @@ describe("POST /api/sar/intake", () => {
     expect(JSON.stringify(stored)).not.toContain("39.61");
     expect(openPayload(() => parseSarPayloadKeys(`s1:${PAYLOAD_KEY}`), stored)).toMatchObject({ alert: { lastFix: fix } });
     // The team email gets the alert as received.
-    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ alert: expect.objectContaining({ lastFix: fix }) }));
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ alert: expect.objectContaining({ lastFix: fix }) }), { drillTeam: false });
   });
 
   it("refuses with 503 (retried) and reports when the payload key is missing, storing nothing", async () => {
@@ -125,7 +125,7 @@ describe("POST /api/sar/intake", () => {
     expect(res.status).toBe(200);
     expect(h.insertedValues[0]).toMatchObject({ messageId: "m1", alertId: "sub:team", orgId: ORG, kind: "overdue", node: "avserv-2", drill: false });
     expect(h.notify).toHaveBeenCalledTimes(1);
-    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1", alertId: "sub:team", teamId: ORG, kind: "overdue" }));
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ messageId: "m1", alertId: "sub:team", teamId: ORG, kind: "overdue" }), { drillTeam: false });
   });
 
   it("answers 409 duplicate for a repeated messageId without emailing (AvServ treats it as delivered)", async () => {
@@ -153,9 +153,30 @@ describe("POST /api/sar/intake", () => {
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.intake.wrong_url", code: "drill_on_live_intake" }));
   });
 
-  it("stores a drill from the drill URL as a drill, emailing no one", async () => {
+  it("stores a real team's drill from the drill URL as a drill, emailing no one", async () => {
     expect((await POST_DRILL(request(payload({ drill: true })))).status).toBe(200);
     expect(h.insertedValues[0]).toMatchObject({ messageId: "m1", drill: true });
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ drill: true }), { drillTeam: false });
+  });
+
+  it("refuses a live alert for a drill team, permanently and loudly, storing nothing (plan 37 §4.8)", async () => {
+    h.team = [{ name: "AvAI Drill Team", status: "approved", isDrill: true }];
+    const res = await POST(request(payload()));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: "live_for_drill_team" });
+    expect(h.insertedValues).toEqual([]);
+    expect(h.notify).not.toHaveBeenCalled();
+    expect(h.captureMessage).toHaveBeenCalledWith(
+      "SAR intake refused a live alert for a drill team",
+      expect.objectContaining({ level: "error", tags: { event: "sar.intake.live_for_drill_team" } }),
+    );
+  });
+
+  it("stores a drill team's drill, and hands it on to be emailed to its logins", async () => {
+    h.team = [{ name: "AvAI Drill Team", status: "approved", isDrill: true }];
+    expect((await POST_DRILL(request(payload({ drill: true })))).status).toBe(200);
+    expect(h.insertedValues[0]).toMatchObject({ drill: true });
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ drill: true }), { drillTeam: true });
   });
 
   it("accepts an alert whose fix has no time (stored, emailed), and one with a broken detail, logging the drop", async () => {
