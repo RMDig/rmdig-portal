@@ -267,6 +267,8 @@ export async function reviewSarOrgAction(
   }
 
   revalidatePath("/admin/sar-approvals");
+  // Drill teams are suspended and moved back to pending from their own page.
+  if (org.isDrill) revalidatePath("/admin/sar-drill");
   return { ok: true };
 }
 

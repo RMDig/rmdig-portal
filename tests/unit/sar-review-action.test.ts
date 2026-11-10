@@ -72,6 +72,8 @@ vi.mock("@/lib/avserv/sar-teams", () => ({
   },
 }));
 
+import { revalidatePath } from "next/cache";
+
 import { auth } from "@/lib/auth";
 import { sendSarOrgDecisionEmail } from "@/lib/email/send";
 
@@ -126,6 +128,8 @@ describe("reviewSarOrgAction on a drill team (plan 37 rule 6)", () => {
   it("still lets staff suspend an approved drill team", async () => {
     h.org = pendingOrg({ status: "approved", name: "AvAI Drill Team", isDrill: true });
     expect((await reviewSarOrgAction(null, fd("suspend"))).ok).toBe(true);
+    // Suspended from its own page, which then shows the new status.
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/sar-drill");
   });
 
   it("leaves a real team's approval as it was", async () => {

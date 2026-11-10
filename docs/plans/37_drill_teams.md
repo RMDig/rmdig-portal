@@ -171,8 +171,8 @@ while it's still free, and the drill area then stays where it is.
 
 ### 4.7 Kept out of real surfaces (P6)
 
-- `/admin/sar-approvals` lists drill teams in their own "Drill teams" section and leaves
-  them out of the queue and its counts.
+- Drill teams have their own page, `/admin/sar-drill`. `/admin/sar-approvals` and the
+  admin hub's count leave them out (done in P4a).
 - The new-application email never fires, because registration doesn't go through
   `/sar/new`.
 - The area-changed staff email says "(drill)" in its subject.
@@ -229,7 +229,7 @@ reaches production before merge (§3.8).
 | P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed | P2 (AvServ revision 3 is live, rc112) |
 | P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Built 2026-11-09** | P2; plan 33 9.3 and 9.5 merged |
 | P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Built 2026-11-09** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
-| P5 | `activate_drill` and the drill section of the approvals page; tests pinning both directions of rule 6 | P2, P4 |
+| P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Built 2026-11-09** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → activate → sync held → drill alert emailed | P3–P5 |
 
 | P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §6 follow-up (account-level drill flag) |
