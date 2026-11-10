@@ -32,6 +32,34 @@ describe("client status hardening (real path)", () => {
     await expect(findOrCreateAccount("a@b.com")).rejects.toMatchObject({ status: 503 });
   });
 
+  it("findOrCreateAccount sends drill only for a drill user, and returns AvServ's drill", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(200, { accountId: "acc-1", created: false, drill: true })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { findOrCreateAccount } = await import("@/lib/avserv/client");
+
+    expect(await findOrCreateAccount("Ops+Drill1@rmdig.ai", { drill: true })).toEqual({ accountId: "acc-1", created: false, drill: true });
+    await findOrCreateAccount("a@b.com");
+    const bodies = fetchMock.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)));
+    expect(bodies).toEqual([{ email: "ops+drill1@rmdig.ai", drill: true }, { email: "a@b.com" }]);
+  });
+
+  it("findOrCreateAccount fails loud on a body without drill (a drifted contract)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, { accountId: "acc-1", created: true })));
+    const { findOrCreateAccount } = await import("@/lib/avserv/client");
+    await expect(findOrCreateAccount("a@b.com")).rejects.toThrow(/drill/);
+  });
+
+  it.each([
+    [409, "account_drill_immutable"],
+    [503, "drill_support_pending"],
+    [403, "path_not_allowed"],
+    [400, "invalid_request"],
+  ])("findOrCreateAccount keeps AvServ's %s %s", async (status, code) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(status, { code, error: "refused" })));
+    const { findOrCreateAccount } = await import("@/lib/avserv/client");
+    await expect(findOrCreateAccount("ops+drill1@rmdig.ai", { drill: true })).rejects.toMatchObject({ status, code });
+  });
+
   it("mintLinkCode maps 400 (malformed account id) to status 400", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(400, {})));
     const { mintLinkCode } = await import("@/lib/avserv/client");

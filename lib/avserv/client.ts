@@ -31,7 +31,20 @@ export interface AvServAccount {
   accountId: string;
   /** True when AvServ created the account on this call, false when it already existed. */
   created: boolean;
+  /** The account is a drill account (plan 37 §4.9, AvServ account contract rev 16 §4.2).
+   *  The login map refuses an account whose drill differs from the user's. */
+  drill: boolean;
 }
+
+// POST /v1/internal/accounts answers {accountId, created, drill}; `drill` is on
+// every node since AvServ rc118, so a body without it is a drifted contract.
+const AccountResponseSchema = z.object({
+  accountId: z.string().min(1),
+  created: z.boolean(),
+  drill: z.boolean(),
+});
+
+const AccountErrorSchema = z.object({ code: z.string().optional() });
 
 export interface DeviceLinkCode {
   /** Short, human-enterable code the user types into AvApp to link a device. */
@@ -136,6 +149,9 @@ export function mockDevices(accountId: string): LinkedDevice[] {
 // honestly (first call true, subsequent false) — mirrors real idempotency and
 // lets tests assert it. Not persistence; just intra-process fidelity.
 const mockSeenEmails = new Set<string>();
+// email → whether the mock created it as a drill account. Like AvServ, the kind
+// is fixed at creation: asking for the other kind later is a 409.
+const mockAccountDrill = new Map<string, boolean>();
 // accountId → login email, so the onboarding mock (agreement-mock.ts) can show
 // the verified email on the account body, as AvServ does for portal accounts.
 const mockAccountEmails = new Map<string, string>();
@@ -144,6 +160,7 @@ const mockAccountEmails = new Map<string, string>();
 export function __resetAvServMock(): void {
   mockSeenEmails.clear();
   mockAccountEmails.clear();
+  mockAccountDrill.clear();
 }
 
 /** Mock only: the login email a mock account was mapped from, if this process
@@ -163,10 +180,15 @@ function failoverNotFound(): AvServError {
 
 /**
  * Find-or-create the AvServ account for a verified email (P-B1). Idempotent on
- * email; safe to call on every login. Throws {@link AvServError} on any failure
- * — the login-map caller catches and retries next time, never blocking login.
+ * email; safe to call on every login. A drill user's account is asked for with
+ * `drill: true` (plan 37 §4.9), so AvServ creates it as a drill account; a real
+ * user's request is unchanged. Throws {@link AvServError} on any failure — the
+ * login-map caller catches and retries next time, never blocking login.
+ * AvServ's drill refusals keep their code: `account_drill_immutable` (409, the
+ * address already holds the other kind of account), `drill_support_pending`
+ * (503) and `path_not_allowed` (403, the service key lacks drill_accounts).
  */
-export async function findOrCreateAccount(email: string): Promise<AvServAccount> {
+export async function findOrCreateAccount(email: string, opts: { drill?: boolean } = {}): Promise<AvServAccount> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) {
     throw new AvServError("findOrCreateAccount called with an empty email");
@@ -180,12 +202,18 @@ export async function findOrCreateAccount(email: string): Promise<AvServAccount>
     );
   }
 
+  const drill = opts.drill === true;
   if (isMock(baseUrl)) {
+    const existing = mockAccountDrill.get(normalized);
+    if (existing !== undefined && existing !== drill) {
+      throw new AvServError("AvServ refused the account: the address holds the other kind (409)", 409, "account_drill_immutable");
+    }
     const created = !mockSeenEmails.has(normalized);
     mockSeenEmails.add(normalized);
+    mockAccountDrill.set(normalized, existing ?? drill);
     const accountId = mockAccountId(normalized);
     mockAccountEmails.set(accountId, normalized);
-    return { accountId, created };
+    return { accountId, created, drill: existing ?? drill };
   }
 
   // Primary only, deliberately: see fetchOnAnyNode. A failure here is retried
@@ -193,23 +221,35 @@ export async function findOrCreateAccount(email: string): Promise<AvServAccount>
   const res = await avservFetch(baseUrl, "/v1/internal/accounts", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: normalized }),
+    // A real user's body is unchanged: AvServ reads an absent drill as no claim.
+    body: JSON.stringify(drill ? { email: normalized, drill: true } : { email: normalized }),
   });
 
-  const shared = commonStatusError(res.status);
-  if (shared) throw shared;
-  if (res.status === 400) {
-    throw new AvServError("AvServ rejected the email as invalid (400)", 400);
-  }
   if (!res.ok) {
-    throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);
+    const parsed = AccountErrorSchema.safeParse(await res.json().catch(() => null));
+    const code = parsed.success ? parsed.data.code : undefined;
+    if (res.status === 409 && code === "account_drill_immutable") {
+      throw new AvServError("AvServ refused the account: the address holds the other kind (409)", 409, code);
+    }
+    if (res.status === 503 && code === "drill_support_pending") {
+      throw new AvServError("AvServ can't store drill accounts on every node yet (503)", 503, code);
+    }
+    if (res.status === 403) {
+      throw new AvServError(`AvServ refused the service key for this call (403${code ? ` ${code}` : ""})`, 403, code);
+    }
+    const shared = commonStatusError(res.status);
+    if (shared) throw shared;
+    if (res.status === 400) {
+      throw new AvServError("AvServ rejected the email as invalid (400)", 400, code);
+    }
+    throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status, code);
   }
 
-  const body = (await res.json().catch(() => null)) as Partial<AvServAccount> | null;
-  if (!body || typeof body.accountId !== "string") {
-    throw new AvServError("AvServ response missing accountId");
+  const body = AccountResponseSchema.safeParse(await res.json().catch(() => null));
+  if (!body.success) {
+    throw new AvServError("AvServ response missing accountId, created or drill");
   }
-  return { accountId: body.accountId, created: body.created === true };
+  return body.data;
 }
 
 /**

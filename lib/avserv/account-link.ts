@@ -3,7 +3,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
 import { logger } from "../logger";
-import { findOrCreateAccount, isAvServConfigured } from "./client";
+import { reportError, reportProblem } from "../report-error";
+import { AvServError, findOrCreateAccount, isAvServConfigured } from "./client";
 
 // Login-time account mapping (P-B1, rmdig-ai docs/plans/05 §"rmdig-portal side").
 // On successful login, if the user has no avserv_account_id yet, find-or-create
@@ -13,6 +14,12 @@ import { findOrCreateAccount, isAvServConfigured } from "./client";
 // down, bad service JWT, timeout — is logged and swallowed; the next login
 // retries. It runs in the Auth.js `events.signIn` hook, which fires after the
 // user row is persisted and whose result does not gate the session.
+//
+// Drill users (plan 37 §4.9): a drill user's account is asked for as a drill
+// account, and an account whose drill differs from the user's is never stored,
+// so a drill login never maps to a real account or a real user to a drill one.
+// That refusal, and AvServ's drill refusals, go to Sentry: none of them heals
+// on the next login.
 
 /**
  * Idempotently map a freshly-authenticated user to their AvServ account.
@@ -35,6 +42,7 @@ export async function mapUserToAvServAccountOnLogin(userId: string): Promise<voi
         email: users.email,
         emailVerified: users.emailVerified,
         avservAccountId: users.avservAccountId,
+        isDrill: users.isDrill,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -54,7 +62,15 @@ export async function mapUserToAvServAccountOnLogin(userId: string): Promise<voi
       return;
     }
 
-    const { accountId, created } = await findOrCreateAccount(row.email);
+    const { accountId, created, drill } = await findOrCreateAccount(row.email, { drill: row.isDrill });
+    if (drill !== row.isDrill) {
+      reportProblem("avserv.map.drill_mismatch", "AvServ's account and the portal user disagree on drill; not mapped", {
+        userId,
+        userDrill: row.isDrill,
+        accountDrill: drill,
+      });
+      return;
+    }
 
     // Guard the write with IS NULL so a concurrent login can't double-map or
     // clobber an id another request just set.
@@ -68,6 +84,12 @@ export async function mapUserToAvServAccountOnLogin(userId: string): Promise<voi
       logger.info({ event: "avserv.map.linked", userId, created });
     }
   } catch (err) {
+    if (err instanceof AvServError && (err.code === "account_drill_immutable" || err.status === 403)) {
+      // Not transient: the address holds the other kind of account, or the
+      // service key lacks the drill scope. Retrying at the next login won't fix it.
+      reportError("avserv.map.refused", err, { userId, status: err.status, code: err.code });
+      return;
+    }
     // Transient by assumption — log and let the next login retry. Never rethrow.
     logger.error({ event: "avserv.map.failed", userId, err });
   }

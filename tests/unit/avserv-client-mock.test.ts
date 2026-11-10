@@ -40,6 +40,17 @@ describe("findOrCreateAccount (mock path)", () => {
     expect(lower.created).toBe(false); // the lowercase form was already seen
   });
 
+  it("keeps an account's drill kind from its creation, and refuses the other kind with AvServ's 409", async () => {
+    const { findOrCreateAccount, __resetAvServMock } = await import("@/lib/avserv/client");
+    __resetAvServMock();
+
+    expect(await findOrCreateAccount("ops+drill1@rmdig.ai", { drill: true })).toMatchObject({ created: true, drill: true });
+    expect(await findOrCreateAccount("ops+drill1@rmdig.ai", { drill: true })).toMatchObject({ created: false, drill: true });
+    await expect(findOrCreateAccount("ops+drill1@rmdig.ai")).rejects.toMatchObject({ status: 409, code: "account_drill_immutable" });
+    expect(await findOrCreateAccount("real@rmdig.ai")).toMatchObject({ drill: false });
+    await expect(findOrCreateAccount("real@rmdig.ai", { drill: true })).rejects.toMatchObject({ code: "account_drill_immutable" });
+  });
+
   it("gives different accounts to different emails", async () => {
     const { findOrCreateAccount, __resetAvServMock } = await import("@/lib/avserv/client");
     __resetAvServMock();
