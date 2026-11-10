@@ -8,12 +8,13 @@ import { portalActor } from "@/lib/auth/portal-actor";
 import { getOrgRole } from "@/lib/auth/org-roles";
 import { isSarApprover } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
-import { sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
+import { orgMemberships, sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { type SarOrgDecision } from "@/lib/email/templates/SarOrgDecisionEmail";
+import { type SarTeamStatusChange } from "@/lib/email/templates/SarTeamStatusEmail";
 import { portalUrl } from "@/lib/email/links";
-import { sendSarOrgDecisionEmail } from "@/lib/email/send";
+import { sendSarOrgDecisionEmail, sendSarTeamStatusEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
-import { reportError } from "@/lib/report-error";
+import { reportError, reportProblem } from "@/lib/report-error";
 import { avservNodes, getSarTeam } from "@/lib/avserv/sar-teams";
 import { syncSarOrg } from "@/lib/sar/sync";
 
@@ -21,8 +22,8 @@ import { syncSarOrg } from "@/lib/sar/sync";
 // machine). Gated to rmdig_sar_approver (lib/auth/roles.ts), re-checked here. Each decision is valid
 // only from a specific current status; it flips status, appends to the
 // append-only sar_org_status_log, and (for the three review decisions) emails
-// the submitter. suspend/reactivate are operator-lifecycle actions on an
-// already-approved org and don't email (rare, communicated out of band).
+// the submitter. Suspending and reactivating email the team's admins (plan 33
+// §6.4), without the staff note, which can record why.
 //
 // A decision applies only to what the reviewer saw (CLAUDE.md §0): the form
 // carries the org's review_revision, and the UPDATE matches both that and the
@@ -54,12 +55,18 @@ type Action =
   | "withdrawn"
   | "reverified";
 
-// from-status guard, resulting status, audit action, whether/what to email,
-// and whether AvServ must be told (docs/plans/33; AvServ sar_team_sync.md).
-const TRANSITIONS: Record<
-  Decision,
-  { from: Status[]; to: Status; action: Action; emailDecision: SarOrgDecision | null; sync: boolean }
-> = {
+// from-status guard, resulting status, audit action, whether/what to email
+// the submitter (emailDecision) or the team's admins (teamNotice), and whether
+// AvServ must be told (docs/plans/33; AvServ sar_team_sync.md).
+type Transition = {
+  from: Status[];
+  to: Status;
+  action: Action;
+  emailDecision: SarOrgDecision | null;
+  teamNotice?: SarTeamStatusChange;
+  sync: boolean;
+};
+const TRANSITIONS: Record<Decision, Transition> = {
   approve: { from: ["pending"], to: "approved", action: "approved", emailDecision: "approved", sync: true },
   reject: { from: ["pending"], to: "rejected", action: "rejected", emailDecision: "rejected", sync: false },
   request_changes: {
@@ -70,9 +77,9 @@ const TRANSITIONS: Record<
     sync: false,
   },
   // Suspension for cause is immediate in AvServ: no dispatch, even to bound check-outs.
-  suspend: { from: ["approved", "leaving"], to: "suspended", action: "suspended", emailDecision: null, sync: true },
+  suspend: { from: ["approved", "leaving"], to: "suspended", action: "suspended", emailDecision: null, teamNotice: "suspended", sync: true },
   // Back to review; AvServ keeps it suspended until it's approved again.
-  reactivate: { from: ["suspended"], to: "pending", action: "reactivated", emailDecision: null, sync: false },
+  reactivate: { from: ["suspended"], to: "pending", action: "reactivated", emailDecision: null, teamNotice: "reactivated", sync: false },
   // No new offers or binds; bound check-outs keep the team until they end.
   mark_leaving: { from: ["approved"], to: "leaving", action: "leaving", emailDecision: null, sync: true },
   // Only once no node has open bindings (checked below).
@@ -235,6 +242,8 @@ export async function reviewSarOrgAction(
     }
   }
 
+  if (transition.teamNotice) await notifyTeamAdmins(orgId, org.name, transition.teamNotice);
+
   // Tell AvServ after the decision is recorded. syncSarOrg never throws for a
   // node's answer; an unexpected error here is logged and shown, not undone.
   if (transition.sync) {
@@ -247,6 +256,33 @@ export async function reviewSarOrgAction(
 
   revalidatePath("/admin/sar-approvals");
   return { ok: true };
+}
+
+/** Email every admin of the team. After the decision is recorded: a failure is
+ *  logged and reported, never undone into the decision. */
+async function notifyTeamAdmins(orgId: string, orgName: string, change: SarTeamStatusChange): Promise<void> {
+  let admins: { email: string }[];
+  try {
+    admins = await db
+      .select({ email: users.email })
+      .from(orgMemberships)
+      .innerJoin(users, eq(users.id, orgMemberships.userId))
+      .where(and(eq(orgMemberships.orgId, orgId), eq(orgMemberships.role, "admin")));
+  } catch (err) {
+    reportError("sar.review.team_admin_lookup_failed", err, { orgId, change });
+    return;
+  }
+  if (admins.length === 0) {
+    reportProblem("sar.review.no_team_admin", "A suspended or reactivated SAR team has no admin to tell", { orgId, change });
+    return;
+  }
+  for (const a of admins) {
+    try {
+      await sendSarTeamStatusEmail(a.email, { orgName, change, supportUrl: portalUrl("/support") });
+    } catch (err) {
+      logger.error({ event: "sar.review.team_email_failed", orgId, change, to: a.email, err });
+    }
+  }
 }
 
 /** What a decision writes to the org row, besides bumping review_revision.
