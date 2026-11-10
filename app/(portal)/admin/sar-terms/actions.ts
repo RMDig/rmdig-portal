@@ -13,7 +13,7 @@ import { sendSarTermsDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { syncSarOrg } from "@/lib/sar/sync";
 import { requiresReacceptance, termsSha256 } from "@/lib/sar/terms";
-import { termsWordingProblems } from "@/lib/sar/terms-rules";
+import { CAPABILITIES, termsWordingProblems, unofferedCapabilities } from "@/lib/sar/terms-rules";
 
 // rmdig admins publish or send back a team's submitted terms (docs/plans/33).
 // Publishing assigns the next version, the SHA-256 of the exact body bytes and
@@ -73,6 +73,13 @@ export async function decideTermsAction(_prev: TermsDecisionResult | null, formD
       const problems = termsWordingProblems(row.body);
       if (problems.length > 0) {
         throw new Refused(`Can't publish: the wording check flags ${problems.map((p) => `"${p.match}"`).join(", ")}.`);
+      }
+      // A draft saved before a service was withdrawn (plan 33 D8: area_map)
+      // still names it; it goes back to the team rather than publishing.
+      const unoffered = unofferedCapabilities(row.capabilities);
+      if (unoffered.length > 0) {
+        const labels = unoffered.map((n) => CAPABILITIES.find((c) => c.name === n)?.label ?? n);
+        throw new Refused(`Can't publish: these services aren't offered now: ${labels.map((l) => `"${l}"`).join(", ")}. Send it back so the team can remove them.`);
       }
       // Lock the org's published versions to number this one safely.
       const published = await tx
