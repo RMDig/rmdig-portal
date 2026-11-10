@@ -1,6 +1,6 @@
 # 37 — Drill teams and drill logins (portal half of AvServ plan 66)
 
-Status (2026-11-09): **owner decisions made (§1); P1 merged (#207); P2 built.** AvServ plan 66
+Status (2026-11-09): **owner decisions made (§1); P1 merged (#207); P2 merged (#208); P3 built.** AvServ plan 66
 (`docs/plans/66_drill_fixtures.md`, AvServ PR #473) is the system plan, and its §4 is the
 shape agreed between the two sessions, with these decisions recorded in AvServ PR #475.
 This file is authoritative for the portal's half. AvServ step 1 (the sync `drill` field,
@@ -226,7 +226,7 @@ reaches production before merge (§3.8).
 |---|---|---|
 | P1 | This plan, `00_status.md`, CLAUDE.md §0 (§3) | Owner review |
 | P2 | Migration 0036: `is_drill` on teams and users, triggers, CHECKs, nullable proof, log actions; schema tests on PostGIS. **Built 2026-11-09** (`tests/integration/drill-schema.test.ts`) | #202 (0035) merged |
-| P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed | P2 (AvServ revision 3 is live, rc112) |
+| P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed. **Built 2026-11-09:** `lib/avserv/sar-capabilities.ts` (`syncRevisionGate`, for 9.7 too), `drill_support_pending`, Sentry on `drill_team_invalid` and `sar_team_drill_immutable` | P2 (AvServ revision 3 is live, rc112) |
 | P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Built 2026-11-09** | P2; plan 33 9.3 and 9.5 merged |
 | P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Built 2026-11-09** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
 | P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Built 2026-11-09** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
