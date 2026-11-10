@@ -994,7 +994,10 @@ refuses them.
 2. **Add a drill login** with the admin role, at a drill address
    (`you+drill1@rmdig.ai`). It's emailed a link to set its password (60
    minutes; after that, **Forgot password** on the address). Sign in as it once
-   to set the password and two-factor.
+   to set the password and two-factor. That first sign-in creates its AvServ
+   account as a drill account. If Sentry shows `avserv.map.drill_mismatch` or
+   `avserv.map.refused`, the address already holds a real AvServ account: use
+   another drill address (`you+drill2@rmdig.ai`) and tell AvServ.
 3. **Terms:** as the drill login, write the team's terms on its Terms tab,
    saying it isn't a real team. Publish them from `/admin/sar-terms` as usual.
 4. **Activate drill team.** It takes both `rmdig_admin` and

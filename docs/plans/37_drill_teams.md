@@ -220,6 +220,10 @@ teams list, the area-share setting, and erasure.
   the erasure drill (AvServ `docs/drills/cpa-deletion.md`).
 
 Not built until Phase D's first pass is done. Its own PR sequence is written then.
+One piece is built early (P7a, owner 2026-11-10), because the drill logins of P4b
+sign in now: the sign-in map asks AvServ for a drill account for a drill user and
+never stores an account whose `drill` differs from `users.is_drill`. Without it, a
+drill login's first sign-in would have made a real AvServ account for its address.
 
 **What the other repos said, 2026-11-10 (proposals, nothing built):**
 
@@ -260,6 +264,7 @@ reaches production before merge (§3.8).
 | P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Merged #211** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
 | P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Merged #212** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Merged #213** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
+| P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Built 2026-11-10** | AvServ rc118 live |
 | P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §9 (#488) built; AvApp drill build |
 
 **Operator, after P6 and AvServ rc116 (both done 2026-11-10):**
