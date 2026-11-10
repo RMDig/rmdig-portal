@@ -134,6 +134,16 @@ describe("verification links", () => {
     expect(h.sendVerification.mock.calls[0]![1]).toContain("&next=%2Finvite%2Ftok");
   });
 
+  it("refuses a drill address, which only an rmdig admin creates (plan 37 §4.2)", async () => {
+    h.user = [];
+    expect(await signUpAction(null, form({ ...SIGNUP, email: "ops+drill1@rmdig.ai" }))).toEqual({
+      ok: false,
+      error: "Please fix the highlighted fields.",
+      fieldErrors: { email: ["This address is reserved for RMDig drill logins."] },
+    });
+    expect(h.sendVerification).not.toHaveBeenCalled();
+  });
+
   it("signing up again with an unverified address re-sends the link and changes nothing else", async () => {
     h.user = [{ id: "u1", emailVerified: null }];
     expect(await signUpAction(null, form(SIGNUP))).toEqual({ ok: true });

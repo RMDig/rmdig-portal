@@ -70,3 +70,21 @@ describe("registerDrillOrgSchema", () => {
     expect(registerDrillOrgSchema.safeParse({ ...base, region: "" }).success).toBe(false);
   });
 });
+
+describe("drill addresses (plan 37 DR3)", () => {
+  it("knows a drill address in any case, and nothing else", async () => {
+    const { isDrillAddress } = await import("@/lib/sar/drill");
+    expect(isDrillAddress("ops+drill1@rmdig.ai")).toBe(true);
+    expect(isDrillAddress(" Ops+DRILL@RMDig.ai ")).toBe(true);
+    for (const e of ["ops@rmdig.ai", "ops+test@rmdig.ai", "ops+drill@gmail.com", "ops+drill@rmdig.ai.example.com"]) {
+      expect(isDrillAddress(e)).toBe(false);
+    }
+  });
+
+  it("takes a drill address and a team role for a drill login", async () => {
+    const { drillLoginSchema } = await import("@/lib/sar/drill");
+    expect(drillLoginSchema.safeParse({ email: "OPS+drill2@rmdig.ai", role: "dispatcher" })).toMatchObject({ success: true, data: { email: "ops+drill2@rmdig.ai" } });
+    expect(drillLoginSchema.safeParse({ email: "ops@rmdig.ai", role: "admin" }).success).toBe(false);
+    expect(drillLoginSchema.safeParse({ email: "ops+drill2@rmdig.ai", role: "owner" }).success).toBe(false);
+  });
+});

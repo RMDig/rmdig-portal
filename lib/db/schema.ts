@@ -16,6 +16,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { DRILL_EMAIL_PATTERN } from "../sar/drill-address";
+
 // The first four tables (users, accounts, sessions, verificationTokens) match
 // the shape Auth.js's Drizzle adapter expects. Column names within these tables
 // use camelCase in BOTH TS and Postgres — this matches the adapter's default
@@ -29,11 +31,8 @@ import {
 // from the entities themselves (and SAR approval stays manual per §0).
 export const signupIntent = pgEnum("signup_intent", ["explorer", "sar", "advertiser"]);
 
-// A drill login's address (plan 37 DR3): a plus address at rmdig.ai with a tag
-// starting "drill", e.g. ops+drill1@rmdig.ai. Written to hold the same in
-// Postgres (POSIX, the users_drill_email CHECK) and JavaScript, so the forms
-// can refuse an address before the database does.
-export const DRILL_EMAIL_PATTERN = String.raw`^[a-z0-9._-]+\+drill[a-z0-9._-]*@rmdig\.ai$`;
+// A drill login's address (plan 37 DR3), shared with the forms.
+export { DRILL_EMAIL_PATTERN };
 
 export const users = pgTable("users", {
   // Auth.js standard

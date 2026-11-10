@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -8,8 +8,10 @@ import { auth } from "@/lib/auth";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { db } from "@/lib/db";
-import { sarOrgs } from "@/lib/db/schema";
+import { orgMemberships, sarOrgs, users } from "@/lib/db/schema";
 import { formatMountainDate } from "@/lib/format/time";
+
+import { DrillLoginForm } from "./DrillLoginForm";
 
 export const metadata = {
   title: "Drill teams — rmdig admin",
@@ -28,6 +30,15 @@ export default async function DrillTeamsPage() {
     .from(sarOrgs)
     .where(eq(sarOrgs.isDrill, true))
     .orderBy(asc(sarOrgs.createdAt));
+  const logins = teams.length
+    ? await db
+        .select({ orgId: orgMemberships.orgId, email: users.email, role: orgMemberships.role, passwordSet: users.emailVerified })
+        .from(orgMemberships)
+        .innerJoin(users, eq(users.id, orgMemberships.userId))
+        .where(inArray(orgMemberships.orgId, teams.map((t) => t.id)))
+        .orderBy(asc(users.email))
+    : [];
+  const takesLogins = (status: string) => status !== "rejected" && status !== "withdrawn";
 
   return (
     <div className="space-y-6">
@@ -58,7 +69,27 @@ export default async function DrillTeamsPage() {
                     {t.regionName ? ` · ${t.regionName}` : ""}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="text-muted-foreground text-sm">Team id {t.id}</CardContent>
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground text-sm">Team id {t.id}</p>
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Drill logins</h3>
+                    {logins.some((l) => l.orgId === t.id) ? (
+                      <ul className="space-y-1 text-sm">
+                        {logins
+                          .filter((l) => l.orgId === t.id)
+                          .map((l) => (
+                            <li key={l.email}>
+                              {l.email} · {l.role}
+                              {l.passwordSet ? "" : " · password not set yet"}
+                            </li>
+                          ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">None yet. Add an admin first.</p>
+                    )}
+                  </div>
+                  {takesLogins(t.status) ? <DrillLoginForm orgId={t.id} /> : null}
+                </CardContent>
               </Card>
             </li>
           ))}

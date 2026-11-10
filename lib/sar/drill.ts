@@ -1,3 +1,7 @@
+import { z } from "zod";
+
+import { orgRole } from "../db/schema";
+import { isDrillAddress } from "./drill-address";
 import type { AreaAssessment } from "./area-checks";
 
 // Drill teams (plan 37; AvServ plan 66): permanent, marked test teams that
@@ -53,3 +57,16 @@ export function circleRing(center: { lat: number; lon: number }, radiusM: number
 /** Where the drill team goes (owner, 2026-11-09; plan 66 O3): a 1 km circle on
  *  the Colorado State Capitol, Denver. Exactness doesn't matter. */
 export const DRILL_AREA_DEFAULT = { lat: 39.7393, lon: -104.9848, radiusM: 1000 } as const;
+
+export { DRILL_ADDRESS_RESERVED, isDrillAddress } from "./drill-address";
+
+/** Creating a drill login (plan 37 §4.2): its address and its team role. */
+export const drillLoginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(320)
+    .refine(isDrillAddress, { message: "Use a drill address: a plus address at rmdig.ai tagged drill, e.g. ops+drill1@rmdig.ai." }),
+  role: z.enum(orgRole.enumValues),
+});

@@ -228,7 +228,7 @@ reaches production before merge (§3.8).
 | P2 | Migration 0036: `is_drill` on teams and users, triggers, CHECKs, nullable proof, log actions; schema tests on PostGIS. **Built 2026-11-09** (`tests/integration/drill-schema.test.ts`) | #202 (0035) merged |
 | P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed | P2 (AvServ revision 3 is live, rc112) |
 | P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Built 2026-11-09** | P2; plan 33 9.3 and 9.5 merged |
-| P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape | P4a |
+| P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Built 2026-11-09** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
 | P5 | `activate_drill` and the drill section of the approvals page; tests pinning both directions of rule 6 | P2, P4 |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → activate → sync held → drill alert emailed | P3–P5 |
 
