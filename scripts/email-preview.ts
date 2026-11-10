@@ -6,7 +6,10 @@ import { type ReactElement } from "react";
 
 import OrgInviteEmail from "../lib/email/templates/OrgInviteEmail";
 import ResetPasswordEmail from "../lib/email/templates/ResetPasswordEmail";
+import SarNoAdminStaffEmail from "../lib/email/templates/SarNoAdminStaffEmail";
+import SarAreaChangedEmail from "../lib/email/templates/SarAreaChangedEmail";
 import SarOrgDecisionEmail from "../lib/email/templates/SarOrgDecisionEmail";
+import SarTeamStatusEmail from "../lib/email/templates/SarTeamStatusEmail";
 import SarOrgPendingReviewEmail from "../lib/email/templates/SarOrgPendingReviewEmail";
 import SarOrgSubmittedEmail from "../lib/email/templates/SarOrgSubmittedEmail";
 import VerifyEmail from "../lib/email/templates/VerifyEmail";
@@ -45,6 +48,31 @@ const samples: { file: string; element: ReactElement }[] = [
       orgName: "San Juan County SAR",
       submitterEmail: "admin@sanjuansar.org",
       reviewUrl: "https://app.rmdig.ai/admin/sar-approvals",
+    }),
+  },
+  {
+    file: "sar-team-suspended.html",
+    element: SarTeamStatusEmail({ orgName: "San Juan County SAR", change: "suspended", supportUrl: "https://rmdig.ai/support" }),
+  },
+  {
+    file: "sar-team-reactivated.html",
+    element: SarTeamStatusEmail({ orgName: "San Juan County SAR", change: "reactivated", supportUrl: "https://rmdig.ai/support" }),
+  },
+  {
+    file: "sar-no-admin.html",
+    element: SarNoAdminStaffEmail({
+      teams: [{ name: "San Juan County SAR", status: "approved" }],
+      queueUrl: "https://rmdig.ai/admin/sar-approvals",
+    }),
+  },
+  {
+    file: "sar-area-changed.html",
+    element: SarAreaChangedEmail({
+      orgName: "San Juan County SAR",
+      editorEmail: "admin@sanjuansar.org",
+      fromAreaKm2: 1010,
+      toAreaKm2: 1240,
+      orgUrl: "https://rmdig.ai/admin/sar-approvals#org-00000000-0000-4000-8000-000000000000",
     }),
   },
   {

@@ -55,11 +55,10 @@ export default defineConfig({
       // empty AVSERV_BASE_URL inherited from .env.local also falls back to mock.
       AVSERV_BASE_URL: process.env.AVSERV_BASE_URL || "mock://localhost",
       // SAR create gate (P1.4): keep proof-doc upload hermetic (no Blob token,
-      // no junk objects) and let the form accept region GeoJSON via a textarea
-      // since the headless browser can't reliably draw on the map canvas. Both
-      // flags are E2E-only seams; production never sets them.
+      // no junk objects). An E2E-only seam; production never sets it. The
+      // service area is typed into the corner-points table, as a keyboard user
+      // would (step 9.6).
       E2E_FAKE_BLOB: "1",
-      NEXT_PUBLIC_E2E: "1",
       // AvAI onboarding (docs/plans/31 §4): while no agreement version is
       // pinned, present the labelled test fixture so the accept flow is
       // exercisable. Honored only with AVSERV_BASE_URL=mock://* (lib/agreement).

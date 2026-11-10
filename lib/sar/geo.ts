@@ -10,6 +10,11 @@ import { db } from "../db";
 // lib/db/schema.ts on purpose (see the note there). Coordinates are GeoJSON axis
 // order: [longitude, latitude] in WGS84 (SRID 4326).
 
+/** How the sync simplifies an area before sending it (degrees, ~50 m) and the
+ *  decimals it keeps. The area checks (area-checks.ts) run on the same shape. */
+export const SYNC_SIMPLIFY_DEGREES = 0.0005;
+export const SYNC_DECIMALS = 6;
+
 const MAX_VERTICES_PER_RING = 10_000; // guards against pathological client input
 const MAX_RINGS = 50; // one exterior ring + a sane number of interior holes
 
@@ -108,4 +113,14 @@ export async function getRegionAsGeoJson(
   const raw = rows[0]?.geojson;
   if (!raw) return null;
   return RegionPolygonSchema.parse(JSON.parse(raw));
+}
+
+/** An org's stored region area in km² (geography, as stored, not simplified),
+ *  or null when it has none. */
+export async function getRegionAreaKm2(orgId: string, exec: SqlExecutor = db): Promise<number | null> {
+  const rows = (await exec.execute(sql`
+    SELECT ST_Area(region_geom) / 1e6 AS km2 FROM sar_orgs WHERE id = ${orgId}
+  `)) as unknown as Array<{ km2: number | string | null }>;
+  const v = rows[0]?.km2;
+  return v === null || v === undefined ? null : Number(v);
 }

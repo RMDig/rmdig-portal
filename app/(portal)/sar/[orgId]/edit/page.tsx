@@ -31,8 +31,8 @@ export default async function EditOrgPage({ params }: { params: Promise<{ orgId:
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold tracking-tight">Application</h1>
         <p className="text-muted-foreground">
-          Only an application under review can be edited. To change an approved team, contact
-          support.
+          Only an application under review can be edited. An approved team changes its service area on its
+          Service area tab; for anything else, contact support.
         </p>
         <Button asChild variant="outline">
           <Link href="/dashboard">Back to dashboard</Link>

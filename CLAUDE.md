@@ -20,6 +20,12 @@ here are load-bearing for the platform's safety and legal story:
   non-negotiable** — never automate it, never add a path around the approval
   queue. An approved team edits its own service area (plan 33 D3, decided
   2026-11-05); every edit is logged, synced and emailed to staff.
+  **Drill teams** (plan 37, decided 2026-11-09) are the one exception. A drill
+  team is registered only from `/admin`, is marked drill in the database and
+  to AvServ for good, never receives a real user's alerts, and is activated by
+  the operator through the separate, logged "Activate drill team" decision.
+  The exception never extends to a real team, and a real team can never
+  become a drill team.
 - **Public safety-claim copy.** Every public page is a claim surface under
   AvApp doc 16 §6.2. Forbidden at the current beta rung: "always",
   "guaranteed", "real-time", "24/7", "never miss", "fail-safe", "redundant"
