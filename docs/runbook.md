@@ -662,8 +662,23 @@ suspended orgs alongside pending ones:
 - **Reactivate** a suspended org → status `pending`, back into the review queue.
 
 Both append to `sar_org_status_log` and are attributed to you, same as the review
-decisions. (Suspend / reactivate don't email the org — communicate out of band
-if needed.)
+decisions. Each emails the team's admins: suspended (AvAI doesn't offer the team
+or send it alerts, including for check-outs already bound to it) or back under
+review. The reason you write stays in the status log and is **not** emailed;
+tell the team anything more yourself.
+
+### A team with no admin
+
+The members page won't remove or demote a team's last admin, but deleting an
+account (data-deletion step 4) can still leave a team with none. The team's
+pages then show a banner, and every SAR approver gets a daily email
+(`/api/cron/sar-no-admin`, Sentry `sar.no_admin`) until it has one. Only an
+admin can invite, so there is no page for this yet: promoting an existing member
+is a production write (`UPDATE org_memberships SET role = 'admin' …`, logged in
+`org_membership_log`) and needs the owner's OK each time. Otherwise decide what
+happens to the team (suspend, mark leaving); what staff should do here is still
+open (plan 33 §6.4). Before step 4 deletes a user, check
+whether they're a team's only admin and arrange a successor first.
 
 ## Run a production migration
 
@@ -1192,6 +1207,7 @@ allows 90 minutes before it calls a run missed.
 | `/api/cron/sar-alert-notify` | 12:00 | `portal-sar-alert-notify` | retries owed SAR team emails |
 | `/api/cron/avserv-checks` | 14:00 | `portal-avserv-checks` | Admin → AvServ checks |
 | `/api/cron/patrol-reverify` | 15:00 | `portal-patrol-reverify` | ski patrol re-verification reminders |
+| `/api/cron/sar-no-admin` | 15:30 | `portal-sar-no-admin` | emails SAR approvers, daily while it lasts, about any live team with no admin (`lib/sar/no-admin.ts`) |
 | `/api/cron/deletion-clock` | 16:00 | `portal-deletion-clock` | CPA 45-day clock warnings |
 | `/api/cron/security-notices` | 17:00 | `portal-security-notices` | opt-in security notices for changes made on the phones |
 

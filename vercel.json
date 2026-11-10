@@ -7,6 +7,7 @@
     { "path": "/api/cron/sar-alert-notify", "schedule": "0 12 * * *" },
     { "path": "/api/cron/deletion-clock", "schedule": "0 16 * * *" },
     { "path": "/api/cron/security-notices", "schedule": "0 17 * * *" },
-    { "path": "/api/cron/expired-rows", "schedule": "0 10 * * *" }
+    { "path": "/api/cron/expired-rows", "schedule": "0 10 * * *" },
+    { "path": "/api/cron/sar-no-admin", "schedule": "30 15 * * *" }
   ]
 }
