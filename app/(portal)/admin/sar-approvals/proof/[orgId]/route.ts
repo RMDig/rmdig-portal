@@ -32,6 +32,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ orgId: 
     .where(eq(sarOrgs.id, orgId))
     .limit(1);
   if (!org) return new NextResponse("Not found", { status: 404 });
+  // Only a drill team has no proof (the sar_orgs_proof_unless_drill CHECK).
+  if (org.url === null) return new NextResponse("A drill team has no proof document.", { status: 404 });
 
   let doc: Awaited<ReturnType<typeof getProofDoc>>;
   try {

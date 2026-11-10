@@ -29,6 +29,12 @@ import {
 // from the entities themselves (and SAR approval stays manual per §0).
 export const signupIntent = pgEnum("signup_intent", ["explorer", "sar", "advertiser"]);
 
+// A drill login's address (plan 37 DR3): a plus address at rmdig.ai with a tag
+// starting "drill", e.g. ops+drill1@rmdig.ai. Written to hold the same in
+// Postgres (POSIX, the users_drill_email CHECK) and JavaScript, so the forms
+// can refuse an address before the database does.
+export const DRILL_EMAIL_PATTERN = String.raw`^[a-z0-9._-]+\+drill[a-z0-9._-]*@rmdig\.ai$`;
+
 export const users = pgTable("users", {
   // Auth.js standard
   id: uuid("id").primaryKey().defaultRandom(),
@@ -67,10 +73,21 @@ export const users = pgTable("users", {
   // removed a password someone had set on it (lib/auth/oauth-link.ts). The
   // dashboard tells the owner once, then clears it when they dismiss the notice.
   oauthPasswordClearedAt: timestamp("oauth_password_cleared_at", { withTimezone: true }),
+  // A drill login (plan 37 §4.2): set at insert, and a trigger (0036) refuses
+  // any change to it, so a real account never becomes a drill one or the
+  // reverse. A drill user joins only drill teams and never holds a platform role
+  // (triggers on org_memberships and user_platform_roles).
+  isDrill: boolean("is_drill").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+},
+  (t) => [
+    // An address the operator reads (plan 37 DR3), so a drill login's alert
+    // emails and password resets reach someone.
+    check("users_drill_email", sql`NOT ${t.isDrill} OR lower(${t.email}) ~ ${sql.raw(`'${DRILL_EMAIL_PATTERN}'`)}`),
+  ],
+);
 
 // One-time MFA recovery codes. Stored as SHA-256 hashes (high-entropy random,
 // so a fast hash is right — same reasoning as reset tokens); the plaintext is
@@ -413,6 +430,10 @@ export const sarOrgAction = pgEnum("sar_org_action", [
   "withdrawn",
   // Staff re-verified a ski patrol (yearly, AvServ plan 41 §2.4).
   "reverified",
+  // A drill team (plan 37): registered from /admin with nothing outside RMDig
+  // verified, and activated by the operator. Never an approval of a real team.
+  "drill_registered",
+  "drill_activated",
 ]);
 
 // What kind of organization this is (AvApp doc 36 §9.3). Both go through the
@@ -443,9 +464,10 @@ export const sarOrgs = pgTable("sar_orgs", {
   operatingStatus: operatingStatus("operating_status").notNull(),
   operatingStatusOther: text("operating_status_other"),
   // Proof of operating status (county registration, 501(c)(3) letter, …) in
-  // Vercel Blob. notNull: an org only ever enters the DB at submit time, and a
-  // submission without proof can't be reviewed.
-  proofDocUrl: text("proof_doc_url").notNull(),
+  // Vercel Blob. Required for every real org (sar_orgs_proof_unless_drill): a
+  // submission without proof can't be reviewed. Only a drill team has none,
+  // because nothing outside RMDig is verified for it (plan 37 §4.1).
+  proofDocUrl: text("proof_doc_url"),
   status: sarOrgStatus("status").default("pending").notNull(),
   createdByUserId: uuid("created_by_user_id")
     .notNull()
@@ -474,6 +496,11 @@ export const sarOrgs = pgTable("sar_orgs", {
   // Ski patrols: verified on approval and every 12 months after.
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   reverifyBy: timestamp("reverify_by", { withTimezone: true }),
+  // A drill team (plan 37 §4.1; AvServ plan 66 R4): set at insert, and a
+  // trigger (0036) refuses any change to it. A real team never becomes a drill
+  // team (its users' alerts would stop reaching rescuers), and a drill team
+  // never becomes a real one. Synced to AvServ as `drill: true`.
+  isDrill: boolean("is_drill").default(false).notNull(),
 },
   // Its evidence (status log, intake messages, acks, view logs, membership
   // log, terms) references it ON DELETE RESTRICT: an org with history can't
@@ -492,6 +519,13 @@ export const sarOrgs = pgTable("sar_orgs", {
     uniqueIndex("sar_orgs_contact_phone_live_unique")
       .on(t.contactPhone)
       .where(sql`contact_phone IS NOT NULL AND sar_org_holds_phone(status)`),
+    check("sar_orgs_proof_unless_drill", sql`${t.isDrill} OR ${t.proofDocUrl} IS NOT NULL`),
+    // AvServ refuses any other drill team (422 drill_team_invalid), so the
+    // portal refuses it first: SAR type, and "drill" in the name.
+    check(
+      "sar_orgs_drill_shape",
+      sql`NOT ${t.isDrill} OR (${t.name} ILIKE '%drill%' AND ${t.orgType} = 'sar_team')`,
+    ),
   ],
 );
 

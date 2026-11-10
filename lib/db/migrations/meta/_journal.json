@@ -253,6 +253,13 @@
       "when": 1794015240627,
       "tag": "0035_sar_org_area_log",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794282426395,
+      "tag": "0036_drill_teams",
+      "breakpoints": true
     }
   ]
 }
