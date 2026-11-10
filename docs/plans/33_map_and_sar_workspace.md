@@ -360,7 +360,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back). **Built 2026-11-06:** team admins emailed on suspend/reactivate (no staff note); no-admin banner on the team pages and a daily approver email (`/api/cron/sar-no-admin`); what staff then do stays [ESCALATE] | None |
 | 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
 
-9.2, 9.3 and 9.13 can start now.
+9.1–9.6 and 9.13 are built. The rest wait on their gates.
 
 ### 6.6 ORANGE layer (D8)
 
