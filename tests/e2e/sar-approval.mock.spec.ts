@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { E2E_USER, STAFF_USER, signInAs, signOut } from "./helpers";
+import { E2E_USER, enterServiceArea, STAFF_USER, signInAs, signOut } from "./helpers";
 
 // SAR approval gate (P1.4). A member submits an org through the real create flow
 // (reused as setup), then a staff (rmdig_admin) persona reviews it from the
@@ -12,19 +12,6 @@ test.skip(
   !(process.env.AVSERV_BASE_URL || "mock://localhost").startsWith("mock://"),
   "SAR approval gate runs against the mock-mode CI server (see playwright.config.ts)",
 );
-
-const VALID_REGION = JSON.stringify({
-  type: "Polygon",
-  coordinates: [
-    [
-      [-108, 37],
-      [-107, 37],
-      [-107, 38],
-      [-108, 38],
-      [-108, 37],
-    ],
-  ],
-});
 
 async function orgStatusByName(name: string): Promise<string | null> {
   const url = process.env.DATABASE_URL;
@@ -50,7 +37,7 @@ test.describe("SAR org approval (mock)", () => {
     await page.getByLabel("Organization name").fill(orgName);
     await page.getByLabel("Contact name").fill("Jane Doe");
     await page.getByLabel("Contact email").fill("jane@sar.test");
-    await page.getByTestId("e2e-region-input").fill(VALID_REGION);
+    await enterServiceArea(page);
     await page.locator('input[name="proofDoc"]').setInputFiles({
       name: "proof.pdf",
       mimeType: "application/pdf",

@@ -26,7 +26,10 @@ import PlatformInviteEmail from "./templates/PlatformInviteEmail";
 import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import RestrictionReviewRequestedEmail from "./templates/RestrictionReviewRequestedEmail";
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
+import SarNoAdminStaffEmail, { type SarNoAdminStaffEmailProps } from "./templates/SarNoAdminStaffEmail";
+import SarAreaChangedEmail, { type SarAreaChangedEmailProps } from "./templates/SarAreaChangedEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
+import SarTeamStatusEmail, { type SarTeamStatusEmailProps } from "./templates/SarTeamStatusEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
 import SarAlertNotifyEmail, { type SarAlertNotifyKind } from "./templates/SarAlertNotifyEmail";
 import SarOrgSubmittedEmail from "./templates/SarOrgSubmittedEmail";
@@ -147,6 +150,39 @@ export async function sendSarOrgPendingReviewEmail(
     to,
     subject: `SAR org awaiting review: ${params.orgName}`,
     html,
+  });
+}
+
+/** To a team's admins: staff suspended it, or moved it back to review (plan 33 §6.4). */
+export async function sendSarTeamStatusEmail(to: string, params: SarTeamStatusEmailProps): Promise<void> {
+  await deliver({
+    kind: "sar_team_status",
+    label: "SAR-team-status",
+    to,
+    subject: params.change === "suspended" ? `Your team is suspended: ${params.orgName}` : `Your team is back under review: ${params.orgName}`,
+    html: render(SarTeamStatusEmail(params)),
+  });
+}
+
+/** To SAR approvers, daily, while a live team has no admin (plan 33 §6.4). */
+export async function sendSarNoAdminStaffEmail(to: string, params: SarNoAdminStaffEmailProps): Promise<void> {
+  await deliver({
+    kind: "sar_no_admin",
+    label: "SAR-no-admin",
+    to,
+    subject: params.teams.length === 1 ? `SAR team with no admin: ${params.teams[0]!.name}` : `${params.teams.length} SAR teams have no admin`,
+    html: render(SarNoAdminStaffEmail(params)),
+  });
+}
+
+/** Informational: a team changed its own service area (plan 33 D3). */
+export async function sendSarAreaChangedEmail(to: string, params: SarAreaChangedEmailProps): Promise<void> {
+  await deliver({
+    kind: "sar_area_changed",
+    label: "SAR-area-changed",
+    to,
+    subject: `SAR team changed its service area: ${params.orgName}`,
+    html: render(SarAreaChangedEmail(params)),
   });
 }
 

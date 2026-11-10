@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   txError: null as unknown,
   upload: vi.fn(),
   setRegion: vi.fn(),
+  assess: vi.fn(),
   email: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -68,6 +69,7 @@ vi.mock("@/lib/blob/upload", () => {
   class ProofDocError extends Error {}
   return { ProofDocError, uploadProofDoc: h.upload };
 });
+vi.mock("@/lib/sar/area-checks", () => ({ assessArea: h.assess }));
 vi.mock("@/lib/sar/geo", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sar/geo")>()),
   setRegionGeom: h.setRegion,
@@ -107,6 +109,7 @@ beforeEach(() => {
   h.updateReturns = [{ id: ORG }];
   h.inserts = [];
   h.txError = null;
+  h.assess.mockResolvedValue({ ok: true, overlaps: [], clip: null });
   h.upload.mockResolvedValue({ url: "https://abc.private.blob.vercel-storage.com/sar-proofs/new.pdf" });
 });
 
@@ -128,6 +131,28 @@ describe("updateSarOrgAction", () => {
     await updateSarOrgAction(ORG, null, form({ region: JSON.stringify(square), proofDoc: file }));
     expect(h.setRegion).toHaveBeenCalledWith(ORG, square, expect.anything());
     expect(h.updates[0]).toMatchObject({ proofDocUrl: "https://abc.private.blob.vercel-storage.com/sar-proofs/new.pdf" });
+  });
+
+  it("checks only a new area, and refuses one AvServ would refuse before uploading anything", async () => {
+    await updateSarOrgAction(ORG, null, form());
+    expect(h.assess).not.toHaveBeenCalled();
+    h.assess.mockResolvedValue({ ok: false, code: "area_invalid", message: "Check that its edges don't cross." });
+    const file = new File([new Uint8Array([1])], "new.pdf", { type: "application/pdf" });
+    h.selectN = 0;
+    h.updates = [];
+    const res = await updateSarOrgAction(ORG, null, form({ region: JSON.stringify(square), proofDoc: file }));
+    expect(res).toEqual({ ok: false, error: "Check that its edges don't cross.", fieldErrors: { region: ["Check that its edges don't cross."] } });
+    expect(h.assess).toHaveBeenCalledWith(square, ORG);
+    expect(h.upload).not.toHaveBeenCalled();
+    expect(h.updates).toEqual([]);
+  });
+
+  it("fails loud when the area check itself fails", async () => {
+    h.assess.mockRejectedValue(new Error("db down"));
+    const res = await updateSarOrgAction(ORG, null, form({ region: JSON.stringify(square) }));
+    expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/Couldn't check the service area/) });
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.resubmit.area_check_failed" }));
+    expect(h.updates).toEqual([]);
   });
 
   it("refuses signed-out users and anyone who isn't the org's admin", async () => {

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useCallback, useState } from "react";
+import { useActionState, useState } from "react";
 
-import RegionDrawMap, { type DrawnPolygon } from "@/components/map/RegionDrawMap";
+import type { DrawnPolygon } from "@/components/map/RegionDrawMap";
 import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPreviewMap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   SERVICE_AREA_HELP,
   type OrgFieldValues,
 } from "../../SarOrgFields";
+import { AreaEditor } from "../../AreaEditor";
 import { ProofDocInput } from "../../ProofDocInput";
 import { updateSarOrgAction } from "./actions";
 import { submitWithoutReset } from "@/components/forms/submit-without-reset";
@@ -42,7 +43,6 @@ export function EditOrgForm({
   const values = initial;
   const [redraw, setRedraw] = useState(region === null);
   const [newRegion, setNewRegion] = useState<DrawnPolygon | null>(null);
-  const onRegionChange = useCallback((p: DrawnPolygon | null) => setNewRegion(p), []);
 
   if (state?.ok) {
     return (
@@ -59,7 +59,6 @@ export function EditOrgForm({
 
   return (
     <form action={formAction} onSubmit={submitWithoutReset(formAction)} className="space-y-8">
-      <input type="hidden" name="region" value={redraw && newRegion ? JSON.stringify(newRegion) : ""} />
 
       <OrgDetailsFields initial={values} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
 
@@ -76,9 +75,17 @@ export function EditOrgForm({
         <p className="text-muted-foreground text-sm">{SERVICE_AREA_HELP}</p>
         {redraw ? (
           <>
-            <RegionDrawMap onRegionChange={onRegionChange} hasRegion={!!newRegion} />
+            <AreaEditor orgId={orgId} onChange={(c) => setNewRegion(c.area)} />
             {region ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setRedraw(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRedraw(false);
+                  setNewRegion(null);
+                }}
+              >
                 Keep the current area
               </Button>
             ) : null}

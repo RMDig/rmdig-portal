@@ -90,6 +90,48 @@ DATABASE_URL="<that url>" pnpm db:migrate
 those seed/mutate the `users` table (they refuse to run without `E2E_ALLOW_DB=1`
 precisely so this can't happen by accident).
 
+### Read-only production access
+
+For looking things up from the repo without the owner role:
+
+```bash
+pnpm prod:read "SELECT status, count(*) FROM sar_orgs GROUP BY 1"
+pnpm prod:read --json "SELECT id, name FROM sar_orgs WHERE status = 'pending'"
+```
+
+It connects as **`portal_reader`** through `PROD_READ_URL` in `.env.prod-read`
+at the repo root (gitignored by `.env*`; one per machine; never in Vercel or
+GitHub). The role can `SELECT` every portal table but no credential column:
+password hashes, the encrypted TOTP secret, and every token or token hash. So
+`SELECT *` fails on `users`, `sessions`, `accounts` and the token tables:
+name the columns. Emails, names and SAR records are readable, so treat the
+URL like any other secret. Writes fail three ways: the role has no write
+grant, its transactions default to read-only, and the script runs each query
+in a `READ ONLY` transaction and refuses any role but `portal_reader`.
+Statements time out after 30 s; at most 3 connections.
+
+**Set up (once).** In the Neon console, open the SQL editor on the
+`production` branch (database `neondb`, role `neondb_owner`) and run:
+
+1. `CREATE ROLE portal_reader WITH LOGIN PASSWORD '<long random password>';`
+   Create it in SQL, not on the console's Roles page: roles made there join
+   `neon_superuser`.
+2. The whole of [scripts/sql/portal-reader-grants.sql](../scripts/sql/portal-reader-grants.sql).
+3. On each machine, write `.env.prod-read`:
+   `PROD_READ_URL=postgresql://portal_reader:<password>@<production pooled host>/neondb?sslmode=require`
+   (the host is the one in the owner URL, `ep-crimson-thunder-aqloj3r3-pooler…`).
+4. Check: `pnpm prod:read "SELECT current_user"` prints `portal_reader`, and
+   `pnpm prod:read "SELECT password_hash FROM users LIMIT 1"` fails with
+   `permission denied`.
+
+**After a migration** that adds a table or column, re-run the grants file: grants
+are per column, so anything new stays unreadable until then (`permission
+denied` from `prod:read` is the sign). `tests/integration/portal-reader-grants.test.ts`
+checks the file against every migration.
+
+**Revoke:** `DROP OWNED BY portal_reader; DROP ROLE portal_reader;`, or rotate with
+`ALTER ROLE portal_reader PASSWORD '<new>'` and update each `.env.prod-read`.
+
 ## Grant a platform role
 
 Platform roles gate the `/admin` area:
@@ -144,7 +186,9 @@ resubmitted application emails every SAR approver with a link to its row.
    - **Request changes** (note required) → stays `pending`; emails the submitter what to fix.
      Their admins see your note on `/sar/pending` and can **edit and resubmit**
      (`/sar/<orgId>/edit`): every field except the verified phone, plus a redrawn
-     area and a replacement document if they choose. A resubmission logs
+     area and a replacement document if they choose. An area AvServ would
+     refuse (over 1 MiB once simplified, or too many points) is refused at
+     submit and resubmit, as on the Service area tab. A resubmission logs
      `resubmitted`, clears your note and emails all staff. Approved orgs
      can't be edited this way (§0).
 
@@ -164,8 +208,21 @@ The portal is the only place a SAR team is approved, suspended, re-verified or
 withdrawn; AvServ only stores what the portal sends (AvServ
 `sar_team_sync.md`). The portal PUTs the team's current state to **both** nodes
 (`AVSERV_BASE_URL` and `AVSERV_FAILOVER_BASE_URL`) after: approve, suspend, mark
-leaving, withdraw, patrol re-verification, and publishing team terms. Each send
-bumps the org's revision; AvServ keeps the highest per node.
+leaving, withdraw, patrol re-verification, publishing team terms, and an approved
+team changing its own service area. Each send bumps the org's revision; AvServ
+keeps the highest per node.
+
+- **Area changes** (plan 33 D3): an approved team's admins redraw its area on
+  the team's **Service area** tab. Nothing is approved: the area is refused only
+  if AvServ would refuse it (over 1 MiB once simplified, or too many points).
+  Before saving, the page warns (never blocks) when the area is larger than Las
+  Animas County (~12,362 km²) or overlaps other live teams, naming them and
+  offering the area without the overlap. Applicants see the size warning but
+  never other teams' names: you see overlaps when you review. Any area can be
+  drawn or typed as corner points (the keyboard path). The area is saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
+  and every SAR approver gets an informational email. A node that didn't take it
+  shows here as a failed sync (Sentry `sar.area.sync_incomplete`): resync. To
+  stop a team misusing its area, suspend it.
 
 - **Per-node status** is on each org in **Admin → SAR approvals**: revision,
   usable or not, last accepted time, or the failure code. **Resync to AvServ**
@@ -590,7 +647,7 @@ queue instead (**Mark leaving**, then **Withdraw** once no node has check-outs
 bound to it): AvServ stops routing to it and the record stays. The evidence
 tables (`sar_org_status_log`, `sar_intake_messages`, `sar_alert_acks`,
 `sar_alert_view_log`, `sar_map_view_log`, `org_membership_log`,
-`sar_org_terms`, `sar_alert_notifications`) reference `sar_orgs` with
+`sar_org_terms`, `sar_alert_notifications`, `sar_org_area_log`) reference `sar_orgs` with
 `ON DELETE RESTRICT`, so `DELETE FROM sar_orgs` fails while any of it exists.
 Those rows leave only through their own retention (`/api/cron/sar-retention`).
 A pending application that never got anywhere is rejected, not deleted.
@@ -605,8 +662,23 @@ suspended orgs alongside pending ones:
 - **Reactivate** a suspended org → status `pending`, back into the review queue.
 
 Both append to `sar_org_status_log` and are attributed to you, same as the review
-decisions. (Suspend / reactivate don't email the org — communicate out of band
-if needed.)
+decisions. Each emails the team's admins: suspended (AvAI doesn't offer the team
+or send it alerts, including for check-outs already bound to it) or back under
+review. The reason you write stays in the status log and is **not** emailed;
+tell the team anything more yourself.
+
+### A team with no admin
+
+The members page won't remove or demote a team's last admin, but deleting an
+account (data-deletion step 4) can still leave a team with none. The team's
+pages then show a banner, and every SAR approver gets a daily email
+(`/api/cron/sar-no-admin`, Sentry `sar.no_admin`) until it has one. Only an
+admin can invite, so there is no page for this yet: promoting an existing member
+is a production write (`UPDATE org_memberships SET role = 'admin' …`, logged in
+`org_membership_log`) and needs the owner's OK each time. Otherwise decide what
+happens to the team (suspend, mark leaving); what staff should do here is still
+open (plan 33 §6.4). Before step 4 deletes a user, check
+whether they're a team's only admin and arrange a successor first.
 
 ## Run a production migration
 
@@ -632,8 +704,12 @@ because the branch also has `ci_migration_reader` (the migration guard):
 export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 \
   --role-name neondb_owner --database-name neondb --pooled)"
 case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) pnpm db:migrate;; *) echo "WRONG URL, not migrating";; esac
+# A new table or column: re-grant portal_reader ("Read-only production access").
+case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) psql "$DATABASE_URL" -f scripts/sql/portal-reader-grants.sql;; esac
 unset DATABASE_URL
 ```
+
+Without psql, paste the grants file into the Neon console SQL editor instead.
 
 After the PR merges, migrate `preview-seed` too ("Preview deployments" →
 Housekeeping).
@@ -1131,6 +1207,7 @@ allows 90 minutes before it calls a run missed.
 | `/api/cron/sar-alert-notify` | 12:00 | `portal-sar-alert-notify` | retries owed SAR team emails |
 | `/api/cron/avserv-checks` | 14:00 | `portal-avserv-checks` | Admin → AvServ checks |
 | `/api/cron/patrol-reverify` | 15:00 | `portal-patrol-reverify` | ski patrol re-verification reminders |
+| `/api/cron/sar-no-admin` | 15:30 | `portal-sar-no-admin` | emails SAR approvers, daily while it lasts, about any live team with no admin (`lib/sar/no-admin.ts`) |
 | `/api/cron/deletion-clock` | 16:00 | `portal-deletion-clock` | CPA 45-day clock warnings |
 | `/api/cron/security-notices` | 17:00 | `portal-security-notices` | opt-in security notices for changes made on the phones |
 

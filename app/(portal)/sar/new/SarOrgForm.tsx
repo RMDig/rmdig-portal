@@ -1,9 +1,8 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import RegionDrawMap, { type DrawnPolygon } from "@/components/map/RegionDrawMap";
 import { VerifiedPhoneField } from "@/components/portal/VerifiedPhoneField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,7 @@ import {
 } from "../SarOrgFields";
 import { createSarOrgAction } from "./actions";
 import { submitWithoutReset } from "@/components/forms/submit-without-reset";
+import { AreaEditor } from "../AreaEditor";
 import { ProofDocInput } from "../ProofDocInput";
 
 export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
@@ -26,8 +26,6 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
   const [state, formAction, pending] = useActionState(createSarOrgAction, null);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
 
-  const [region, setRegion] = useState<DrawnPolygon | null>(null);
-  const onRegionChange = useCallback((p: DrawnPolygon | null) => setRegion(p), []);
   const [orgType, setOrgType] = useState("sar_team");
   // A rejected submit keeps everything, the chosen file included.
   const values = EMPTY_ORG_FIELDS;
@@ -38,8 +36,6 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
 
   return (
     <form action={formAction} onSubmit={submitWithoutReset(formAction)} className="space-y-8">
-      <input type="hidden" name="region" value={region ? JSON.stringify(region) : ""} />
-
       <OrgDetailsFields initial={values} fieldErrors={fieldErrors} onOrgTypeChange={setOrgType} />
 
       <section className="space-y-4">
@@ -51,26 +47,8 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Service area</h2>
         <p className="text-muted-foreground text-sm">{SERVICE_AREA_HELP}</p>
-        <RegionDrawMap onRegionChange={onRegionChange} hasRegion={!!region} />
+        <AreaEditor orgId={null} />
         <FieldError errors={fieldErrors?.region} />
-        {process.env.NEXT_PUBLIC_E2E === "1" ? (
-          // Test-only seam: the headless E2E can't reliably draw on the map
-          // canvas/tiles, so under NEXT_PUBLIC_E2E it sets the region by pasting
-          // GeoJSON. The flag is set only by the Playwright build — never in
-          // production, so this is not rendered for real users.
-          <textarea
-            data-testid="e2e-region-input"
-            aria-label="E2E region input"
-            className="border-input flex w-full rounded-md border px-3 py-2 text-xs"
-            onChange={(e) => {
-              try {
-                setRegion(JSON.parse(e.target.value) as DrawnPolygon);
-              } catch {
-                setRegion(null);
-              }
-            }}
-          />
-        ) : null}
         <div className="space-y-2">
           <Label htmlFor="regionName">Region name (optional)</Label>
           <Input

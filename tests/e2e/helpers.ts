@@ -220,3 +220,24 @@ export async function watchCspViolations(page: Page): Promise<() => Promise<stri
   });
   return () => page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
 }
+
+/** A unit square near Durango, CO, as the area editor's corner points:
+ *  [latitude, longitude], in order around it. */
+export const SQUARE_AREA: Array<[string, string]> = [
+  ["37", "-108"],
+  ["37", "-107"],
+  ["38", "-107"],
+  ["38", "-108"],
+];
+
+/** Enter a service area in the area editor's corner-points table (plan 33
+ *  §6.3 step 4) and apply it, the way a user without a mouse would. */
+export async function enterServiceArea(page: Page, points: Array<[string, string]> = SQUARE_AREA): Promise<void> {
+  for (const [i, [lat, lon]] of points.entries()) {
+    if (i >= 3) await page.getByRole("button", { name: "Add a point" }).click();
+    await page.getByLabel(`Point ${i + 1} latitude`).fill(lat);
+    await page.getByLabel(`Point ${i + 1} longitude`).fill(lon);
+  }
+  await page.getByRole("button", { name: "Use these points" }).click();
+  await expect(page.getByText(`Using these ${points.length} points.`)).toBeVisible();
+}

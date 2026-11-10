@@ -14,8 +14,10 @@ export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responde
     { href: `${base}/members`, label: "Members" },
     { href: `${base}/alerts`, label: "Alerts" },
     { href: `${base}/terms`, label: "Terms" },
-    // Only an application under review can be edited.
+    // Only an application under review can be edited; an approved team edits
+    // its own service area (plan 33 D3).
     ...(status === "pending" ? [{ href: `${base}/edit`, label: "Application" }] : []),
+    ...(status === "approved" ? [{ href: `${base}/area`, label: "Service area" }] : []),
   ];
 }
 

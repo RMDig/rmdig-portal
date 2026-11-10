@@ -25,7 +25,7 @@ const optionalText = (max: number) =>
 // The map serializes the drawn polygon to a JSON string in a hidden field. Parse
 // it, then validate the GeoJSON, so a missing or garbled region is a plain
 // field-level error on `region` rather than a 500 deep in the insert.
-export const REGION_MISSING = "Draw your service area on the map.";
+export const REGION_MISSING = "Draw your service area on the map, or enter its corner points.";
 const REGION_UNREADABLE = "That service area couldn't be read. Clear the drawing and draw it again.";
 
 const regionField = z
@@ -114,3 +114,6 @@ export const createSarOrgSchema = z
   });
 
 export type CreateSarOrgInput = z.infer<typeof createSarOrgSchema>;
+
+/** A team's own area edit (plan 33 D3, step 9.4): the drawn area, required. */
+export const editSarAreaSchema = z.object({ region: regionField });

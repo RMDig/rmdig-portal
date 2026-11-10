@@ -169,13 +169,13 @@ Rules that come from the reviews:
 |---|---|
 | 1 Org type, incl. ski patrol | ✅ `orgType` `sar_team`/`ski_patrol`, patrol re-verify cron |
 | 2 Resubmit | ✅ `/sar/[orgId]/edit`, pending only |
-| 3 Area edits | ⬜ 9.3–9.6 (§6.3) |
-| 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` is still offered (9.1) |
+| 3 Area edits | Checks ✅ 9.3 (`lib/sar/area-checks.ts`); approved-team edit ✅ 9.4 (`/sar/[orgId]/area`, `sar_org_area_log`, sync on save, staff email), both 2026-11-06; overlap and large-area warnings ✅ 9.5; keyboard entry and the one editor ✅ 9.6 (`AreaEditor`, `VertexTable`) on `/sar/new`, resubmit and the area page (§6.3) |
+| 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` not offered since 9.1 (2026-11-06); staff publish refuses a draft that still names it |
 | 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; no `publicListing` or `serviceAreaLabels` (9.2) |
 | 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
 | 7 Roles and membership | ✅ remove, change role, revoke invite, last-admin rule, `org_membership_log` |
 | 8 Private proof | ✅ staff-only route; production Blob not yet verified (status §1) |
-| 9 Emails | Terms submitted and decided ✅, team alert email ✅ (daily retry cron); suspension/reactivation ⬜ (9.13) |
+| 9 Emails | Terms submitted and decided ✅, team alert email ✅ (daily retry cron); suspension/reactivation and no-admin ✅ 9.13 (2026-11-06) |
 | 10 Runbook | ✅ review, sync, terms, intake, alerts layer, members, removal, suspend |
 
 ### Legal, carrier, store (counsel)
@@ -273,11 +273,12 @@ Final; they override plan 34, AvApp plan 47 and AvServ plan 41 where those confl
 - **D7.** `publicPhone {e164, verifiedAt, publishConsentAt}`, separate from
   `contact_phone` (the operator's callback), verified with the existing Twilio Verify
   flow, publication consent [COUNSEL]. `contactLineName` (1–32 GSM-7) names the team.
-- **D8.** `area_map` is `offered: true` today (`lib/sar/terms-rules.ts:45–48`). At
+- **D8.** `area_map` was `offered: true` until 9.1 (`lib/sar/terms-rules.ts`). At
   revision 2 AvServ refuses the **whole** PUT naming it (`422 capability_not_available`)
   while `AVSERV_SAR_AREA_FEED` isn't `on`: strip, never retry. Terms versions are
   immutable, so a published version carrying it needs a remove-only successor
-  (`requiresReacceptance: false`) before revision 2 reaches production.
+  (`requiresReacceptance: false`) before revision 2 reaches production. None exists
+  (checked 2026-11-06); staff publish now refuses any version naming it.
 - **D9.** The `email` channel carries the on-call `address`. AvServ `origin/main`
   accepts it (`internal/api/sarteams.go:385`) but doesn't dispatch it (B1); revision 2
   does (§5.5), with bounces in `channelStatus` (`bouncedAt`).
@@ -344,22 +345,22 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | ID | Scope | Gate |
 |---|---|---|
 | 9.0 | This revision (plans 33, 34, 00) | Owner review |
-| 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it | None |
+| 9.1 | `area_map` `offered: false`; terms actions refuse it; remove-only successor for any published version carrying it. **Built 2026-11-06.** No successor needed: production's only terms version (the rejected drill team, v1) has `checkout_alerts` alone (`pnpm prod:read`, 2026-11-06) | None |
 | 9.2 | Send `serviceAreaLabels` and `publicListing` (`consent: false`) | None |
-| 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB | None |
-| 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email | 9.3 |
-| 9.5 | Overlap (clip preview) and large-area warnings | 9.4 |
-| 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe | 9.4 |
+| 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB. **Built 2026-11-06** (`assessArea`, `checkAvservCaps`); not yet called: 9.4 wires it into the save | None |
+| 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email. **Built 2026-11-06:** `saveAreaAction`, migration 0035 `sar_org_area_log`, "Service area" tab for approved teams; a pending team still changes its area by resubmitting | 9.3 |
+| 9.5 | Overlap (clip preview) and large-area warnings. **Built 2026-11-06** on `/sar/[orgId]/area` (`checkAreaAction`, `AreaWarnings`): size, overlapping teams by name, "use the area without the overlap", and the O8 threshold `LARGE_AREA_KM2` = 12,361.85 km² (Census 2024 Gazetteer, Las Animas, GEOID 08071). `/sar/new` and resubmit still show none: they move to the one editor with 9.6 | 9.4 |
+| 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe. **Built 2026-11-07:** one `AreaEditor` (map plus corner-points table, each filling the other) on `/sar/new`, resubmit and `/sar/[orgId]/area`; the check (`area-check-action.ts`) runs on all three, naming other teams and offering the clip only to an approved team's admins; create and resubmit now refuse an area AvServ would refuse; the `NEXT_PUBLIC_E2E` GeoJSON box is gone, and the e2e types the area into the table (`sar-area-keyboard.mock.spec.ts`, axe on the editor) | 9.4 |
 | 9.7 | `acceptanceMode`, `maxActiveCheckouts` | §6.2 gate |
 | 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
 | 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | §6.2 gate; [COUNSEL]; A2P 38a re-filing |
 | 9.10 | On-call `email` channel: add, verify by link, re-verify on change | AvServ dispatches `email` on both nodes |
 | 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | Vercel Pro (O7) |
 | 9.12 | Reachability; no-ack escalation (once per alert) | 9.10, 9.11; N [ESCALATE] |
-| 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back) | None |
+| 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back). **Built 2026-11-06:** team admins emailed on suspend/reactivate (no staff note); no-admin banner on the team pages and a daily approver email (`/api/cron/sar-no-admin`); what staff then do stays [ESCALATE] | None |
 | 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
 
-9.1, 9.2, 9.3 and 9.13 can start now.
+9.2, 9.3 and 9.13 can start now.
 
 ### 6.6 ORANGE layer (D8)
 

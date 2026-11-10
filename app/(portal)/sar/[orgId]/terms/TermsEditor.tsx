@@ -38,7 +38,9 @@ export function TermsEditor({
               type="checkbox"
               name="capabilities"
               value={c.name}
-              defaultChecked={initialCapabilities.includes(c.name)}
+              // A disabled box isn't submitted, so a withdrawn service starts unticked
+              // rather than looking kept.
+              defaultChecked={c.offered && initialCapabilities.includes(c.name)}
               disabled={!c.offered}
               className="mt-1"
             />

@@ -13,7 +13,8 @@ export type CronJob =
   | "sar_alert_notify"
   | "deletion_clock"
   | "security_notices"
-  | "expired_rows";
+  | "expired_rows"
+  | "sar_no_admin";
 
 export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monitorSlug: string }> = {
   patrol_reverify: { path: "/api/cron/patrol-reverify", schedule: "0 15 * * *", monitorSlug: "portal-patrol-reverify" },
@@ -28,6 +29,8 @@ export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monito
   security_notices: { path: "/api/cron/security-notices", schedule: "0 17 * * *", monitorSlug: "portal-security-notices" },
   // Sessions, tokens and rate-limit rows past use (lib/retention/expired-rows.ts).
   expired_rows: { path: "/api/cron/expired-rows", schedule: "0 10 * * *", monitorSlug: "portal-expired-rows" },
+  // SAR teams left with no admin (lib/sar/no-admin.ts, plan 33 §6.4).
+  sar_no_admin: { path: "/api/cron/sar-no-admin", schedule: "30 15 * * *", monitorSlug: "portal-sar-no-admin" },
 };
 
 export const MONITOR_CHECKIN_MARGIN_MINUTES = 90;
