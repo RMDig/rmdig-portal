@@ -64,6 +64,14 @@ describe("GET proof document", () => {
     expect(h.log.warn).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.proof.missing" }));
   });
 
+  it("answers 404 for a drill team, which has no proof document, without reading storage", async () => {
+    h.rows = [{ url: null }];
+    const res = await call();
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("A drill team has no proof document.");
+    expect(h.getProofDoc).not.toHaveBeenCalled();
+  });
+
   it("fails loud when storage errors", async () => {
     h.getProofDoc.mockRejectedValue(new Error("403 from blob"));
     expect((await call()).status).toBe(502);
