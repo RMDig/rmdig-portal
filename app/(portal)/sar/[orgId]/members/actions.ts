@@ -8,6 +8,7 @@ import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
 import { orgInvitations, sarOrgs } from "@/lib/db/schema";
 import { sendOrgInviteEmail } from "@/lib/email/send";
+import { DRILL_ADDRESS_RESERVED, isDrillAddress } from "@/lib/sar/drill";
 import { inviteMemberSchema } from "@/lib/sar/invite";
 import { generateInviteToken } from "@/lib/sar/invitations";
 import { logger } from "@/lib/logger";
@@ -43,12 +44,17 @@ export async function createInvitationAction(
   }
 
   const [org] = await db
-    .select({ name: sarOrgs.name, status: sarOrgs.status })
+    .select({ name: sarOrgs.name, status: sarOrgs.status, isDrill: sarOrgs.isDrill })
     .from(sarOrgs)
     .where(eq(sarOrgs.id, orgId))
     .limit(1);
   if (!org) {
     return { ok: false, error: "That organization no longer exists." };
+  }
+  // Drill and real never mix (plan 37 rule 2; the database refuses it too): a
+  // drill team's logins are created by rmdig admins, never invited.
+  if (org.isDrill) {
+    return { ok: false, error: "A drill team's logins are created by rmdig admins on Drill teams." };
   }
   // Pending orgs CAN invite (operator decision 2026-07-26): membership grants
   // nothing until approval — alert routing is gated exclusively on the org
@@ -70,6 +76,9 @@ export async function createInvitationAction(
     };
   }
   const { email, role } = parsed.data;
+  if (isDrillAddress(email)) {
+    return { ok: false, error: "Please fix the highlighted fields.", fieldErrors: { email: [DRILL_ADDRESS_RESERVED] } };
+  }
 
   const rate = await incrementRateLimit(`invite-org:${orgId}`, INVITE_RATE_LIMIT);
   if (!rate.allowed) {

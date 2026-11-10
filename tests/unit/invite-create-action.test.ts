@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  org: [{ name: "San Juan SAR", status: "approved" }] as Array<{ name: string; status: string }>,
+  org: [{ name: "San Juan SAR", status: "approved" }] as Array<{ name: string; status: string; isDrill?: boolean }>,
   canManage: true,
   rlAllowed: true,
   rlKeys: [] as string[],
@@ -81,6 +81,21 @@ describe("createInvitationAction", () => {
     const res = await createInvitationAction("org-1", null, fd("a@b.test"));
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/suspended/i);
+  });
+
+  it("never invites into a drill team: its logins are created by rmdig admins (plan 37 rule 2)", async () => {
+    h.org = [{ name: "AvAI Drill Team", status: "approved", isDrill: true }];
+    expect(await createInvitationAction("org-1", null, fd("ops+drill2@rmdig.ai", "responder"))).toEqual({
+      ok: false,
+      error: "A drill team's logins are created by rmdig admins on Drill teams.",
+    });
+    expect(sendOrgInviteEmail).not.toHaveBeenCalled();
+  });
+
+  it("never invites a drill address into a real team", async () => {
+    const res = await createInvitationAction("org-1", null, fd("ops+drill2@rmdig.ai", "responder"));
+    expect(res).toMatchObject({ ok: false, fieldErrors: { email: ["This address is reserved for RMDig drill logins."] } });
+    expect(sendOrgInviteEmail).not.toHaveBeenCalled();
   });
 
   it("returns field errors for an invalid email", async () => {

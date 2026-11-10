@@ -20,6 +20,7 @@ import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email/send"
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
 import { portalUrl } from "@/lib/email/links";
+import { DRILL_ADDRESS_RESERVED, isDrillAddress } from "@/lib/sar/drill-address";
 
 // ----- Schemas -----
 
@@ -29,7 +30,9 @@ const intentSchema = z.enum(["explorer", "sar", "advertiser"]).default("explorer
 
 // Email first (beta plan D1a): no password until the emailed link is opened.
 const signUpSchema = z.object({
-  email: z.string().email().toLowerCase(),
+  // A drill login's address is created only by an rmdig admin (plan 37 §4.2):
+  // signing up with one first would make it a real account for good.
+  email: z.string().email().toLowerCase().refine((e) => !isDrillAddress(e), { message: DRILL_ADDRESS_RESERVED }),
   intent: intentSchema,
 });
 
