@@ -70,3 +70,7 @@ export const drillLoginSchema = z.object({
     .refine(isDrillAddress, { message: "Use a drill address: a plus address at rmdig.ai tagged drill, e.g. ops+drill1@rmdig.ai." }),
   role: z.enum(orgRole.enumValues),
 });
+
+/** The status-log note on a drill team's activation (plan 37 DR1). It is the
+ *  record that no independent review took place. */
+export const DRILL_ACTIVATED_NOTE = "drill org activated by the operator; not an independent review";

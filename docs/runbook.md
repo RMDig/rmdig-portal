@@ -979,6 +979,36 @@ not updated in the same sitting.
 `PROD_MIGRATIONS_READ_URL` uses its own role (`ci_migration_reader`) and is not
 affected.
 
+## Drill teams
+
+RMDig's own test teams (plan 37; AvServ plan 66), for exercising the SAR path
+live without a real team. Managed on `/admin/sar-drill` by an `rmdig_admin`.
+They're never in the approvals queue and never approved: the review action
+refuses them.
+
+1. **Register** it (**Register a drill team**). The name must contain "drill".
+   The area starts as a 1 km circle on the Colorado State Capitol (owner,
+   2026-11-09). If a real team's area covers that, registration refuses it:
+   move it to another public spot nearby where no one starts a trip, and tell
+   the owner where.
+2. **Add a drill login** with the admin role, at a drill address
+   (`you+drill1@rmdig.ai`). It's emailed a link to set its password (60
+   minutes; after that, **Forgot password** on the address). Sign in as it once
+   to set the password and two-factor.
+3. **Terms:** as the drill login, write the team's terms on its Terms tab,
+   saying it isn't a real team. Publish them from `/admin/sar-terms` as usual.
+4. **Activate drill team.** It takes both `rmdig_admin` and
+   `rmdig_sar_approver`, and is logged as "drill org activated by the
+   operator; not an independent review". It needs an admin drill login first.
+   The sync sends `drill: true`, and holds the team ("Waiting for drill support
+   on every node") until both nodes report sync revision 3. The AvServ lines on
+   the card show each node.
+
+**Suspend** and **Move back to pending** are on the same card. A team moved
+back to pending is activated again the same way. A drill team or login can
+never become real, and a real one can never become a drill one: the database
+refuses it.
+
 ## SAR proof documents
 
 Proof-of-status documents (county SAR registrations, 501(c)(3) letters) live in

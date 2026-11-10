@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
-import { hasPlatformRole } from "@/lib/auth/roles";
+import { hasPlatformRole, isSarApprover } from "@/lib/auth/roles";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { db } from "@/lib/db";
-import { orgMemberships, sarOrgs, users } from "@/lib/db/schema";
+import { orgMemberships, sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
 import { formatMountainDate } from "@/lib/format/time";
+import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
 
+import { DrillDecisions } from "./DrillDecisions";
 import { DrillLoginForm } from "./DrillLoginForm";
 
 export const metadata = {
@@ -24,9 +26,18 @@ export default async function DrillTeamsPage() {
   const session = await auth();
   if (!session?.user) return redirectToSignIn();
   if (!(await hasPlatformRole(session.user.id, "rmdig_admin"))) redirect("/admin");
+  // Activating also takes the SAR approver role; the action checks both.
+  const approver = await isSarApprover(session.user.id);
 
   const teams = await db
-    .select({ id: sarOrgs.id, name: sarOrgs.name, status: sarOrgs.status, regionName: sarOrgs.regionName, createdAt: sarOrgs.createdAt })
+    .select({
+      id: sarOrgs.id,
+      name: sarOrgs.name,
+      status: sarOrgs.status,
+      regionName: sarOrgs.regionName,
+      createdAt: sarOrgs.createdAt,
+      reviewRevision: sarOrgs.reviewRevision,
+    })
     .from(sarOrgs)
     .where(eq(sarOrgs.isDrill, true))
     .orderBy(asc(sarOrgs.createdAt));
@@ -38,7 +49,16 @@ export default async function DrillTeamsPage() {
         .where(inArray(orgMemberships.orgId, teams.map((t) => t.id)))
         .orderBy(asc(users.email))
     : [];
+  const syncs = teams.length ? await db.select().from(sarOrgSync).where(inArray(sarOrgSync.orgId, teams.map((t) => t.id))) : [];
   const takesLogins = (status: string) => status !== "rejected" && status !== "withdrawn";
+  const syncDetail = (s: (typeof syncs)[number]) =>
+    s.outcome === "error"
+      ? `failed (${s.errorCode})`
+      : s.outcome === "skipped"
+        ? (SKIP_LABEL[s.unusableReason as SkipReason] ?? s.unusableReason ?? "skipped")
+        : s.usable
+          ? "synced"
+          : `synced, not usable (${s.unusableReason})`;
 
   return (
     <div className="space-y-6">
@@ -89,6 +109,21 @@ export default async function DrillTeamsPage() {
                     )}
                   </div>
                   {takesLogins(t.status) ? <DrillLoginForm orgId={t.id} /> : null}
+                  {syncs.some((s) => s.orgId === t.id) ? (
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-medium">AvServ</h3>
+                      <ul className="space-y-1 text-sm">
+                        {syncs
+                          .filter((s) => s.orgId === t.id)
+                          .map((s) => (
+                            <li key={s.node}>
+                              {s.node}: {syncDetail(s)}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <DrillDecisions orgId={t.id} revision={t.reviewRevision} status={t.status} canActivate={approver} canSuspend={approver} />
                 </CardContent>
               </Card>
             </li>
