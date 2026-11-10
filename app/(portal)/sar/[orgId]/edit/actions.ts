@@ -41,12 +41,18 @@ export async function updateSarOrgAction(
   }
 
   const [org] = await db
-    .select({ status: sarOrgs.status, submitterEmail: users.email })
+    .select({ status: sarOrgs.status, isDrill: sarOrgs.isDrill, submitterEmail: users.email })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
     .where(eq(sarOrgs.id, orgId))
     .limit(1);
   if (!org) return { ok: false, error: "That organization no longer exists." };
+  // A drill team isn't an application: it's never reviewed, so it's never
+  // resubmitted (plan 37 rule 6). Its area changes on its Service area tab.
+  if (org.isDrill) {
+    logger.warn({ event: "sar.resubmit.drill_refused", userId, orgId });
+    return { ok: false, error: "A drill team isn't an application, so it can't be resubmitted." };
+  }
   if (org.status !== "pending") {
     return {
       ok: false,

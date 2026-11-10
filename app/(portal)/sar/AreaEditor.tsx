@@ -21,8 +21,18 @@ export interface AreaChoice {
 // corner-points table edit the same area, so it can be drawn or typed. Each new
 // area is checked (area-check-action.ts) and the warnings shown; none blocks
 // the save. The chosen area goes to the form as the hidden `region` field.
-export function AreaEditor({ orgId, onChange }: { orgId: string | null; onChange?: (choice: AreaChoice) => void }) {
-  const [area, setArea] = useState<DrawnPolygon | null>(null);
+// `initial` starts the editor with an area already in place (the drill team's
+// default circle); it's checked when saved, like any other.
+export function AreaEditor({
+  orgId,
+  onChange,
+  initial = null,
+}: {
+  orgId: string | null;
+  onChange?: (choice: AreaChoice) => void;
+  initial?: DrawnPolygon | null;
+}) {
+  const [area, setArea] = useState<DrawnPolygon | null>(initial);
   const [clipped, setClipped] = useState<DrawnPolygon | null>(null);
   const [check, setCheck] = useState<CheckAreaResult | null>(null);
   const [checking, startCheck] = useTransition();

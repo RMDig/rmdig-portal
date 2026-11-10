@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -49,7 +49,9 @@ export default async function SarApprovalsPage() {
     })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
-    .where(inArray(sarOrgs.status, ["pending", "approved", "leaving", "suspended"]))
+    // Drill teams have their own page (/admin/sar-drill) and are never approved
+    // (plan 37 rule 6).
+    .where(and(inArray(sarOrgs.status, ["pending", "approved", "leaving", "suspended"]), eq(sarOrgs.isDrill, false)))
     .orderBy(asc(sarOrgs.createdAt));
 
   // The region lives in a raw PostGIS column read via lib/sar/geo. Few orgs are

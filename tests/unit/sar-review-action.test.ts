@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
     submitterEmail: string;
     createdByUserId: string;
     reviewRevision: number;
+    isDrill?: boolean;
   }>,
   staff: true,
   // The reviewer's role in the org under review, if any.
@@ -105,6 +106,32 @@ beforeEach(() => {
   h.memberRole = null;
   h.admins = [{ email: "lead@sar.org" }];
   authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
+});
+
+describe("reviewSarOrgAction on a drill team (plan 37 rule 6)", () => {
+  it.each(["approve", "reject", "request_changes"])("never lets a drill team be %s'd, even by an approver with no conflict", async (decision) => {
+    h.org = pendingOrg({ name: "AvAI Drill Team", isDrill: true, createdByUserId: "someone-else" });
+    const res = await reviewSarOrgAction(null, fd(decision, "note"));
+    expect(res).toEqual({ ok: false, error: "A drill team isn't reviewed. Manage it from Drill teams." });
+    expect(h.updates).toHaveLength(0);
+    expect(h.sync).not.toHaveBeenCalled();
+    expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+  });
+
+  it("never re-verifies a drill team", async () => {
+    h.org = pendingOrg({ status: "approved", isDrill: true });
+    expect(await reviewSarOrgAction(null, fd("reverify", "note"))).toMatchObject({ ok: false, error: expect.stringContaining("drill team") });
+  });
+
+  it("still lets staff suspend an approved drill team", async () => {
+    h.org = pendingOrg({ status: "approved", name: "AvAI Drill Team", isDrill: true });
+    expect((await reviewSarOrgAction(null, fd("suspend"))).ok).toBe(true);
+  });
+
+  it("leaves a real team's approval as it was", async () => {
+    h.org = pendingOrg({ isDrill: false });
+    expect((await reviewSarOrgAction(null, fd("approve"))).ok).toBe(true);
+  });
 });
 
 describe("reviewSarOrgAction", () => {

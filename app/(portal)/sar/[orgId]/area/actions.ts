@@ -14,6 +14,7 @@ import { sendSarAreaChangedEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { reportError, reportProblem } from "@/lib/report-error";
 import { assessArea } from "@/lib/sar/area-checks";
+import { checkDrillArea } from "@/lib/sar/drill";
 import { getRegionAreaKm2, getRegionAsGeoJson, setRegionGeom } from "@/lib/sar/geo";
 import { editSarAreaSchema } from "@/lib/sar/schema";
 import { syncSarOrg } from "@/lib/sar/sync";
@@ -49,7 +50,7 @@ export async function saveAreaAction(orgId: string, _prev: SaveAreaResult | null
   }
 
   const [org] = await db
-    .select({ name: sarOrgs.name, status: sarOrgs.status, editorEmail: users.email })
+    .select({ name: sarOrgs.name, status: sarOrgs.status, isDrill: sarOrgs.isDrill, editorEmail: users.email })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, userId))
     .where(eq(sarOrgs.id, orgId))
@@ -75,6 +76,14 @@ export async function saveAreaAction(orgId: string, _prev: SaveAreaResult | null
   if (!assessment.ok) {
     logger.info({ event: "sar.area.refused", userId, orgId, code: assessment.code });
     return { ok: false, error: assessment.message, fieldErrors: { region: [assessment.message] } };
+  }
+  // A drill team keeps its limits when it moves (plan 37 §4.4).
+  if (org.isDrill) {
+    const drillArea = checkDrillArea(assessment);
+    if (!drillArea.ok) {
+      logger.info({ event: "sar.area.refused", userId, orgId, code: drillArea.code });
+      return { ok: false, error: drillArea.message, fieldErrors: { region: [drillArea.message] } };
+    }
   }
 
   let change: { fromKm2: number | null; toKm2: number };

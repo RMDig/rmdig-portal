@@ -17,6 +17,10 @@ import { type RegionPolygon, RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_D
 //    that leaves nothing or more than one piece can't be offered: the portal
 //    stores and sends one Polygon.
 //
+// Drill teams (plan 37 §4.4) are left out of every overlap: a real team may
+// cover a drill team's area, unrefused and unwarned, and never sees its name
+// or shape. A drill team's own limits are in lib/sar/drill.ts.
+//
 // Overlap uses planar GEOMETRY predicates, like AvServ's matcher and the
 // shared vectors (tests/integration/sar-area-vectors.test.ts). Teams that only
 // share a border don't overlap.
@@ -146,6 +150,7 @@ export async function assessArea(polygon: RegionPolygon, orgId: string | null, e
     SELECT o.id, o.name, o.status, ${synced(sql`o.region_geom::geometry`)} AS g
     FROM sar_orgs o
     WHERE o.region_geom IS NOT NULL
+      AND NOT o.is_drill
       AND o.status::text IN (${sql.join(LIVE_ORG_STATUSES.map((s) => sql`${s}`), sql`, `)})
       ${orgId ? sql`AND o.id <> ${orgId}` : sql``}
   `;
