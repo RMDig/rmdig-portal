@@ -45,8 +45,9 @@ registration, inside the §4.4 limits.
 3. **A drill team is never synced as real.** The sync sends `drill: true` for every
    drill team, and holds a drill team back until every node reports
    `syncRevision ≥ 3` (§4.5). Sent to an older node, the team would be stored as real.
-4. **A drill team never sits on a real team.** Its area is small and can't overlap an
-   area held by a team that isn't rejected or withdrawn (§4.4).
+4. **A drill team is never placed over a real team.** Its area is small, and it can't
+   be saved over the area of a real team that isn't rejected or withdrawn. A real team
+   may later cover it, and is never told (§4.4).
 5. **A drill team never reaches a real surface.** It is left out of the public map
    (plan 34), ORANGE (plan 33 9.14), staff counts and the new-application email (§4.7).
 6. **The approval queue is untouched for real teams.** Approve never shows on a drill
@@ -115,8 +116,20 @@ public form can't set the flag.
 The plan 33 9.3 checks (`lib/sar/area-checks.ts`), with two extra limits for drill
 teams: an area of at most **4 km²** (about a 1 km-radius circle), and **no overlap** with
 the area of any team that is neither drill nor rejected or withdrawn. The overlap is
-refused, not just warned. A real team that later draws over a drill area gets the usual
-9.5 warning with the drill team's name, so a stale drill area shows up and can be moved.
+refused, not just warned. The same limits apply when the drill area is edited.
+
+**The reverse is allowed, with no warning.** A real team may later save an area that
+covers the drill circle. This must never be refused, because a county team has to be
+able to cover its whole county. The real team's admins see nothing about it: the 9.5
+overlap warnings, the clip and the area checks leave drill teams out, so a drill team's
+name or shape never reaches a real team's admins (rule 5). The overlap is harmless,
+because AvServ never offers a drill team to a real account (plan 66 R2), and a drill
+account binds only drill teams (R3). Staff can still see the overlap when reviewing,
+and move the drill area if they want to.
+
+One consequence for plan 66 O3: once real teams cover a whole region, a new drill area
+can't be placed there, because the check refuses it. So the operator chooses the place
+while it's still free, and the drill area then stays where it is.
 
 ### 4.5 Sync (P3)
 
@@ -180,7 +193,7 @@ reaches production before merge (§3.8).
 | P1 | This plan, `00_status.md`, CLAUDE.md §0 (§3) | Owner review |
 | P2 | Migration 0036: `is_drill` on teams and users, triggers, CHECKs, nullable proof, log actions; schema tests on PostGIS | #202 (0035) merged |
 | P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed | P2 (AvServ revision 3 is live, rc112) |
-| P4 | Drill registration, drill invitations and logins, the area limits | P2; plan 33 9.3 merged |
+| P4 | Drill registration, drill invitations and logins, the area limits; drill teams left out of real teams' area warnings and clip | P2; plan 33 9.3 and 9.5 merged |
 | P5 | `activate_drill` and the drill section of the approvals page; tests pinning both directions of rule 6 | P2, P4 |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → activate → sync held → drill alert emailed | P3–P5 |
 
