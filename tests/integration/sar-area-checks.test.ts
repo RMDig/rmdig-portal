@@ -188,3 +188,29 @@ describe("SAR area checks (PostGIS)", () => {
     expect(over).toMatchObject({ ok: false, code: "area_too_large", message: expect.stringMatching(/MiB once simplified; the limit is 1 MiB\. Remove about \d+% of its points/) });
   }, 30_000);
 });
+
+describe("area log and stored area (PostGIS)", () => {
+  it("reads an org's stored area in km², and null when it has none", async () => {
+    const geo = await import("@/lib/sar/geo");
+    const km2 = await geo.getRegionAreaKm2(ownId, exec);
+    const assessed = await checks.assessArea(AREA_1, ownId, exec);
+    if (!assessed.ok) throw new Error(assessed.message);
+    expect(km2).toBeCloseTo(assessed.areaKm2, 0);
+    const [bare] = await sql<{ id: string }[]>`
+      INSERT INTO sar_orgs (name, contact_name, contact_email, operating_status, proof_doc_url, created_by_user_id, status)
+      VALUES ('No area yet', 'Lead', 'lead@sar.org', 'county_sar', 'blob://proof', ${userId}, 'pending') RETURNING id`;
+    expect(await geo.getRegionAreaKm2(bare!.id, exec)).toBeNull();
+  });
+
+  it("keeps each change with both shapes, and outlives the editor's account", async () => {
+    const { sarOrgAreaLog } = await import("@/lib/db/schema");
+    const [editor] = await sql<{ id: string }[]>`INSERT INTO users (email) VALUES ('editor@sar.org') RETURNING id`;
+    const to = rect(-106, 39, -105.85, 39.2);
+    await exec.insert(sarOrgAreaLog).values({ orgId: ownId, fromArea: AREA_1, toArea: to, fromAreaKm2: 380, toAreaKm2: 290, actorUserId: editor!.id });
+    await sql`DELETE FROM users WHERE id = ${editor!.id}`;
+    const rows = await sql<{ from_area: unknown; to_area: unknown; actor_user_id: string | null }[]>`
+      SELECT from_area, to_area, actor_user_id FROM sar_org_area_log WHERE org_id = ${ownId}`;
+    expect(rows).toEqual([{ from_area: AREA_1, to_area: to, actor_user_id: null }]);
+    await expect(sql`DELETE FROM sar_orgs WHERE id = ${ownId}`).rejects.toMatchObject({ code: "23503" });
+  });
+});

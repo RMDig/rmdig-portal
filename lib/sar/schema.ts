@@ -114,3 +114,6 @@ export const createSarOrgSchema = z
   });
 
 export type CreateSarOrgInput = z.infer<typeof createSarOrgSchema>;
+
+/** A team's own area edit (plan 33 D3, step 9.4): the drawn area, required. */
+export const editSarAreaSchema = z.object({ region: regionField });
