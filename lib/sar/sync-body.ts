@@ -17,6 +17,7 @@ export interface SyncOrg {
   reverifyBy: Date | null;
   leavingNoticeAt: Date | null;
   regionName: string | null;
+  isDrill: boolean;
 }
 
 export interface SyncTerms {
@@ -45,6 +46,9 @@ export interface SyncBody {
   channels: Array<{ kind: "portal"; verifiedAt: string }>;
   terms: Omit<SyncTerms, "publishedAt"> & { publishedAt: string };
   updatedAt: string;
+  /** Sync revision 3, drill teams only (plan 37 §4.5). Absent for a real
+   *  team, so a real team's body and AvServ's hash of it don't change. */
+  drill?: true;
 }
 
 /** The team's public-directory listing (sar_team_sync.md §1; shared consent,
@@ -66,7 +70,12 @@ const NOT_LISTED: PublicListing = { consent: false, consentAt: null, websiteUrl:
 export const SERVICE_AREA_LABEL_MAX = 100;
 
 /** Why nothing is sent yet. Shown to staff per node. */
-export type SkipReason = "not_syncable" | "no_published_terms" | "no_service_area" | "approval_record_missing";
+export type SkipReason =
+  | "not_syncable"
+  | "no_published_terms"
+  | "no_service_area"
+  | "approval_record_missing"
+  | "drill_support_pending";
 
 export type SyncPlan = { send: true; body: SyncBody } | { send: false; reason: SkipReason };
 
@@ -85,14 +94,18 @@ export const SKIP_LABEL: Record<SkipReason, string> = {
   no_published_terms: "Waiting for published team terms",
   no_service_area: "Waiting for a service area",
   approval_record_missing: "Missing the approval record",
+  drill_support_pending: "Waiting for drill support on every node",
 };
 
+/** `drillSupported`: every node reports sync revision 3 (lib/avserv/sar-capabilities).
+ *  Read only for a drill team; a real team never waits on it. */
 export function planSync(
   org: SyncOrg,
   area: number[][][] | null,
   terms: SyncTerms | null,
   revision: number,
   now: Date,
+  drillSupported = false,
 ): SyncPlan {
   const status = SYNCABLE[org.status];
   if (!status) return { send: false, reason: "not_syncable" };
@@ -101,6 +114,9 @@ export function planSync(
   if (!terms) return { send: false, reason: "no_published_terms" };
   if (!area) return { send: false, reason: "no_service_area" };
   if (!org.approvedAt || !org.approvedByUserId) return { send: false, reason: "approval_record_missing" };
+  // A node below revision 3 ignores `drill` and would store the team as a
+  // real one, offered to real users. Never send a drill team without it.
+  if (org.isDrill && !drillSupported) return { send: false, reason: "drill_support_pending" };
 
   return {
     send: true,
@@ -125,6 +141,7 @@ export function planSync(
       channels: [{ kind: "portal", verifiedAt: org.approvedAt.toISOString() }],
       terms: { ...terms, publishedAt: terms.publishedAt.toISOString() },
       updatedAt: now.toISOString(),
+      ...(org.isDrill ? { drill: true as const } : {}),
     },
   };
 }

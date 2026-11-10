@@ -1,5 +1,7 @@
+import * as Sentry from "@sentry/nextjs";
 import { and, desc, eq, sql } from "drizzle-orm";
 
+import { syncRevisionGate } from "../avserv/sar-capabilities";
 import { avservNodes, putSarTeam } from "../avserv/sar-teams";
 import { db } from "../db";
 import { sarOrgs, sarOrgSync, sarOrgTerms } from "../db/schema";
@@ -14,6 +16,13 @@ import { planSync, type SkipReason } from "./sync-body";
 // is logged loudly, recorded per node and shown to staff, never rolled back
 // into the decision. A failed node also converges from its peer by
 // replication once the other node accepted the PUT.
+
+/** The protocol revision that carries `drill` (sar_team_sync.md). */
+export const DRILL_SYNC_REVISION = 3;
+
+// AvServ's permanent refusals of a drill sync: a team it won't accept as a
+// drill (422), or one whose drill flag would flip (409).
+const DRILL_REFUSALS = new Set(["drill_team_invalid", "sar_team_drill_immutable"]);
 
 export type NodeOutcome =
   | { node: string; outcome: "ok"; applied: boolean; usable: boolean; unusableReason: string | null }
@@ -43,6 +52,15 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
     .orderBy(desc(sarOrgTerms.version))
     .limit(1);
 
+  // A drill team waits until every node can store `drill: true` (plan 37
+  // §4.5). Real teams don't read the gate, so they never wait on it.
+  let drillSupported = false;
+  if (org.isDrill) {
+    const gate = await syncRevisionGate(nodes, DRILL_SYNC_REVISION);
+    drillSupported = gate.pass;
+    if (!gate.pass) logger.warn({ event: "sar.sync.drill_held", orgId, nodes: gate.nodes });
+  }
+
   const now = new Date();
   const preview = planSync(
     org,
@@ -59,6 +77,7 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
       : null,
     0,
     now,
+    drillSupported,
   );
 
   if (!preview.send) {
@@ -82,6 +101,15 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
         return { node: n.name, outcome: "ok", applied: r.result.applied, usable: r.result.usable, unusableReason: r.result.unusableReason };
       }
       logger.error({ event: "sar.sync.node_failed", orgId, node: n.name, revision: body.revision, status: r.status, code: r.code, detail: r.detail });
+      // A drill refusal means the portal and the node disagree on what a
+      // drill team is, so a person looks at it. Never retried.
+      if (DRILL_REFUSALS.has(r.code)) {
+        Sentry.captureMessage(`AvServ refused a SAR team sync: ${r.code}`, {
+          level: "error",
+          tags: { event: "sar.sync.drill_refused", code: r.code, node: n.name },
+          extra: { orgId, revision: body.revision, drill: body.drill === true },
+        });
+      }
       return { node: n.name, outcome: "error", code: r.code };
     }),
   );
