@@ -107,6 +107,22 @@ describe("saveAreaAction", () => {
     expect(h.revalidate).toHaveBeenCalledWith(`/sar/${ORG}/area`);
   });
 
+  it("keeps a drill team's limits when it moves: at most 4 km², never over a real team (plan 37 §4.4)", async () => {
+    h.orgRows = [{ name: "AvAI Drill Team", status: "approved", isDrill: true, editorEmail: "ops+drill1@rmdig.ai" }];
+    h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 9 });
+    expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: false, fieldErrors: { region: [expect.stringContaining("at most 4 km²")] } });
+    h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 2, overlaps: [{ orgId: "r", name: "Real SAR", status: "approved", overlapKm2: 1 }] });
+    expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: false, fieldErrors: { region: [expect.stringContaining("real team")] } });
+    expect(h.setRegion).not.toHaveBeenCalled();
+    h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 2 });
+    expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: true });
+  });
+
+  it("puts no drill limit on a real team's area, overlaps included", async () => {
+    h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 5000, overlaps: [{ orgId: "r", name: "Other SAR", status: "approved", overlapKm2: 1 }] });
+    expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: true });
+  });
+
   it("refuses someone signed out, or not one of the team's admins", async () => {
     h.userId = undefined;
     expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: false });

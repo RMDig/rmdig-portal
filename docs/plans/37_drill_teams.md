@@ -90,11 +90,15 @@ Added after the approval paragraph:
 - Triggers enforce rule 2:
   - an `org_memberships` insert fails unless the user's and the team's `is_drill` match;
   - a `user_platform_roles` insert fails for a drill user.
-- **Creation:** an `rmdig_admin` invites a drill login from the drill team's admin page.
-  The invitation is marked drill. Accepting it creates the user with `is_drill = true`
-  and the membership. An address that already has an account is refused, so a real
-  account is never turned into a drill one. Sign-in is by password or passkey with
-  two-factor, as for anyone (`MFA_ENFORCEMENT=all`).
+- **Creation (P4b):** an `rmdig_admin` creates a drill login on the drill team's admin
+  page: the address and the team role. One transaction writes the user with
+  `is_drill = true` and the membership, and the login is emailed a link to set its
+  password (the reset-token flow). It isn't an invitation: accepting one adds an account
+  that already exists, and an account's drill flag can only be set when it's created.
+  An address that already has an account is refused, so a real account is never turned
+  into a drill one. Sign-up refuses the drill address shape, so a real account can't
+  take one first, and a real team can't invite one. Sign-in is by password or passkey
+  with two-factor, as for anyone (`MFA_ENFORCEMENT=all`).
 
 ### 4.3 Registration (P4)
 
@@ -106,8 +110,14 @@ public form can't set the flag.
   operator's drill phone. The unique-phone index applies as usual.
 - No proof document and no operating-status upload. The status log records
   `drill_registered` with "registered by the operator; nothing outside RMDig verified".
-- The new row is `pending`. Then: invite the first drill login as team admin (§4.2),
+- The new row is `pending`. Then: create the first drill login as team admin (§4.2),
   publish the drill terms, activate (§4.6).
+- The area starts as the owner's chosen circle (§5, operator step 1), drawn in the
+  editor so it can be moved.
+- Drill teams are listed on `/admin/sar-drill`. They're left out of the approvals queue
+  and its count, and the review action refuses approve, reject, request changes and
+  re-verify on them (rule 6). That's in P4a, so a registered drill team can never be
+  approved while P5 is still to come.
 - **Terms:** the operator writes and publishes them through the existing terms flow.
   The wording lint applies, and the text says this is not a real team (plan 66 §4).
 
@@ -124,8 +134,7 @@ able to cover its whole county. The real team's admins see nothing about it: the
 overlap warnings, the clip and the area checks leave drill teams out, so a drill team's
 name or shape never reaches a real team's admins (rule 5). The overlap is harmless,
 because AvServ never offers a drill team to a real account (plan 66 R2), and a drill
-account binds only drill teams (R3). Staff can still see the overlap when reviewing,
-and move the drill area if they want to.
+account binds only drill teams (R3). The operator can move the drill area at any time.
 
 One consequence for plan 66 O3: once real teams cover a whole region, a new drill area
 can't be placed there, because the check refuses it. So the operator chooses the place
@@ -218,7 +227,8 @@ reaches production before merge (§3.8).
 | P1 | This plan, `00_status.md`, CLAUDE.md §0 (§3) | Owner review |
 | P2 | Migration 0036: `is_drill` on teams and users, triggers, CHECKs, nullable proof, log actions; schema tests on PostGIS. **Built 2026-11-09** (`tests/integration/drill-schema.test.ts`) | #202 (0035) merged |
 | P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed | P2 (AvServ revision 3 is live, rc112) |
-| P4 | Drill registration, drill invitations and logins, the area limits; drill teams left out of real teams' area warnings and clip | P2; plan 33 9.3 and 9.5 merged |
+| P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Built 2026-11-09** | P2; plan 33 9.3 and 9.5 merged |
+| P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape | P4a |
 | P5 | `activate_drill` and the drill section of the approvals page; tests pinning both directions of rule 6 | P2, P4 |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → activate → sync held → drill alert emailed | P3–P5 |
 

@@ -146,6 +146,27 @@ describe("SAR area checks (PostGIS)", () => {
     expect(r.overlaps.map((o) => o.name)).toEqual(["Bravo SAR", "Own team"]);
   });
 
+  it("leaves a drill team out of every overlap, both ways (plan 37 §4.4)", async () => {
+    // A small drill area inside a real team's: the real team isn't told, and
+    // its clip doesn't trace the drill area. The drill team's own check sees
+    // the real team (which is what refuses it).
+    const realArea = rect(-104.2, 37, -104, 37.2);
+    const drillArea = rect(-104.1, 37.1, -104.09, 37.11);
+    const realId = await org("Charlie SAR", "approved", realArea);
+    const [drill] = await sql<{ id: string }[]>`
+      INSERT INTO sar_orgs (name, contact_name, contact_email, operating_status, created_by_user_id, status, is_drill, region_geom)
+      VALUES ('AvAI Drill Team', 'Ops', 'ops@rmdig.ai', 'other', ${userId}, 'approved', true,
+              ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(drillArea)}), 4326)::geography)
+      RETURNING id`;
+    const real = await checks.assessArea(realArea, realId, exec);
+    if (!real.ok) throw new Error(real.message);
+    expect(real.overlaps).toEqual([]);
+    expect(real.clip).toBeNull();
+    const own = await checks.assessArea(drillArea, drill!.id, exec);
+    if (!own.ok) throw new Error(own.message);
+    expect(own.overlaps.map((o) => o.name)).toEqual(["Charlie SAR"]);
+  });
+
   it("previews the clip as one polygon without the other team's part", async () => {
     const r = await checks.assessArea(AREA_1, ownId, exec);
     if (!r.ok || !r.clip?.ok) throw new Error("expected a clip");

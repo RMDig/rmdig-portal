@@ -88,6 +88,10 @@ const TRANSITIONS: Record<Decision, Transition> = {
   reverify: { from: ["approved"], to: "approved", action: "reverified", emailDecision: null, sync: true },
 };
 
+// The review decisions that never apply to a drill team. Suspend, mark leaving,
+// withdraw and reactivate work as for a real team.
+const DRILL_NEVER: Decision[] = ["approve", "reject", "request_changes", "reverify"];
+
 const PATROL_REVERIFY_MONTHS = 12;
 function plusMonths(d: Date, months: number): Date {
   const r = new Date(d);
@@ -142,6 +146,7 @@ export async function reviewSarOrgAction(
       submitterEmail: users.email,
       createdByUserId: sarOrgs.createdByUserId,
       reviewRevision: sarOrgs.reviewRevision,
+      isDrill: sarOrgs.isDrill,
     })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
@@ -158,6 +163,13 @@ export async function reviewSarOrgAction(
   }
   if (org.reviewRevision !== revision) {
     return { ok: false, error: STALE_ERROR };
+  }
+  // A drill team is never reviewed: nothing outside RMDig was verified, so
+  // approving it would record a review that didn't happen. The operator
+  // activates it with its own logged decision instead (plan 37 rule 6).
+  if (org.isDrill && DRILL_NEVER.includes(decision)) {
+    logger.warn({ event: "sar.review.drill_refused", userId, orgId, decision });
+    return { ok: false, error: "A drill team isn't reviewed. Manage it from Drill teams." };
   }
   // Verification is someone else's call: nobody vouches for an org they
   // submitted or belong to (any role).

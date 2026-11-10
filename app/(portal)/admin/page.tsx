@@ -1,4 +1,4 @@
-import { count, eq, min } from "drizzle-orm";
+import { and, count, eq, min } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -57,7 +57,10 @@ export default async function AdminPage() {
   const canReviewAds = roles.some((r) => AD_REVIEW_ROLES.includes(r));
 
   const [sarPending, adsPending, reviewsOpen, termsSubmitted, [deletions]] = await Promise.all([
-    isSarApprover ? db.select({ n: count() }).from(sarOrgs).where(eq(sarOrgs.status, "pending")) : Promise.resolve([]),
+    // Drill teams are never in the queue or its count (plan 37 rule 5).
+    isSarApprover
+      ? db.select({ n: count() }).from(sarOrgs).where(and(eq(sarOrgs.status, "pending"), eq(sarOrgs.isDrill, false)))
+      : Promise.resolve([]),
     adsOn && canReviewAds ? db.select({ n: count() }).from(adCreatives).where(eq(adCreatives.status, "pending")) : Promise.resolve([]),
     reviewsOn
       ? db.select({ n: count() }).from(restrictionReviewRequests).where(eq(restrictionReviewRequests.status, "open"))
@@ -96,6 +99,23 @@ export default async function AdminPage() {
             <Waiting n={total(sarPending)} />
             <Button asChild>
               <Link href="/admin/sar-approvals">Open the approvals queue</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isAdmin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Drill teams</CardTitle>
+            <CardDescription>
+              RMDig&apos;s own test teams, for exercising the SAR path without a real team. Never
+              offered to real users.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/admin/sar-drill">Open drill teams</Link>
             </Button>
           </CardContent>
         </Card>

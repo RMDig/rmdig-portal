@@ -164,6 +164,13 @@ describe("updateSarOrgAction", () => {
     expect(h.updates).toEqual([]);
   });
 
+  it("never resubmits a drill team: it isn't an application (plan 37 rule 6)", async () => {
+    h.orgRows = [{ status: "pending", isDrill: true, submitterEmail: "admin@rmdig.ai" }];
+    expect(await updateSarOrgAction(ORG, null, form())).toEqual({ ok: false, error: "A drill team isn't an application, so it can't be resubmitted." });
+    expect(h.updates).toEqual([]);
+    expect(h.email).not.toHaveBeenCalled();
+  });
+
   it("never edits an approved org (§0)", async () => {
     h.orgRows = [{ status: "approved", submitterEmail: "sub@sar.org" }];
     expect(await updateSarOrgAction(ORG, null, form())).toMatchObject({ ok: false, error: expect.stringMatching(/under review/) });

@@ -119,3 +119,24 @@ export type CreateSarOrgInput = z.infer<typeof createSarOrgSchema>;
 
 /** A team's own area edit (plan 33 D3, step 9.4): the drawn area, required. */
 export const editSarAreaSchema = z.object({ region: regionField });
+
+/** Registering a drill team from /admin (plan 37 §4.3). SAR type only, no
+ *  operating status or proof: nothing outside RMDig is verified. The database
+ *  holds the same name rule (sar_orgs_drill_shape). */
+export const registerDrillOrgSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Enter the drill team's name.")
+    .max(200)
+    .refine((v) => /drill/i.test(v), { message: "A drill team's name must contain \"drill\"." }),
+  regionName: optionalText(SERVICE_AREA_LABEL_MAX),
+  contactName: z.string().trim().min(1, "Enter a contact name.").max(200),
+  contactEmail: z.string().trim().toLowerCase().email("Enter a valid contact email.").max(320),
+  contactPhone: optionalText(40),
+  phoneCode: optionalText(12),
+  phoneProof: optionalText(120),
+  region: regionField,
+});
+
+export type RegisterDrillOrgInput = z.infer<typeof registerDrillOrgSchema>;
