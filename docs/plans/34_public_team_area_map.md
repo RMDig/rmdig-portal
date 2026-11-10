@@ -15,6 +15,8 @@ the user's location if they choose to share it.
 
 These rules hold for every phase:
 
+- **Drill teams never appear** (plan 37 rule 5). Their listing consent is always
+  off in the sync, and this layer also filters on `sar_orgs.is_drill`, with a test.
 - **No coverage or rescue claim.** Plan 33 §1 applies: the map never claims
   monitoring, coverage, live tracking or routing. A team's area on the map means
   only that the team agreed to show where it operates. It doesn't mean the team will

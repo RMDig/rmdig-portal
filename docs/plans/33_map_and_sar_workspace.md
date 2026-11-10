@@ -364,6 +364,10 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 
 ### 6.6 ORANGE layer (D8)
 
+Drill teams (plan 37) never get the layer or appear in it: it's for real teams'
+admins and dispatchers, and AvServ leaves drill accounts out of the feed (plan 66
+§3.5). 9.14 filters on `sar_orgs.is_drill` and tests it.
+
 `GET …/area-alerts` (`sar_feeds.md` §2a) from both nodes. Cells carry `cellId`,
 `cell {lat, lon, sizeDeg: 0.02}`, `count`, `kinds`, `ages` (`lt_1h` … `gt_24h`); the
 page carries `suppressed`, `kFloor`, `asOf`. Merge per `cellId` taking the **larger**

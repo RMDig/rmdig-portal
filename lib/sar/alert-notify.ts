@@ -16,8 +16,10 @@ import {
 import type { IntakePayload } from "./intake";
 
 // The team email for an alert and its updates (AvServ sar_portal_intake.md).
-// Members hear about alerts and their resolution; never about drills or
-// duplicate notices (the alerts page shows those).
+// Members hear about alerts and their resolution; never about duplicate
+// notices (the alerts page shows those). Drills email no one, except a drill
+// team's: its logins are emailed, marked DRILL, so a drill tests the email path
+// too (plan 37 DR2). A real team's drills (a node in drill mode) stay silent.
 //
 // Both AvServ nodes deliver every message, and the email must go once. The
 // first copy claims it (lib/sar/alert-notify-store.ts) and sends; a send that
@@ -36,9 +38,10 @@ const RETRY_BATCH = 100;
 type EmailKind = "overdue" | "send_help" | "all_clear" | "disregard";
 const EMAIL_KINDS: readonly string[] = ["overdue", "send_help", "all_clear", "disregard"] satisfies EmailKind[];
 
-/** Whether this message emails the team at all. */
-export function emailsTeam(payload: Pick<IntakePayload, "drill" | "kind">): boolean {
-  return !payload.drill && EMAIL_KINDS.includes(payload.kind);
+/** Whether this message emails the team at all. `drillTeam`: the team is a
+ *  drill team (sar_orgs.is_drill), whose drills are emailed. */
+export function emailsTeam(payload: Pick<IntakePayload, "drill" | "kind">, drillTeam: boolean): boolean {
+  return (!payload.drill || drillTeam) && EMAIL_KINDS.includes(payload.kind);
 }
 
 export type AttemptOutcome = "sent" | "failed" | "abandoned" | "superseded" | "stale";
@@ -46,8 +49,8 @@ export type AttemptOutcome = "sent" | "failed" | "abandoned" | "superseded" | "s
 /** Called by the intake handler once the message is stored. Never throws:
  *  the message is stored, so the answer to AvServ is 200 whatever happens to
  *  the email; failures are reported and left owed for the retry. */
-export async function notifyOnIntake(payload: IntakePayload, now: Date = new Date()): Promise<void> {
-  if (!emailsTeam(payload)) return;
+export async function notifyOnIntake(payload: IntakePayload, team: { drillTeam: boolean }, now: Date = new Date()): Promise<void> {
+  if (!emailsTeam(payload, team.drillTeam)) return;
   const key: NotifyKey = { orgId: payload.teamId, alertId: payload.alertId, kind: payload.kind };
   try {
     // The other node's copy of a message whose email failed (or stalled)
@@ -124,6 +127,8 @@ async function attempt(claim: Claim, now: Date): Promise<AttemptOutcome> {
         kind: claim.kind as EmailKind,
         fromAreaUser: ctx.capability === "send_help_area",
         alertsUrl,
+        // From the stored message, so a retry is marked like the first try.
+        drill: ctx.drill,
       }),
     ),
   );

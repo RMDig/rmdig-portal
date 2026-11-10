@@ -14,6 +14,7 @@ import { sealPayload } from "./payload-seal";
 
 // AvServ → portal SAR intake (AvServ sar_portal_intake.md), shared by the live
 // route (app/api/sar/intake) and the drill route (app/api/sar/intake/drill).
+// A third wall: a drill team only ever takes drills (live_for_drill_team).
 // Two walls keep them apart: a node in drill mode sends only to the drill URL
 // and marks every message drill: true; here, the live URL refuses a drill
 // message and the drill URL refuses a live one, each with a permanent 4xx so
@@ -99,13 +100,21 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
 
   try {
     const [team] = await db
-      .select({ name: sarOrgs.name, status: sarOrgs.status })
+      .select({ name: sarOrgs.name, status: sarOrgs.status, isDrill: sarOrgs.isDrill })
       .from(sarOrgs)
       .where(eq(sarOrgs.id, payload.teamId))
       .limit(1);
     if (!team) {
       logger.error({ event: "sar.intake.unknown_team", teamId: payload.teamId, messageId: payload.messageId });
       return reply(404, "unknown_team");
+    }
+    // A drill team's messages are always drills (AvServ plan 66 R1). A live one
+    // for it means the portal and a node disagree on what the team is: refuse
+    // it permanently, before it's stored, so it's never shown or emailed as a
+    // real alert, and AvServ pages (plan 37 §4.8).
+    if (mode === "live" && team.isDrill) {
+      reportProblem("sar.intake.live_for_drill_team", "SAR intake refused a live alert for a drill team", { teamId: payload.teamId, messageId: payload.messageId, node });
+      return reply(400, "live_for_drill_team");
     }
     if (team.status !== "approved" && team.status !== "leaving") {
       // AvServ shouldn't send to it; keep the record and say so loudly.
@@ -133,7 +142,7 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
     // Stored: from here the answer is 200 whatever happens to the emails, or
     // AvServ would retry a message we already hold. notifyOnIntake never
     // throws; an email it can't send stays owed and is retried.
-    await notifyOnIntake(payload);
+    await notifyOnIntake(payload, { drillTeam: team.isDrill });
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err) {
     reportError("sar.intake.failed", err, { messageId: payload.messageId });

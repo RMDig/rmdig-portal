@@ -176,12 +176,12 @@ export async function sendSarNoAdminStaffEmail(to: string, params: SarNoAdminSta
 }
 
 /** Informational: a team changed its own service area (plan 33 D3). */
-export async function sendSarAreaChangedEmail(to: string, params: SarAreaChangedEmailProps): Promise<void> {
+export async function sendSarAreaChangedEmail(to: string, params: SarAreaChangedEmailProps & { drill?: boolean }): Promise<void> {
   await deliver({
     kind: "sar_area_changed",
     label: "SAR-area-changed",
     to,
-    subject: `SAR team changed its service area: ${params.orgName}`,
+    subject: `SAR team changed its service area: ${params.orgName}${params.drill ? " (drill)" : ""}`,
     html: render(SarAreaChangedEmail(params)),
   });
 }
@@ -404,16 +404,18 @@ export async function sendSarTermsDecisionEmail(
 
 export async function sendSarAlertNotifyEmail(
   to: string,
-  params: { teamName: string; kind: SarAlertNotifyKind; fromAreaUser: boolean; alertsUrl: string },
+  params: { teamName: string; kind: SarAlertNotifyKind; fromAreaUser: boolean; alertsUrl: string; drill?: boolean },
 ): Promise<void> {
   const html = render(SarAlertNotifyEmail(params));
+  // A drill team's drill is marked like AvServ's own drill emails (plan 66).
+  const tag = params.drill ? "[DRILL] " : "";
   const subject: Record<SarAlertNotifyKind, string> = {
     overdue: `AvAI alert for ${params.teamName}: missed check-in`,
     send_help: `AvAI alert for ${params.teamName}: Send Help`,
     all_clear: `AvAI alert update for ${params.teamName}: resolved`,
     disregard: `AvAI alert update for ${params.teamName}: retracted`,
   };
-  await deliver({ kind: "sar_alert_notify", label: "SAR-alert-notify", to, subject: subject[params.kind], html, log: { alertKind: params.kind } });
+  await deliver({ kind: "sar_alert_notify", label: "SAR-alert-notify", to, subject: tag + subject[params.kind], html, log: { alertKind: params.kind, drill: params.drill === true } });
 }
 
 export async function sendPatrolReverifyStaffEmail(to: string, params: PatrolReverifyStaffEmailProps): Promise<void> {

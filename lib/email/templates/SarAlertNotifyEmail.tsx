@@ -8,6 +8,9 @@ export interface SarAlertNotifyEmailProps {
   /** "Also send help": a user in the team's area who hadn't added the team. */
   fromAreaUser: boolean;
   alertsUrl: string;
+  /** A drill team's drill (plan 37 DR2): marked DRILL, so it's never read as a
+   *  real alert. */
+  drill?: boolean;
 }
 
 const HEADLINE: Record<SarAlertNotifyKind, string> = {
@@ -20,15 +23,22 @@ const HEADLINE: Record<SarAlertNotifyKind, string> = {
 // To a SAR team's members when AvServ delivers an alert on the portal channel
 // (docs/plans/33). Deliberately carries no name, location or note: the
 // details are in the portal, where every view is logged.
-export default function SarAlertNotifyEmail({ teamName, kind, fromAreaUser, alertsUrl }: SarAlertNotifyEmailProps) {
+export default function SarAlertNotifyEmail({ teamName, kind, fromAreaUser, alertsUrl, drill = false }: SarAlertNotifyEmailProps) {
   const update = kind === "all_clear" || kind === "disregard";
+  const headline = drill ? `DRILL: ${HEADLINE[kind]}` : HEADLINE[kind];
   return (
     <Html>
       <Head />
-      <Preview>{`${HEADLINE[kind]} for ${teamName}`}</Preview>
+      <Preview>{`${headline} for ${teamName}`}</Preview>
       <Body style={body}>
         <Container style={container}>
-          <Heading style={heading}>{HEADLINE[kind]}</Heading>
+          {drill ? (
+            <Text style={drillBanner}>
+              DRILL. This is a test, not a real alert. {teamName} is an RMDig drill team, and no one is
+              waiting for help.
+            </Text>
+          ) : null}
+          <Heading style={heading}>{headline}</Heading>
           <Text style={paragraph}>
             {update
               ? `An AvAI alert sent to ${teamName} has an update.`
@@ -53,5 +63,6 @@ const container = { margin: "40px auto", padding: "32px", backgroundColor: "#fff
 const heading = { fontSize: "24px", fontWeight: "600", color: "#171717", margin: "0 0 16px" };
 const paragraph = { fontSize: "16px", lineHeight: "24px", color: "#404040", margin: "16px 0" };
 const hr = { borderColor: "#e5e5e5", margin: "32px 0" };
+const drillBanner = { fontSize: "16px", lineHeight: "24px", fontWeight: "600", color: "#7c2d12", backgroundColor: "#ffedd5", padding: "12px 16px", borderRadius: "6px", margin: "0 0 16px" };
 const muted = { fontSize: "14px", lineHeight: "20px", color: "#737373" };
 const button = { backgroundColor: "#171717", color: "#ffffff", padding: "12px 20px", borderRadius: "6px", fontSize: "16px", textDecoration: "none" };
