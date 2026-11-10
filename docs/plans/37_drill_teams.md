@@ -225,7 +225,11 @@ reaches production before merge (§3.8).
 | P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §6 follow-up (account-level drill flag) |
 
 **Operator, after P6 and AvServ plan 66 step 2:**
-1. Register the drill team and choose the area (plan 66 O3).
+1. Register the drill team. Its area is a 1 km-radius circle (about 3.1 km²) centred on
+   the Colorado State Capitol, Denver, near 39.7393, -104.9848. The owner chose this on
+   2026-11-09 (plan 66 O3), and the exact point doesn't matter. If registration refuses
+   it for overlapping a real team, use another public spot nearby where no one starts a
+   trip, and tell the owner where.
 2. Invite its drill logins and publish its terms.
 3. Activate it, and confirm both nodes report revision 3 and the team synced.
 4. Run AvServ `sar-phase-d.md`'s production pass.
