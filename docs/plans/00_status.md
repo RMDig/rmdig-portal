@@ -1,6 +1,6 @@
 # 00 — Portal status and what's left
 
-> **As of 2026-11-02**: §0, §3 rows 35–36, §4, §4a, §5 and §7 are current; rows
+> **As of 2026-11-02**: §0, §3 rows 35–36 (row 37: 2026-11-09), §4, §4a, §5 and §7 are current; rows
 > not touched since **2026-10-02** say so. This is the one place to see where every
 > portal plan stands. The plans themselves stay the specs; update this file when a
 > milestone moves. Sources: [CLAUDE_BOOTSTRAP.md](../../CLAUDE_BOOTSTRAP.md) §4 (Phase 1),
@@ -108,6 +108,7 @@ the 20 h outage. Lessons: runbook "Re-pin the production `DATABASE_URL`", and
 | [34 Team areas on the public map](34_public_team_area_map.md) | Planned, not built. Overlap display set 2026-11-04 (§3) | Counsel |
 | [35 Automated deletion](35_automated_deletion.md) | Draft. An operator erases from the deletion queue (#186, runbook "Data-deletion requests"); no worker yet | AvServ plan 47 4c; owner's D1–D10; counsel |
 | [36 Account security and hardening](36_account_security_and_hardening.md) | **Live:** hashed sessions + `auth_time` (#164), sessions page + re-auth + sign-out on credential changes (#165, #166), passkeys (#170), `MFA_ENFORCEMENT=all`, security activity + opt-in notices (#168, phone-side rows since AvServ rc80), phone sign-out limited/full + due-back time (#167, #169), App Lock reset code + link-code limit (#172, #173). **Hardening live 2026-10-20:** PR 4 DB TLS / https / no PII in logs / no OAuth tokens (#174); PR 5 TOTP key id + reused-code refusal (#175, 0034); PR 6 nonce CSP (#176, fixed on Vercel by #177; Zod jitless #178), **enforced 2026-10-27** (#184); PR 13 SAR alert details sealed + "Key rotation" table (#179). **Left:** S6 / plan 57 | Owner: full sign-out test (overdue); counsel (security log retention); plan 57 gates |
+| [37 Drill teams and drill logins](37_drill_teams.md) | Owner decisions DR1–DR3 made 2026-11-09; CLAUDE.md §0 amended; P2–P6 not built. Portal half of AvServ plan 66 | #202's migration 0035 before P2's 0036; AvServ revision 3 is live (rc112) |
 
 ## 4. Incident Detection re-filing (AvServ plans 38/38a/38b)
 
