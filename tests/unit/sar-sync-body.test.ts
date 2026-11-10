@@ -19,6 +19,7 @@ const org = (o: Partial<SyncOrg> = {}): SyncOrg => ({
   reverifyBy: null,
   leavingNoticeAt: null,
   regionName: "Summit County, CO",
+  isDrill: false,
   ...o,
 });
 const terms: SyncTerms = {
@@ -111,5 +112,28 @@ describe("planSync", () => {
     expect(planSync(org(), area, null, 1, now)).toEqual({ send: false, reason: "no_published_terms" });
     expect(planSync(org(), null, terms, 1, now)).toEqual({ send: false, reason: "no_service_area" });
     expect(planSync(org({ approvedByUserId: null }), area, terms, 1, now)).toEqual({ send: false, reason: "approval_record_missing" });
+  });
+});
+
+describe("planSync for a drill team (plan 37 §4.5)", () => {
+  const drill = (o: Partial<SyncOrg> = {}) => org({ name: "AvAI Drill Team", isDrill: true, ...o });
+
+  it("holds a drill team until every node supports drill, and never sends it without the flag", () => {
+    expect(planSync(drill(), area, terms, 1, now)).toEqual({ send: false, reason: "drill_support_pending" });
+    expect(planSync(drill(), area, terms, 1, now, false)).toEqual({ send: false, reason: "drill_support_pending" });
+    const plan = planSync(drill(), area, terms, 1, now, true);
+    expect(plan.send && plan.body.drill).toBe(true);
+  });
+
+  it("reports the team's own missing pieces before the drill hold", () => {
+    expect(planSync(drill({ status: "pending" }), area, terms, 1, now)).toEqual({ send: false, reason: "not_syncable" });
+    expect(planSync(drill(), area, null, 1, now)).toEqual({ send: false, reason: "no_published_terms" });
+  });
+
+  it("leaves the drill field out of a real team's body, so its body is unchanged", () => {
+    for (const supported of [false, true]) {
+      const plan = planSync(org(), area, terms, 1, now, supported);
+      expect(plan.send && "drill" in plan.body).toBe(false);
+    }
   });
 });
