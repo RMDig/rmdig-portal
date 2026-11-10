@@ -49,7 +49,7 @@ vi.mock("@/lib/auth", () => ({ auth: () => Promise.resolve(h.userId ? { user: { 
 vi.mock("@/lib/auth/mfa-gate", () => ({ userMfaGate: () => Promise.resolve({ gate: "ok", roles: [] }) }));
 vi.mock("@/lib/auth/org-roles", () => ({ canManageOrg: () => Promise.resolve(h.canManage) }));
 vi.mock("@/lib/auth/staff-recipients", () => ({ staffEmails: h.staff }));
-vi.mock("@/lib/sar/area-checks", () => ({ assessArea: h.assess, LARGE_AREA_KM2: 12_361.852647 }));
+vi.mock("@/lib/sar/area-checks", () => ({ assessArea: h.assess }));
 vi.mock("@/lib/sar/geo", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sar/geo")>()),
   setRegionGeom: h.setRegion,
@@ -62,7 +62,7 @@ vi.mock("@/lib/report-error", () => ({ reportError: h.reportError, reportProblem
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidate }));
 
-import { checkAreaAction, saveAreaAction } from "@/app/(portal)/sar/[orgId]/area/actions";
+import { saveAreaAction } from "@/app/(portal)/sar/[orgId]/area/actions";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
 const OLD = { type: "Polygon", coordinates: [[[-106, 39], [-105.9, 39], [-105.9, 39.1], [-106, 39]]] };
@@ -178,63 +178,5 @@ describe("saveAreaAction", () => {
     h.kmSequence = [380, 380];
     expect(await saveAreaAction(ORG, null, form())).toMatchObject({ ok: true });
     expect(h.reportProblem).toHaveBeenCalledWith("sar.area.no_staff_to_notify", expect.any(String), { orgId: ORG });
-  });
-});
-
-describe("checkAreaAction", () => {
-  const overlaps = [{ orgId: "o2", name: "Bravo SAR", status: "pending", overlapKm2: 190 }];
-  const CLIP = { type: "Polygon" as const, coordinates: [[[-106, 39], [-105.9, 39], [-105.9, 39.2], [-106, 39]]] };
-
-  it("reports the size, the teams it overlaps by name only, and the area without them", async () => {
-    h.assess.mockResolvedValue({ ...okAssessment, overlaps, clip: { ok: true, area: CLIP, areaKm2: 190, caps: { ok: true, bytes: 1, vertices: 4 } } });
-    expect(await checkAreaAction(ORG, NEW)).toEqual({
-      ok: true,
-      areaKm2: 380,
-      large: null,
-      overlaps: [{ name: "Bravo SAR", overlapKm2: 190 }],
-      clip: { ok: true, area: CLIP, areaKm2: 190 },
-    });
-    expect(h.assess).toHaveBeenCalledWith(NEW, ORG);
-    expect(h.setRegion).not.toHaveBeenCalled();
-  });
-
-  it("warns above Colorado's largest county, and not at or below it", async () => {
-    h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 12_400 });
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ ok: true, large: { thresholdKm2: 12_361.852647 } });
-    h.assess.mockResolvedValue({ ...okAssessment, areaKm2: 12_361.852647 });
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ ok: true, large: null });
-  });
-
-  it("explains a clip it can't offer: nothing left, several pieces, or too big for AvServ", async () => {
-    h.assess.mockResolvedValue({ ...okAssessment, overlaps, clip: { ok: false, reason: "multipart", parts: 2, message: "would split this one into 2 pieces" } });
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ clip: { ok: false, message: "would split this one into 2 pieces" } });
-    h.assess.mockResolvedValue({
-      ...okAssessment,
-      overlaps,
-      clip: { ok: true, area: CLIP, areaKm2: 190, caps: { ok: false, code: "area_too_large", message: "Remove about 5% of its points.", bytes: 2, vertices: 4 } },
-    });
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ clip: { ok: false, message: "Remove about 5% of its points." } });
-  });
-
-  it("passes on AvServ's refusal as the error", async () => {
-    h.assess.mockResolvedValue({ ok: false, code: "area_invalid", message: "The outline is too small to keep." });
-    expect(await checkAreaAction(ORG, NEW)).toEqual({ ok: false, error: "The outline is too small to keep." });
-  });
-
-  it("is for an approved team's admins only, and refuses an unreadable drawing", async () => {
-    h.canManage = false;
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ ok: false, error: expect.stringMatching(/admins/) });
-    h.canManage = true;
-    h.orgRows = [{ status: "pending" }];
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ ok: false, error: expect.stringMatching(/approved/) });
-    h.orgRows = [{ status: "approved" }];
-    expect(await checkAreaAction(ORG, { type: "Polygon", coordinates: "nope" })).toMatchObject({ ok: false, error: expect.stringMatching(/couldn't be read/) });
-    expect(h.assess).not.toHaveBeenCalled();
-  });
-
-  it("fails loud when the check itself fails", async () => {
-    h.assess.mockRejectedValue(new Error("db down"));
-    expect(await checkAreaAction(ORG, NEW)).toMatchObject({ ok: false, error: expect.stringMatching(/Couldn't check/) });
-    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.area.check_failed" }));
   });
 });

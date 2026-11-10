@@ -169,7 +169,7 @@ Rules that come from the reviews:
 |---|---|
 | 1 Org type, incl. ski patrol | ✅ `orgType` `sar_team`/`ski_patrol`, patrol re-verify cron |
 | 2 Resubmit | ✅ `/sar/[orgId]/edit`, pending only |
-| 3 Area edits | Checks ✅ 9.3 (`lib/sar/area-checks.ts`); approved-team edit ✅ 9.4 (`/sar/[orgId]/area`, `sar_org_area_log`, sync on save, staff email), both 2026-11-06; overlap and large-area warnings ✅ 9.5 on the area page; keyboard entry ⬜ 9.6 (§6.3) |
+| 3 Area edits | Checks ✅ 9.3 (`lib/sar/area-checks.ts`); approved-team edit ✅ 9.4 (`/sar/[orgId]/area`, `sar_org_area_log`, sync on save, staff email), both 2026-11-06; overlap and large-area warnings ✅ 9.5; keyboard entry and the one editor ✅ 9.6 (`AreaEditor`, `VertexTable`) on `/sar/new`, resubmit and the area page (§6.3) |
 | 4 Team terms | ✅ editor, forbidden-claims check, operator approval (`/admin/sar-terms`). `area_map` not offered since 9.1 (2026-11-06); staff publish refuses a draft that still names it |
 | 5 Sync | ✅ `lib/sar/sync.ts`: approve, suspend, leaving, withdraw, re-verify, terms publish, staff resync. Sends only the `portal` channel; no `publicListing` or `serviceAreaLabels` (9.2) |
 | 6 Workspace | RED ✅ (`lib/map/red.ts`, both nodes merged, `sar_map_view_log`); ORANGE ⬜ (9.14) |
@@ -350,7 +350,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.3 | `lib/sar/area-checks.ts`: caps, `ST_Area`, overlap, clip; PostGIS tests at 1 MiB. **Built 2026-11-06** (`assessArea`, `checkAvservCaps`); not yet called: 9.4 wires it into the save | None |
 | 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email. **Built 2026-11-06:** `saveAreaAction`, migration 0035 `sar_org_area_log`, "Service area" tab for approved teams; a pending team still changes its area by resubmitting | 9.3 |
 | 9.5 | Overlap (clip preview) and large-area warnings. **Built 2026-11-06** on `/sar/[orgId]/area` (`checkAreaAction`, `AreaWarnings`): size, overlapping teams by name, "use the area without the overlap", and the O8 threshold `LARGE_AREA_KM2` = 12,361.85 km² (Census 2024 Gazetteer, Las Animas, GEOID 08071). `/sar/new` and resubmit still show none: they move to the one editor with 9.6 | 9.4 |
-| 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe | 9.4 |
+| 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe. **Built 2026-11-07:** one `AreaEditor` (map plus corner-points table, each filling the other) on `/sar/new`, resubmit and `/sar/[orgId]/area`; the check (`area-check-action.ts`) runs on all three, naming other teams and offering the clip only to an approved team's admins; create and resubmit now refuse an area AvServ would refuse; the `NEXT_PUBLIC_E2E` GeoJSON box is gone, and the e2e types the area into the table (`sar-area-keyboard.mock.spec.ts`, axe on the editor) | 9.4 |
 | 9.7 | `acceptanceMode`, `maxActiveCheckouts` | §6.2 gate |
 | 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
 | 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | §6.2 gate; [COUNSEL]; A2P 38a re-filing |

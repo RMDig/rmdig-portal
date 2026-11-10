@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
 
-import { signIn } from "./helpers";
+import { enterServiceArea, signIn } from "./helpers";
 
 // SAR org creation gate (P1.4). Drives the real /sar/new form end-to-end —
 // validation, proof-doc upload, the create transaction (org + PostGIS region +
@@ -13,21 +13,6 @@ test.skip(
   !(process.env.AVSERV_BASE_URL || "mock://localhost").startsWith("mock://"),
   "SAR create gate runs against the mock-mode CI server (see playwright.config.ts)",
 );
-
-// A closed unit square (lon/lat, WGS84) — the form's region textarea seam
-// (NEXT_PUBLIC_E2E) accepts this instead of a canvas draw.
-const VALID_REGION = JSON.stringify({
-  type: "Polygon",
-  coordinates: [
-    [
-      [-108, 37],
-      [-107, 37],
-      [-107, 38],
-      [-108, 38],
-      [-108, 37],
-    ],
-  ],
-});
 
 /** Read a SAR org's status straight from the DB to prove the create transaction
  *  persisted — not just that the UI navigated. Own short-lived connection (the
@@ -83,12 +68,12 @@ test.describe("SAR org creation (mock)", () => {
     // else is lost, the chosen document included (a file input can't be
     // refilled, so the form must not be reset).
     await page.getByRole("button", { name: /submit application/i }).click();
-    await expect(page.getByText("Draw your service area on the map.")).toBeVisible();
+    await expect(page.getByText("Draw your service area on the map, or enter its corner points.")).toBeVisible();
     await expect(page.getByText("proof.pdf")).toBeVisible();
     expect(await proofInput.evaluate((el) => (el as HTMLInputElement).files?.length ?? 0)).toBe(1);
     await expect(page.getByLabel("Organization name")).toHaveValue(orgName);
 
-    await page.getByTestId("e2e-region-input").fill(VALID_REGION);
+    await enterServiceArea(page);
     await page.getByRole("button", { name: /submit application/i }).click();
 
     await page.waitForURL("**/sar/pending");

@@ -14,6 +14,7 @@ import {
 import { sendSarOrgPendingReviewEmail, sendSarOrgSubmittedEmail } from "@/lib/email/send";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
+import { assessArea } from "@/lib/sar/area-checks";
 import { setRegionGeom } from "@/lib/sar/geo";
 import { createSarOrgSchema } from "@/lib/sar/schema";
 import { SAR_APPROVER_ROLE } from "@/lib/auth/roles";
@@ -68,6 +69,21 @@ export async function createSarOrgAction(
     };
   }
   const data = parsed.data;
+
+  // An area AvServ would refuse can't be synced once approved, so it's refused
+  // here, in the check's own words (plan 33 §6.3 step 3, step 9.6). Before the
+  // phone gate and upload, so a refused area costs neither.
+  let assessment: Awaited<ReturnType<typeof assessArea>>;
+  try {
+    assessment = await assessArea(data.region, null);
+  } catch (err) {
+    logger.error({ event: "sar.create.area_check_failed", userId, err });
+    return { ok: false, error: "Couldn't check the service area. Try again in a moment." };
+  }
+  if (!assessment.ok) {
+    logger.info({ event: "sar.create.area_refused", userId, code: assessment.code });
+    return { ok: false, error: assessment.message, fieldErrors: { region: [assessment.message] } };
+  }
 
   // Verified-phone gate (no-op when Twilio Verify is unconfigured). Runs
   // before the proof-doc upload so a bad code doesn't orphan a blob.

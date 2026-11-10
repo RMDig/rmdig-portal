@@ -1,11 +1,11 @@
 import type { DrawnPolygon } from "@/components/map/RegionDrawMap";
 import { Button } from "@/components/ui/button";
 
-import type { CheckAreaResult } from "./actions";
+import type { CheckAreaResult } from "./area-check-action";
 
 const km2 = (v: number) => `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v)} km²`;
 
-// What the check found about a drawn area (plan 33 §6.3 steps 1–2, step 9.5).
+// What the check found about a drawn area (plan 33 §6.3 steps 1–2, steps 9.5–9.6).
 // Each is a warning: the admin can still save what they drew.
 export function AreaWarnings({
   checking,
