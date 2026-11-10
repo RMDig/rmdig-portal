@@ -90,6 +90,48 @@ DATABASE_URL="<that url>" pnpm db:migrate
 those seed/mutate the `users` table (they refuse to run without `E2E_ALLOW_DB=1`
 precisely so this can't happen by accident).
 
+### Read-only production access
+
+For looking things up from the repo without the owner role:
+
+```bash
+pnpm prod:read "SELECT status, count(*) FROM sar_orgs GROUP BY 1"
+pnpm prod:read --json "SELECT id, name FROM sar_orgs WHERE status = 'pending'"
+```
+
+It connects as **`portal_reader`** through `PROD_READ_URL` in `.env.prod-read`
+at the repo root (gitignored by `.env*`; one per machine; never in Vercel or
+GitHub). The role can `SELECT` every portal table but no credential column:
+password hashes, the encrypted TOTP secret, and every token or token hash. So
+`SELECT *` fails on `users`, `sessions`, `accounts` and the token tables:
+name the columns. Emails, names and SAR records are readable, so treat the
+URL like any other secret. Writes fail three ways: the role has no write
+grant, its transactions default to read-only, and the script runs each query
+in a `READ ONLY` transaction and refuses any role but `portal_reader`.
+Statements time out after 30 s; at most 3 connections.
+
+**Set up (once).** In the Neon console, open the SQL editor on the
+`production` branch (database `neondb`, role `neondb_owner`) and run:
+
+1. `CREATE ROLE portal_reader WITH LOGIN PASSWORD '<long random password>';`
+   Create it in SQL, not on the console's Roles page: roles made there join
+   `neon_superuser`.
+2. The whole of [scripts/sql/portal-reader-grants.sql](../scripts/sql/portal-reader-grants.sql).
+3. On each machine, write `.env.prod-read`:
+   `PROD_READ_URL=postgresql://portal_reader:<password>@<production pooled host>/neondb?sslmode=require`
+   (the host is the one in the owner URL, `ep-crimson-thunder-aqloj3r3-pooler…`).
+4. Check: `pnpm prod:read "SELECT current_user"` prints `portal_reader`, and
+   `pnpm prod:read "SELECT password_hash FROM users LIMIT 1"` fails with
+   `permission denied`.
+
+**After a migration** that adds a table or column, re-run the grants file: grants
+are per column, so anything new stays unreadable until then (`permission
+denied` from `prod:read` is the sign). `tests/integration/portal-reader-grants.test.ts`
+checks the file against every migration.
+
+**Revoke:** `DROP OWNED BY portal_reader; DROP ROLE portal_reader;`, or rotate with
+`ALTER ROLE portal_reader PASSWORD '<new>'` and update each `.env.prod-read`.
+
 ## Grant a platform role
 
 Platform roles gate the `/admin` area:
@@ -164,8 +206,19 @@ The portal is the only place a SAR team is approved, suspended, re-verified or
 withdrawn; AvServ only stores what the portal sends (AvServ
 `sar_team_sync.md`). The portal PUTs the team's current state to **both** nodes
 (`AVSERV_BASE_URL` and `AVSERV_FAILOVER_BASE_URL`) after: approve, suspend, mark
-leaving, withdraw, patrol re-verification, and publishing team terms. Each send
-bumps the org's revision; AvServ keeps the highest per node.
+leaving, withdraw, patrol re-verification, publishing team terms, and an approved
+team changing its own service area. Each send bumps the org's revision; AvServ
+keeps the highest per node.
+
+- **Area changes** (plan 33 D3): an approved team's admins redraw its area on
+  the team's **Service area** tab. Nothing is approved: the area is refused only
+  if AvServ would refuse it (over 1 MiB once simplified, or too many points).
+  Before saving, the page warns (never blocks) when the area is larger than Las
+  Animas County (~12,362 km²) or overlaps other live teams, naming them and
+  offering the area without the overlap. The area is saved with a row in `sar_org_area_log` (old and new shape, who, when), synced,
+  and every SAR approver gets an informational email. A node that didn't take it
+  shows here as a failed sync (Sentry `sar.area.sync_incomplete`): resync. To
+  stop a team misusing its area, suspend it.
 
 - **Per-node status** is on each org in **Admin → SAR approvals**: revision,
   usable or not, last accepted time, or the failure code. **Resync to AvServ**
@@ -590,7 +643,7 @@ queue instead (**Mark leaving**, then **Withdraw** once no node has check-outs
 bound to it): AvServ stops routing to it and the record stays. The evidence
 tables (`sar_org_status_log`, `sar_intake_messages`, `sar_alert_acks`,
 `sar_alert_view_log`, `sar_map_view_log`, `org_membership_log`,
-`sar_org_terms`, `sar_alert_notifications`) reference `sar_orgs` with
+`sar_org_terms`, `sar_alert_notifications`, `sar_org_area_log`) reference `sar_orgs` with
 `ON DELETE RESTRICT`, so `DELETE FROM sar_orgs` fails while any of it exists.
 Those rows leave only through their own retention (`/api/cron/sar-retention`).
 A pending application that never got anywhere is rejected, not deleted.
@@ -647,8 +700,12 @@ because the branch also has `ci_migration_reader` (the migration guard):
 export DATABASE_URL="$(neonctl connection-string production --project-id lingering-waterfall-99928244 \
   --role-name neondb_owner --database-name neondb --pooled)"
 case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) pnpm db:migrate;; *) echo "WRONG URL, not migrating";; esac
+# A new table or column: re-grant portal_reader ("Read-only production access").
+case "$DATABASE_URL" in *ep-crimson-thunder-aqloj3r3-pooler*) psql "$DATABASE_URL" -f scripts/sql/portal-reader-grants.sql;; esac
 unset DATABASE_URL
 ```
+
+Without psql, paste the grants file into the Neon console SQL editor instead.
 
 After the PR merges, migrate `preview-seed` too ("Preview deployments" →
 Housekeeping).

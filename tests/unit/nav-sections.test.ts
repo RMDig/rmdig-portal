@@ -9,9 +9,11 @@ const ORG = "11111111-1111-4111-8111-111111111111";
 const labels = (tabs: Array<{ label: string }>) => tabs.map((t) => t.label);
 
 describe("teamTabs", () => {
-  it("gives admins every page, and Application only while the application is under review", () => {
+  it("gives admins every page: Application while under review, Service area once approved", () => {
     expect(labels(teamTabs(ORG, "admin", "pending"))).toEqual(["Members", "Alerts", "Terms", "Application"]);
-    expect(labels(teamTabs(ORG, "admin", "approved"))).toEqual(["Members", "Alerts", "Terms"]);
+    expect(labels(teamTabs(ORG, "admin", "approved"))).toEqual(["Members", "Alerts", "Terms", "Service area"]);
+    expect(teamTabs(ORG, "admin", "approved")[3]).toEqual({ href: `/sar/${ORG}/area`, label: "Service area" });
+    expect(labels(teamTabs(ORG, "admin", "suspended"))).toEqual(["Members", "Alerts", "Terms"]);
     expect(teamTabs(ORG, "admin", "approved")[1]).toEqual({ href: `/sar/${ORG}/alerts`, label: "Alerts" });
   });
 

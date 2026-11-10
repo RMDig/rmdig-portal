@@ -10,6 +10,7 @@ import AdCreativeDecisionEmail from "@/lib/email/templates/AdCreativeDecisionEma
 import DataDeletionAdminEmail from "@/lib/email/templates/DataDeletionAdminEmail";
 import DeletionClockEmail from "@/lib/email/templates/DeletionClockEmail";
 import SarNoAdminStaffEmail from "@/lib/email/templates/SarNoAdminStaffEmail";
+import SarAreaChangedEmail from "@/lib/email/templates/SarAreaChangedEmail";
 import SarOrgDecisionEmail from "@/lib/email/templates/SarOrgDecisionEmail";
 import SarTeamStatusEmail from "@/lib/email/templates/SarTeamStatusEmail";
 import SarTermsDecisionEmail from "@/lib/email/templates/SarTermsDecisionEmail";
@@ -106,6 +107,19 @@ describe("email templates render to HTML", () => {
     expect(two).toContain("SAR teams with no admin");
     expect(two).toContain("Bravo SAR");
     expect(two).toContain("repeats each day");
+  });
+
+  it("SarAreaChangedEmail names the team, who changed it, both sizes and the link, and asks for nothing", async () => {
+    const orgUrl = "https://rmdig.ai/admin/sar-approvals#org-1";
+    const html = await render(SarAreaChangedEmail({ orgName: "San Juan County SAR", editorEmail: "lead@sanjuansar.org", fromAreaKm2: 1010.4, toAreaKm2: 1240, orgUrl }));
+    expect(html).toContain("San Juan County SAR");
+    expect(html).toContain("lead@sanjuansar.org");
+    expect(html).toContain("from 1,010 km² to 1,240 km²");
+    expect(html).toContain(orgUrl);
+    expect(html).toContain("Nothing needs approving");
+    const first = await render(SarAreaChangedEmail({ orgName: "T", editorEmail: "a@b.org", fromAreaKm2: null, toAreaKm2: 50, orgUrl }));
+    expect(first).toContain("to 50 km²");
+    expect(first).not.toContain("from");
   });
 
   it("SarOrgPendingReviewEmail names the org, submitter, and review link", async () => {

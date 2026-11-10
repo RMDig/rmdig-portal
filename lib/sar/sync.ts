@@ -4,7 +4,7 @@ import { avservNodes, putSarTeam } from "../avserv/sar-teams";
 import { db } from "../db";
 import { sarOrgs, sarOrgSync, sarOrgTerms } from "../db/schema";
 import { logger } from "../logger";
-import { RegionPolygonSchema } from "./geo";
+import { RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_DEGREES } from "./geo";
 import { planSync, type SkipReason } from "./sync-body";
 
 // Send a SAR org's current state to every AvServ node (sar_team_sync.md).
@@ -31,7 +31,7 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
   if (!org) throw new Error(`syncSarOrg: unknown org ${orgId}`);
 
   const [areaRow] = (await db.execute(sql`
-    SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology(region_geom::geometry, 0.0005), 6)::text AS geojson
+    SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology(region_geom::geometry, ${SYNC_SIMPLIFY_DEGREES}), ${SYNC_DECIMALS}::int)::text AS geojson
     FROM sar_orgs WHERE id = ${orgId}
   `)) as unknown as Array<{ geojson: string | null }>;
   const area = areaRow?.geojson ? RegionPolygonSchema.parse(JSON.parse(areaRow.geojson)).coordinates : null;
