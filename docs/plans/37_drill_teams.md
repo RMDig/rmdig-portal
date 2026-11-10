@@ -1,12 +1,13 @@
 # 37 — Drill teams and drill logins (portal half of AvServ plan 66)
 
-Status (2026-11-09): **owner decisions made (§1); P1 merged (#207); P2 merged (#208); P3 built.** AvServ plan 66
+Status (2026-11-10): **P1–P6 merged (#207–#213); P7 waits (§4.9).** AvServ plan 66
 (`docs/plans/66_drill_fixtures.md`, AvServ PR #473) is the system plan, and its §4 is the
 shape agreed between the two sessions, with these decisions recorded in AvServ PR #475.
 This file is authoritative for the portal's half. AvServ step 1 (the sync `drill` field,
 revision 3, the capabilities route) is in AvServ rc112, live on both nodes since
 2026-11-09: `GET /v1/internal/sar-teams/capabilities` answers `{"syncRevision":3}` on
-avserv-2 and avserv-3. Nothing here edits AvServ or AvApp.
+avserv-2 and avserv-3. AvServ rc116 (#483: the drill assent line and drill-team acks)
+is on both nodes since 2026-11-10. Nothing here edits AvServ or AvApp.
 
 ## 0. Why
 
@@ -210,7 +211,7 @@ teams list, the area-share setting, and erasure.
   link across the line is refused on both sides: a drill portal user with a real
   AvServ account, or a real user with a drill account. This works like the team-flip
   refusal (R4). The portal check needs AvServ to report an account's drill status
-  in the device-link exchange; the wire shape is AvServ's (plan 66 §6 follow-up).
+  in the device-link exchange; the wire shape is AvServ's (plan 66 §9, below).
 - It is left out of user counts and exports. A drill user's account-security notices
   and its own alert emails are sent as usual, to the plus address, because those are
   part of what it tests. Which other emails, if any, it should not receive is settled
@@ -220,6 +221,31 @@ teams list, the area-share setting, and erasure.
 
 Not built until Phase D's first pass is done. Its own PR sequence is written then.
 
+**What the other repos said, 2026-11-10 (proposals, nothing built):**
+
+- *AvServ* (plan 66 §9, draft AvServ #488, in owner review). The account's effective
+  `drill` boolean comes back from `POST /v1/internal/accounts`,
+  `GET /v1/internal/accounts/{id}`, `POST /v1/internal/accounts/lookup` and
+  `POST /v1/internal/accounts/{id}/link-codes`. The portal refuses when it differs from
+  `users.is_drill`. The portal creates the drill account with
+  `POST /v1/internal/accounts {email, drill: true}` before the drill user's first
+  login. Proposed: a new `drill_accounts` service-key scope and the DR3 address shape.
+  A mismatch with an existing account gets `409 account_drill_immutable`. While a node
+  can't store the flag, it answers `503 drill_support_pending` with `Retry-After`,
+  handled as for teams (P3). A device link across the line is refused with
+  `409 link_drill_mismatch`, except a fresh install linking into a drill account.
+  Waits on the owner's answers to plan 66 §9.10 and AvServ S1–S3.
+- *AvApp.* Store builds ship `AVAPP_SAR_TEAMS` and `AVAPP_SAR_AREA_MAP` off, so the
+  "real install" needs a separately labelled drill build (TestFlight / Play internal)
+  with both on: the owner's call, then an AvApp `release.sh` drill mode. P7 is planned
+  assuming that build exists. The app clears SAR data on portal sign-out (#470) but
+  not yet on account erasure, which waits on AvServ's account-deleted contract. Consent
+  types and `sarAreaShare` need no app change.
+- *For P7's planning:* the cross-line refusal's exact status, code and body go in
+  AvServ's contract, so the portal and the app each say it plainly rather than as a
+  generic link failure. The portal shows `409 link_drill_mismatch` on its device-link
+  page and `409 account_drill_immutable` when it creates the drill user.
+
 ## 5. PR sequence
 
 Each PR carries its tests and passes the pre-PR gate (CLAUDE.md §4.2). The migration
@@ -227,17 +253,16 @@ reaches production before merge (§3.8).
 
 | ID | Scope | Waits on |
 |---|---|---|
-| P1 | This plan, `00_status.md`, CLAUDE.md §0 (§3) | Owner review |
-| P2 | Migration 0036: `is_drill` on teams and users, triggers, CHECKs, nullable proof, log actions; schema tests on PostGIS. **Built 2026-11-09** (`tests/integration/drill-schema.test.ts`) | #202 (0035) merged |
-| P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed. **Built 2026-11-09:** `lib/avserv/sar-capabilities.ts` (`syncRevisionGate`, for 9.7 too), `drill_support_pending`, Sentry on `drill_team_invalid` and `sar_team_drill_immutable` | P2 (AvServ revision 3 is live, rc112) |
-| P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Built 2026-11-09** | P2; plan 33 9.3 and 9.5 merged |
-| P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Built 2026-11-09** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
-| P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Built 2026-11-09** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
-| P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Built 2026-11-09** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
+| P1 | This plan, `00_status.md`, CLAUDE.md §0 (§3). **Merged #207** | Owner review |
+| P2 | Migration 0036: `is_drill` on teams and users, triggers, CHECKs, nullable proof, log actions; schema tests on PostGIS. **Merged #208** (`tests/integration/drill-schema.test.ts`) | #202 (0035) merged |
+| P3 | Per-node capabilities gate (`lib/avserv/`), drill sync body and hold, refusal handling; mock-backed. **Merged #209:** `lib/avserv/sar-capabilities.ts` (`syncRevisionGate`, for 9.7 too), `drill_support_pending`, Sentry on `drill_team_invalid` and `sar_team_drill_immutable` | P2 (AvServ revision 3 is live, rc112) |
+| P4a | Drill registration (`/admin/sar-drill`), the area limits, drill teams left out of real teams' area warnings and clip, kept out of the approvals queue and refused by its review action. **Merged #210** | P2; plan 33 9.3 and 9.5 merged |
+| P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Merged #211** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
+| P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Merged #212** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
+| P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Merged #213** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
+| P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §9 (#488) built; AvApp drill build |
 
-| P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §6 follow-up (account-level drill flag) |
-
-**Operator, after P6 and AvServ plan 66 step 2:**
+**Operator, after P6 and AvServ rc116 (both done 2026-11-10):**
 1. Register the drill team. Its area is a 1 km-radius circle (about 3.1 km²) centred on
    the Colorado State Capitol, Denver, near 39.7393, -104.9848. The owner chose this on
    2026-11-09 (plan 66 O3), and the exact point doesn't matter. If registration refuses
