@@ -811,6 +811,9 @@ under the CPA — treat every request as covering it.
    erasure key is installed: AvServ `account_erasure.md`, kid
    `svc-key-portal-erasure`): on the request's card, **Erase in AvServ**.
    Needs two-factor and a recent login.
+   - If the card warns that the account is a team's **only admin**, add another
+     admin to that team first when you can. The warning never blocks: the
+     45-day deadline comes first, and the daily no-admin email follows up.
    - Enter the account id, then **Check every node**. **Erase** is offered only
      when every node answers *erasable* or *already erased*. A node that's
      unreachable, doesn't have the account yet, or has a live item blocks it.

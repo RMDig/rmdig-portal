@@ -44,6 +44,9 @@ async function team(name: string, status: string, members: Array<[string, "admin
 
 let alphaId: string;
 let bravoId: string;
+let leadId: string;
+let dispatcherId: string;
+let coAdminId: string;
 
 beforeAll(async () => {
   await admin.unsafe(`CREATE DATABASE ${dbName}`);
@@ -54,7 +57,14 @@ beforeAll(async () => {
   const gone = await user("gone@bravo.org");
   const dispatcher = await user("dispatch@bravo.org");
 
+  leadId = lead;
+  dispatcherId = dispatcher;
+  coAdminId = await user("co@foxtrot.org");
+  const otherCo = await user("co2@foxtrot.org");
   alphaId = await team("Alpha SAR", "approved", [[lead, "admin"]]);
+  // Two admins: neither is the only one. A rejected team doesn't count.
+  await team("Foxtrot SAR", "approved", [[coAdminId, "admin"], [otherCo, "admin"]]);
+  await team("Golf SAR", "rejected", [[lead, "admin"]]);
   bravoId = await team("Bravo SAR", "approved", [[gone, "admin"], [dispatcher, "dispatcher"]]);
   await team("Charlie SAR", "suspended", [[dispatcher, "responder"]]);
   await team("Delta SAR", "rejected", []);
@@ -80,6 +90,12 @@ describe("SAR teams with no admin (Postgres)", () => {
       ["Bravo SAR", "approved"],
       ["Charlie SAR", "suspended"],
     ]);
+  });
+
+  it("finds the live teams a user is the only admin of, for the erasure warning (plan 37 P7f)", async () => {
+    const teams = await noAdmin.soleAdminTeams([leadId, dispatcherId, coAdminId]);
+    expect(teams).toEqual([{ userId: leadId, orgId: alphaId, name: "Alpha SAR", isDrill: false }]);
+    expect(await noAdmin.soleAdminTeams([])).toEqual([]);
   });
 
   it("tells one team's pages whether it has an admin", async () => {
