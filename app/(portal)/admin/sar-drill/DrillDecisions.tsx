@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { SuspendConfirm } from "@/components/sar/SuspendConfirm";
 import { Button } from "@/components/ui/button";
 
 import { reviewSarOrgAction } from "../sar-approvals/actions";
@@ -10,11 +11,12 @@ import { activateDrillOrgAction } from "./actions";
 // The decisions a drill team takes (plan 37 §4.6): Activate from pending, the
 // operator's own logged decision; Suspend and Move back to pending through the
 // ordinary staff action, which works for a drill team as for a real one. Never
-// Approve: the review action refuses a drill team.
+// Approve: the review action refuses a drill team. Suspend is behind a confirm:
+// after Activate the page reloads with it in the same spot (SuspendConfirm).
 
-type Props = { orgId: string; revision: number; status: string; canActivate: boolean; canSuspend: boolean };
+type Props = { orgId: string; orgName: string; revision: number; status: string; canActivate: boolean; canSuspend: boolean };
 
-export function DrillDecisions({ orgId, revision, status, canActivate, canSuspend }: Props) {
+export function DrillDecisions({ orgId, orgName, revision, status, canActivate, canSuspend }: Props) {
   const [activated, activate, activating] = useActionState(activateDrillOrgAction, null);
   const [reviewed, review, reviewing] = useActionState(reviewSarOrgAction, null);
   const error = (activated && !activated.ok ? activated.error : null) ?? (reviewed && !reviewed.ok ? reviewed.error : null);
@@ -37,13 +39,7 @@ export function DrillDecisions({ orgId, revision, status, canActivate, canSuspen
           </form>
         ) : null}
         {status === "approved" && canSuspend ? (
-          <form action={review}>
-            {hidden}
-            <input type="hidden" name="decision" value="suspend" />
-            <Button type="submit" size="sm" variant="outline" disabled={reviewing}>
-              Suspend
-            </Button>
-          </form>
+          <SuspendConfirm formAction={review} orgId={orgId} orgName={orgName} revision={revision} pending={reviewing} isDrill size="sm" />
         ) : null}
         {status === "suspended" && canSuspend ? (
           <form action={review}>
