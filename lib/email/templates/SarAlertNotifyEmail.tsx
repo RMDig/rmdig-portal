@@ -1,5 +1,7 @@
 import { Body, Button, Container, Head, Heading, Hr, Html, Preview, Text } from "@react-email/components";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 export type SarAlertNotifyKind = "overdue" | "send_help" | "all_clear" | "disregard";
 
 export interface SarAlertNotifyEmailProps {

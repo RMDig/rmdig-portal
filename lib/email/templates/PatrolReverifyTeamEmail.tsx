@@ -2,6 +2,8 @@ import { Body, Button, Container, Head, Heading, Hr, Html, Preview, Text } from 
 
 import type { ReminderStage } from "../../sar/reverify";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 export interface PatrolReverifyTeamEmailProps {
   orgName: string;
   stage: ReminderStage;

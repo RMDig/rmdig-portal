@@ -2,6 +2,8 @@ import { phoneVerificationEnabled } from "@/lib/phone/verify";
 
 import { SarOrgForm } from "./SarOrgForm";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 export const metadata = {
   title: "Register a search & rescue team or ski patrol — rmdig",
 };
