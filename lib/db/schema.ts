@@ -433,6 +433,8 @@ export const sarOrgAction = pgEnum("sar_org_action", [
   // verified, and activated by the operator. Never an approval of a real team.
   "drill_registered",
   "drill_activated",
+  // A leaving team's notice undone, by its admin or by staff (plan 33 §6.9).
+  "leaving_undone",
 ]);
 
 // What kind of organization this is (AvApp doc 36 §9.3). Both go through the

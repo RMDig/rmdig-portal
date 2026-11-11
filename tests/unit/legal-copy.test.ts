@@ -92,6 +92,9 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "page.tsx"),
     // The test alert's card and its errors, seen by a team under review (G2).
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "TestAlertCard.tsx"),
+    // The team's own leaving notice and its undo (plan 33 §6.9).
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "leave", "page.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "leave", "LeaveForms.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "test-alert-actions.ts"),
     // The RED layer's labels, legend, notice and error text on /map.
     join(process.cwd(), "lib", "map", "red.ts"),

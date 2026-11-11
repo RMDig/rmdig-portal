@@ -31,6 +31,7 @@ import RestrictionReviewRequestedEmail from "./templates/RestrictionReviewReques
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
 import SarNoAdminStaffEmail, { type SarNoAdminStaffEmailProps } from "./templates/SarNoAdminStaffEmail";
 import SarAreaChangedEmail, { type SarAreaChangedEmailProps } from "./templates/SarAreaChangedEmail";
+import SarLeavingStaffEmail, { type SarLeavingStaffEmailProps } from "./templates/SarLeavingStaffEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarTeamStatusEmail, { type SarTeamStatusEmailProps } from "./templates/SarTeamStatusEmail";
 import SarOrgPendingReviewEmail from "./templates/SarOrgPendingReviewEmail";
@@ -221,6 +222,17 @@ export async function sendSarAreaChangedEmail(to: string, params: SarAreaChanged
     to,
     subject: `SAR team changed its service area: ${params.orgName}${params.drill ? " (drill)" : ""}`,
     html: render(SarAreaChangedEmail(params)),
+  });
+}
+
+export async function sendSarLeavingStaffEmail(to: string, params: SarLeavingStaffEmailProps & { drill?: boolean }): Promise<void> {
+  const what = params.change === "give_notice" ? "gave its leaving notice" : "undid its leaving notice";
+  await deliver({
+    kind: "sar_leaving_staff",
+    label: "SAR-leaving-staff",
+    to,
+    subject: `SAR team ${what}: ${params.orgName}${params.drill ? " (drill)" : ""}`,
+    html: render(SarLeavingStaffEmail(params)),
   });
 }
 
