@@ -41,10 +41,12 @@ beforeEach(() => {
   calls = [];
   process.env.AVSERV_BASE_URL = "https://avserv-2.example";
   process.env.AVSERV_FAILOVER_BASE_URL = "https://avserv-3.example";
+  process.env.AVSERV_NODE_URLS = "https://avserv-2.example,https://avserv-3.example";
 });
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.AVSERV_FAILOVER_BASE_URL;
+  delete process.env.AVSERV_NODE_URLS;
 });
 
 function stub(answer: (url: URL) => Response | Error) {
@@ -101,6 +103,7 @@ describe("readFeeds (mock path)", () => {
   it("lists the mock phones' events and ends at a cursor that reads nothing new", async () => {
     process.env.AVSERV_BASE_URL = "mock://localhost";
     delete process.env.AVSERV_FAILOVER_BASE_URL;
+    process.env.AVSERV_NODE_URLS = "mock://localhost";
     const { readFeeds } = await import("@/lib/avserv/security-events");
     const [first] = await readFeeds(ACCT, "portal-user:u1");
     expect(first?.ok && first.feed.events.map((e) => e.kind)).toEqual(expect.arrayContaining(["register", "link", "contact_add"]));

@@ -53,11 +53,13 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | `AVSERV_ERASURE_JWT_KEY_SHA256` | — | yes, with the key | — | — | yes |
 | `AVSERV_ERASURE_JWT_KID` | — | `svc-key-portal-erasure` | — | — | yes |
 | `AVSERV_FAILOVER_BASE_URL` | — | `https://avserv-3.rmdig.ai` | — (never) | — | no |
+| `AVSERV_NODE_URLS` | `mock://localhost` | `https://avserv-2.rmdig.ai,https://avserv-3.rmdig.ai` (primary first; avserv-1 added the day it joins) | `mock://localhost` | set by `playwright.config.ts` | no |
 | `BLOB_STORE_ID` | — | set by the connected Blob store (OIDC) | a separate store, if connected | — | no |
 | `BLOB_READ_WRITE_TOKEN` | local fallback | — | — | — | yes |
 | `MFA_ENCRYPTION_KEY` | hex | hex | **its own value** | — | yes |
 | `PREVIEW_EMAIL_RECIPIENTS` | — | — | empty, or testers who should get real email | — | no |
 | `AVSERV_SAR_INTAKE_KEYS` | — | yes: `keyId:secret,…`, one pair per AvServ node (runbook "SAR alert intake") | — | — | yes |
+| `AVSERV_SAR_INTAKE_KEY_NODES` | — | yes, wherever the keys are: `keyId:node,…` (runbook "SAR alert intake") | — | — | no |
 | `CRON_SECRET` | — | yes (`openssl rand -hex 32`); unset, every cron answers 503 and reports to Sentry | — | — | yes |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | — | set 2026-10-08 from a separate Twilio **subaccount** (`rmdig-portal`, Verify service "AvAI", Verify geo permissions US + Canada only), so the portal's token can't touch AvServ's A2P campaign or numbers. Verify sends from Twilio's own senders. Org-creation phone verification is on (all three set = on) | — | — | `TWILIO_AUTH_TOKEN` yes |
 | `NEXT_PUBLIC_MAPTILER_KEY` | — (OpenStreetMap tiles) | yes | yes | — | no (public, origin-restricted) |

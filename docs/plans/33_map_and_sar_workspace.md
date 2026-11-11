@@ -458,15 +458,35 @@ ready, so the work is reordered around a gate.
 |---|---|---|
 | F0 | `channelStatus` reads an email channel's bounce (#223): the first bounce would have blocked Withdraw and the AvServ checks | None |
 | F1 | 9.10, the on-call email channel: add, verify by link, re-verify on change, sync | None |
-| F2 | G2: the five checklist answers in the approval flow and log, "beta, single review", and the runbook | F1 (item 2 checks the email channel) |
+| F2 | G2: the five checklist answers in the approval flow and log, "beta, single review", and the runbook. Item 3 shows "pending AvServ" until AvServ's test-alert route exists | F1 (item 2 checks the email channel) |
 | F3 | G3's label, and a [COUNSEL] marking on every team-facing string (alert, status and terms-decision emails, onboarding) | None |
-| F4 | §17.13 recovery: parse `remedy`, `waitingAlerts`, `activeCheckouts`, `overCapacity`, `syncRevision`, `drill`; show each node's remedy on the team page; email the team's admins when a node reports it unusable, with the remedy and the waiting count | None |
+| F4 | §17.13 recovery: parse `remedy`, `waitingAlerts`, `activeCheckouts`, `overCapacity`, `syncRevision`, `drill`; show each node's remedy on the team page; email the team's admins when a node reports it unusable, with the remedy and the waiting count. The portal polls: every node's GET after each PUT, and every few minutes once 9.11 is on Pro | None |
 | F5 | Leaving: the team gives and undoes its own notice | None |
 | F6 | Erasure deletes the portal's intake copies of the account's alerts | None |
 | — | 9.11 per-node sync retry and minute-level notify retry, so F4's "resync" holds; the cron watch learns sub-daily schedules | Vercel Pro |
 | — | 9.7 `acceptanceMode`, `maxActiveCheckouts` | None |
-| — | Every node: a node list, not two URLs (withdraw check, capabilities gate, PUTs, acks, RED reads) | avserv-1's URL and timing (AvServ) |
-| — | Intake hardening: an `X-AvAI-Key-Id` must belong to its `X-AvAI-Node` | AvServ's key-id naming |
+| N1 | Every node: `AVSERV_NODE_URLS`, primary first (withdraw check, capabilities gate, PUTs, acks, RED reads, device reads, erasure); avserv-1 (`https://avserv-1.rmdig.ai`) joins by a config change once AvServ says it's live | None |
+| N2 | Intake hardening: `AVSERV_SAR_INTAKE_KEY_NODES` binds each key to its node; another node's key is `401 unknown_key` | None |
+
+**AvServ's answers (2026-11-11):**
+
+- **avserv-1** will be `https://avserv-1.rmdig.ai`, with no date yet. It serves teams only
+  after its soak passes and it joins AvServ's node list; AvServ tells the portal first.
+  The portal's list is config now (N1).
+- **Intake key ids** aren't derived from the node: each node sends whatever its operator
+  set. The binding is explicit config (N2), never parsed from the name. It's a separate
+  non-secret variable rather than AvServ's suggested `keyId:node:secret`, so no secret is
+  re-entered, and today's code can't misread the new value while the change deploys.
+- **Test alert (G2 item 3):** AvServ will build
+  `POST /v1/internal/sar-teams/{orgId}/test-alert` (a service-key route; kind `test`,
+  never a real alert, rate-limited, in the ledger), called on every node so each node's
+  intake and email paths are proven. The contract comes first, for the portal's review.
+  A portal-made test proves neither path, so the portal sends none.
+- **"Tell the team at once"** is polled, never pushed: a node's dispatch must not
+  depend on the portal. The portal acts on any change in `usable`, `remedy` or
+  `waitingAlerts` on any node. A bounce shows as `reverify_channel` within one poll.
+- **Remedies:** since rc120 (#496), a leaving team's remedy is `undo_leaving`. An unknown
+  remedy is treated as `contact_staff`.
 
 The first real team is approved once F1–F6 are merged, counsel's floor clauses and
 [COUNSEL] strings are in, and the team passes G2.

@@ -54,6 +54,9 @@ export default defineConfig({
       // operator's exported env before invoking Playwright. `||` (not `??`) so an
       // empty AVSERV_BASE_URL inherited from .env.local also falls back to mock.
       AVSERV_BASE_URL: process.env.AVSERV_BASE_URL || "mock://localhost",
+      // Every node a SAR team goes to (lib/avserv/node-list.ts): the mock, or
+      // the live suite's own list.
+      AVSERV_NODE_URLS: process.env.AVSERV_NODE_URLS || "mock://localhost",
       // SAR create gate (P1.4): keep proof-doc upload hermetic (no Blob token,
       // no junk objects). An E2E-only seam; production never sets it. The
       // service area is typed into the corner-points table, as a keyboard user
