@@ -11,6 +11,7 @@ import { sendSarTermsPendingReviewEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { capabilitySettings, termsDraftSchema, termsWordingProblems, type WordingProblem } from "@/lib/sar/terms-rules";
 import { portalUrl } from "@/lib/email/links";
+import { ONCALL_COPY } from "@/lib/sar/oncall-email";
 
 // A SAR team's admins write their terms and choose their services
 // (docs/plans/33). Saving keeps one open draft per org; submitting sends it to
@@ -33,7 +34,11 @@ export async function saveTermsAction(
     return { ok: false, error: "Only your organization's admins can edit its terms." };
   }
 
-  const [org] = await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
+  const [org] = await db
+    .select({ name: sarOrgs.name, status: sarOrgs.status, oncallEmailVerifiedAt: sarOrgs.oncallEmailVerifiedAt })
+    .from(sarOrgs)
+    .where(eq(sarOrgs.id, orgId))
+    .limit(1);
   if (!org) return { ok: false, error: "That organization no longer exists." };
   if (org.status !== "pending" && org.status !== "approved") {
     return { ok: false, error: `Terms can't be changed while your organization is ${org.status}.` };
@@ -49,6 +54,10 @@ export async function saveTermsAction(
   }
   const { body, capabilities } = parsed.data;
 
+  // G1 (owner, 2026-11-11): the on-call email exists before terms are
+  // submitted, because adding a channel to published terms makes every user
+  // accept again. A draft can be saved without it.
+  if (submit && !org.oncallEmailVerifiedAt) return { ok: false, error: ONCALL_COPY.gate };
   if (submit) {
     const problems = termsWordingProblems(body);
     if (problems.length > 0) {
@@ -62,7 +71,7 @@ export async function saveTermsAction(
 
   const values = {
     body,
-    capabilities: capabilitySettings(capabilities),
+    capabilities: capabilitySettings(capabilities, { email: !!org.oncallEmailVerifiedAt }),
     status: submit ? ("submitted" as const) : ("draft" as const),
     submittedAt: submit ? new Date() : null,
     authorUserId: userId,

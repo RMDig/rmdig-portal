@@ -2,23 +2,21 @@ import { z } from "zod";
 
 import { env } from "../env";
 import type { SyncBody } from "../sar/sync-body";
+import { type AvServNode, parseNodeUrls } from "./node-list";
 import { AvServError, avservFetch, failureCode, isMock } from "./request";
+
+export type { AvServNode };
 
 // AvServ's SAR team endpoints (sar_team_sync.md §1–2). The portal sends every
 // change to EVERY node, never just one: each node keeps the highest revision,
 // and a node that missed a PUT also converges from its peer, but the portal
 // records each node's answer so staff can see a node that's behind.
 
-export interface AvServNode {
-  name: string;
-  baseUrl: string;
-}
-
-/** Both configured nodes (primary and failover), deduplicated. */
+/** Every node in AVSERV_NODE_URLS (lib/avserv/node-list.ts). The build
+ *  checks the list against the primary and failover; unset is no nodes, which
+ *  each caller reports loudly. */
 export function avservNodes(): AvServNode[] {
-  const urls = [env.AVSERV_BASE_URL, env.AVSERV_FAILOVER_BASE_URL].filter((u): u is string => !!u);
-  const unique = [...new Set(urls)];
-  return unique.map((baseUrl) => ({ name: isMock(baseUrl) ? "mock" : new URL(baseUrl).host, baseUrl }));
+  return parseNodeUrls(env.AVSERV_NODE_URLS);
 }
 
 const PutOk = z.object({
@@ -67,6 +65,25 @@ export async function putSarTeam(node: AvServNode, body: SyncBody): Promise<PutR
   return { ok: false, status: res.status, code, retryable: res.status === 503 || res.status >= 500 };
 }
 
+// One channel's delivery state on this node (sar_team_sync.md §2, §5.5). Each
+// kind has its own shape: an SMS channel's STOP (S4, not built yet) and an
+// email channel's bounce or spam complaint (R4c). A kind this build doesn't
+// know yet is kept by name only, so a new kind can't break the read that
+// Withdraw and the AvServ checks depend on; a known kind still has to match.
+const SmsChannelStatus = z.object({
+  kind: z.literal("sms"),
+  phone: z.string().nullable().optional(),
+  optedOutAt: z.string().nullable(),
+  source: z.string().nullable(),
+});
+const EmailChannelStatus = z.object({
+  kind: z.literal("email"),
+  bouncedAt: z.string().optional(),
+  complainedAt: z.string().optional(),
+});
+const OtherChannelStatus = z.object({ kind: z.string().refine((k) => k !== "sms" && k !== "email") });
+const ChannelStatus = z.union([SmsChannelStatus, EmailChannelStatus, OtherChannelStatus]);
+
 const NodeView = z.object({
   orgId: z.string(),
   revision: z.number(),
@@ -75,10 +92,7 @@ const NodeView = z.object({
   unusableReason: z.string().nullable().optional(),
   termsVersion: z.number().nullable().optional(),
   openBindings: z.number(),
-  channelStatus: z
-    .array(z.object({ kind: z.string(), phone: z.string().nullable().optional(), optedOutAt: z.string().nullable(), source: z.string().nullable() }))
-    .optional()
-    .default([]),
+  channelStatus: z.array(ChannelStatus).optional().default([]),
 });
 export type NodeView = z.infer<typeof NodeView>;
 

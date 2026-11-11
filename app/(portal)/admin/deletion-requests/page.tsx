@@ -10,6 +10,7 @@ import { erasureAvailable } from "@/lib/avserv/erasure";
 import { db } from "@/lib/db";
 import { deletionRequests, users } from "@/lib/db/schema";
 import { cpaDaysLeft } from "@/lib/deletion/share-log";
+import { soleAdminTeams, soleAdminWarning } from "@/lib/sar/no-admin";
 
 import { ErasurePanel } from "./ErasurePanel";
 import { MarkCompletedForm } from "./MarkCompletedForm";
@@ -34,11 +35,17 @@ export default async function DeletionRequestsPage() {
   const emails = queue.map((q) => q.email.toLowerCase());
   const linked = emails.length
     ? await db
-        .select({ email: sql<string>`lower(${users.email})`, accountId: users.avservAccountId })
+        .select({ email: sql<string>`lower(${users.email})`, accountId: users.avservAccountId, userId: users.id })
         .from(users)
         .where(inArray(sql`lower(${users.email})`, emails))
     : [];
   const accountFor = new Map(linked.map((l) => [l.email, l.accountId]));
+  // Teams a requester is the only admin of (P7f): warned, never blocking.
+  const soleAdmin = await soleAdminTeams(linked.map((l) => l.userId));
+  const soleAdminFor = (email: string) => {
+    const userId = linked.find((l) => l.email === email.toLowerCase())?.userId;
+    return userId ? soleAdmin.filter((t) => t.userId === userId) : [];
+  };
   const now = new Date();
   const canErase = erasureAvailable();
 
@@ -71,6 +78,11 @@ export default async function DeletionRequestsPage() {
               {!accountFor.get(q.email.toLowerCase()) ? (
                 <p className="text-muted-foreground mt-2 text-xs">
                   No portal account is linked to this email. Find its AvAI accounts above, or use the account id from the AvServ deletion step.
+                </p>
+              ) : null}
+              {soleAdminFor(q.email).length ? (
+                <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+                  {soleAdminWarning(soleAdminFor(q.email))}
                 </p>
               ) : null}
               <div className="mt-4">

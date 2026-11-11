@@ -19,6 +19,7 @@ import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
 import CronWatchStaffEmail, { type CronWatchStaffEmailProps } from "./templates/CronWatchStaffEmail";
 import DeletionClockEmail, { type DeletionClockEmailProps } from "./templates/DeletionClockEmail";
+import OncallEmailConfirmEmail, { type OncallEmailConfirmEmailProps } from "./templates/OncallEmailConfirmEmail";
 import DrillLoginEmail from "./templates/DrillLoginEmail";
 import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
@@ -198,6 +199,17 @@ export async function sendCronWatchStaffEmail(to: string, params: CronWatchStaff
     to,
     subject: params.jobs.length === 1 ? `Scheduled job didn't run: ${params.jobs[0]!.path}` : `${params.jobs.length} scheduled jobs didn't run`,
     html: render(CronWatchStaffEmail(params)),
+  });
+}
+
+/** To a team's proposed on-call address: a link to confirm it (plan 33 9.10). */
+export async function sendOncallEmailConfirmEmail(to: string, params: OncallEmailConfirmEmailProps): Promise<void> {
+  await deliver({
+    kind: "sar_oncall_confirm",
+    label: "SAR-oncall-confirm",
+    to,
+    subject: `${params.drill ? "[DRILL] " : ""}Confirm the on-call email for ${params.teamName}`,
+    html: render(OncallEmailConfirmEmail(params)),
   });
 }
 

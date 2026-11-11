@@ -500,6 +500,13 @@ export const sarOrgs = pgTable("sar_orgs", {
   // team (its users' alerts would stop reaching rescuers), and a drill team
   // never becomes a real one. Synced to AvServ as `drill: true`.
   isDrill: boolean("is_drill").default(false).notNull(),
+  // The team's on-call email channel (plan 33 9.10, D9; G1): AvServ emails this
+  // address directly with each alert its terms list `email` for. Set only by
+  // confirming a link sent to the address (sar_oncall_email_verifications), so
+  // both are set or neither. A change keeps this address until the new one is
+  // confirmed, so alerts never go nowhere.
+  oncallEmail: text("oncall_email"),
+  oncallEmailVerifiedAt: timestamp("oncall_email_verified_at", { withTimezone: true }),
 },
   // Its evidence (status log, intake messages, acks, view logs, membership
   // log, terms) references it ON DELETE RESTRICT: an org with history can't
@@ -525,7 +532,29 @@ export const sarOrgs = pgTable("sar_orgs", {
       "sar_orgs_drill_shape",
       sql`NOT ${t.isDrill} OR (${t.name} ILIKE '%drill%' AND ${t.orgType} = 'sar_team')`,
     ),
+    check("sar_orgs_oncall_email_verified", sql`(${t.oncallEmail} IS NULL) = (${t.oncallEmailVerifiedAt} IS NULL)`),
   ],
+);
+
+// A link sent to a team's proposed on-call address (plan 33 9.10). Only the
+// SHA-256 of the token is stored; the plaintext is only in the email. One open
+// request per team: a new one replaces the last. Kept once used, as the record
+// of who asked for the address and when it was confirmed.
+export const sarOncallEmailVerifications = pgTable(
+  "sar_oncall_email_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    address: text("address").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expires: timestamp("expires", { withTimezone: true }).notNull(),
+    requestedByUserId: uuid("requested_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  },
+  (t) => [index("sar_oncall_email_verifications_org_id_idx").on(t.orgId)],
 );
 
 // Org membership with role. Composite PK (org_id, user_id): a user holds at most

@@ -58,6 +58,7 @@ import { termsSha256 } from "@/lib/sar/terms";
 const ORG = "11111111-1111-4111-8111-111111111111";
 const TERMS = "22222222-2222-4222-8222-222222222222";
 const CLEAN = "We are volunteers. Call 911 first in an emergency.";
+const CONFIRMED = new Date("2026-11-10T12:00:00Z");
 const fd = (o: Record<string, string | string[]>) => {
   const f = new FormData();
   for (const [k, v] of Object.entries(o)) for (const x of Array.isArray(v) ? v : [v]) f.append(k, x);
@@ -85,7 +86,7 @@ describe("saveTermsAction", () => {
   });
 
   it("submits clean terms, updating the open draft, and emails rmdig admins", async () => {
-    h.selects = [[{ name: "Summit SAR", status: "pending" }], [{ id: TERMS }], [{ email: "op@rmdig.ai" }]];
+    h.selects = [[{ name: "Summit SAR", status: "pending", oncallEmailVerifiedAt: CONFIRMED }], [{ id: TERMS }], [{ email: "op@rmdig.ai" }]];
     const res = await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["send_help_added", "named_to_contacts"], intent: "submit" }));
     expect(res).toEqual({ ok: true, submitted: true });
     expect(h.updates[0]).toMatchObject({ status: "submitted", submittedAt: expect.any(Date) });
@@ -93,7 +94,7 @@ describe("saveTermsAction", () => {
   });
 
   it("refuses to submit wording about response times, with the matches", async () => {
-    h.selects = [[{ name: "Summit SAR", status: "approved" }]];
+    h.selects = [[{ name: "Summit SAR", status: "approved", oncallEmailVerifiedAt: CONFIRMED }]];
     const res = await saveTermsAction(ORG, null, fd({ body: "We respond within 30 minutes.", capabilities: ["checkout_alerts"], intent: "submit" }));
     expect(res).toMatchObject({ ok: false, problems: expect.arrayContaining([expect.objectContaining({ rule: "response time" })]) });
     expect(h.inserts).toEqual([]);
@@ -108,6 +109,29 @@ describe("saveTermsAction", () => {
     expect(await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["checkout_alerts"] }))).toMatchObject({ ok: false, error: expect.stringMatching(/suspended/) });
     h.selects = [[{ name: "S", status: "approved" }]];
     expect(await saveTermsAction(ORG, null, fd({ body: CLEAN, intent: "submit" }))).toMatchObject({ ok: false, fieldErrors: { capabilities: expect.any(Array) } });
+  });
+
+  it("refuses to submit before the on-call email is confirmed (G1), but saves the draft", async () => {
+    h.selects = [[{ name: "Summit SAR", status: "approved", oncallEmailVerifiedAt: null }]];
+    expect(await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["checkout_alerts"], intent: "submit" }))).toEqual({
+      ok: false,
+      error: "Add and confirm an on-call email before you submit your terms.",
+    });
+    expect(h.inserts).toEqual([]);
+    expect(h.pendingEmail).not.toHaveBeenCalled();
+    h.selects = [[{ name: "Summit SAR", status: "approved", oncallEmailVerifiedAt: null }], []];
+    expect(await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["checkout_alerts"], intent: "draft" }))).toEqual({ ok: true, submitted: false });
+  });
+
+  it("lists the on-call email on every alert service once it's confirmed (plan 33 9.10)", async () => {
+    h.selects = [[{ name: "Summit SAR", status: "approved", oncallEmailVerifiedAt: CONFIRMED }], [], [{ email: "op@rmdig.ai" }]];
+    await saveTermsAction(ORG, null, fd({ body: CLEAN, capabilities: ["checkout_alerts", "named_to_contacts"], intent: "submit" }));
+    expect(h.inserts[0]).toMatchObject({
+      capabilities: [
+        { name: "checkout_alerts", channels: ["portal", "email"] },
+        { name: "named_to_contacts", channels: [] },
+      ],
+    });
   });
 
   it("refuses the area map, which isn't offered until the ORANGE layer ships (plan 33 D8)", async () => {
@@ -184,5 +208,12 @@ describe("decideTermsAction", () => {
     h.platformAdmin = true;
     h.selects = [[{ ...submittedRow(), status: "published" }]];
     expect(await decideTermsAction(null, fd({ termsId: TERMS, decision: "publish" }))).toMatchObject({ ok: false, error: expect.stringMatching(/published/) });
+  });
+
+  it("won't publish terms that send by email without a confirmed on-call email, which AvServ would refuse", async () => {
+    const byEmail = [{ name: "checkout_alerts" as const, channels: ["portal" as const, "email" as const] }];
+    h.selects = [[{ ...submittedRow(CLEAN, byEmail), oncallEmailVerifiedAt: null }]];
+    expect(await decideTermsAction(null, fd({ termsId: TERMS, decision: "publish" }))).toMatchObject({ ok: false, error: expect.stringMatching(/no confirmed on-call email/) });
+    expect(h.updates).toEqual([]);
   });
 });

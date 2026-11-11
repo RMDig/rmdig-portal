@@ -60,15 +60,23 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
   },
 ];
 
-/** Channels per capability. Only the portal channel exists so far (it is
- *  every team's primary channel); email, webhook and SMS come with channel
- *  verification, SMS after the A2P re-filing. Non-message capabilities carry
- *  no channels (AvServ sar_team_sync.md). */
-export function capabilitySettings(names: CapabilityName[]) {
+/** Channels per capability. Every message capability goes to the portal
+ *  channel (every team's primary channel), and to the team's on-call email
+ *  once it's confirmed (plan 33 9.10; G1). Webhook and SMS come later, SMS
+ *  after the A2P re-filing. Non-message capabilities carry no channels
+ *  (AvServ sar_team_sync.md). */
+export function capabilitySettings(names: CapabilityName[], channels: { email: boolean }) {
+  const message: Array<"portal" | "email"> = channels.email ? ["portal", "email"] : ["portal"];
   return CAPABILITIES.filter((c) => names.includes(c.name)).map((c) => ({
     name: c.name,
-    channels: c.message ? (["portal"] as Array<"portal">) : [],
+    channels: c.message ? [...message] : [],
   }));
+}
+
+/** Whether a version's services send to the email channel, which AvServ
+ *  refuses (the whole sync) unless the team's on-call email is confirmed. */
+export function listsEmail(settings: Array<{ channels: string[] }>): boolean {
+  return settings.some((s) => s.channels.includes("email"));
 }
 
 const OFFERED = CAPABILITIES.filter((c) => c.offered).map((c) => c.name) as [CapabilityName, ...CapabilityName[]];
