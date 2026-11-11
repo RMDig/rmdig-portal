@@ -992,8 +992,8 @@ refuses them.
    move it to another public spot nearby where no one starts a trip, and tell
    the owner where.
 2. **Add a drill login** with the admin role, at a drill address
-   (`you+drill1@rmdig.ai`). It's emailed a link to set its password (60
-   minutes; after that, **Forgot password** on the address). Sign in as it once
+   (`you+drill1@rmdig.ai`). It's emailed "[DRILL] Set your password" with a
+   link (60 minutes; after that, **Forgot password** on the address). Sign in as it once
    to set the password and two-factor. That first sign-in creates its AvServ
    account as a drill account. If Sentry shows `avserv.map.drill_mismatch` or
    `avserv.map.refused`, the address already holds a real AvServ account: use
@@ -1007,8 +1007,12 @@ refuses them.
    on every node") until both nodes report sync revision 3. The AvServ lines on
    the card show each node.
 
-**Suspend** and **Move back to pending** are on the same card. A team moved
-back to pending is activated again the same way. A drill team or login can
+**Suspend** and **Move back to pending** are on the same card. **Suspend…**
+opens a confirm first: after **Activate drill team** the page reloads with it in
+the same spot, and on 2026-11-11 a stray click there suspended the team (#216).
+A suspended team comes back with **Move back to pending**, which sends AvServ
+nothing, then **Activate drill team**, which sends the next revision as
+`approved`. Check the card shows that revision synced on both nodes. A drill team or login can
 never become real, and a real one can never become a drill one: the database
 refuses it.
 

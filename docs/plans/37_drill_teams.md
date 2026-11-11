@@ -1,6 +1,7 @@
 # 37 — Drill teams and drill logins (portal half of AvServ plan 66)
 
-Status (2026-11-10): **P1–P6 merged (#207–#213); P7 waits (§4.9).** AvServ plan 66
+Status (2026-11-11): **P1–P6 and P7a merged (#207–#213, #215); Phase D's production
+pass done 2026-11-11 (§4.10); P7 waits only on the AvApp drill build (§4.9).** AvServ plan 66
 (`docs/plans/66_drill_fixtures.md`, AvServ PR #473) is the system plan, and its §4 is the
 shape agreed between the two sessions, with these decisions recorded in AvServ PR #475.
 This file is authoritative for the portal's half. AvServ step 1 (the sync `drill` field,
@@ -225,6 +226,11 @@ sign in now: the sign-in map asks AvServ for a drill account for a drill user an
 never stores an account whose `drill` differs from `users.is_drill`. Without it, a
 drill login's first sign-in would have made a real AvServ account for its address.
 
+**Since then:** AvServ #488 merged on 2026-11-10 with §9.10 decided as recommended
+(drill contacts limited to `AVSERV_DRILL_PHONES`, a separate `drill_accounts` scope, the
+DR3 address shape checked on AvServ too), and S1–S3 are built (rc118; #492). The
+AvApp drill build is still the owner's call (plan 66 §9.10a item 1).
+
 **What the other repos said, 2026-11-10 (proposals, nothing built):**
 
 - *AvServ* (plan 66 §9, draft AvServ #488, in owner review). The account's effective
@@ -250,6 +256,32 @@ drill login's first sign-in would have made a real AvServ account for its addres
   generic link failure. The portal shows `409 link_drill_mismatch` on its device-link
   page and `409 account_drill_immutable` when it creates the drill user.
 
+### 4.10 Phase D's production pass (2026-11-11)
+
+AvServ ran `sar-phase-d.md` on rc118 (label `sar-phased-2026q4`) against the drill team
+`70db93ac-a020-411a-a1bc-472d13a09cb9` and the fixed drill device, with no drill AvAI
+user (that is P7). AvServ's drill log has the full record. The portal's drill intake
+(`sar_intake_messages`) holds exactly the four messages expected, all `drill: true`,
+all from avserv-3:
+
+| Run | Checkout | What it tested | Intake |
+|---|---|---|---|
+| P0 | `730c0606…` | The ordinary path | overdue `fe2db28e…`, all_clear `7f285e7a…` |
+| D1 | `ff416f0a…` | avserv-2's api stopped at the deadline; avserv-3 took over | overdue `7b3e74ab…`, all_clear `4573986b…`, once each |
+| D2 | `5c9d1662…` | Team suspended before the deadline; both nodes skipped it (`team_suspended`) | none, as expected |
+
+Findings:
+
+1. *AvServ:* D2's page didn't fire (a Prometheus first-event gap in `increase()`
+   rules), fixed in rc119 (AvServ #493). Confirm it pages on the next D2.
+2. *Portal:* 2½ minutes after the team was re-activated, a stray click suspended it again
+   (sync revision 4). After Activate the page reloaded with Suspend in the same spot,
+   and it submitted on one click. Suspend now opens a confirm on both staff pages (#216).
+   The team was restored at revision 5 (`approved`), synced on both nodes 03:21:21 UTC.
+3. *Portal:* a drill login's set-password email was the ordinary reset email, which
+   reads as if someone had asked for a reset. It now has its own "[DRILL] Set your
+   password" email.
+
 ## 5. PR sequence
 
 Each PR carries its tests and passes the pre-PR gate (CLAUDE.md §4.2). The migration
@@ -264,10 +296,10 @@ reaches production before merge (§3.8).
 | P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Merged #211** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
 | P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Merged #212** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Merged #213** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
-| P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Built 2026-11-10** | AvServ rc118 live |
-| P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §9 (#488) built; AvApp drill build |
+| P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Merged #215** | AvServ rc118 live |
+| P7 | Later: a drill AvAI user (§4.9) | AvApp drill build (Phase D's first pass done 2026-11-11; AvServ plan 66 §9 built) |
 
-**Operator, after P6 and AvServ rc116 (both done 2026-11-10):**
+**Operator, after P6 and AvServ rc116 (both done 2026-11-10; all four steps done 2026-11-11):**
 1. Register the drill team. Its area is a 1 km-radius circle (about 3.1 km²) centred on
    the Colorado State Capitol, Denver, near 39.7393, -104.9848. The owner chose this on
    2026-11-09 (plan 66 O3), and the exact point doesn't matter. If registration refuses
