@@ -23,9 +23,9 @@ const h = vi.hoisted(() => ({
   admins: [{ email: "lead@sar.org" }] as Array<{ email: string }>,
   teamEmail: vi.fn(() => Promise.resolve()),
   nodeViews: [] as Array<{ openBindings: number } | null | Error>,
-  // The activation checklist (plan 33 §6.9 G2). Its item 3, AvServ's test
-  // alert, is pending until F2b, so no real team passes yet; the approve
-  // path's other steps are tested with readiness forced on.
+  // The activation checklist (plan 33 §6.9 G2): a team that passes every
+  // item. The approve path's other steps are tested with readiness forced on,
+  // so their forms needn't carry the approver's answers.
   facts: {
     oncallEmailVerified: true,
     members: 2,
@@ -33,7 +33,14 @@ const h = vi.hoisted(() => ({
     publishedTermsVersion: 1 as number | null,
     areaKm2: 3.1 as number | null,
     largeArea: false,
-    testAlert: "pending_avserv" as const,
+    testAlert: {
+      requestedAt: "2026-11-11T16:00:00.000Z" as string | null,
+      expired: false,
+      configuredNodes: ["avserv-2.rmdig.ai"],
+      nodes: [
+        { node: "avserv-2.rmdig.ai", testId: "t1" as string | null, error: null as string | null, portal: "delivered" as string | null, email: "accepted" as string | null, portalArrived: true, portalReceived: true, emailConfirmed: true },
+      ],
+    },
   },
   forceReady: true as boolean | null,
 }));
@@ -432,10 +439,13 @@ describe("the activation checklist at Approve (plan 33 §6.9 G2)", () => {
     return f;
   };
 
-  it("refuses a real team while AvServ's test alert is pending, writing and syncing nothing", async () => {
+  it("refuses a real team whose test alert isn't proved, writing and syncing nothing", async () => {
     h.forceReady = null;
+    const saved = h.facts;
+    h.facts = { ...h.facts, testAlert: { ...h.facts.testAlert, nodes: [{ ...h.facts.testAlert.nodes[0]!, portalReceived: false }] } };
     const res = await reviewSarOrgAction(null, answered(fd("approve")));
-    expect(res).toMatchObject({ ok: false, error: expect.stringContaining("3. Test alert received on both paths from every node") });
+    h.facts = saved;
+    expect(res).toMatchObject({ ok: false, error: expect.stringContaining("3. Test alert received on both paths from every node (avserv-2.rmdig.ai portal message: not yet marked received)") });
     expect(h.updates).toHaveLength(0);
     expect(h.logs).toHaveLength(0);
     expect(h.sync).not.toHaveBeenCalled();
@@ -451,6 +461,13 @@ describe("the activation checklist at Approve (plan 33 §6.9 G2)", () => {
     expect(res).toMatchObject({ ok: false });
     const error = (res as { error: string }).error;
     for (const text of ["number you called", "1 member", "no confirmed on-call email", "floor clauses not confirmed"]) expect(error).toContain(text);
+  });
+
+  it("approves a team that passes every item, with no override", async () => {
+    h.forceReady = null;
+    const res = await reviewSarOrgAction(null, answered(fd("approve")));
+    expect(res).toEqual({ ok: true });
+    expect((h.logs[0] as { action: string }).action).toBe("approved");
   });
 
   it("records every answer and check with the approval, as a beta single review", async () => {

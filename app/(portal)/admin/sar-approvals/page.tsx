@@ -10,6 +10,7 @@ import { sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
 import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
 import { activationFacts } from "@/lib/sar/activation-checklist";
 import { getRegionAsGeoJson } from "@/lib/sar/geo";
+import { latestTestAlert } from "@/lib/sar/test-alert";
 import { type PendingOrg, SarApprovalRow } from "./SarApprovalRow";
 
 export const metadata = {
@@ -70,6 +71,7 @@ export default async function SarApprovalsPage() {
       reverifyBy: o.reverifyBy?.toISOString() ?? null,
       region: await getRegionAsGeoJson(o.id),
       activation: o.status === "pending" ? await activationFacts(o.id) : null,
+      testAlert: o.status === "pending" ? await latestTestAlert(o.id) : null,
       sync: syncRows
         .filter((s) => s.orgId === o.id)
         .map((s) => ({

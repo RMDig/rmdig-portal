@@ -13,7 +13,10 @@ import { alertUserName, groupAlerts } from "@/lib/sar/intake";
 import { sarPayloadKeys } from "@/lib/sar/payload-keys";
 import { openPayload } from "@/lib/sar/payload-seal";
 
+import { currentTestAlert } from "@/lib/sar/test-alert";
+
 import { AckButton } from "./AckButton";
+import { TestAlertCard } from "./TestAlertCard";
 
 export const metadata = { title: "Team alerts — rmdig" };
 
@@ -57,8 +60,11 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
   // here too: a view that was never shown mustn't be read or logged.
   if ((await userMfaGate(session.user.id)).gate === "required") redirect("/settings/mfa/enroll");
 
-  const [org] = await db.select({ name: sarOrgs.name }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
+  const [org] = await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
   if (!org) redirect("/dashboard");
+  // The test is part of the review (plan 33 §6.9 G2), so only a team under
+  // review sees one, and only while it still counts.
+  const tests = org.status === "pending" ? await currentTestAlert(orgId, new Date()) : [];
 
   const rows = await db
     .select()
@@ -84,6 +90,8 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
           emergency, call 911.
         </p>
       </div>
+
+      {tests.length ? <TestAlertCard orgId={orgId} rows={tests} /> : null}
 
       {alerts.length === 0 ? (
         <p className="text-muted-foreground text-sm">No alerts yet.</p>

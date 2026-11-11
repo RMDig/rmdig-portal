@@ -17,7 +17,23 @@ const facts: ActivationFacts = {
   publishedTermsVersion: 2,
   areaKm2: 840.4,
   largeArea: false,
-  testAlert: "pending_avserv",
+  testAlert: {
+    requestedAt: "2026-11-11T16:00:00.000Z",
+    expired: false,
+    configuredNodes: ["avserv-2.rmdig.ai"],
+    nodes: [
+      {
+        node: "avserv-2.rmdig.ai",
+        testId: "t1",
+        error: null,
+        portal: "delivered",
+        email: "accepted",
+        portalArrived: true,
+        portalReceived: true,
+        emailConfirmed: true,
+      },
+    ],
+  },
 };
 const answers = activationAnswersSchema.parse({ callbackNumber: " +1 970 555 0100 ", callbackSpokeTo: "Sgt. Rivera", termsFloor: "on" });
 const byId = (items: ReturnType<typeof judgeChecklist>) => Object.fromEntries(items.map((i) => [i.id, i]));
@@ -30,13 +46,19 @@ describe("activationAnswersSchema", () => {
 });
 
 describe("judgeChecklist", () => {
-  it("passes items 1, 2 and 4 for a complete team, and holds item 3 pending (AvServ's test alert)", () => {
+  it("passes every item for a complete team whose test reached it on both paths", () => {
     const items = byId(judgeChecklist(facts, answers));
-    expect(items.callback!.status).toBe("pass");
-    expect(items.channels!.status).toBe("pass");
-    expect(items.terms_area!.status).toBe("pass");
-    expect(items.test_alert!.status).toBe("pending");
-    expect(checklistReady(judgeChecklist(facts, answers))).toBe(false);
+    for (const id of ["callback", "channels", "test_alert", "terms_area"]) expect(items[id]!.status).toBe("pass");
+    expect(items.test_alert!.detail).toBe("Received on both paths from avserv-2.rmdig.ai");
+    expect(checklistReady(judgeChecklist(facts, answers))).toBe(true);
+  });
+
+  it("fails item 3 until the test is proved, saying what's missing", () => {
+    const unproved = { ...facts, testAlert: { ...facts.testAlert, nodes: [{ ...facts.testAlert.nodes[0]!, emailConfirmed: false }] } };
+    const item = byId(judgeChecklist(unproved, answers)).test_alert!;
+    expect(item.status).toBe("fail");
+    expect(item.detail).toBe("avserv-2.rmdig.ai email: code not yet entered");
+    expect(checklistReady(judgeChecklist(unproved, answers))).toBe(false);
   });
 
   it("fails the call-back without a number and a name", () => {
@@ -63,11 +85,11 @@ describe("checklistReady and checklistRecord", () => {
   it("is ready only when every item passes", () => {
     const items = judgeChecklist(facts, answers).map((i) => ({ ...i, status: "pass" as const }));
     expect(checklistReady(items)).toBe(true);
-    expect(checklistReady([...items.slice(1), { ...items[0]!, status: "pending" as const }])).toBe(false);
+    expect(checklistReady([...items.slice(1), { ...items[0]!, status: "fail" as const }])).toBe(false);
   });
 
   it("records a beta single review with the answers, facts and items", () => {
     const items = judgeChecklist(facts, answers);
-    expect(checklistRecord(facts, answers, items)).toEqual({ version: 1, reviewMode: "beta_single", items, answers, facts });
+    expect(checklistRecord(facts, answers, items)).toEqual({ version: 2, reviewMode: "beta_single", items, answers, facts });
   });
 });

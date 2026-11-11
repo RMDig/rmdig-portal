@@ -615,11 +615,29 @@ export const orgInvitations = pgTable("org_invitations", {
 
 /** A real team's activation checklist as recorded at Approve (plan 33 §6.9
  *  G2; built and judged in lib/sar/activation-checklist.ts). */
+/** One node's part of a team's latest test alert (lib/sar/test-alert.ts). */
+export interface TestAlertNodeFact {
+  node: string;
+  /** Null when the node gave no answer; `error` then says why. */
+  testId: string | null;
+  error: string | null;
+  /** AvServ's result for each channel ("delivered", "accepted", "failed", …). */
+  portal: string | null;
+  email: string | null;
+  /** The intake holds the test message, and a member marked it received. */
+  portalArrived: boolean;
+  portalReceived: boolean;
+  /** A member entered the code the email carried. */
+  emailConfirmed: boolean;
+}
+
 export interface ActivationChecklistRecord {
-  version: 1;
+  // 2: the test alert's facts per node (F2b), where 1 held "pending_avserv".
+  // No version 1 record was ever written: item 3 kept every real team pending.
+  version: 2;
   /** "beta_single": one reviewer, during the beta (3–5 teams). */
   reviewMode: "beta_single";
-  items: Array<{ id: "callback" | "channels" | "test_alert" | "terms_area"; status: "pass" | "fail" | "pending"; detail: string }>;
+  items: Array<{ id: "callback" | "channels" | "test_alert" | "terms_area"; status: "pass" | "fail"; detail: string }>;
   answers: { callbackNumber: string; callbackSpokeTo: string; termsFloor: boolean; largeAreaResolved: boolean };
   facts: {
     oncallEmailVerified: boolean;
@@ -628,7 +646,8 @@ export interface ActivationChecklistRecord {
     publishedTermsVersion: number | null;
     areaKm2: number | null;
     largeArea: boolean;
-    testAlert: "pending_avserv";
+    /** The latest test (null: none sent), against the nodes configured at Approve. */
+    testAlert: { requestedAt: string | null; expired: boolean; configuredNodes: string[]; nodes: TestAlertNodeFact[] };
   };
 }
 
@@ -801,6 +820,51 @@ export const sarAlertViewLog = pgTable(
     viewedAt: timestamp("viewed_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("sar_alert_view_log_org_idx").on(t.orgId)],
+);
+
+// A team's test alert, one row per node per test (AvServ sar_test_alert.md;
+// plan 33 §6.9 G2 item 3). Staff send it to every node at once (run_id groups
+// them); each node's answer is recorded as it came, and the team proves each
+// path here: a member marks the intake message received, and enters the code
+// the node's email carried. The code is stored hashed with the test id, and
+// guesses are capped. Deleted ALERT_DAYS after it was sent (retention); the
+// approval's checklist keeps what it showed.
+export const sarTestAlerts = pgTable(
+  "sar_test_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id").notNull(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    /** The portal's name for the node (its host), as in sar_org_sync. */
+    node: text("node").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    requestedByUserId: uuid("requested_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
+    /** Null: the node gave no usable answer; error_code says why. */
+    testId: text("test_id"),
+    errorCode: text("error_code"),
+    avservNode: text("avserv_node"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    portalResult: text("portal_result"),
+    portalDetail: text("portal_detail"),
+    emailResult: text("email_result"),
+    emailDetail: text("email_detail"),
+    codeHash: text("code_hash"),
+    codeAttempts: integer("code_attempts").notNull().default(0),
+    portalReceivedAt: timestamp("portal_received_at", { withTimezone: true }),
+    portalReceivedByUserId: uuid("portal_received_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    emailConfirmedAt: timestamp("email_confirmed_at", { withTimezone: true }),
+    emailConfirmedByUserId: uuid("email_confirmed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    uniqueIndex("sar_test_alerts_run_node").on(t.runId, t.node),
+    uniqueIndex("sar_test_alerts_test_id").on(t.testId).where(sql`test_id IS NOT NULL`),
+    index("sar_test_alerts_org_idx").on(t.orgId, t.requestedAt),
+    // An answer is all or nothing: a test id comes with its code.
+    check("sar_test_alerts_answer", sql`(test_id IS NULL) = (code_hash IS NULL) AND (test_id IS NULL OR error_code IS NULL)`),
+  ],
 );
 
 // Re-verification reminders sent for a ski patrol (lib/sar/reverify.ts). One

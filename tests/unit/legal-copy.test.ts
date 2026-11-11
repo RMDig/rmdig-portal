@@ -90,6 +90,9 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "OncallEmailCard.tsx"),
     join(process.cwd(), "lib", "sar", "oncall-email.ts"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "page.tsx"),
+    // The test alert's card and its errors, seen by a team under review (G2).
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "TestAlertCard.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "test-alert-actions.ts"),
     // The RED layer's labels, legend, notice and error text on /map.
     join(process.cwd(), "lib", "map", "red.ts"),
   );

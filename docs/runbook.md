@@ -188,8 +188,20 @@ resubmitted application emails every SAR approver with a link to its row.
       application. Enter the number and who you spoke to.
    2. **Channels:** two or more members, one an admin, and a confirmed on-call
       email (read from the team).
-   3. **Test alert** from every node, received on both paths. AvServ hasn't
-      built it yet (R13, `sar_test_alert.md`), so this shows **Pending** and **a
+   3. **Test alert** from every node, received on both paths (AvServ
+      `sar_test_alert.md`). Press **Send test alert** on the row: every node in
+      `AVSERV_NODE_URLS` sends the team a message to its portal and an email
+      with a six-digit code to its confirmed on-call address. Tell the team
+      (on the call-back) to open its **Alerts** page, where an admin or
+      dispatcher marks each node's message received and enters each node's
+      code. Reload the approvals page to see it; the row shows what each node
+      reported and what the team has proved. It passes only when every
+      configured node is proved on both paths, within 14 days. A failed node
+      (unreachable, `429` with its wait, `sar_off`, a channel `failed` or
+      `not_configured`) is shown as AvServ reported it, never retried: fix the
+      cause, then **Send a new test**. A node added since the test (avserv-1)
+      needs a new one. Five wrong codes lock that node's code until a new test.
+      Until AvServ ships the route (R13), every node answers `http_404`, so **a
       real team can't be approved until it exists** (owner, 2026-11-11).
    4. **Terms and area:** published terms, which you confirm carry counsel's
       floor clauses; and, if the area is over the large-area threshold, that
@@ -554,7 +566,9 @@ maintenance switch.
   capability and no user or place. They're stored, accepted for a team that
   isn't active yet (the checklist runs before Approve), kept off the Alerts
   page, the map and every count, never emailed to members, and deleted 90 days
-  after they arrive. The activation checklist (F2) shows them.
+  after they arrive. The team's Alerts page shows them in **Test messages**
+  while the team is under review, and the approvals row shows what each node
+  reported (`sar_test_alerts`, deleted 90 days after staff sent the test).
 - **Keys:** one secret per node. `AVSERV_SAR_INTAKE_KEYS` (Vercel Production,
   sensitive) is packed `keyId:secret,keyId:secret`. Generate each secret with
   `openssl rand -hex 32` (32+ characters is enforced). The node's `.env` gets the
