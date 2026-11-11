@@ -142,6 +142,24 @@ describe("POST /api/sar/intake", () => {
     expect(h.captureMessage).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ tags: { event: "sar.intake.team_not_active" } }));
   });
 
+  // AvServ sar_test_alert.md §4 (G2 item 3): a test is accepted, never an alert.
+  const test = (o: Record<string, unknown> = {}) =>
+    payload({ messageId: "t1", alertId: "test:t1", kind: "test", capability: null, alert: { testId: "t1" }, ...o });
+
+  it("stores a test for a team that isn't active yet, without reporting it (the checklist runs before Approve)", async () => {
+    h.team = [{ name: "Summit SAR", status: "pending", isDrill: false }];
+    h.inserted = [{ messageId: "t1" }];
+    expect((await POST(request(test()))).status).toBe(200);
+    expect(h.insertedValues[0]).toMatchObject({ messageId: "t1", alertId: "test:t1", kind: "test", capability: null });
+    expect(h.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("refuses a test whose alertId isn't test:<testId>, or that names a capability", async () => {
+    expect((await POST(request(test({ alertId: "sub:team" })))).status).toBe(400);
+    expect((await POST(request(test({ capability: "checkout_alerts" })))).status).toBe(400);
+    expect(h.insertedValues).toEqual([]);
+  });
+
   it("keeps drills and live alerts apart: each URL refuses the other kind (permanent 4xx)", async () => {
     const onLive = await POST(request(payload({ drill: true })));
     expect(onLive.status).toBe(400);

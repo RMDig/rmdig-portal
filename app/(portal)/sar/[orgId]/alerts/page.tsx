@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -63,7 +63,8 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
   const rows = await db
     .select()
     .from(sarIntakeMessages)
-    .where(eq(sarIntakeMessages.orgId, orgId))
+    // Tests aren't alerts (sar_test_alert.md): they're shown on the checklist.
+    .where(and(eq(sarIntakeMessages.orgId, orgId), ne(sarIntakeMessages.kind, "test")))
     .orderBy(desc(sarIntakeMessages.receivedAt))
     .limit(300);
   const alerts = groupAlerts(rows.map((r) => ({ ...r, payload: openPayload(sarPayloadKeys, r.payload) })));

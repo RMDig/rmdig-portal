@@ -116,7 +116,9 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
       reportProblem("sar.intake.live_for_drill_team", "SAR intake refused a live alert for a drill team", { teamId: payload.teamId, messageId: payload.messageId, node });
       return reply(400, "live_for_drill_team");
     }
-    if (team.status !== "approved" && team.status !== "leaving") {
+    // A test runs before the team is active (G2's checklist, before Approve),
+    // so only an alert to an inactive team is a problem.
+    if (payload.kind !== "test" && team.status !== "approved" && team.status !== "leaving") {
       // AvServ shouldn't send to it; keep the record and say so loudly.
       reportProblem("sar.intake.team_not_active", "SAR intake received an alert for a team that isn't active", { teamId: payload.teamId, status: team.status });
     }

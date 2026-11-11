@@ -115,6 +115,14 @@ export const IntakePayload = z.discriminatedUnion("kind", [
     kind: z.literal("duplicate_disclaimer"),
     alert: z.object({ refersTo: z.string(), deliveries: z.number().nullable() }),
   }),
+  // A team's test message (AvServ sar_test_alert.md §4; G2 item 3): never an
+  // alert. It names no user and no place, carries no capability, and its
+  // alertId is "test:<testId>", so it can't group with a real alert.
+  Envelope.extend({
+    kind: z.literal("test"),
+    capability: z.null(),
+    alert: z.object({ testId: z.string().min(1).max(200) }),
+  }),
 ]);
 export type IntakePayload = z.infer<typeof IntakePayload>;
 
@@ -138,6 +146,9 @@ export function parseIntakePayload(raw: unknown): ParsedIntake {
   let candidate = raw;
   for (let attempt = 0; attempt < DROPPABLE.size + 1; attempt++) {
     const r = IntakePayload.safeParse(candidate);
+    if (r.success && r.data.kind === "test" && r.data.alertId !== `test:${r.data.alert.testId}`) {
+      return { ok: false, error: "alertId: a test's alertId must be test:<testId>" };
+    }
     if (r.success) return { ok: true, payload: r.data, dropped };
     const fixable = r.error.issues.map((i) => i.path).filter((path) => path[0] === "alert" && typeof path[1] === "string" && DROPPABLE.has(path[1]));
     const essential = r.error.issues.find((i) => !(i.path[0] === "alert" && typeof i.path[1] === "string" && DROPPABLE.has(i.path[1])));
@@ -190,6 +201,8 @@ export interface TeamAlert {
 export function groupAlerts(messages: StoredMessage[]): TeamAlert[] {
   const byAlert = new Map<string, StoredMessage[]>();
   for (const m of messages) {
+    // A test is never an alert (sar_test_alert.md): the checklist shows it.
+    if (m.payload.kind === "test") continue;
     const key = m.payload.kind === "overdue" || m.payload.kind === "send_help" ? m.alertId : m.payload.alert.refersTo;
     byAlert.set(key, [...(byAlert.get(key) ?? []), m]);
   }
