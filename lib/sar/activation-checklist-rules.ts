@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ActivationChecklistRecord } from "../db/schema";
+import { judgeTestAlert } from "./test-alert-rules";
 
 // The activation checklist's rules for a real team, pure so the approvals
 // row (a client component) and the action judge it alike; the facts come from
@@ -10,9 +11,9 @@ import type { ActivationChecklistRecord } from "../db/schema";
 //   1. a call-back on the team's publicly listed number;
 //   2. a verified portal channel (two or more members, one an admin) and a
 //      confirmed on-call email;
-//   3. AvServ's test alert, received on both paths from every node. AvServ
-//      hasn't built it (R13), so it's pending, and a real team can't be
-//      approved until it exists (owner, 2026-11-11). F2b adds it;
+//   3. AvServ's test alert, received on both paths from every node
+//      (lib/sar/test-alert-rules.ts): sent from this page, proved by the team
+//      on its Alerts page;
 //   4. published terms carrying counsel's floor clauses, and an area with no
 //      unresolved large-area warning.
 // The beta (3–5 teams) takes one reviewer, recorded "beta_single"; a second,
@@ -65,7 +66,7 @@ export function judgeChecklist(facts: ActivationFacts, answers: ActivationAnswer
       status: channelProblems.length ? "fail" : "pass",
       detail: channelProblems.length ? channelProblems.join("; ") : `${facts.members} members, ${facts.admins} admin${facts.admins === 1 ? "" : "s"}, on-call email confirmed`,
     },
-    { id: "test_alert", status: "pending", detail: "Waiting for AvServ's test alert (R13), from every node" },
+    { id: "test_alert", ...judgeTestAlert(facts.testAlert) },
     {
       id: "terms_area",
       status: termsProblems.length ? "fail" : "pass",
@@ -86,7 +87,7 @@ export function checklistReady(items: ChecklistItem[]): boolean {
 }
 
 export function checklistRecord(facts: ActivationFacts, answers: ActivationAnswers, items: ChecklistItem[]): ActivationChecklistRecord {
-  return { version: 1, reviewMode: REVIEW_MODE, items, answers, facts };
+  return { version: 2, reviewMode: REVIEW_MODE, items, answers, facts };
 }
 
 export const CHECKLIST_LABEL: Record<ChecklistItem["id"], string> = {

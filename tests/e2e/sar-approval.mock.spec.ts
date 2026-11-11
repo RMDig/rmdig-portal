@@ -5,32 +5,34 @@ import { E2E_USER, enterServiceArea, STAFF_USER, signInAs, signOut } from "./hel
 
 // SAR approval gate (P1.4; plan 33 §6.9 G2). A member submits an org through
 // the real create flow (reused as setup), then a staff persona opens it in the
-// queue. Approve sits behind the activation checklist, and a real team can't
-// be approved until AvServ's test alert (item 3) passes on every node (owner,
-// 2026-11-11), so the queue shows the checklist and keeps Approve disabled.
-// F2b adds the test alert and the approving half of this spec. Mock-mode
+// queue. Approve sits behind the activation checklist; staff send the test
+// alert (item 3) from the row, and the team sees it on its Alerts page. The
+// mock node sends nothing (no message reaches the intake) and this team has no
+// on-call email, so the test can't pass here and Approve stays disabled: the
+// passing path is covered by the unit and integration tests. Mock-mode
 // (AvServ-independent) so it rides the always-on CI gate.
 test.skip(
   !(process.env.AVSERV_BASE_URL || "mock://localhost").startsWith("mock://"),
   "SAR approval gate runs against the mock-mode CI server (see playwright.config.ts)",
 );
 
-async function orgStatusByName(name: string): Promise<string | null> {
+async function orgByName(name: string): Promise<{ id: string; status: string } | null> {
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("orgStatusByName: DATABASE_URL is not set");
+  if (!url) throw new Error("orgByName: DATABASE_URL is not set");
   const sql = postgres(url, { prepare: false, max: 1 });
   try {
-    const rows = await sql<{ status: string }[]>`
-      SELECT status FROM sar_orgs WHERE name = ${name} LIMIT 1
+    const rows = await sql<{ id: string; status: string }[]>`
+      SELECT id, status FROM sar_orgs WHERE name = ${name} LIMIT 1
     `;
-    return rows[0]?.status ?? null;
+    return rows[0] ?? null;
   } finally {
     await sql.end();
   }
 }
+const orgStatusByName = async (name: string) => (await orgByName(name))?.status ?? null;
 
 test.describe("SAR org approval (mock)", () => {
-  test("the queue shows the activation checklist and won't approve a real team until the test alert passes", async ({ page }) => {
+  test("staff send the test alert from the queue, the team sees it, and Approve waits for it to pass", async ({ page }) => {
     const orgName = `E2E Approve ${Date.now()}`;
 
     // Arrange: a member submits an application (reuse the create flow as setup).
@@ -62,9 +64,27 @@ test.describe("SAR org approval (mock)", () => {
     await row.getByLabel("Who you spoke to").fill("Jane Doe");
     await row.getByLabel("The published terms carry counsel's floor clauses").check();
 
-    // Assert: item 3 is pending, Approve stays disabled, and the team is still pending.
-    await expect(row.getByText("Waiting for AvServ's test alert (R13), from every node")).toBeVisible();
+    // Assert: no test yet, so item 3 isn't done and Approve stays disabled.
+    await expect(row.getByText("No test sent yet: use Send test alert on this row")).toBeVisible();
+    await expect(row.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
+
+    // Act: send the test; the mock node answers, and the row shows its report.
+    await row.getByRole("button", { name: "Send test alert" }).click();
+    await expect(row.getByText("Sent from 1 node. Ask the team to confirm each message on its Alerts page.")).toBeVisible();
+    await expect(row.getByText(/Portal: delivered to the portal/)).toBeVisible();
+    await expect(row.getByText(/Email: not configured on this node \(no on-call email\)/)).toBeVisible();
     await expect(row.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
     expect(await orgStatusByName(orgName)).toBe("pending");
+
+    // The team (its submitting admin) sees the test on its Alerts page: the
+    // message hasn't arrived (the mock sends nothing), and there's no email.
+    const org = await orgByName(orgName);
+    await signOut(page);
+    await signInAs(page, E2E_USER);
+    await page.goto(`/sar/${org!.id}/alerts`);
+    const card = page.getByRole("region", { name: "Test messages" });
+    await expect(card).toBeVisible();
+    await expect(card.getByText("Portal message: not here yet. Reload in a minute.")).toBeVisible();
+    await expect(card.getByText("Email: not configured on this node. Tell rmdig staff.")).toBeVisible();
   });
 });

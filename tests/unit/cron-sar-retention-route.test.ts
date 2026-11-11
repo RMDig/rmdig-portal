@@ -23,7 +23,7 @@ beforeEach(() => {
   h.sentry.withMonitor.mockImplementation((_slug: string, cb: () => unknown) => cb());
   h.sentry.flush.mockResolvedValue(true);
   h.env.CRON_SECRET = SECRET;
-  h.run.mockResolvedValue({ positionsRemoved: 1, alertMessagesDeleted: 0, testMessagesDeleted: 0, acksDeleted: 0, viewLogsDeleted: 0, staleOpenAlerts: 0 });
+  h.run.mockResolvedValue({ positionsRemoved: 1, alertMessagesDeleted: 0, testMessagesDeleted: 0, testAlertsDeleted: 0, acksDeleted: 0, viewLogsDeleted: 0, staleOpenAlerts: 0 });
 });
 
 describe("GET /api/cron/sar-retention", () => {

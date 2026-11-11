@@ -6,8 +6,10 @@ import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPr
 import { SuspendConfirm } from "@/components/sar/SuspendConfirm";
 import { Button } from "@/components/ui/button";
 import type { ActivationFacts } from "@/lib/sar/activation-checklist-rules";
+import type { TestAlertRow } from "@/lib/sar/test-alert";
 
 import { ActivationChecklist } from "./ActivationChecklist";
+import { TestAlertPanel } from "./TestAlertPanel";
 import { resyncSarOrgAction, reviewSarOrgAction } from "./actions";
 import { formatMountain, formatMountainDate } from "@/lib/format/time";
 
@@ -57,6 +59,8 @@ export interface PendingOrg {
   sync: NodeSync[];
   /** A pending team's activation facts (plan 33 §6.9 G2); null otherwise. */
   activation: ActivationFacts | null;
+  /** A pending team's latest test alert, one row per node; null otherwise. */
+  testAlert: TestAlertRow[] | null;
 }
 
 // One small form per lifecycle action (approved/leaving/suspended orgs).
@@ -168,6 +172,8 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
       <RegionPreviewMap polygon={org.region} />
 
       {error ? <p className="text-sm text-red-700 dark:text-red-400">{error}</p> : null}
+
+      {org.testAlert ? <TestAlertPanel orgId={org.id} rows={org.testAlert} canSend={!org.conflictOfInterest} /> : null}
 
       {org.status === "pending" ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
