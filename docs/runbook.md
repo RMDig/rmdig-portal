@@ -264,6 +264,21 @@ keeps the highest per node.
   as `sar.sync.node_failed`. Press Resync once the node is back; a node that missed
   a PUT also converges from its peer. **409** (`revision_conflict`,
   `terms_version_conflict`) is a portal bug, so investigate before resyncing.
+- **Recovery** (plan 33 §6.9 F4; AvServ `sar_team_sync.md` §5.4): after every
+  sync the portal reads each node's own view of the team. A node that can't use
+  it says what fixes it (`remedy`) and how many alerts it holds back
+  (`waitingAlerts`); the row's detail shows both ("fix: …; N alerts waiting"),
+  and "last read failed" when the read didn't answer (the last good read stays).
+  For an active team, the team's pages show a red banner with what to do, and its
+  admins are emailed once per new problem per node. The fix itself resumes
+  delivery: the next sync moves the held alerts back to sending. Two remedies are
+  staff's: `resync` (Sentry `sar.recovery.resync_needed`): press Resync;
+  `renew_verification`: the patrol's yearly call-back. `contact_staff` on an
+  active team means AvServ and the portal disagree on its status: investigate.
+  Sentry `sar.recovery.over_capacity` means a node bound more check-outs than the
+  team's limit (only the cross-node race can do that). Until Vercel Pro (9.11)
+  the portal reads only after a sync, so a problem that starts between syncs
+  (an email bounce) shows after the next one, or after Resync.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
   team until they end. **Undo leaving** makes it active again (AvServ is sent
   `approved`). A team's admins can do both themselves on the team's **Leaving**

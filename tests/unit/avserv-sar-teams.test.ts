@@ -92,6 +92,20 @@ describe("getSarTeam", () => {
     await expect(getSarTeam(NODE, "org-1")).rejects.toThrow(/schema validation/);
   });
 
+  // sar_team_sync.md §5.4 (R12): recovery, read as the node says it.
+  it("reads a node's remedy, waiting alerts and check-out counts, all optional on an older node", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(json(200, { orgId: "org-1", revision: 3, status: "approved", usable: false, unusableReason: "no_usable_channel", openBindings: 4, syncRevision: 3, remedy: "reverify_channel", waitingAlerts: 2, activeCheckouts: 4, overCapacity: false, drill: false }))
+        .mockResolvedValueOnce(json(200, { orgId: "org-1", revision: 3, status: "approved", usable: true, openBindings: 0 })),
+    );
+    const { getSarTeam } = await import("@/lib/avserv/sar-teams");
+    expect(await getSarTeam(NODE, "org-1")).toMatchObject({ remedy: "reverify_channel", waitingAlerts: 2, activeCheckouts: 4, overCapacity: false, syncRevision: 3 });
+    expect(await getSarTeam(NODE, "org-1")).not.toHaveProperty("remedy");
+  });
+
   // sar_team_sync.md §2 and §5.5 (R4c): each channel kind has its own shape.
   // An email bounce must not fail the read Withdraw and the checks rely on.
   const view = (channelStatus: unknown[]) => json(200, { orgId: "org-1", revision: 5, status: "approved", usable: true, openBindings: 0, channelStatus });

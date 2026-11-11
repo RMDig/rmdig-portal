@@ -42,6 +42,9 @@ vi.mock("@/lib/avserv/sar-teams", () => ({
   putSarTeam: h.put,
 }));
 vi.mock("@/lib/avserv/sar-capabilities", () => ({ syncRevisionGate: h.gate }));
+// Each node's view is read after the PUTs (lib/sar/recovery.ts, tested there).
+const recovery = vi.hoisted(() => vi.fn(() => Promise.resolve([])));
+vi.mock("@/lib/sar/recovery", () => ({ readTeamRecovery: recovery }));
 vi.mock("@sentry/nextjs", () => ({ captureMessage: h.sentry }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
@@ -83,6 +86,12 @@ describe("syncSarOrg", () => {
       expect.objectContaining({ node: "avserv-2", revision: 8, outcome: "ok", syncedAt: expect.any(Date) }),
       expect.objectContaining({ node: "avserv-3", revision: 8, outcome: "ok" }),
     ]);
+  });
+
+  it("then reads each node's own view of the team, after recording the PUTs (plan 33 §6.9 F4)", async () => {
+    recovery.mockClear();
+    await syncSarOrg(ORG.id);
+    expect(recovery).toHaveBeenCalledWith(ORG.id);
   });
 
   it("records a failed node with its code and logs it loudly, keeping the other node's success", async () => {

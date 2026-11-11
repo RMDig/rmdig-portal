@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { env } from "../env";
+import { logger } from "../logger";
 import type { SyncBody } from "../sar/sync-body";
 import { type AvServNode, parseNodeUrls } from "./node-list";
 import { AvServError, avservFetch, failureCode, isMock } from "./request";
@@ -93,8 +94,29 @@ const NodeView = z.object({
   termsVersion: z.number().nullable().optional(),
   openBindings: z.number(),
   channelStatus: z.array(ChannelStatus).optional().default([]),
+  // Recovery (sar_team_sync.md §5.4, R12; plan 33 §6.9 F4). Absent on an
+  // older node, which reads as "not told", never as "usable".
+  syncRevision: z.number().optional(),
+  remedy: z.string().nullable().optional(),
+  waitingAlerts: z.number().int().min(0).optional(),
+  activeCheckouts: z.number().int().min(0).optional(),
+  overCapacity: z.boolean().optional(),
+  drill: z.boolean().optional(),
 });
 export type NodeView = z.infer<typeof NodeView>;
+
+/** What makes a team usable again on a node (sar_team_sync.md §5.4). */
+export const REMEDIES = ["reverify_channel", "renew_verification", "update_terms", "text_start", "resync", "undo_leaving", "contact_staff"] as const;
+export type Remedy = (typeof REMEDIES)[number];
+
+/** A remedy this portal doesn't know is read as contact_staff, as the
+ *  contract says, and reported so the portal learns it. */
+export function readRemedy(raw: string | null | undefined, ctx: { node: string; orgId: string }): Remedy | null {
+  if (raw == null) return null;
+  if ((REMEDIES as readonly string[]).includes(raw)) return raw as Remedy;
+  logger.warn({ event: "sar.recovery.unknown_remedy", remedy: raw, ...ctx });
+  return "contact_staff";
+}
 
 /** One node's view of the team, or null if it has never received it (404). */
 export async function getSarTeam(node: AvServNode, orgId: string): Promise<NodeView | null> {

@@ -725,6 +725,20 @@ export const sarOrgSync = pgTable(
     attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull(),
     // When this node last accepted a PUT (avserv_synced_at in the contract).
     syncedAt: timestamp("synced_at", { withTimezone: true }),
+    // The node's own view, read after each sync (GET, sar_team_sync.md §5.4;
+    // plan 33 §6.9 F4): what would make the team usable again there, and the
+    // alerts it holds back until then. view_error: the read failed (the rest
+    // is the last good read).
+    remedy: text("remedy"),
+    waitingAlerts: integer("waiting_alerts"),
+    activeCheckouts: integer("active_checkouts"),
+    overCapacity: boolean("over_capacity"),
+    viewReadAt: timestamp("view_read_at", { withTimezone: true }),
+    viewError: text("view_error"),
+    // The remedy the team's admins were last emailed about for this node, so
+    // a problem is emailed once, again only if it changes, and afresh after
+    // it clears.
+    remedyNotified: text("remedy_notified"),
   },
   (t) => [primaryKey({ columns: [t.orgId, t.node] })],
 );
