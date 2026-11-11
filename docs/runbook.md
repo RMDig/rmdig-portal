@@ -530,6 +530,12 @@ nodes send each alert, so a team can receive it twice; the alerts page shows it
 once ("delivered 2 times, one alert"). The endpoint stays up under the
 maintenance switch.
 
+- **Test messages** (`kind: "test"`, AvServ `sar_test_alert.md`; G2 item 3)
+  arrive like any message, signed by a node, with `alertId` `test:<testId>`, no
+  capability and no user or place. They're stored, accepted for a team that
+  isn't active yet (the checklist runs before Approve), kept off the Alerts
+  page, the map and every count, never emailed to members, and deleted 90 days
+  after they arrive. The activation checklist (F2) shows them.
 - **Keys:** one secret per node. `AVSERV_SAR_INTAKE_KEYS` (Vercel Production,
   sensitive) is packed `keyId:secret,keyId:secret`. Generate each secret with
   `openssl rand -hex 32` (32+ characters is enforced). The node's `.env` gets the
