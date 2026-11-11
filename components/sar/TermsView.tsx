@@ -1,5 +1,5 @@
 import type { SarCapabilitySetting } from "@/lib/db/schema";
-import { CAPABILITIES } from "@/lib/sar/terms-rules";
+import { CAPABILITIES, listsEmail } from "@/lib/sar/terms-rules";
 
 // A terms version as users will read it: the services in the app's plain
 // words, then the text exactly as written. Shared by the team's page and the
@@ -15,6 +15,10 @@ export function TermsView({ body, capabilities }: { body: string; capabilities: 
             <li key={c.name}>{c.label}</li>
           ))}
         </ul>
+        {/* [COUNSEL]: user-facing; the channels users accept (plan 33 9.10). */}
+        {listsEmail(capabilities) ? (
+          <p className="text-muted-foreground mt-1 text-sm">Alerts reach the team on rmdig and at its on-call email.</p>
+        ) : null}
       </div>
       <pre className="bg-muted max-h-96 overflow-auto rounded-md p-3 font-sans text-sm whitespace-pre-wrap">{body}</pre>
     </div>

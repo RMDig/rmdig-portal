@@ -20,6 +20,8 @@ const org = (o: Partial<SyncOrg> = {}): SyncOrg => ({
   leavingNoticeAt: null,
   regionName: "Summit County, CO",
   isDrill: false,
+  oncallEmail: null,
+  oncallEmailVerifiedAt: null,
   ...o,
 });
 const terms: SyncTerms = {
@@ -135,5 +137,27 @@ describe("planSync for a drill team (plan 37 §4.5)", () => {
       const plan = planSync(org(), area, terms, 1, now, supported);
       expect(plan.send && "drill" in plan.body).toBe(false);
     }
+  });
+});
+
+describe("the on-call email channel (plan 33 9.10)", () => {
+  const confirmed = { oncallEmail: "dispatch@summitrescue.org", oncallEmailVerifiedAt: new Date("2026-10-03T08:00:00Z") };
+  const byEmail: SyncTerms = { ...terms, capabilities: [{ name: "checkout_alerts", channels: ["portal", "email"] }] };
+
+  it("sends the confirmed address as an email channel next to the portal", () => {
+    const plan = planSync(org(confirmed), area, byEmail, 4, now);
+    expect(plan.send && plan.body.channels).toEqual([
+      { kind: "portal", verifiedAt: "2026-10-01T09:00:00.000Z" },
+      { kind: "email", address: "dispatch@summitrescue.org", verifiedAt: "2026-10-03T08:00:00.000Z" },
+    ]);
+  });
+
+  it("sends a confirmed address even under terms that don't list email yet", () => {
+    const plan = planSync(org(confirmed), area, terms, 4, now);
+    expect(plan.send && plan.body.channels.map((c) => c.kind)).toEqual(["portal", "email"]);
+  });
+
+  it("holds terms that send by email when no address is confirmed, rather than send a body AvServ refuses", () => {
+    expect(planSync(org(), area, byEmail, 4, now)).toEqual({ send: false, reason: "email_channel_missing" });
   });
 });
