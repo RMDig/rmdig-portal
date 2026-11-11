@@ -993,11 +993,10 @@ refuses them.
    the owner where.
 2. **Add a drill login** with the admin role, at a drill address
    (`you+drill1@rmdig.ai`). It's emailed "[DRILL] Set your password" with a
-   link (60 minutes; after that, **Forgot password** on the address). Sign in as it once
-   to set the password and two-factor. That first sign-in creates its AvServ
-   account as a drill account. If Sentry shows `avserv.map.drill_mismatch` or
-   `avserv.map.refused`, the address already holds a real AvServ account: use
-   another drill address (`you+drill2@rmdig.ai`) and tell AvServ.
+   link (60 minutes; after that, **Forgot password** on the address). Its drill
+   AvServ account is made when you add it. If the form says the address already
+   has a real AvAI account, use another drill address (`you+drill2@rmdig.ai`) and
+   tell AvServ. Sign in as it once to set the password and two-factor.
 3. **Terms:** as the drill login, write the team's terms on its Terms tab,
    saying it isn't a real team. Publish them from `/admin/sar-terms` as usual.
 4. **Activate drill team.** It takes both `rmdig_admin` and
@@ -1006,6 +1005,11 @@ refuses them.
    The sync sends `drill: true`, and holds the team ("Waiting for drill support
    on every node") until both nodes report sync revision 3. The AvServ lines on
    the card show each node.
+
+**Drill users** (plan 37 P7) are drill accounts with no team, for linking the
+DRILL build of AvAI. Add one under **Drill users** on the same page; it is made
+like a drill login, with its own drill AvServ account. Use a drill user, never a
+team's only drill login, for the erasure drill.
 
 **Suspend** and **Move back to pending** are on the same card. **Suspend…**
 opens a confirm first: after **Activate drill team** the page reloads with it in

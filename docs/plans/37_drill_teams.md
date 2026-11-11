@@ -331,10 +331,11 @@ What the portal builds (§5, P7b–P7f):
   CPA deletion can't wait on team membership. The no-admin check (`lib/sar/no-admin.ts`)
   stays as the backstop.
 
-Owner, to confirm with this plan: a drill user receives every email a real user would,
-at its plus address (security notices and its own alerts are part of what it tests), and
-none are left out. Then the drill run itself (runbook, written with P7b) waits on the
-AvApp drill build.
+**Owner, 2026-11-11, all as recommended:** (1) P7b makes the drill AvServ account when
+the login or user is created, not at first sign-in. (2) P7f warns and never refuses.
+(3) A drill user receives every email a real user would, at its plus address
+(security notices and its own alerts are part of what it tests), and none are left out.
+The drill run itself waits on the AvApp drill build.
 
 ## 5. PR sequence
 
@@ -351,7 +352,7 @@ reaches production before merge (§3.8).
 | P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Merged #212** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Merged #213** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
 | P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Merged #215** | AvServ rc118 live |
-| P7b | A drill AvServ account at creation, for drill logins and the new drill user (teamless); `account_drill_immutable` shown on the form; the drill-user email (§4.11) | Owner confirms this plan |
+| P7b | A drill AvServ account at creation, for drill logins and the new drill user (teamless); `account_drill_immutable` shown on the form; the drill-user email (§4.11). **Built 2026-11-11** (`lib/sar/drill-avserv-account.ts`, `createDrillUserAction`) | Owner confirmed 2026-11-11 |
 | P7c | `drill` parsed from link codes and lookup; a code across the line is never shown; the deletion lookup marks a drill account; mock | P7b |
 | P7d | Settings → Devices copy for a drill user | P7c |
 | P7e | Drill users left out of staff counts and exports | P7b |

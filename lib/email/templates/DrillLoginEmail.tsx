@@ -1,11 +1,12 @@
 import { Body, Container, Head, Heading, Hr, Html, Link, Preview, Section, Text } from "@react-email/components";
 
-// To a new drill login (plan 37 §4.2): staff created it, so nobody asked for a
-// reset. The ordinary reset email read as one ("We received a request to
+// To a new drill login (plan 37 §4.2), or a drill user with no team (§4.11):
+// staff created it, so nobody asked for a reset. The ordinary reset email read as one ("We received a request to
 // reset..."), which looked like a fault to the operator on 2026-11-10.
 
 export interface DrillLoginEmailProps {
-  teamName: string;
+  /** Null for a drill user, who belongs to no team. */
+  teamName: string | null;
   setPasswordUrl: string;
   expiresInMinutes: number;
 }
@@ -14,15 +15,23 @@ export default function DrillLoginEmail({ teamName, setPasswordUrl, expiresInMin
   return (
     <Html>
       <Head />
-      <Preview>{`DRILL: set the password for your ${teamName} login`}</Preview>
+      <Preview>{teamName ? `DRILL: set the password for your ${teamName} login` : "DRILL: set the password for your drill AvAI user"}</Preview>
       <Body style={body}>
         <Container style={container}>
           <Text style={tag}>DRILL</Text>
           <Heading style={heading}>Set your password</Heading>
-          <Text style={paragraph}>
-            RMDig staff created a drill login for this address on {teamName}, a drill team RMDig uses to test AvAI&apos;s
-            search and rescue alerts. It is not a real search and rescue team. Choose a password to sign in.
-          </Text>
+          {teamName ? (
+            <Text style={paragraph}>
+              RMDig staff created a drill login for this address on {teamName}, a drill team RMDig uses to test
+              AvAI&apos;s search and rescue alerts. It is not a real search and rescue team. Choose a password to sign
+              in.
+            </Text>
+          ) : (
+            <Text style={paragraph}>
+              RMDig staff created a drill AvAI user for this address, a test account RMDig uses with the DRILL build of
+              the AvAI app. It is not a real person&apos;s account. Choose a password to sign in.
+            </Text>
+          )}
           <Section style={buttonContainer}>
             <Link href={setPasswordUrl} style={button}>
               Set password
