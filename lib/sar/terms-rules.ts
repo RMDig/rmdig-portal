@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { FORBIDDEN_PUBLIC_PHRASES } from "../legal/compliance-copy";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 // Team terms rules (docs/plans/33; AvServ plan 41 §2.6; AvApp plan 47 §2.13).
 // Client-safe (no node imports): the editor runs the wording check as the
 // author types, and the server actions run the same checks before saving,
@@ -37,7 +39,11 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
   },
   {
     name: "named_to_contacts",
-    label: "Being named in a contact's alert when the team wasn't alerted",
+    label: "Being named in a contact's alert, with your public number",
+    // G3 (owner, 2026-11-11): the team's consent to be named in a contact's
+    // alert, whether or not the team was alerted too. AvServ checks it before
+    // the contact line names the team.
+    note: "Whether or not your team was also sent the alert.",
     message: false,
     offered: true,
   },

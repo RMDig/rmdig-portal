@@ -12,6 +12,8 @@ import {
 } from "@react-email/components";
 import { TEAM_ROLE_PHRASE, type TeamRole } from "../../labels";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 export interface OrgInviteEmailProps {
   orgName: string;
   inviteUrl: string;

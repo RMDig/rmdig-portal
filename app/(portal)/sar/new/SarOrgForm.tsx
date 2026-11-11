@@ -21,6 +21,8 @@ import { submitWithoutReset } from "@/components/forms/submit-without-reset";
 import { AreaEditor } from "../AreaEditor";
 import { ProofDocInput } from "../ProofDocInput";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createSarOrgAction, null);
