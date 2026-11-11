@@ -2,23 +2,21 @@ import { z } from "zod";
 
 import { env } from "../env";
 import type { SyncBody } from "../sar/sync-body";
+import { type AvServNode, parseNodeUrls } from "./node-list";
 import { AvServError, avservFetch, failureCode, isMock } from "./request";
+
+export type { AvServNode };
 
 // AvServ's SAR team endpoints (sar_team_sync.md §1–2). The portal sends every
 // change to EVERY node, never just one: each node keeps the highest revision,
 // and a node that missed a PUT also converges from its peer, but the portal
 // records each node's answer so staff can see a node that's behind.
 
-export interface AvServNode {
-  name: string;
-  baseUrl: string;
-}
-
-/** Both configured nodes (primary and failover), deduplicated. */
+/** Every node in AVSERV_NODE_URLS (lib/avserv/node-list.ts). The build
+ *  checks the list against the primary and failover; unset is no nodes, which
+ *  each caller reports loudly. */
 export function avservNodes(): AvServNode[] {
-  const urls = [env.AVSERV_BASE_URL, env.AVSERV_FAILOVER_BASE_URL].filter((u): u is string => !!u);
-  const unique = [...new Set(urls)];
-  return unique.map((baseUrl) => ({ name: isMock(baseUrl) ? "mock" : new URL(baseUrl).host, baseUrl }));
+  return parseNodeUrls(env.AVSERV_NODE_URLS);
 }
 
 const PutOk = z.object({

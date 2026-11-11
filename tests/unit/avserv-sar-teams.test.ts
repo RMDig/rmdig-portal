@@ -18,15 +18,23 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.AVSERV_FAILOVER_BASE_URL;
+  delete process.env.AVSERV_NODE_URLS;
 });
 
 describe("avservNodes", () => {
-  it("lists both nodes by host, once each", async () => {
+  it("lists every node in AVSERV_NODE_URLS by host, in order", async () => {
+    process.env.AVSERV_NODE_URLS = "https://avserv-2.example, https://avserv-3.example/";
     const { avservNodes } = await import("@/lib/avserv/sar-teams");
-    expect(avservNodes().map((n) => n.name)).toEqual(["avserv-2.example", "avserv-3.example"]);
-    vi.resetModules();
-    process.env.AVSERV_FAILOVER_BASE_URL = "https://avserv-2.example";
-    expect((await import("@/lib/avserv/sar-teams")).avservNodes()).toHaveLength(1);
+    expect(avservNodes()).toEqual([
+      { name: "avserv-2.example", baseUrl: "https://avserv-2.example" },
+      { name: "avserv-3.example", baseUrl: "https://avserv-3.example" },
+    ]);
+  });
+
+  it("is no nodes when unset, never a guess from the account URLs", async () => {
+    delete process.env.AVSERV_NODE_URLS;
+    const { avservNodes } = await import("@/lib/avserv/sar-teams");
+    expect(avservNodes()).toEqual([]);
   });
 });
 
