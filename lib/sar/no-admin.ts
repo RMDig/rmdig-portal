@@ -38,6 +38,39 @@ export async function teamHasAdmin(orgId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+export type SoleAdminTeam = { userId: string; orgId: string; name: string; isDrill: boolean };
+
+/** Live teams each of `userIds` is the only admin of, for the warning on the
+ *  erasure page (plan 37 §4.11, P7f; owner 2026-11-11). Warn only: a CPA
+ *  deletion never waits on a team role, and the daily check above catches the
+ *  team afterwards. */
+export async function soleAdminTeams(userIds: string[]): Promise<SoleAdminTeam[]> {
+  if (userIds.length === 0) return [];
+  return (await db.execute(sql`
+    SELECT m.user_id AS "userId", o.id AS "orgId", o.name, o.is_drill AS "isDrill"
+    FROM org_memberships m
+    JOIN sar_orgs o ON o.id = m.org_id
+    WHERE m.user_id IN (${sql.join(userIds.map((u) => sql`${u}`), sql`, `)})
+      AND m.role = 'admin'
+      AND o.status::text IN ${LIVE}
+      AND NOT EXISTS (
+        SELECT 1 FROM org_memberships m2 WHERE m2.org_id = m.org_id AND m2.role = 'admin' AND m2.user_id <> m.user_id
+      )
+    ORDER BY o.name
+  `)) as unknown as SoleAdminTeam[];
+}
+
+/** What the erasure page says about those teams. */
+export function soleAdminWarning(teams: Array<{ name: string; isDrill: boolean }>): string {
+  const names = teams.map((t) => (t.isDrill ? `${t.name} (drill team)` : t.name)).join(", ");
+  const one = teams.length === 1;
+  return (
+    `This account is the only admin of ${names}. Erasing it leaves ${one ? "that team" : "those teams"} with no admin, ` +
+    `so nobody can manage ${one ? "its" : "their"} members, terms or service area. Add another admin first if you can. ` +
+    "This doesn't hold up the erasure: the 45-day deadline still applies."
+  );
+}
+
 export interface NoAdminRunSummary {
   teams: number;
   sent: number;
