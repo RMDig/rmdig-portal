@@ -18,7 +18,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendDrillLoginEmail, sendSarAlertNotifyEmail, sendSarAreaChangedEmail } from "@/lib/email/send";
+import { sendDrillLoginEmail, sendOncallEmailConfirmEmail, sendSarAlertNotifyEmail, sendSarAreaChangedEmail } from "@/lib/email/send";
 
 const subject = () => (h.send.mock.calls.at(-1)![0] as { subject: string }).subject;
 const alert = { teamName: "AvAI Drill Team", kind: "overdue" as const, fromAreaUser: false, alertsUrl: "https://rmdig.ai/sar/o/alerts" };
@@ -37,6 +37,17 @@ describe("drill email subjects", () => {
     expect(sent.html).toContain("https://app.rmdig.ai/reset-password?token=t");
     expect(sent.html).toContain("not a real search and rescue team");
     expect(sent.html).not.toContain("We received a request");
+  });
+
+  it("marks a drill team's on-call confirmation, and never a real team's (plan 33 9.10)", async () => {
+    const params = { teamName: "AvAI Drill Team", confirmUrl: "https://app.rmdig.ai/oncall-verify?token=x", expiresInHours: 24, drill: true };
+    await sendOncallEmailConfirmEmail("dennys+drill1@rmdig.ai", params);
+    expect(subject()).toBe("[DRILL] Confirm the on-call email for AvAI Drill Team");
+    await sendOncallEmailConfirmEmail("dispatch@summitrescue.org", { ...params, teamName: "Summit SAR", drill: false });
+    expect(subject()).toBe("Confirm the on-call email for Summit SAR");
+    const html = (h.send.mock.calls.at(-1)![0] as { html: string }).html;
+    expect(html).toContain("https://app.rmdig.ai/oncall-verify?token=x");
+    expect(html).toContain("Review and confirm");
   });
 
   it("words a drill user's email for a person with no team", async () => {

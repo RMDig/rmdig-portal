@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
 import { TermsView } from "@/components/sar/TermsView";
@@ -6,9 +6,10 @@ import { auth } from "@/lib/auth";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
 import { canManageOrg } from "@/lib/auth/org-roles";
 import { db } from "@/lib/db";
-import { sarOrgs, sarOrgTerms } from "@/lib/db/schema";
-import type { CapabilityName } from "@/lib/sar/terms-rules";
+import { sarOncallEmailVerifications, sarOrgs, sarOrgTerms } from "@/lib/db/schema";
+import { listsEmail, type CapabilityName } from "@/lib/sar/terms-rules";
 
+import { OncallEmailCard } from "./OncallEmailCard";
 import { TermsEditor } from "./TermsEditor";
 import { formatMountainDate } from "@/lib/format/time";
 import { TEAM_STATUS_LABEL } from "@/lib/labels";
@@ -23,8 +24,19 @@ export default async function TermsPage({ params }: { params: Promise<{ orgId: s
   if (!session?.user?.id) return redirectToSignIn();
   if (!/^[0-9a-f-]{36}$/i.test(orgId) || !(await canManageOrg(session.user.id, orgId))) redirect("/dashboard");
 
-  const [org] = await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
+  const [org] = await db
+    .select({ name: sarOrgs.name, status: sarOrgs.status, oncallEmail: sarOrgs.oncallEmail })
+    .from(sarOrgs)
+    .where(eq(sarOrgs.id, orgId))
+    .limit(1);
   if (!org) redirect("/dashboard");
+  // The address waiting to be confirmed, if its link hasn't expired.
+  const [pending] = await db
+    .select({ address: sarOncallEmailVerifications.address })
+    .from(sarOncallEmailVerifications)
+    .where(and(eq(sarOncallEmailVerifications.orgId, orgId), isNull(sarOncallEmailVerifications.confirmedAt), gt(sarOncallEmailVerifications.expires, new Date())))
+    .orderBy(desc(sarOncallEmailVerifications.createdAt))
+    .limit(1);
 
   const versions = await db.select().from(sarOrgTerms).where(eq(sarOrgTerms.orgId, orgId)).orderBy(desc(sarOrgTerms.createdAt));
   const published = versions.filter((v) => v.status === "published").sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
@@ -43,6 +55,14 @@ export default async function TermsPage({ params }: { params: Promise<{ orgId: s
           review every version before it&apos;s published.
         </p>
       </div>
+
+      <OncallEmailCard
+        orgId={orgId}
+        current={org.oncallEmail}
+        pending={pending?.address ?? null}
+        termsListEmail={current ? listsEmail(current.capabilities) : false}
+        editable={editable}
+      />
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Published</h2>

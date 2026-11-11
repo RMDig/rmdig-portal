@@ -50,6 +50,7 @@ describe("deleteExpiredRows", () => {
       org_invitations: [{}],
       platform_role_invitations: [{}],
       advertiser_invitations: [{}, {}],
+      sar_oncall_email_verifications: [{}],
       rate_limits: [{}, {}, {}],
     };
     expect(await deleteExpiredRows(NOW)).toEqual({
@@ -58,6 +59,7 @@ describe("deleteExpiredRows", () => {
       verificationTokens: 0,
       unconfirmedDeletionRequests: 1,
       unacceptedInvitations: 4,
+      unconfirmedOncallLinks: 1,
       rateLimits: 3,
     });
   });
@@ -71,6 +73,13 @@ describe("deleteExpiredRows", () => {
     expect(at("password_reset_tokens")).toEqual([graceCut]);
     expect(at("verification_tokens")).toEqual([graceCut]);
     expect(at("rate_limits")).toEqual([graceCut]);
+  });
+
+  it("deletes only unconfirmed on-call links past the grace period: a confirmed one is the record", async () => {
+    await deleteExpiredRows(NOW);
+    const q = query("sar_oncall_email_verifications");
+    expect(q.sql).toMatch(/"confirmed_at" is null and "sar_oncall_email_verifications"\."expires" < \$1/);
+    expect(new Date(q.params[0] as string).toISOString()).toBe(new Date(NOW.getTime() - GRACE_DAYS * 86_400_000).toISOString());
   });
 
   it("deletes only unconfirmed deletion requests: a confirmed one is the CPA record", async () => {

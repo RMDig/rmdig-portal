@@ -278,6 +278,33 @@ admins edit them at `/sar/<orgId>/terms`; **rmdig admins** review them at
 - **Publishing sends the team to AvServ** with its new terms version (see SAR
   team sync to AvServ).
 
+### On-call email (plan 33 9.10)
+
+AvServ emails each team's confirmed on-call address directly with every alert
+whose terms list `email`, alongside the portal channel (AvServ
+`sar_team_sync.md` §5.5). Owner decision G1 (2026-11-11): a team has one
+before its first terms.
+
+- **Setting it:** a team admin enters it in **On-call email** on the team's
+  Terms page. A link goes to that address (24 hours, 5 a day per team). Opening
+  it shows a **Confirm this address** button, with no sign-in, since it's usually
+  a shared dispatch inbox. The page alone changes nothing, so a mail scanner
+  that opens links can't confirm it. Confirming syncs the team.
+- **Changing it:** the current address keeps receiving alerts until the new one
+  is confirmed. There is no "remove": published terms that list email need it.
+- **Terms:** a team can't submit terms until the address is confirmed. Versions
+  submitted after that list `portal` and `email` for every alert service, and a
+  version that adds email makes users accept again. Staff publish refuses a
+  version that lists email without a confirmed address, and the sync holds such
+  a team ("the terms send by email, but the team has no confirmed on-call
+  email") rather than send AvServ a body it refuses.
+- **Bounces** show in each node's `channelStatus` (F4 adds them to the team page).
+  AvServ pages its own on-call for them (`SARTeamEmailBounced`).
+- **Records:** `sar_orgs.oncall_email` and `oncall_email_verified_at`; each
+  request in `sar_oncall_email_verifications` (who asked, when it was
+  confirmed). Unconfirmed links are deleted a week after they expire
+  (`/api/cron/expired-rows`).
+
 ## AvServ checks
 
 **Admin → AvServ checks** (`/admin/avserv-checks`, rmdig admins) makes one harmless

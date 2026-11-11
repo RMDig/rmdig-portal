@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { requiresReacceptance, termsSha256 } from "@/lib/sar/terms";
-import { CAPABILITIES, capabilitySettings, termsDraftSchema, termsWordingProblems, unofferedCapabilities } from "@/lib/sar/terms-rules";
+import { CAPABILITIES, capabilitySettings, listsEmail, termsDraftSchema, termsWordingProblems, unofferedCapabilities } from "@/lib/sar/terms-rules";
 
 // Team terms (docs/plans/33; AvServ plan 41; AvApp plan 47 §2.13).
 
@@ -40,11 +40,21 @@ describe("termsDraftSchema", () => {
 
 describe("capabilitySettings", () => {
   it("gives message services the portal channel and the rest none", () => {
-    expect(capabilitySettings(["send_help_area", "area_map", "checkout_alerts"])).toEqual([
+    expect(capabilitySettings(["send_help_area", "area_map", "checkout_alerts"], { email: false })).toEqual([
       { name: "checkout_alerts", channels: ["portal"] },
       { name: "send_help_area", channels: ["portal"] },
       { name: "area_map", channels: [] },
     ]);
+  });
+
+  it("adds the on-call email to every message service once it's confirmed (plan 33 9.10), never to the rest", () => {
+    const settings = capabilitySettings(["checkout_alerts", "named_to_contacts"], { email: true });
+    expect(settings).toEqual([
+      { name: "checkout_alerts", channels: ["portal", "email"] },
+      { name: "named_to_contacts", channels: [] },
+    ]);
+    expect(listsEmail(settings)).toBe(true);
+    expect(listsEmail(capabilitySettings(["checkout_alerts"], { email: false }))).toBe(false);
   });
 
   it("doesn't offer Incident Detection alerts or the area map yet", () => {
