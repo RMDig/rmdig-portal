@@ -1,36 +1,66 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "../db";
-import { orgMemberships, sarOrgs, sarOrgTerms } from "../db/schema";
+import { orgMemberships, sarOrgTerms } from "../db/schema";
 import type { ActivationFacts } from "./activation-checklist-rules";
 import { LARGE_AREA_KM2 } from "./area-checks";
-import { testAlertFact } from "./test-alert";
+import { latestTestAlerts, testAlertFact, type TestAlertRow } from "./test-alert";
 
 // The facts behind a real team's activation checklist (plan 33 §6.9 G2;
 // rules in lib/sar/activation-checklist-rules.ts).
 
-/** The checks the portal can make itself, read fresh at Approve. */
-export async function activationFacts(orgId: string): Promise<ActivationFacts> {
-  const [org] = await db.select({ oncallEmailVerifiedAt: sarOrgs.oncallEmailVerifiedAt }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
-  const members = await db.select({ role: orgMemberships.role }).from(orgMemberships).where(eq(orgMemberships.orgId, orgId));
-  const [terms] = await db
-    .select({ version: sarOrgTerms.version })
-    .from(sarOrgTerms)
-    .where(and(eq(sarOrgTerms.orgId, orgId), eq(sarOrgTerms.status, "published")))
-    .orderBy(desc(sarOrgTerms.version))
-    .limit(1);
-  const [area] = (await db.execute(sql`
-    SELECT ST_Area(region_geom) / 1e6 AS km2 FROM sar_orgs WHERE id = ${orgId}
-  `)) as unknown as Array<{ km2: number | null }>;
-  const areaKm2 = area?.km2 == null ? null : Number(area.km2);
-  return {
-    oncallEmailVerified: !!org?.oncallEmailVerifiedAt,
-    members: members.length,
-    admins: members.filter((m) => m.role === "admin").length,
-    publishedTermsVersion: terms?.version ?? null,
-    areaKm2,
-    largeArea: areaKm2 !== null && areaKm2 > LARGE_AREA_KM2,
-    testAlert: await testAlertFact(orgId, new Date()),
-  };
+export interface ActivationView {
+  facts: ActivationFacts;
+  /** The latest test's rows, which the approvals row shows per node. */
+  testAlert: TestAlertRow[];
 }
 
+/** The checks the portal can make itself, for any number of teams in a fixed
+ *  number of queries (the approvals queue reads every pending team on one
+ *  connection, lib/db). A team id that doesn't exist is absent. */
+export async function activationViews(orgIds: string[], now: Date): Promise<Map<string, ActivationView>> {
+  const out = new Map<string, ActivationView>();
+  if (orgIds.length === 0) return out;
+  const ids = sql.join(orgIds.map((id) => sql`${id}::uuid`), sql`, `);
+  const orgs = (await db.execute(sql`
+    SELECT id, oncall_email_verified_at IS NOT NULL AS verified, ST_Area(region_geom) / 1e6 AS km2
+    FROM sar_orgs WHERE id IN (${ids})
+  `)) as unknown as Array<{ id: string; verified: boolean; km2: number | string | null }>;
+  const members = await db
+    .select({ orgId: orgMemberships.orgId, role: orgMemberships.role })
+    .from(orgMemberships)
+    .where(inArray(orgMemberships.orgId, orgIds));
+  const terms = await db
+    .select({ orgId: sarOrgTerms.orgId, version: sql<number>`max(${sarOrgTerms.version})` })
+    .from(sarOrgTerms)
+    .where(and(inArray(sarOrgTerms.orgId, orgIds), eq(sarOrgTerms.status, "published")))
+    .groupBy(sarOrgTerms.orgId);
+  const tests = await latestTestAlerts(orgIds);
+
+  for (const o of orgs) {
+    const mine = members.filter((m) => m.orgId === o.id);
+    const areaKm2 = o.km2 == null ? null : Number(o.km2);
+    const version = terms.find((t) => t.orgId === o.id)?.version;
+    const testAlert = tests.get(o.id) ?? [];
+    out.set(o.id, {
+      facts: {
+        oncallEmailVerified: o.verified,
+        members: mine.length,
+        admins: mine.filter((m) => m.role === "admin").length,
+        publishedTermsVersion: version == null ? null : Number(version),
+        areaKm2,
+        largeArea: areaKm2 !== null && areaKm2 > LARGE_AREA_KM2,
+        testAlert: testAlertFact(testAlert, now),
+      },
+      testAlert,
+    });
+  }
+  return out;
+}
+
+/** One team's facts, read fresh at Approve. */
+export async function activationFacts(orgId: string): Promise<ActivationFacts> {
+  const view = (await activationViews([orgId], new Date())).get(orgId);
+  if (!view) throw new Error(`activationFacts: no SAR org ${orgId}`);
+  return view.facts;
+}
