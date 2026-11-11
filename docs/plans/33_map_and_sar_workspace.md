@@ -8,6 +8,10 @@
 >
 > **Revision 2 (2026-11-04):** the owner's SAR check-out-partner decisions D1–D9 and the
 > portal's +9 PR sequence (§6).
+>
+> **Revision 3 (2026-11-11):** AvServ's wire is built (every node reports
+> `syncRevision` 3), and the owner's decisions for the first real teams, G1–G3 and
+> three more, set a first-team gate and reorder the remaining work (§6.9).
 
 ## 1. Owner decisions (2026-10-03)
 
@@ -240,10 +244,11 @@ Rules that come from the reviews:
 
 ## 6. +9: SAR check-out partners
 
-Wire names are AvServ's PROPOSED 2026-11-04, unbuilt contracts: `sar_team_sync.md` §5
-(sync revision 2), `sar_terms.md` §6 (approvals), `sar_feeds.md` §2a (ORANGE v1); the
-server side is AvServ plan 41 §17. Nothing ships to real teams until counsel lands the
-[COUNSEL] items.
+The wire is AvServ's, now built: `sar_team_sync.md` §5 (sync revision 2: R5, R6,
+R12; team email R4b, R4c), `sar_terms.md` §6 (approvals) and `sar_feeds.md` §2a (ORANGE
+v1); every node reports `syncRevision` 3 (2026-11-09, plan 37). The server side is AvServ
+plan 41 §17. Nothing ships to real teams until counsel lands the [COUNSEL] items and
+the first-team gate (§6.9) is met.
 
 ### 6.1 Decisions (owner, 2026-11-04)
 
@@ -279,11 +284,16 @@ Final; they override plan 34, AvApp plan 47 and AvServ plan 41 where those confl
   immutable, so a published version carrying it needs a remove-only successor
   (`requiresReacceptance: false`) before revision 2 reaches production. None exists
   (checked 2026-11-06); staff publish now refuses any version naming it.
-- **D9.** The `email` channel carries the on-call `address`. AvServ `origin/main`
-  accepts it (`internal/api/sarteams.go:385`) but doesn't dispatch it (B1); revision 2
-  does (§5.5), with bounces in `channelStatus` (`bouncedAt`).
+- **D9.** The `email` channel carries the on-call `address`. AvServ dispatches it on
+  both nodes (§5.5, R4b), and reports a bounce or spam complaint in `channelStatus` as
+  `{"kind": "email", "bouncedAt" | "complainedAt"}` (R4c), which the portal reads
+  since #223.
 
 ### 6.2 Version gate
+
+**Met, 2026-11-09:** every node reports `syncRevision` 3 (the capabilities gate,
+`lib/avserv/sar-capabilities.ts`, reads it). The rule stays: a field of a later
+revision is sent only once every node reports it.
 
 The portal sends **any** §5 field (`acceptanceMode`, `maxActiveCheckouts`,
 `publicPhone`, `contactLineName`) only once **every** node's `GET` reports
@@ -351,10 +361,10 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email. **Built 2026-11-06:** `saveAreaAction`, migration 0035 `sar_org_area_log`, "Service area" tab for approved teams; a pending team still changes its area by resubmitting | 9.3 |
 | 9.5 | Overlap (clip preview) and large-area warnings. **Built 2026-11-06** on `/sar/[orgId]/area` (`checkAreaAction`, `AreaWarnings`): size, overlapping teams by name, "use the area without the overlap", and the O8 threshold `LARGE_AREA_KM2` = 12,361.85 km² (Census 2024 Gazetteer, Las Animas, GEOID 08071). `/sar/new` and resubmit still show none: they move to the one editor with 9.6 | 9.4 |
 | 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe. **Built 2026-11-07:** one `AreaEditor` (map plus corner-points table, each filling the other) on `/sar/new`, resubmit and `/sar/[orgId]/area`; the check (`area-check-action.ts`) runs on all three, naming other teams and offering the clip only to an approved team's admins; create and resubmit now refuse an area AvServ would refuse; the `NEXT_PUBLIC_E2E` GeoJSON box is gone, and the e2e types the area into the table (`sar-area-keyboard.mock.spec.ts`, axe on the editor) | 9.4 |
-| 9.7 | `acceptanceMode`, `maxActiveCheckouts` | §6.2 gate |
+| 9.7 | `acceptanceMode`, `maxActiveCheckouts` | None (§6.2 gate met) |
 | 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
-| 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | §6.2 gate; [COUNSEL]; A2P 38a re-filing |
-| 9.10 | On-call `email` channel: add, verify by link, re-verify on change | AvServ dispatches `email` on both nodes |
+| 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | [COUNSEL]; A2P 38a re-filing (§6.2 gate met) |
+| 9.10 | On-call `email` channel: add, verify by link, re-verify on change. **First-team gate (G1, §6.9)** | None (AvServ dispatches `email` on both nodes, R4b) |
 | 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | Vercel Pro (O7) |
 | 9.12 | Reachability; no-ack escalation (once per alert) | 9.10, 9.11; N [ESCALATE] |
 | 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back). **Built 2026-11-06:** team admins emailed on suspend/reactivate (no staff note); no-admin banner on the team pages and a daily approver email (`/api/cron/sar-no-admin`); what staff then do stays [ESCALATE] | None |
@@ -403,3 +413,60 @@ All four decided by the owner on 2026-11-05.
   Animas County's land area, about 12,400 km². 9.5 computes the exact figure from the
   Census TIGER/Gazetteer data. Other anchors, for reference: Broomfield 85 km² (smallest
   county), San Juan 1,000, Summit 1,600, Gunnison 8,400, Colorado 270,000.
+
+### 6.9 The first real teams (2026-11-11)
+
+AvServ's review (plan 41 §17.12a, owner decisions G1–G5; §17.14, what is left by repo)
+and the owner's answers, 2026-11-11. The owner wants the first teams as soon as this is
+ready, so the work is reordered around a gate.
+
+**Decisions:**
+
+- **G1. Team email is a gate.** The on-call email channel (9.10) ships before any real
+  team publishes terms: adding a channel later forces every user to re-accept.
+- **G2. The activation checklist**, for every team, before Approve. Each answer is
+  recorded in the approval log:
+  1. A call-back on the team's publicly listed number (today the runbook asks it of
+     patrols only).
+  2. A verified portal channel and a verified on-call email, with at least two members,
+     one of them an admin.
+  3. A portal test alert that a member marks received on both paths.
+  4. Terms carry counsel's floor clauses, and the area raises no unresolved large-area
+     warning.
+  5. Every answer recorded in the approval log.
+
+  The beta (3–5 teams) takes one reviewer, logged "beta, single review". A second,
+  independent reviewer is required before general release, and re-reviews each beta
+  team.
+- **G3. `named_to_contacts`** is the team's consent to be named in a contact's alert, in
+  both variants. Still offered, relabelled "Being named in a contact's alert, with your
+  public number". AvServ checks it before the contact line goes on.
+- **Leaving is self-serve.** A team's admin may give its leaving notice and undo it,
+  until staff withdraw the team; staff keep both. Leaving is already a sink on AvServ
+  (`sar_team_sync.md` §4): no new offers or binds, and check-outs already bound keep
+  the team, and its alerts, until each ends. Undo sends `approved` again.
+- **Erasure reaches the portal's copies.** Today an erasure leaves the portal's
+  `sar_intake_messages` rows for the account's alerts, which carry the user's name and
+  last fix, until retention removes them (90 days after the alert ends; an alert that
+  never ends is kept). The erasure deletes them, found by the alert ids in AvServ's share
+  log for the account. Counsel is told either way.
+- **Vercel Pro (O7):** the owner upgrades now, so 9.11 can follow.
+
+**Order.** First-team gate (F), then the rest. Each is its own PR.
+
+| ID | Scope | Waits on |
+|---|---|---|
+| F0 | `channelStatus` reads an email channel's bounce (#223): the first bounce would have blocked Withdraw and the AvServ checks | None |
+| F1 | 9.10, the on-call email channel: add, verify by link, re-verify on change, sync | None |
+| F2 | G2: the five checklist answers in the approval flow and log, "beta, single review", and the runbook | F1 (item 2 checks the email channel) |
+| F3 | G3's label, and a [COUNSEL] marking on every team-facing string (alert, status and terms-decision emails, onboarding) | None |
+| F4 | §17.13 recovery: parse `remedy`, `waitingAlerts`, `activeCheckouts`, `overCapacity`, `syncRevision`, `drill`; show each node's remedy on the team page; email the team's admins when a node reports it unusable, with the remedy and the waiting count | None |
+| F5 | Leaving: the team gives and undoes its own notice | None |
+| F6 | Erasure deletes the portal's intake copies of the account's alerts | None |
+| — | 9.11 per-node sync retry and minute-level notify retry, so F4's "resync" holds; the cron watch learns sub-daily schedules | Vercel Pro |
+| — | 9.7 `acceptanceMode`, `maxActiveCheckouts` | None |
+| — | Every node: a node list, not two URLs (withdraw check, capabilities gate, PUTs, acks, RED reads) | avserv-1's URL and timing (AvServ) |
+| — | Intake hardening: an `X-AvAI-Key-Id` must belong to its `X-AvAI-Node` | AvServ's key-id naming |
+
+The first real team is approved once F1–F6 are merged, counsel's floor clauses and
+[COUNSEL] strings are in, and the team passes G2.
