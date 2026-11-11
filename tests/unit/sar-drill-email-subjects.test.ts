@@ -39,6 +39,14 @@ describe("drill email subjects", () => {
     expect(sent.html).not.toContain("We received a request");
   });
 
+  it("words a drill user's email for a person with no team", async () => {
+    await sendDrillLoginEmail("dennys+drill2@rmdig.ai", { teamName: null, setPasswordUrl: "https://app.rmdig.ai/reset-password?token=u" });
+    const sent = h.send.mock.calls.at(-1)![0] as { subject: string; html: string };
+    expect(sent.subject).toBe("[DRILL] Set your password: drill AvAI user");
+    expect(sent.html).toContain("DRILL build");
+    expect(sent.html).not.toContain("drill team");
+  });
+
   it("puts [DRILL] first on a drill team's alert email, and never on a real one", async () => {
     await sendSarAlertNotifyEmail("ops+drill1@rmdig.ai", { ...alert, drill: true });
     expect(subject()).toBe("[DRILL] AvAI alert for AvAI Drill Team: missed check-in");

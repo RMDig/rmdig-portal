@@ -33,7 +33,7 @@ export function DrillLoginForm({ orgId }: { orgId: string }) {
             name="email"
             type="email"
             required
-            placeholder="ops+drill1@rmdig.ai"
+            placeholder="name+drill1@rmdig.ai"
             aria-invalid={!!emailError}
             aria-describedby={emailError ? `${id}-email-error` : undefined}
           />

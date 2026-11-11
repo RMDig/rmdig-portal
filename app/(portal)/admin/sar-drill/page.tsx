@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -14,6 +14,7 @@ import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
 
 import { DrillDecisions } from "./DrillDecisions";
 import { DrillLoginForm } from "./DrillLoginForm";
+import { DrillUserForm } from "./DrillUserForm";
 
 export const metadata = {
   title: "Drill teams — rmdig admin",
@@ -49,6 +50,13 @@ export default async function DrillTeamsPage() {
         .where(inArray(orgMemberships.orgId, teams.map((t) => t.id)))
         .orderBy(asc(users.email))
     : [];
+  // Drill users (P7b): drill accounts with no team, for the AvApp drill build.
+  const drillUsers = await db
+    .select({ email: users.email, passwordSet: users.emailVerified, createdAt: users.createdAt })
+    .from(users)
+    .leftJoin(orgMemberships, eq(orgMemberships.userId, users.id))
+    .where(and(eq(users.isDrill, true), isNull(orgMemberships.userId)))
+    .orderBy(asc(users.email));
   const syncs = teams.length ? await db.select().from(sarOrgSync).where(inArray(sarOrgSync.orgId, teams.map((t) => t.id))) : [];
   const takesLogins = (status: string) => status !== "rejected" && status !== "withdrawn";
   const syncDetail = (s: (typeof syncs)[number]) =>
@@ -130,6 +138,31 @@ export default async function DrillTeamsPage() {
           ))}
         </ul>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Drill users</CardTitle>
+          <CardDescription>
+            Drill accounts with no team, for linking the DRILL build of AvAI (plan 37 P7). Never erase a team&apos;s
+            only drill login; use a drill user for the erasure drill.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {drillUsers.length ? (
+            <ul className="space-y-1 text-sm">
+              {drillUsers.map((u) => (
+                <li key={u.email}>
+                  {u.email} · added {formatMountainDate(u.createdAt)}
+                  {u.passwordSet ? "" : " · password not set yet"}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm">None yet.</p>
+          )}
+          <DrillUserForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }
