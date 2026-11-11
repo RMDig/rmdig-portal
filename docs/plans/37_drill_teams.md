@@ -354,9 +354,9 @@ reaches production before merge (§3.8).
 | P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Merged #215** | AvServ rc118 live |
 | P7b | A drill AvServ account at creation, for drill logins and the new drill user (teamless); `account_drill_immutable` shown on the form; the drill-user email (§4.11). **Built 2026-11-11** (`lib/sar/drill-avserv-account.ts`, `createDrillUserAction`) | Owner confirmed 2026-11-11 |
 | P7c | `drill` parsed from link codes and lookup; a code across the line is never shown; the deletion lookup marks a drill account; mock. **Built 2026-11-11** (`mintDeviceLinkCodeAction`, `avserv.linkcode.drill_mismatch`) | P7b |
-| P7d | Settings → Devices copy for a drill user | P7c |
-| P7e | Drill users left out of staff counts and exports | P7b |
-| P7f | The erasure page warns when the user is a live team's only admin | None |
+| P7d | Settings → Devices copy for a drill user. **Built 2026-11-11** (`DRILL_LINK_NOTE` in `LinkDeviceCard`) | P7c |
+| P7e | Drill users left out of staff counts and exports. **Nothing to change, 2026-11-11:** the portal has no staff user count or export today (the admin pages count teams, ads and requests). Any added later leaves out `is_drill` users | P7b |
+| P7f | The erasure page warns when the user is a live team's only admin. **Built 2026-11-11** (`soleAdminTeams`, `soleAdminWarning` in `lib/sar/no-admin.ts`) | None |
 | P7 run | Operator: create `dennys+drill2@rmdig.ai`, link the AvApp drill build, then drill sign-out, consent, the teams list, area share and erasure (runbook, written with P7b) | P7b–P7d; the AvApp drill build |
 
 **Operator, after P6 and AvServ rc116 (both done 2026-11-10; all four steps done 2026-11-11):**
