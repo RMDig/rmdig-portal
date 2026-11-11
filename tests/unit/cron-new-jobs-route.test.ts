@@ -13,6 +13,8 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/env", () => ({ env: h.env }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+// Recording a success for the cron watch is tested in cron-watch.test.ts.
+vi.mock("@/lib/cron/record", () => ({ recordCronSuccess: vi.fn(), cronWatchMissed: vi.fn(async () => false) }));
 vi.mock("@sentry/nextjs", () => h.sentry);
 vi.mock("@/lib/sar/alert-notify", () => ({ retryAlertNotifications: h.retry }));
 vi.mock("@/lib/deletion/clock", () => ({ runDeletionClock: h.clock }));

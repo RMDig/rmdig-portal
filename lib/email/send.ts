@@ -17,6 +17,7 @@ import CollectionSignupEmail, {
 } from "./templates/CollectionSignupEmail";
 import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
+import CronWatchStaffEmail, { type CronWatchStaffEmailProps } from "./templates/CronWatchStaffEmail";
 import DeletionClockEmail, { type DeletionClockEmailProps } from "./templates/DeletionClockEmail";
 import DrillLoginEmail from "./templates/DrillLoginEmail";
 import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
@@ -186,6 +187,17 @@ export async function sendSarNoAdminStaffEmail(to: string, params: SarNoAdminSta
     to,
     subject: params.teams.length === 1 ? `SAR team with no admin: ${params.teams[0]!.name}` : `${params.teams.length} SAR teams have no admin`,
     html: render(SarNoAdminStaffEmail(params)),
+  });
+}
+
+/** To rmdig admins, daily, while a scheduled job hasn't run (lib/cron/watch.ts). */
+export async function sendCronWatchStaffEmail(to: string, params: CronWatchStaffEmailProps): Promise<void> {
+  await deliver({
+    kind: "cron_watch",
+    label: "cron-watch",
+    to,
+    subject: params.jobs.length === 1 ? `Scheduled job didn't run: ${params.jobs[0]!.path}` : `${params.jobs.length} scheduled jobs didn't run`,
+    html: render(CronWatchStaffEmail(params)),
   });
 }
 

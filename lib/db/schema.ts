@@ -1344,3 +1344,13 @@ export const announcementLog = pgTable(
   },
   (t) => [index("announcement_log_announcement_id_idx").on(t.announcementId)],
 );
+
+// Each scheduled job's last successful run (lib/cron/watch.ts). The cron watch
+// reads it once a day to catch a job that stopped running, so the portal needs
+// only one Sentry cron monitor (the watch's own). watched_since is when the
+// watch first knew of the job, so a job added today isn't called late.
+export const cronRuns = pgTable("cron_runs", {
+  job: text("job").primaryKey(),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  watchedSince: timestamp("watched_since", { withTimezone: true }).defaultNow().notNull(),
+});
