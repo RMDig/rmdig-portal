@@ -22,10 +22,16 @@ function formatExpiry(iso: string): string {
   return formatMountain(date);
 }
 
+/** Said to a drill user only (plan 37 §4.11, P7d). AvServ refuses the rest
+ *  (`409 link_drill_mismatch`, contract rev 16 §4.2): a phone already holding
+ *  trips, contacts or another device can't join a drill account. */
+export const DRILL_LINK_NOTE =
+  "This is a drill account. Link only the DRILL build of the AvAI app, from a fresh install: a phone that already has trips, contacts or another account on it can't join a drill account.";
+
 // `devices` is the page's current list (null when it couldn't load). While a
 // code is showing, the card re-renders the page every few seconds so a phone
 // that redeems the code appears without a manual reload, then stops and says so.
-export function LinkDeviceCard({ devices }: { devices: DeviceSummary[] | null }) {
+export function LinkDeviceCard({ devices, drill }: { devices: DeviceSummary[] | null; drill: boolean }) {
   const [state, formAction, pending] = useActionState(mintDeviceLinkCodeAction, null);
   // Each code uses one of the 10 a day: a double click mustn't make two.
   const singleSubmit = useSingleSubmit(pending);
@@ -63,6 +69,11 @@ export function LinkDeviceCard({ devices }: { devices: DeviceSummary[] | null })
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {drill ? (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+            {DRILL_LINK_NOTE}
+          </p>
+        ) : null}
         {linked ? (
           <div className="rounded-md bg-green-50 px-4 py-3 text-sm text-green-900 dark:bg-green-900/20 dark:text-green-200">
             Your {linked.platform} device is linked. It&apos;s in the list above.

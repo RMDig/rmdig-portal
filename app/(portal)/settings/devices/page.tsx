@@ -28,7 +28,7 @@ export default async function DevicesPage() {
   }
 
   const [user] = await db
-    .select({ avservAccountId: users.avservAccountId })
+    .select({ avservAccountId: users.avservAccountId, isDrill: users.isDrill })
     .from(users)
     .where(eq(users.id, session.user.id))
     .limit(1);
@@ -100,6 +100,7 @@ export default async function DevicesPage() {
       )}
       <LinkDeviceCard
         devices={devices?.devices.map((d) => ({ deviceId: d.deviceId, platform: d.platform })) ?? null}
+        drill={user.isDrill}
       />
     </div>
   );

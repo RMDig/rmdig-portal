@@ -1,4 +1,6 @@
 import { checkDeviceAdminKeyConfig, checkErasureKeyConfig, checkServiceKeyConfig } from "../lib/avserv/service-key";
+import { checkNodeListConfig } from "../lib/avserv/node-list";
+import { checkIntakeKeyConfig } from "../lib/sar/intake";
 import { checkSarPayloadKeyConfig } from "../lib/sar/payload-seal";
 
 // Runs before `next build` on Vercel (package.json "vercel-build"). When the
@@ -74,4 +76,35 @@ console.log(
   sarPayload.status === "ok"
     ? `check-service-key: SAR payload key ${sarPayload.current} loads.`
     : "check-service-key: SAR intake not configured, skipping its payload key.",
+);
+
+// The SAR intake keys and their nodes (AvServ, 2026-11-11): each key must
+// name the node that signs with it, or intake refuses every alert.
+const intakeKeys = checkIntakeKeyConfig({
+  AVSERV_SAR_INTAKE_KEYS: process.env.AVSERV_SAR_INTAKE_KEYS,
+  AVSERV_SAR_INTAKE_KEY_NODES: process.env.AVSERV_SAR_INTAKE_KEY_NODES,
+});
+if (intakeKeys.status === "error") {
+  console.error(`check-service-key: ${intakeKeys.error}`);
+  process.exit(1);
+}
+console.log(
+  intakeKeys.status === "ok"
+    ? `check-service-key: ${intakeKeys.keys} SAR intake key(s) load, each bound to its node.`
+    : "check-service-key: SAR intake not configured, skipping its key nodes.",
+);
+
+// Every AvServ node a SAR team goes to (lib/avserv/node-list.ts): with a real
+// AvServ, the list must include the primary and failover.
+const nodeList = checkNodeListConfig({
+  AVSERV_BASE_URL: process.env.AVSERV_BASE_URL,
+  AVSERV_FAILOVER_BASE_URL: process.env.AVSERV_FAILOVER_BASE_URL,
+  AVSERV_NODE_URLS: process.env.AVSERV_NODE_URLS,
+});
+if (nodeList.status === "error") {
+  console.error(`check-service-key: ${nodeList.error}`);
+  process.exit(1);
+}
+console.log(
+  nodeList.status === "ok" ? `check-service-key: AvServ nodes ${nodeList.nodes.join(", ")}.` : "check-service-key: mock or no AvServ, skipping the node list.",
 );

@@ -206,8 +206,8 @@ organization you submitted or are a member of; another approver has to.
 
 The portal is the only place a SAR team is approved, suspended, re-verified or
 withdrawn; AvServ only stores what the portal sends (AvServ
-`sar_team_sync.md`). The portal PUTs the team's current state to **both** nodes
-(`AVSERV_BASE_URL` and `AVSERV_FAILOVER_BASE_URL`) after: approve, suspend, mark
+`sar_team_sync.md`). The portal PUTs the team's current state to **every** node
+in `AVSERV_NODE_URLS` (today avserv-2 and avserv-3) after: approve, suspend, mark
 leaving, withdraw, patrol re-verification, publishing team terms, and an approved
 team changing its own service area. Each send bumps the org's revision; AvServ
 keeps the highest per node.
@@ -524,7 +524,8 @@ to a separate URL, `POST /api/sar/intake/drill` (AvServ's
 `400 drill_on_live_intake` / `live_on_drill_intake` (logged as
 `sar.intake.wrong_url`), so a misrouted drill can't reach a team as real. Both use
 the same keys. Drills are stored with `drill = true`, shown as "(drill)" on the
-team's Alerts page, kept off the map, and never email anyone. Both
+team's Alerts page and kept off the map. Their team email goes only to the
+drill team's drill logins, with "[DRILL]" first in the subject (plan 37 DR2). Both
 nodes send each alert, so a team can receive it twice; the alerts page shows it
 once ("delivered 2 times, one alert"). The endpoint stays up under the
 maintenance switch.
@@ -534,8 +535,16 @@ maintenance switch.
   `openssl rand -hex 32` (32+ characters is enforced). The node's `.env` gets the
   same pair as `AVSERV_SAR_PORTAL_INTAKE_KEY_ID` and
   `AVSERV_SAR_PORTAL_INTAKE_SECRET`. Redeploy after changing it.
-- **Rotation:** add the new pair alongside the old, redeploy, switch the node,
-  then remove the old pair and redeploy again.
+- **Each key's node:** `AVSERV_SAR_INTAKE_KEY_NODES` (Vercel Production, not
+  sensitive) is packed `keyId:node,keyId:node`, the node as AvServ sends it in
+  `X-AvAI-Node` (`sarintake-avserv-2-1:avserv-2,sarintake-avserv-3-1:avserv-3`).
+  Every key must have one, and a message signed with another node's key is
+  refused `401 unknown_key` (AvServ, 2026-11-11). AvServ sends whatever key id
+  the node's operator set, so the binding is written here, never read from the
+  name. The production build fails if a key has no node.
+- **Rotation:** add the new pair alongside the old, with its node in
+  `AVSERV_SAR_INTAKE_KEY_NODES`, redeploy, switch the node, then remove the old
+  pair and its node and redeploy again.
 - **Payload key:** an alert's last position, planned route and Send Help note are stored
   sealed (plan 36 H4) under `SAR_PAYLOAD_KEYS` (Vercel Production, sensitive), packed
   `kid:hex` (`openssl rand -hex 32`; first entry `s1`). Without it intake answers
@@ -838,6 +847,9 @@ under the CPA — treat every request as covering it.
    erasure key is installed: AvServ `account_erasure.md`, kid
    `svc-key-portal-erasure`): on the request's card, **Erase in AvServ**.
    Needs two-factor and a recent login.
+   - If the card warns that the account is a team's **only admin**, add another
+     admin to that team first when you can. The warning never blocks: the
+     45-day deadline comes first, and the daily no-admin email follows up.
    - Enter the account id, then **Check every node**. **Erase** is offered only
      when every node answers *erasable* or *already erased*. A node that's
      unreachable, doesn't have the account yet, or has a live item blocks it.

@@ -43,12 +43,14 @@ beforeEach(() => {
   calls = [];
   process.env.AVSERV_BASE_URL = "https://avserv-2.example";
   process.env.AVSERV_FAILOVER_BASE_URL = "https://avserv-3.example";
+  process.env.AVSERV_NODE_URLS = "https://avserv-2.example,https://avserv-3.example";
   process.env.AVSERV_ERASURE_JWT_SIGNING_KEY_B64 = "present";
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.AVSERV_FAILOVER_BASE_URL;
+  delete process.env.AVSERV_NODE_URLS;
   delete process.env.AVSERV_ERASURE_JWT_SIGNING_KEY_B64;
 });
 

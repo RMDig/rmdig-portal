@@ -8,7 +8,7 @@ import { env } from "../env";
 import { logger } from "../logger";
 import { reportError, reportProblem } from "../report-error";
 import { notifyOnIntake } from "./alert-notify";
-import { type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
+import { type IntakeKey, type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
 import { sarPayloadKeys } from "./payload-keys";
 import { sealPayload } from "./payload-seal";
 
@@ -36,9 +36,9 @@ function reply(status: number, code: string) {
 export type IntakeMode = "live" | "drill";
 
 export async function handleIntake(req: Request, mode: IntakeMode) {
-  let keys: Map<string, string>;
+  let keys: Map<string, IntakeKey>;
   try {
-    keys = parseIntakeKeys(env.AVSERV_SAR_INTAKE_KEYS);
+    keys = parseIntakeKeys(env.AVSERV_SAR_INTAKE_KEYS, env.AVSERV_SAR_INTAKE_KEY_NODES);
   } catch (err) {
     reportError("sar.intake.keys_invalid", err);
     return reply(503, "intake_not_configured");
@@ -64,6 +64,7 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
   const check = verifySignature({
     keys,
     keyId: req.headers.get("x-avai-key-id"),
+    node,
     header: req.headers.get("x-avai-signature"),
     rawBody,
     nowSeconds: Math.floor(Date.now() / 1000),
