@@ -60,6 +60,7 @@ export function ShareLogLookupForm({ requestId, suggestedAccountId }: { requestI
                         <span>
                           <span className="font-mono text-xs">{m.accountId}</span>
                           <span className="text-muted-foreground block text-xs">
+                            {m.drill ? "DRILL account · " : ""}
                             {m.verified ? "verified (login email)" : "unverified (app email)"} · {m.status} · created {when(m.createdAt)}
                           </span>
                         </span>

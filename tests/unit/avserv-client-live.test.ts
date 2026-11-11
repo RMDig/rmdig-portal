@@ -92,7 +92,7 @@ describe("failover to AVSERV_FAILOVER_BASE_URL (real path)", () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new Error("The operation was aborted due to timeout"))
-      .mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z" }));
+      .mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z", drill: false }));
     vi.stubGlobal("fetch", fetchMock);
     const { mintLinkCode } = await import("@/lib/avserv/client");
 
@@ -107,13 +107,14 @@ describe("failover to AVSERV_FAILOVER_BASE_URL (real path)", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(502, { error: "bad gateway" }))
-      .mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z" }));
+      .mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z", drill: false }));
     vi.stubGlobal("fetch", fetchMock);
     const { mintLinkCode } = await import("@/lib/avserv/client");
 
     await expect(mintLinkCode(ACCOUNT)).resolves.toEqual({
       code: "ABCD-1234",
       expiresAt: "2026-10-03T12:10:00Z",
+      drill: false,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -169,6 +170,18 @@ describe("failover to AVSERV_FAILOVER_BASE_URL (real path)", () => {
 
     await expect(findOrCreateAccount("someone@example.com")).rejects.toThrow();
     expect(urls(fetchMock)).toEqual(["https://avserv.example/v1/internal/accounts"]);
+  });
+});
+
+describe("mintLinkCode drill (real path, contract rev 16 §4.2)", () => {
+  const ACCOUNT = "11111111-1111-5111-8111-111111111111";
+
+  it("passes the code's account drill through, and refuses an answer without it", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z", drill: true })));
+    const { mintLinkCode } = await import("@/lib/avserv/client");
+    await expect(mintLinkCode(ACCOUNT)).resolves.toEqual({ code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z", drill: true });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse(201, { code: "ABCD-1234", expiresAt: "2026-10-03T12:10:00Z" })));
+    await expect(mintLinkCode(ACCOUNT)).rejects.toThrow(/missing code, expiresAt or drill/);
   });
 });
 

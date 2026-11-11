@@ -50,4 +50,14 @@ describe("mintLinkCode (mock path)", () => {
     const { mintLinkCode } = await import("@/lib/avserv/client");
     await expect(mintLinkCode(ACCOUNT)).rejects.toThrow(/AVSERV_BASE_URL/);
   });
+
+  it("says whether the code's account is drill, as AvServ does", async () => {
+    const { findOrCreateAccount, mintLinkCode, __resetAvServMock } = await import("@/lib/avserv/client");
+    __resetAvServMock();
+    const real = await findOrCreateAccount("pat@example.org");
+    const drill = await findOrCreateAccount("dennys+drill2@rmdig.ai", { drill: true });
+    expect((await mintLinkCode(real.accountId)).drill).toBe(false);
+    expect((await mintLinkCode(drill.accountId)).drill).toBe(true);
+    expect((await mintLinkCode(ACCOUNT)).drill).toBe(false);
+  });
 });

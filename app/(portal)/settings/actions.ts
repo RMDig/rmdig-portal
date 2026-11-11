@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { retryInText } from "@/lib/format/time";
 import { logger } from "@/lib/logger";
+import { reportProblem } from "@/lib/report-error";
 import { incrementRateLimit } from "@/lib/rate-limit";
 
 // A code lasts 10 minutes, so ten a day covers a fumbled link or two and a new
@@ -38,7 +39,7 @@ export async function mintDeviceLinkCodeAction(
   const userId = actor.userId;
 
   const [row] = await db
-    .select({ avservAccountId: users.avservAccountId })
+    .select({ avservAccountId: users.avservAccountId, isDrill: users.isDrill })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -60,7 +61,19 @@ export async function mintDeviceLinkCodeAction(
   }
 
   try {
-    const { code, expiresAt } = await mintLinkCode(row.avservAccountId);
+    const { code, expiresAt, drill } = await mintLinkCode(row.avservAccountId);
+    // A code across the drill line would link a real phone into a drill
+    // account, or the reverse (plan 37 §4.11, P7c). AvServ refuses the link
+    // itself, but the portal never shows such a code: the stored mapping is
+    // wrong, and a person looks at it. The unshown code expires unused.
+    if (drill !== row.isDrill) {
+      reportProblem("avserv.linkcode.drill_mismatch", "A link code's account is on the other side of the drill line", {
+        userId,
+        userDrill: row.isDrill,
+        accountDrill: drill,
+      });
+      return { ok: false, error: "This account can't link a phone right now. Contact support and mention a drill mismatch." };
+    }
     logger.info({ event: "avserv.linkcode.minted", userId });
     return { ok: true, code, expiresAt };
   } catch (err) {
