@@ -22,6 +22,8 @@ export interface SarRetentionSummary {
   alertMessagesDeleted: number;
   /** Test messages (sar_test_alert.md), which never end: kept ALERT_DAYS from receipt. */
   testMessagesDeleted: number;
+  /** Test alert records (sar_test_alerts), ALERT_DAYS from when staff sent them. */
+  testAlertsDeleted: number;
   acksDeleted: number;
   viewLogsDeleted: number;
   staleOpenAlerts: number;
@@ -72,6 +74,11 @@ export async function runSarRetention(now: Date): Promise<SarRetentionSummary> {
     const tests = await tx.execute(sql`
       DELETE FROM sar_intake_messages WHERE kind = 'test' AND received_at < ${alertCut.toISOString()}::timestamptz
       RETURNING 1`);
+    // What each node reported and what the team proved: the approval's
+    // checklist keeps what it showed, so this goes on the same clock.
+    const testAlerts = await tx.execute(sql`
+      DELETE FROM sar_test_alerts WHERE requested_at < ${alertCut.toISOString()}::timestamptz
+      RETURNING 1`);
     const alertViews = await tx.execute(sql`DELETE FROM sar_alert_view_log WHERE viewed_at < ${viewCut.toISOString()}::timestamptz RETURNING 1`);
     const mapViews = await tx.execute(sql`DELETE FROM sar_map_view_log WHERE viewed_at < ${viewCut.toISOString()}::timestamptz RETURNING 1`);
     const stale = await tx.execute<{ n: number }>(sql`
@@ -85,6 +92,7 @@ export async function runSarRetention(now: Date): Promise<SarRetentionSummary> {
       positionsRemoved: positions.length,
       alertMessagesDeleted: messages.length,
       testMessagesDeleted: tests.length,
+      testAlertsDeleted: testAlerts.length,
       acksDeleted: acks.length,
       viewLogsDeleted: alertViews.length + mapViews.length,
       staleOpenAlerts: Number([...stale][0]?.n ?? 0),

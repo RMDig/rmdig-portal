@@ -25,22 +25,23 @@ beforeEach(() => {
 
 describe("runSarRetention", () => {
   it("counts what each step removed, in one transaction", async () => {
-    // positions, acks, messages, tests, alert views, map views, stale count
-    h.results = [[1, 1], [1], [1, 1, 1], [1, 1], [1], [1, 1], [{ n: 0 }]];
+    // positions, acks, messages, tests, test alerts, alert views, map views, stale count
+    h.results = [[1, 1], [1], [1, 1, 1], [1, 1], [1, 1, 1, 1], [1], [1, 1], [{ n: 0 }]];
     expect(await runSarRetention(new Date("2026-10-05T12:00:00Z"))).toEqual({
       positionsRemoved: 2,
       acksDeleted: 1,
       alertMessagesDeleted: 3,
       testMessagesDeleted: 2,
+      testAlertsDeleted: 4,
       viewLogsDeleted: 3,
       staleOpenAlerts: 0,
     });
-    expect(h.sqls).toHaveLength(7);
+    expect(h.sqls).toHaveLength(8);
     expect(h.log.error).not.toHaveBeenCalled();
   });
 
   it("binds the cut-offs as ISO timestamps (the driver takes no Date parameters)", async () => {
-    h.results = [[], [], [], [], [], [], [{ n: 0 }]];
+    h.results = [[], [], [], [], [], [], [], [{ n: 0 }]];
     await runSarRetention(new Date("2026-10-05T12:00:00Z"));
     const all = h.sqls.join("\n");
     expect(all).toContain("2026-10-04T12:00:00.000Z"); // 24 h
@@ -49,14 +50,19 @@ describe("runSarRetention", () => {
   });
 
   it("deletes test messages 90 days after they arrived, since a test never ends", async () => {
-    h.results = [[], [], [], [1], [], [], [{ n: 0 }]];
-    expect((await runSarRetention(new Date("2026-10-05T12:00:00Z"))).testMessagesDeleted).toBe(1);
+    h.results = [[], [], [], [1], [1, 1], [], [], [{ n: 0 }]];
+    const r = await runSarRetention(new Date("2026-10-05T12:00:00Z"));
+    expect(r.testMessagesDeleted).toBe(1);
     expect(h.sqls[3]).toMatch(/kind = 'test' AND received_at </);
     expect(h.sqls[3]).toContain("2026-07-07T12:00:00.000Z");
+    // And the test alert records, on the same clock from when staff sent them.
+    expect(r.testAlertsDeleted).toBe(2);
+    expect(h.sqls[4]).toMatch(/DELETE FROM sar_test_alerts WHERE requested_at </);
+    expect(h.sqls[4]).toContain("2026-07-07T12:00:00.000Z");
   });
 
   it("keeps an alert that never ended, but logs it loudly after 30 days", async () => {
-    h.results = [[], [], [], [], [], [], [{ n: 2 }]];
+    h.results = [[], [], [], [], [], [], [], [{ n: 2 }]];
     expect((await runSarRetention(new Date())).staleOpenAlerts).toBe(2);
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.retention.stale_open_alerts", count: 2 }));
   });

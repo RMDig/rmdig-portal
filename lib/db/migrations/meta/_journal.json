@@ -281,6 +281,13 @@
       "when": 1794379484266,
       "tag": "0039_approval_checklist",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794414509275,
+      "tag": "0040_sar_test_alerts",
+      "breakpoints": true
     }
   ]
 }

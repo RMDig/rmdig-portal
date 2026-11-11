@@ -4,6 +4,7 @@ import { db } from "../db";
 import { orgMemberships, sarOrgs, sarOrgTerms } from "../db/schema";
 import type { ActivationFacts } from "./activation-checklist-rules";
 import { LARGE_AREA_KM2 } from "./area-checks";
+import { testAlertFact } from "./test-alert";
 
 // The facts behind a real team's activation checklist (plan 33 §6.9 G2;
 // rules in lib/sar/activation-checklist-rules.ts).
@@ -29,7 +30,7 @@ export async function activationFacts(orgId: string): Promise<ActivationFacts> {
     publishedTermsVersion: terms?.version ?? null,
     areaKm2,
     largeArea: areaKm2 !== null && areaKm2 > LARGE_AREA_KM2,
-    testAlert: "pending_avserv",
+    testAlert: await testAlertFact(orgId, new Date()),
   };
 }
 

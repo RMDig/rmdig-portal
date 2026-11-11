@@ -18,9 +18,8 @@ import {
 const STATUS_STYLE: Record<ChecklistItem["status"], string> = {
   pass: "text-green-800 dark:text-green-300",
   fail: "text-red-700 dark:text-red-400",
-  pending: "text-amber-800 dark:text-amber-300",
 };
-const STATUS_WORD: Record<ChecklistItem["status"], string> = { pass: "Done", fail: "Not yet", pending: "Pending" };
+const STATUS_WORD: Record<ChecklistItem["status"], string> = { pass: "Done", fail: "Not yet" };
 
 export function ActivationChecklist({ facts, onReady }: { facts: ActivationFacts; onReady: (ready: boolean) => void }) {
   const [answers, setAnswers] = useState({ callbackNumber: "", callbackSpokeTo: "", termsFloor: false, largeAreaResolved: false });
@@ -78,12 +77,6 @@ export function ActivationChecklist({ facts, onReady }: { facts: ActivationFacts
           </li>
         ))}
       </ul>
-      {items.some((i) => i.id === "test_alert" && i.status === "pending") ? (
-        <p className="text-muted-foreground text-xs">
-          A real team can&apos;t be approved until AvServ&apos;s test alert exists and passes on every node (owner,
-          2026-11-11).
-        </p>
-      ) : null}
     </fieldset>
   );
 }
