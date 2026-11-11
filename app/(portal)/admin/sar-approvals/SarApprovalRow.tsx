@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPreviewMap";
+import { SuspendConfirm } from "@/components/sar/SuspendConfirm";
 import { Button } from "@/components/ui/button";
 import { resyncSarOrgAction, reviewSarOrgAction } from "./actions";
 import { formatMountain, formatMountainDate } from "@/lib/format/time";
@@ -232,15 +233,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
         // once no node has open check-outs bound (checked by the action).
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
           {org.status === "approved" || org.status === "leaving" ? (
-            <ActionButton
-              formAction={formAction}
-              orgId={org.id}
-              revision={org.reviewRevision}
-              decision="suspend"
-              label="Suspend (stops alerts at once)"
-              pending={pending}
-              note="Reason for suspending (optional, recorded in the audit log)"
-            />
+            <SuspendConfirm formAction={formAction} orgId={org.id} orgName={org.name} revision={org.reviewRevision} pending={pending} isDrill={false} withNote />
           ) : null}
           {org.status === "approved" ? (
             <ActionButton formAction={formAction} orgId={org.id} revision={org.reviewRevision} decision="mark_leaving" label="Mark leaving" pending={pending} />

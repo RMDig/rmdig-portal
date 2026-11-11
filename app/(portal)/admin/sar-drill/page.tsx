@@ -123,7 +123,7 @@ export default async function DrillTeamsPage() {
                       </ul>
                     </div>
                   ) : null}
-                  <DrillDecisions orgId={t.id} revision={t.reviewRevision} status={t.status} canActivate={approver} canSuspend={approver} />
+                  <DrillDecisions orgId={t.id} orgName={t.name} revision={t.reviewRevision} status={t.status} canActivate={approver} canSuspend={approver} />
                 </CardContent>
               </Card>
             </li>
