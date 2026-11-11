@@ -8,9 +8,8 @@ import { isSarApprover } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
 import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
-import { activationFacts } from "@/lib/sar/activation-checklist";
+import { activationViews } from "@/lib/sar/activation-checklist";
 import { getRegionAsGeoJson } from "@/lib/sar/geo";
-import { latestTestAlert } from "@/lib/sar/test-alert";
 import { type PendingOrg, SarApprovalRow } from "./SarApprovalRow";
 
 export const metadata = {
@@ -61,6 +60,9 @@ export default async function SarApprovalsPage() {
   const syncRows = reviewable.length
     ? await db.select().from(sarOrgSync).where(inArray(sarOrgSync.orgId, reviewable.map((o) => o.id)))
     : [];
+  // The checklist and test for every pending team at once: a few queries,
+  // however long the queue (one connection per lambda, lib/db).
+  const activation = await activationViews(reviewable.filter((o) => o.status === "pending").map((o) => o.id), new Date());
   const rows: PendingOrg[] = await Promise.all(
     reviewable.map(async ({ createdByUserId, ...o }) => ({
       ...o,
@@ -70,8 +72,8 @@ export default async function SarApprovalsPage() {
       submittedAt: o.submittedAt.toISOString(),
       reverifyBy: o.reverifyBy?.toISOString() ?? null,
       region: await getRegionAsGeoJson(o.id),
-      activation: o.status === "pending" ? await activationFacts(o.id) : null,
-      testAlert: o.status === "pending" ? await latestTestAlert(o.id) : null,
+      activation: activation.get(o.id)?.facts ?? null,
+      testAlert: activation.get(o.id)?.testAlert ?? null,
       sync: syncRows
         .filter((s) => s.orgId === o.id)
         .map((s) => ({

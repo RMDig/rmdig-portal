@@ -92,9 +92,10 @@ describe("the test alert store (migration 0040)", () => {
     expect(await lib.confirmTestCode(otherOrgId, row!.id, "123456", memberId)).toEqual({ ok: false, error: "That test isn't one of your team's." });
     expect(await lib.confirmTestCode(orgId, row!.id, "123456", memberId)).toEqual({ ok: true });
     expect(await lib.confirmTestCode(orgId, row!.id, "000000", memberId)).toEqual({ ok: true });
-    const fact = await lib.testAlertFact(orgId, new Date());
+    const rows = await lib.latestTestAlert(orgId);
+    const fact = lib.testAlertFact(rows, new Date());
     expect(fact).toMatchObject({ expired: false, configuredNodes: ["mock"], nodes: [{ node: "mock", portalArrived: true, portalReceived: true, emailConfirmed: true }] });
-    expect((await lib.testAlertFact(orgId, new Date(Date.now() + 15 * 86_400_000))).expired).toBe(true);
+    expect(lib.testAlertFact(rows, new Date(Date.now() + 15 * 86_400_000)).expired).toBe(true);
   });
 
   it("locks a node's code after five wrong guesses, even racing", async () => {
@@ -120,5 +121,20 @@ describe("the test alert store (migration 0040)", () => {
     await expect(insert({ testId: "x1", codeHash: null, error: null })).rejects.toThrow(/sar_test_alerts_answer/);
     await expect(insert({ testId: "x2", codeHash: "h", error: "http_500" })).rejects.toThrow(/sar_test_alerts_answer/);
     await insert({ testId: null, codeHash: null, error: "unreachable" });
+  });
+});
+
+describe("the approvals queue's batch read", () => {
+  it("reads every team's checklist facts and latest test at once, each team's own", async () => {
+    await sql`INSERT INTO org_memberships (org_id, user_id, role) VALUES (${otherOrgId}, ${memberId}, 'admin'), (${otherOrgId}, ${staffId}, 'responder')`;
+    const checklist = await import("@/lib/sar/activation-checklist");
+    const views = await checklist.activationViews([orgId, otherOrgId, randomUUID()], new Date());
+    expect([...views.keys()].sort()).toEqual([orgId, otherOrgId].sort());
+    // The last test written above (node "n", an error) is orgId's latest run.
+    expect(views.get(orgId)!.testAlert).toEqual([expect.objectContaining({ node: "n", error: "unreachable" })]);
+    expect(views.get(orgId)!.facts).toMatchObject({ members: 0, publishedTermsVersion: null, areaKm2: null, testAlert: { requestedAt: expect.any(String) } });
+    expect(views.get(otherOrgId)!.testAlert).toEqual([]);
+    expect(views.get(otherOrgId)!.facts).toMatchObject({ members: 2, admins: 1, oncallEmailVerified: false, testAlert: { requestedAt: null, nodes: [] } });
+    expect(await checklist.activationFacts(otherOrgId)).toEqual(views.get(otherOrgId)!.facts);
   });
 });

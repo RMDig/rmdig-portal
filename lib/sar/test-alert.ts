@@ -1,6 +1,6 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { avservNodes } from "../avserv/sar-teams";
 import { sendSarTestAlert } from "../avserv/sar-test-alert";
@@ -92,31 +92,35 @@ export interface TestAlertRow extends TestAlertNodeFact {
   codeAttemptsLeft: number;
 }
 
-/** The latest test's rows, one per node, with whether each portal message
- *  has arrived. Empty when none was ever sent. */
-export async function latestTestAlert(orgId: string): Promise<TestAlertRow[]> {
-  const [latest] = await db
-    .select({ runId: sarTestAlerts.runId })
+/** Each team's latest test, one row per node, with whether each portal
+ *  message has arrived; a team with none is absent. Three queries for any
+ *  number of teams: the approvals queue reads every pending team at once, on
+ *  the one connection a lambda holds (lib/db). */
+export async function latestTestAlerts(orgIds: string[]): Promise<Map<string, TestAlertRow[]>> {
+  const out = new Map<string, TestAlertRow[]>();
+  if (orgIds.length === 0) return out;
+  const rows = await db
+    .select()
     .from(sarTestAlerts)
-    .where(eq(sarTestAlerts.orgId, orgId))
-    .orderBy(desc(sarTestAlerts.requestedAt))
-    .limit(1);
-  if (!latest) return [];
-  const rows = await db.select().from(sarTestAlerts).where(and(eq(sarTestAlerts.orgId, orgId), eq(sarTestAlerts.runId, latest.runId)));
+    .where(
+      and(
+        inArray(sarTestAlerts.orgId, orgIds),
+        sql`${sarTestAlerts.runId} = (SELECT l.run_id FROM sar_test_alerts l WHERE l.org_id = ${sarTestAlerts.orgId} ORDER BY l.requested_at DESC LIMIT 1)`,
+      ),
+    );
   const alertIds = rows.flatMap((r) => (r.testId ? [`test:${r.testId}`] : []));
   const arrived = new Set(
     alertIds.length
       ? (
           await db
-            .select({ alertId: sarIntakeMessages.alertId })
+            .select({ orgId: sarIntakeMessages.orgId, alertId: sarIntakeMessages.alertId })
             .from(sarIntakeMessages)
-            .where(and(eq(sarIntakeMessages.orgId, orgId), eq(sarIntakeMessages.kind, "test"), inArray(sarIntakeMessages.alertId, alertIds)))
-        ).map((m) => m.alertId)
+            .where(and(inArray(sarIntakeMessages.orgId, orgIds), eq(sarIntakeMessages.kind, "test"), inArray(sarIntakeMessages.alertId, alertIds)))
+        ).map((m) => `${m.orgId}|${m.alertId}`)
       : [],
   );
-  return rows
-    .sort((a, b) => a.node.localeCompare(b.node))
-    .map((r) => ({
+  for (const r of rows.sort((a, b) => a.node.localeCompare(b.node))) {
+    const row: TestAlertRow = {
       id: r.id,
       node: r.node,
       requestedAt: r.requestedAt.toISOString(),
@@ -126,11 +130,19 @@ export async function latestTestAlert(orgId: string): Promise<TestAlertRow[]> {
       email: r.emailResult,
       portalDetail: r.portalDetail,
       emailDetail: r.emailDetail,
-      portalArrived: r.testId !== null && arrived.has(`test:${r.testId}`),
+      portalArrived: r.testId !== null && arrived.has(`${r.orgId}|test:${r.testId}`),
       portalReceived: r.portalReceivedAt !== null,
       emailConfirmed: r.emailConfirmedAt !== null,
       codeAttemptsLeft: Math.max(0, MAX_CODE_ATTEMPTS - r.codeAttempts),
-    }));
+    };
+    out.set(r.orgId, [...(out.get(r.orgId) ?? []), row]);
+  }
+  return out;
+}
+
+/** One team's latest test (empty when none was ever sent). */
+export async function latestTestAlert(orgId: string): Promise<TestAlertRow[]> {
+  return (await latestTestAlerts([orgId])).get(orgId) ?? [];
 }
 
 const expired = (requestedAt: string, now: Date) => now.getTime() - new Date(requestedAt).getTime() > TEST_FRESH_DAYS * DAY_MS;
@@ -142,9 +154,8 @@ export async function currentTestAlert(orgId: string, now: Date): Promise<TestAl
   return rows[0] && !expired(rows[0].requestedAt, now) ? rows : [];
 }
 
-/** The checklist's fact: the latest test against the nodes configured now. */
-export async function testAlertFact(orgId: string, now: Date): Promise<TestAlertFact> {
-  const rows = await latestTestAlert(orgId);
+/** The checklist's fact: a team's latest test against the nodes configured now. */
+export function testAlertFact(rows: TestAlertRow[], now: Date): TestAlertFact {
   const requestedAt = rows[0]?.requestedAt ?? null;
   return {
     requestedAt,
