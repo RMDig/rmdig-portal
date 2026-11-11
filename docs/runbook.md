@@ -1254,12 +1254,29 @@ allows 90 minutes before it calls a run missed.
 | `/api/cron/sar-no-admin` | 15:30 | `portal-sar-no-admin` | emails SAR approvers, daily while it lasts, about any live team with no admin (`lib/sar/no-admin.ts`) |
 | `/api/cron/deletion-clock` | 16:00 | `portal-deletion-clock` | CPA 45-day clock warnings |
 | `/api/cron/security-notices` | 17:00 | `portal-security-notices` | opt-in security notices for changes made on the phones |
+| `/api/cron/cron-watch` | 19:30 | `portal-cron-watch` | checks every job above succeeded since its last scheduled run (`lib/cron/watch.ts`, table `cron_runs`); emails rmdig admins, daily while it lasts, about any that didn't |
 
 Each run checks in with Sentry (`lib/cron/run.ts`): a run that throws, or
 reports a failure, is a failed check-in plus an issue; a run that never
 happens (lost `CRON_SECRET`, a dropped `vercel.json` entry, a broken deploy) is
-a missed check-in. Monitors are created on the first check-in; in Sentry →
-Crons, set each one's alert to notify you. An unset `CRON_SECRET` also sends
+a missed check-in. Monitors are created on the first check-in.
+
+Sentry's free plan includes **one** cron monitor; more need a paid plan
+(owner, 2026-11-11: not worth it yet). That one is `portal-cron-watch`: in
+Sentry → Crons, set its alert to notify you, and leave the others without
+alerts. The watch covers them: every successful run is recorded in
+`cron_runs`, and the watch calls a job late when it hasn't succeeded since its
+last scheduled time plus 90 minutes. A late job is a `cron.watch.late` issue,
+an email to rmdig admins and a failed `portal-cron-watch` check-in. If the
+watch itself stops, every other job notices on its next run and sends
+`cron.watch.missed` to Sentry, so the watch is covered even while its monitor
+has no alert (Sentry wouldn't take one on 2026-11-11; add it when it does).
+What only the monitor catches is every job stopping at once, such as a broken
+deploy or Vercel's crons stopping (an unset `CRON_SECRET` is already reported,
+below). A missed run is noticed by 19:30 UTC that day, not at the
+minute. Never turn off a job to
+save a monitor: `sar-retention`, `expired-rows` and `deletion-clock` carry
+retention and CPA obligations. An unset `CRON_SECRET` also sends
 `cron.<job>.unconfigured` to Sentry. Run any of them by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai<route>`.
 
