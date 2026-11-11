@@ -23,6 +23,19 @@ const h = vi.hoisted(() => ({
   admins: [{ email: "lead@sar.org" }] as Array<{ email: string }>,
   teamEmail: vi.fn(() => Promise.resolve()),
   nodeViews: [] as Array<{ openBindings: number } | null | Error>,
+  // The activation checklist (plan 33 §6.9 G2). Its item 3, AvServ's test
+  // alert, is pending until F2b, so no real team passes yet; the approve
+  // path's other steps are tested with readiness forced on.
+  facts: {
+    oncallEmailVerified: true,
+    members: 2,
+    admins: 1,
+    publishedTermsVersion: 1 as number | null,
+    areaKm2: 3.1 as number | null,
+    largeArea: false,
+    testAlert: "pending_avserv" as const,
+  },
+  forceReady: true as boolean | null,
 }));
 
 vi.mock("@/lib/db", () => {
@@ -64,6 +77,11 @@ vi.mock("@/lib/email/send", () => ({ sendSarOrgDecisionEmail: vi.fn(() => Promis
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/sar/sync", () => ({ syncSarOrg: h.sync }));
+vi.mock("@/lib/sar/activation-checklist", () => ({ activationFacts: () => Promise.resolve(h.facts) }));
+vi.mock("@/lib/sar/activation-checklist-rules", async () => {
+  const real = await vi.importActual<typeof import("@/lib/sar/activation-checklist-rules")>("@/lib/sar/activation-checklist-rules");
+  return { ...real, checklistReady: (items: Parameters<typeof real.checklistReady>[0]) => (h.forceReady === null ? real.checklistReady(items) : h.forceReady) };
+});
 vi.mock("@/lib/avserv/sar-teams", () => ({
   avservNodes: () => h.nodeViews.map((_, i) => ({ name: `avserv-${i + 2}`, baseUrl: `https://avserv-${i + 2}.example` })),
   getSarTeam: (node: { name: string }) => {
@@ -107,6 +125,7 @@ beforeEach(() => {
   h.staff = true;
   h.memberRole = null;
   h.admins = [{ email: "lead@sar.org" }];
+  h.forceReady = true;
   authMock.mockResolvedValue({ user: { id: "admin-1" } } as never);
 });
 
@@ -402,5 +421,50 @@ describe("resyncSarOrgAction", () => {
   it("refuses a malformed org id", async () => {
     await expect(resync("not-a-uuid")).rejects.toThrow();
     expect(h.sync).not.toHaveBeenCalled();
+  });
+});
+
+describe("the activation checklist at Approve (plan 33 §6.9 G2)", () => {
+  const answered = (f: FormData) => {
+    f.set("callbackNumber", "+1 970 555 0100");
+    f.set("callbackSpokeTo", "Sgt. Rivera");
+    f.set("termsFloor", "on");
+    return f;
+  };
+
+  it("refuses a real team while AvServ's test alert is pending, writing and syncing nothing", async () => {
+    h.forceReady = null;
+    const res = await reviewSarOrgAction(null, answered(fd("approve")));
+    expect(res).toMatchObject({ ok: false, error: expect.stringContaining("3. Test alert received on both paths from every node") });
+    expect(h.updates).toHaveLength(0);
+    expect(h.logs).toHaveLength(0);
+    expect(h.sync).not.toHaveBeenCalled();
+    expect(sendSarOrgDecisionEmail).not.toHaveBeenCalled();
+  });
+
+  it("names every open item: no call-back, too few members, no on-call email, no floor clauses", async () => {
+    h.forceReady = null;
+    const saved = h.facts;
+    h.facts = { ...h.facts, members: 1, oncallEmailVerified: false };
+    const res = await reviewSarOrgAction(null, fd("approve"));
+    h.facts = saved;
+    expect(res).toMatchObject({ ok: false });
+    const error = (res as { error: string }).error;
+    for (const text of ["number you called", "1 member", "no confirmed on-call email", "floor clauses not confirmed"]) expect(error).toContain(text);
+  });
+
+  it("records every answer and check with the approval, as a beta single review", async () => {
+    await reviewSarOrgAction(null, answered(fd("approve")));
+    const log = h.logs[0] as { action: string; checklist: { reviewMode: string; answers: unknown; facts: unknown; items: Array<{ id: string }> } };
+    expect(log.action).toBe("approved");
+    expect(log.checklist.reviewMode).toBe("beta_single");
+    expect(log.checklist.answers).toEqual({ callbackNumber: "+1 970 555 0100", callbackSpokeTo: "Sgt. Rivera", termsFloor: true, largeAreaResolved: false });
+    expect(log.checklist.facts).toEqual(h.facts);
+    expect(log.checklist.items.map((i) => i.id)).toEqual(["callback", "channels", "test_alert", "terms_area"]);
+  });
+
+  it("records no checklist on any other decision", async () => {
+    await reviewSarOrgAction(null, fd("reject", "Not a SAR team."));
+    expect((h.logs[0] as { checklist: unknown }).checklist).toBeNull();
   });
 });

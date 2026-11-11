@@ -8,6 +8,7 @@ import { isSarApprover } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
 import { sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
 import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
+import { activationFacts } from "@/lib/sar/activation-checklist";
 import { getRegionAsGeoJson } from "@/lib/sar/geo";
 import { type PendingOrg, SarApprovalRow } from "./SarApprovalRow";
 
@@ -68,6 +69,7 @@ export default async function SarApprovalsPage() {
       submittedAt: o.submittedAt.toISOString(),
       reverifyBy: o.reverifyBy?.toISOString() ?? null,
       region: await getRegionAsGeoJson(o.id),
+      activation: o.status === "pending" ? await activationFacts(o.id) : null,
       sync: syncRows
         .filter((s) => s.orgId === o.id)
         .map((s) => ({
