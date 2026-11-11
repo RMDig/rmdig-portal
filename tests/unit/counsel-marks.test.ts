@@ -20,6 +20,9 @@ const TEAM_FACING = [
   "lib/email/templates/PatrolReverifyTeamEmail.tsx",
   "lib/email/templates/OrgInviteEmail.tsx",
   "lib/email/templates/OncallEmailConfirmEmail.tsx",
+  "lib/email/templates/SarTeamRecoveryEmail.tsx",
+  "lib/sar/recovery-rules.ts",
+  "app/(portal)/sar/[orgId]/layout.tsx",
   // Onboarding: applying, waiting for review, and the terms' services.
   "app/(portal)/sar/new/page.tsx",
   "app/(portal)/sar/new/SarOrgForm.tsx",

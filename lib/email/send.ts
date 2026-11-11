@@ -31,6 +31,7 @@ import RestrictionReviewRequestedEmail from "./templates/RestrictionReviewReques
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
 import SarNoAdminStaffEmail, { type SarNoAdminStaffEmailProps } from "./templates/SarNoAdminStaffEmail";
 import SarAreaChangedEmail, { type SarAreaChangedEmailProps } from "./templates/SarAreaChangedEmail";
+import SarTeamRecoveryEmail, { type SarTeamRecoveryEmailProps } from "./templates/SarTeamRecoveryEmail";
 import SarLeavingStaffEmail, { type SarLeavingStaffEmailProps } from "./templates/SarLeavingStaffEmail";
 import SarOrgDecisionEmail, { type SarOrgDecision } from "./templates/SarOrgDecisionEmail";
 import SarTeamStatusEmail, { type SarTeamStatusEmailProps } from "./templates/SarTeamStatusEmail";
@@ -178,6 +179,18 @@ export async function sendSarTeamStatusEmail(to: string, params: SarTeamStatusEm
     to,
     subject: params.change === "suspended" ? `Your team is suspended: ${params.orgName}` : `Your team is back under review: ${params.orgName}`,
     html: render(SarTeamStatusEmail(params)),
+  });
+}
+
+/** To a team's admins when an AvAI server can't send the team alerts, with
+ *  the fix (plan 33 §6.9 F4). Marked drill for a drill team. */
+export async function sendSarTeamRecoveryEmail(to: string, params: SarTeamRecoveryEmailProps & { drill?: boolean }): Promise<void> {
+  await deliver({
+    kind: "sar_team_recovery",
+    label: "SAR-team-recovery",
+    to,
+    subject: `${params.drill ? "[DRILL] " : ""}AvAI can't send your team alerts: ${params.teamName}`,
+    html: render(SarTeamRecoveryEmail(params)),
   });
 }
 

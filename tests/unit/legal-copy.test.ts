@@ -90,6 +90,9 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "OncallEmailCard.tsx"),
     join(process.cwd(), "lib", "sar", "oncall-email.ts"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "page.tsx"),
+    // What a team is told when a server can't send it alerts (plan 33 §6.9 F4).
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "layout.tsx"),
+    join(process.cwd(), "lib", "sar", "recovery-rules.ts"),
     // The test alert's card and its errors, seen by a team under review (G2).
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "TestAlertCard.tsx"),
     // The team's own leaving notice and its undo (plan 33 §6.9).

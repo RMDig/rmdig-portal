@@ -18,7 +18,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendDrillLoginEmail, sendOncallEmailConfirmEmail, sendSarAlertNotifyEmail, sendSarAreaChangedEmail } from "@/lib/email/send";
+import { sendDrillLoginEmail, sendOncallEmailConfirmEmail, sendSarAlertNotifyEmail, sendSarAreaChangedEmail, sendSarTeamRecoveryEmail } from "@/lib/email/send";
 
 const subject = () => (h.send.mock.calls.at(-1)![0] as { subject: string }).subject;
 const alert = { teamName: "AvAI Drill Team", kind: "overdue" as const, fromAreaUser: false, alertsUrl: "https://rmdig.ai/sar/o/alerts" };
@@ -70,5 +70,13 @@ describe("drill email subjects", () => {
     expect(subject()).toBe("SAR team changed its service area: AvAI Drill Team (drill)");
     await sendSarAreaChangedEmail("op@rmdig.ai", { ...area, orgName: "Summit SAR" });
     expect(subject()).toBe("SAR team changed its service area: Summit SAR");
+  });
+
+  it("puts [DRILL] first on a drill team's recovery email (plan 33 §6.9 F4), and never on a real one", async () => {
+    const recovery = { nodes: [{ node: "avserv-2", remedy: "reverify_channel" as const, waitingAlerts: 2 }], teamUrl: "https://app.rmdig.ai/sar/o/members" };
+    await sendSarTeamRecoveryEmail("lead@x.org", { ...recovery, teamName: "AvAI Drill Team", drill: true });
+    expect(subject()).toBe("[DRILL] AvAI can't send your team alerts: AvAI Drill Team");
+    await sendSarTeamRecoveryEmail("lead@x.org", { ...recovery, teamName: "Summit SAR" });
+    expect(subject()).toBe("AvAI can't send your team alerts: Summit SAR");
   });
 });

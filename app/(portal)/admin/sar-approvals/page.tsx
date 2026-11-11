@@ -81,13 +81,18 @@ export default async function SarApprovalsPage() {
           revision: s.revision,
           outcome: s.outcome,
           detail:
-            s.outcome === "error"
+            (s.outcome === "error"
               ? `failed (${s.errorCode})`
               : s.outcome === "skipped"
                 ? (SKIP_LABEL[s.unusableReason as SkipReason] ?? s.unusableReason ?? "skipped")
                 : s.usable
                   ? "usable"
-                  : `not usable${s.unusableReason ? ` (${s.unusableReason})` : ""}`,
+                  : `not usable${s.unusableReason ? ` (${s.unusableReason})` : ""}`) +
+            // The node's own last read (plan 33 §6.9 F4).
+            (s.remedy ? `; fix: ${s.remedy}` : "") +
+            (s.waitingAlerts ? `; ${s.waitingAlerts} alert${s.waitingAlerts === 1 ? "" : "s"} waiting` : "") +
+            (s.overCapacity ? "; over capacity" : "") +
+            (s.viewError ? `; last read failed (${s.viewError})` : ""),
           syncedAt: s.syncedAt?.toISOString() ?? null,
         })),
     })),

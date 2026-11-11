@@ -7,6 +7,7 @@ import { db } from "../db";
 import { sarOrgs, sarOrgSync, sarOrgTerms } from "../db/schema";
 import { logger } from "../logger";
 import { RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_DEGREES } from "./geo";
+import { readTeamRecovery } from "./recovery";
 import { planSync, type SkipReason } from "./sync-body";
 
 // Send a SAR org's current state to every AvServ node (sar_team_sync.md).
@@ -115,6 +116,9 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
   );
   await record(orgId, outcomes, body.revision, now);
   logger.info({ event: "sar.sync.sent", orgId, revision: body.revision, status: body.status, outcomes: outcomes.map((o) => `${o.node}:${o.outcome}`) });
+  // Then each node's own view: what it would need to use the team, and what
+  // it holds back meanwhile (plan 33 §6.9 F4). Never throws.
+  await readTeamRecovery(orgId);
   return outcomes;
 }
 
