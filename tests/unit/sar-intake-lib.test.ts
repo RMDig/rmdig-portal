@@ -2,24 +2,38 @@ import { createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { alertUserName, groupAlerts, IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature, type StoredMessage } from "@/lib/sar/intake";
+import { alertUserName, checkIntakeKeyConfig, groupAlerts, IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature, type StoredMessage } from "@/lib/sar/intake";
 
 // AvServ sar_portal_intake.md: keys, signatures, payloads, and one alert per
 // alertId however many nodes delivered it.
 
 const SECRET = "s".repeat(64);
-const keys = parseIntakeKeys(`sarintake-avserv-2-1:${SECRET},sarintake-avserv-3-1:${"t".repeat(64)}`);
+const PACKED = `sarintake-avserv-2-1:${SECRET},sarintake-avserv-3-1:${"t".repeat(64)}`;
+const NODES = "sarintake-avserv-2-1:avserv-2,sarintake-avserv-3-1:avserv-3";
+const keys = parseIntakeKeys(PACKED, NODES);
 const sign = (t: number, body: string, secret = SECRET) =>
   `t=${t},v1=${createHmac("sha256", secret).update(`${t}.${body}`).digest("hex")}`;
 
 describe("parseIntakeKeys", () => {
-  it("parses packed keys, and none when unset", () => {
+  it("parses packed keys with their nodes, and none when unset", () => {
     expect([...keys.keys()]).toEqual(["sarintake-avserv-2-1", "sarintake-avserv-3-1"]);
-    expect(parseIntakeKeys(undefined).size).toBe(0);
+    expect(keys.get("sarintake-avserv-3-1")).toEqual({ secret: "t".repeat(64), node: "avserv-3" });
+    expect(parseIntakeKeys(undefined, NODES).size).toBe(0);
   });
   it("throws on a malformed entry or a short secret", () => {
-    expect(() => parseIntakeKeys("nocolon")).toThrow();
-    expect(() => parseIntakeKeys("k:short")).toThrow();
+    expect(() => parseIntakeKeys("nocolon", "nocolon:avserv-2")).toThrow();
+    expect(() => parseIntakeKeys("k:short", "k:avserv-2")).toThrow();
+  });
+  it("throws on a key with no node, a node for no key, or a malformed binding (never parsed from the name)", () => {
+    expect(() => parseIntakeKeys(PACKED, undefined)).toThrow(/sarintake-avserv-2-1 has no node/);
+    expect(() => parseIntakeKeys(PACKED, "sarintake-avserv-2-1:avserv-2")).toThrow(/sarintake-avserv-3-1 has no node/);
+    expect(() => parseIntakeKeys(PACKED, `${NODES},sarintake-old:avserv-2`)).toThrow(/sarintake-old names no key/);
+    expect(() => parseIntakeKeys(PACKED, "sarintake-avserv-2-1:avserv-2:x,sarintake-avserv-3-1:avserv-3")).toThrow(/keyId:node/);
+  });
+  it("is checked at build: skipped without intake, an error without the nodes", () => {
+    expect(checkIntakeKeyConfig({})).toEqual({ status: "skipped" });
+    expect(checkIntakeKeyConfig({ AVSERV_SAR_INTAKE_KEYS: PACKED, AVSERV_SAR_INTAKE_KEY_NODES: NODES })).toEqual({ status: "ok", keys: 2 });
+    expect(checkIntakeKeyConfig({ AVSERV_SAR_INTAKE_KEYS: PACKED })).toMatchObject({ status: "error" });
   });
 });
 
@@ -27,7 +41,7 @@ describe("verifySignature", () => {
   const body = '{"x":1}';
   const now = 1_790_000_000;
   const check = (o: Partial<Parameters<typeof verifySignature>[0]>) =>
-    verifySignature({ keys, keyId: "sarintake-avserv-2-1", header: sign(now, body), rawBody: Buffer.from(body), nowSeconds: now, ...o });
+    verifySignature({ keys, keyId: "sarintake-avserv-2-1", node: "avserv-2", header: sign(now, body), rawBody: Buffer.from(body), nowSeconds: now, ...o });
 
   it("accepts a valid signature within the window", () => {
     expect(check({})).toEqual({ ok: true });
@@ -37,8 +51,13 @@ describe("verifySignature", () => {
     expect(check({ keyId: "nope" })).toEqual({ ok: false, code: "unknown_key" });
     expect(check({ nowSeconds: now + 301 })).toEqual({ ok: false, code: "stale_signature" });
     expect(check({ rawBody: Buffer.from('{"x":2}') })).toEqual({ ok: false, code: "bad_signature" });
-    expect(check({ keyId: "sarintake-avserv-3-1" })).toEqual({ ok: false, code: "bad_signature" });
+    expect(check({ keyId: "sarintake-avserv-3-1", node: "avserv-3" })).toEqual({ ok: false, code: "bad_signature" });
     expect(check({ header: "garbage" })).toEqual({ ok: false, code: "bad_signature" });
+  });
+  it("refuses a key used by another node, or with no X-AvAI-Node, as an unknown key", () => {
+    // A correct signature with avserv-2's key, but the message says avserv-3 sent it.
+    expect(check({ node: "avserv-3" })).toEqual({ ok: false, code: "unknown_key" });
+    expect(check({ node: null })).toEqual({ ok: false, code: "unknown_key" });
   });
 });
 
@@ -58,6 +77,24 @@ describe("IntakePayload", () => {
     expect(IntakePayload.safeParse({ ...env, messageId: "m", node: "n", alertId: "a", kind: "all_clear", alert: { refersTo: "a", at: "x" } }).success).toBe(true);
     expect(IntakePayload.safeParse({ ...overdue("m1", "n"), kind: "incident" }).success).toBe(false);
     expect(IntakePayload.safeParse({ ...overdue("m1", "n"), schemaVersion: 2 }).success).toBe(false);
+  });
+});
+
+describe("a test message (AvServ sar_test_alert.md §4)", () => {
+  const test = { ...env, capability: null, messageId: "t1", node: "avserv-2", alertId: "test:t1", kind: "test", alert: { testId: "t1" } };
+
+  it("parses, with its own alertId shape and no capability", () => {
+    expect(parseIntakePayload(test)).toMatchObject({ ok: true, payload: { kind: "test", alert: { testId: "t1" } } });
+    expect(parseIntakePayload({ ...test, alertId: "t1" })).toMatchObject({ ok: false, error: expect.stringContaining("test:<testId>") });
+    expect(parseIntakePayload({ ...test, capability: "checkout_alerts" })).toMatchObject({ ok: false });
+    expect(parseIntakePayload({ ...test, alert: {} })).toMatchObject({ ok: false });
+  });
+
+  it("is never grouped into an alert", () => {
+    const parsed = parseIntakePayload(test);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const stored: StoredMessage = { messageId: "t1", alertId: "test:t1", kind: "test", node: "avserv-2", drill: false, receivedAt: new Date(), payload: parsed.payload };
+    expect(groupAlerts([stored])).toEqual([]);
   });
 });
 

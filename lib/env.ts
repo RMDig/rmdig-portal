@@ -121,6 +121,11 @@ export const Env = z.object({
   // (AvServ contract account_agreement.md §4, failover). Optional: unset means
   // acceptances go to AVSERV_BASE_URL alone, and a failure there is shown.
   AVSERV_FAILOVER_BASE_URL: avservUrl.optional(),
+  // Every AvServ node a SAR team is sent to and read from, comma-separated
+  // base URLs (lib/avserv/node-list.ts): today avserv-2 and avserv-3; avserv-1
+  // joins by adding its URL on the day (AvServ, 2026-11-11). Checked by the
+  // build against AVSERV_BASE_URL and AVSERV_FAILOVER_BASE_URL.
+  AVSERV_NODE_URLS: z.string().optional(),
   // E2E-only seam (docs/plans/31 §4): with AVSERV_BASE_URL=mock://* it lets the
   // agreement page present a labelled test fixture while no version is pinned.
   // Production never sets it, and it is ignored against a real AvServ.
@@ -130,6 +135,12 @@ export const Env = z.object({
   // per node, never shared. During rotation both ids are listed. Optional:
   // unset, /api/sar/intake answers 503 (AvServ retries) and logs loudly.
   AVSERV_SAR_INTAKE_KEYS: z.string().optional(),
+  // Which node each intake key belongs to, "keyId:node,keyId:node" (not
+  // secret; node as AvServ sends it in X-AvAI-Node, e.g. "avserv-2"). Every
+  // key must have one: a message signed with another node's key is refused
+  // (AvServ, 2026-11-11). Required wherever AVSERV_SAR_INTAKE_KEYS is set; the
+  // production build fails without it (scripts/check-service-key.ts).
+  AVSERV_SAR_INTAKE_KEY_NODES: z.string().optional(),
   // AES-256 keys sealing an alert's position, route and note at rest (plan 36
   // H4, lib/sar/payload-seal.ts), packed "kid:hex,kid:hex"; the first seals
   // new alerts, the rest still open. Optional in the schema, but intake

@@ -18,15 +18,23 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.AVSERV_FAILOVER_BASE_URL;
+  delete process.env.AVSERV_NODE_URLS;
 });
 
 describe("avservNodes", () => {
-  it("lists both nodes by host, once each", async () => {
+  it("lists every node in AVSERV_NODE_URLS by host, in order", async () => {
+    process.env.AVSERV_NODE_URLS = "https://avserv-2.example, https://avserv-3.example/";
     const { avservNodes } = await import("@/lib/avserv/sar-teams");
-    expect(avservNodes().map((n) => n.name)).toEqual(["avserv-2.example", "avserv-3.example"]);
-    vi.resetModules();
-    process.env.AVSERV_FAILOVER_BASE_URL = "https://avserv-2.example";
-    expect((await import("@/lib/avserv/sar-teams")).avservNodes()).toHaveLength(1);
+    expect(avservNodes()).toEqual([
+      { name: "avserv-2.example", baseUrl: "https://avserv-2.example" },
+      { name: "avserv-3.example", baseUrl: "https://avserv-3.example" },
+    ]);
+  });
+
+  it("is no nodes when unset, never a guess from the account URLs", async () => {
+    delete process.env.AVSERV_NODE_URLS;
+    const { avservNodes } = await import("@/lib/avserv/sar-teams");
+    expect(avservNodes()).toEqual([]);
   });
 });
 
@@ -81,6 +89,38 @@ describe("getSarTeam", () => {
     const { getSarTeam } = await import("@/lib/avserv/sar-teams");
     expect(await getSarTeam(NODE, "org-1")).toMatchObject({ openBindings: 2 });
     expect(await getSarTeam(NODE, "org-1")).toBeNull();
+    await expect(getSarTeam(NODE, "org-1")).rejects.toThrow(/schema validation/);
+  });
+
+  // sar_team_sync.md §2 and §5.5 (R4c): each channel kind has its own shape.
+  // An email bounce must not fail the read Withdraw and the checks rely on.
+  const view = (channelStatus: unknown[]) => json(200, { orgId: "org-1", revision: 5, status: "approved", usable: true, openBindings: 0, channelStatus });
+
+  it("reads an email channel's bounce or complaint, an SMS channel's STOP, and a clean email channel", async () => {
+    const channels = [
+      { kind: "email", bouncedAt: "2026-11-11T03:00:00Z" },
+      { kind: "email", complainedAt: "2026-11-11T04:00:00Z" },
+      { kind: "email" },
+      { kind: "sms", phone: "+13035550100", optedOutAt: "2026-11-10T12:00:00Z", source: "stop_text" },
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(view(channels)));
+    const { getSarTeam } = await import("@/lib/avserv/sar-teams");
+    expect((await getSarTeam(NODE, "org-1"))?.channelStatus).toEqual(channels);
+  });
+
+  it("keeps a channel kind it doesn't know yet by name, without failing the read", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(view([{ kind: "pager", whatever: 1 }])));
+    const { getSarTeam } = await import("@/lib/avserv/sar-teams");
+    expect((await getSarTeam(NODE, "org-1"))?.channelStatus).toEqual([{ kind: "pager" }]);
+  });
+
+  it("still refuses a malformed SMS or email entry", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(view([{ kind: "sms", phone: "+13035550100" }])).mockResolvedValueOnce(view([{ kind: "email", bouncedAt: 7 }])),
+    );
+    const { getSarTeam } = await import("@/lib/avserv/sar-teams");
+    await expect(getSarTeam(NODE, "org-1")).rejects.toThrow(/schema validation/);
     await expect(getSarTeam(NODE, "org-1")).rejects.toThrow(/schema validation/);
   });
 });

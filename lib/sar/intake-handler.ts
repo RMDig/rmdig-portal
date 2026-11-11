@@ -8,7 +8,7 @@ import { env } from "../env";
 import { logger } from "../logger";
 import { reportError, reportProblem } from "../report-error";
 import { notifyOnIntake } from "./alert-notify";
-import { type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
+import { type IntakeKey, type IntakePayload, parseIntakeKeys, parseIntakePayload, verifySignature } from "./intake";
 import { sarPayloadKeys } from "./payload-keys";
 import { sealPayload } from "./payload-seal";
 
@@ -36,9 +36,9 @@ function reply(status: number, code: string) {
 export type IntakeMode = "live" | "drill";
 
 export async function handleIntake(req: Request, mode: IntakeMode) {
-  let keys: Map<string, string>;
+  let keys: Map<string, IntakeKey>;
   try {
-    keys = parseIntakeKeys(env.AVSERV_SAR_INTAKE_KEYS);
+    keys = parseIntakeKeys(env.AVSERV_SAR_INTAKE_KEYS, env.AVSERV_SAR_INTAKE_KEY_NODES);
   } catch (err) {
     reportError("sar.intake.keys_invalid", err);
     return reply(503, "intake_not_configured");
@@ -64,6 +64,7 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
   const check = verifySignature({
     keys,
     keyId: req.headers.get("x-avai-key-id"),
+    node,
     header: req.headers.get("x-avai-signature"),
     rawBody,
     nowSeconds: Math.floor(Date.now() / 1000),
@@ -116,7 +117,9 @@ export async function handleIntake(req: Request, mode: IntakeMode) {
       reportProblem("sar.intake.live_for_drill_team", "SAR intake refused a live alert for a drill team", { teamId: payload.teamId, messageId: payload.messageId, node });
       return reply(400, "live_for_drill_team");
     }
-    if (team.status !== "approved" && team.status !== "leaving") {
+    // A test runs before the team is active (G2's checklist, before Approve),
+    // so only an alert to an inactive team is a problem.
+    if (payload.kind !== "test" && team.status !== "approved" && team.status !== "leaving") {
       // AvServ shouldn't send to it; keep the record and say so loudly.
       reportProblem("sar.intake.team_not_active", "SAR intake received an alert for a team that isn't active", { teamId: payload.teamId, status: team.status });
     }

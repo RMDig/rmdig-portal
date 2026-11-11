@@ -88,6 +88,7 @@ function request(body: object, o: { keyId?: string; t?: number; secret?: string;
 beforeEach(() => {
   vi.clearAllMocks();
   h.env.AVSERV_SAR_INTAKE_KEYS = `sarintake-avserv-2-1:${SECRET}`;
+  h.env.AVSERV_SAR_INTAKE_KEY_NODES = "sarintake-avserv-2-1:avserv-2";
   h.env.SAR_PAYLOAD_KEYS = `s1:${PAYLOAD_KEY}`;
   h.team = [{ name: "Summit SAR", status: "approved", isDrill: false }];
   h.inserted = [{ messageId: "m1" }];
@@ -140,6 +141,24 @@ describe("POST /api/sar/intake", () => {
     h.team = [{ name: "Summit SAR", status: "suspended" }];
     expect((await POST(request(payload()))).status).toBe(200);
     expect(h.captureMessage).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ tags: { event: "sar.intake.team_not_active" } }));
+  });
+
+  // AvServ sar_test_alert.md §4 (G2 item 3): a test is accepted, never an alert.
+  const test = (o: Record<string, unknown> = {}) =>
+    payload({ messageId: "t1", alertId: "test:t1", kind: "test", capability: null, alert: { testId: "t1" }, ...o });
+
+  it("stores a test for a team that isn't active yet, without reporting it (the checklist runs before Approve)", async () => {
+    h.team = [{ name: "Summit SAR", status: "pending", isDrill: false }];
+    h.inserted = [{ messageId: "t1" }];
+    expect((await POST(request(test()))).status).toBe(200);
+    expect(h.insertedValues[0]).toMatchObject({ messageId: "t1", alertId: "test:t1", kind: "test", capability: null });
+    expect(h.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("refuses a test whose alertId isn't test:<testId>, or that names a capability", async () => {
+    expect((await POST(request(test({ alertId: "sub:team" })))).status).toBe(400);
+    expect((await POST(request(test({ capability: "checkout_alerts" })))).status).toBe(400);
+    expect(h.insertedValues).toEqual([]);
   });
 
   it("keeps drills and live alerts apart: each URL refuses the other kind (permanent 4xx)", async () => {
@@ -217,6 +236,16 @@ describe("POST /api/sar/intake", () => {
     expect((await POST(request(payload()))).status).toBe(500);
     expect(h.capture).toHaveBeenCalledWith(h.dbError, expect.objectContaining({ tags: { event: "sar.intake.failed" } }));
     expect(h.notify).not.toHaveBeenCalled();
+  });
+
+  it("refuses a message signed with another node's key (401 unknown_key), and a key with no node (503)", async () => {
+    h.env.AVSERV_SAR_INTAKE_KEY_NODES = "sarintake-avserv-2-1:avserv-3";
+    const res = await POST(request(payload()));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ code: "unknown_key" });
+    h.env.AVSERV_SAR_INTAKE_KEY_NODES = "";
+    expect((await POST(request(payload()))).status).toBe(503);
+    expect(h.capture).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ tags: { event: "sar.intake.keys_invalid" } }));
   });
 
   it("reports missing intake keys to Sentry, not just the log", async () => {

@@ -9,35 +9,79 @@ import { z } from "zod";
 
 export const MAX_SKEW_SECONDS = 300;
 
-/** "keyId:secret,keyId:secret" → Map. A malformed entry is a config error
- *  and throws, so a typo can't silently drop a node's key. */
-export function parseIntakeKeys(packed: string | undefined): Map<string, string> {
-  const keys = new Map<string, string>();
+export interface IntakeKey {
+  secret: string;
+  /** The node that signs with this key, as it sends X-AvAI-Node. */
+  node: string;
+}
+
+/** "keyId:secret,…" (AVSERV_SAR_INTAKE_KEYS, secret) and "keyId:node,…"
+ *  (AVSERV_SAR_INTAKE_KEY_NODES, not secret) → Map. Each key belongs to one
+ *  node (AvServ, 2026-11-11): AvServ sends whatever key id its operator set,
+ *  so the binding is explicit, never parsed from the name. A malformed entry,
+ *  a key with no node, or a node binding for no key is a config error and
+ *  throws, so a typo can't leave a key any node may sign with. */
+export function parseIntakeKeys(packed: string | undefined, nodes: string | undefined): Map<string, IntakeKey> {
+  const keys = new Map<string, IntakeKey>();
   if (!packed) return keys;
-  for (const entry of packed.split(",").map((e) => e.trim()).filter(Boolean)) {
-    const i = entry.indexOf(":");
-    const id = entry.slice(0, i).trim();
-    const secret = entry.slice(i + 1).trim();
-    if (i <= 0 || !id || secret.length < 32) {
+  const pairs = (value: string | undefined) =>
+    (value ?? "")
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean)
+      .map((e) => {
+        const i = e.indexOf(":");
+        return { id: i > 0 ? e.slice(0, i).trim() : "", value: i > 0 ? e.slice(i + 1).trim() : "" };
+      });
+  const nodeOf = new Map<string, string>();
+  for (const { id, value } of pairs(nodes)) {
+    if (!id || !value || value.includes(":")) throw new Error("AVSERV_SAR_INTAKE_KEY_NODES: each entry must be keyId:node");
+    nodeOf.set(id, value);
+  }
+  for (const { id, value: secret } of pairs(packed)) {
+    if (!id || secret.length < 32) {
       throw new Error("AVSERV_SAR_INTAKE_KEYS: each entry must be keyId:secret with a secret of 32+ characters");
     }
-    keys.set(id, secret);
+    const node = nodeOf.get(id);
+    if (!node) throw new Error(`AVSERV_SAR_INTAKE_KEY_NODES: key ${id} has no node`);
+    keys.set(id, { secret, node });
+  }
+  for (const id of nodeOf.keys()) {
+    if (!keys.has(id)) throw new Error(`AVSERV_SAR_INTAKE_KEY_NODES: ${id} names no key in AVSERV_SAR_INTAKE_KEYS`);
   }
   return keys;
 }
 
+export type IntakeKeyCheck = { status: "ok"; keys: number } | { status: "skipped" } | { status: "error"; error: string };
+
+/** For the production build (scripts/check-service-key.ts): with intake
+ *  configured, every key must load and name its node, or intake would refuse
+ *  every alert (503). */
+export function checkIntakeKeyConfig(e: { AVSERV_SAR_INTAKE_KEYS?: string; AVSERV_SAR_INTAKE_KEY_NODES?: string }): IntakeKeyCheck {
+  if (!e.AVSERV_SAR_INTAKE_KEYS) return { status: "skipped" };
+  try {
+    return { status: "ok", keys: parseIntakeKeys(e.AVSERV_SAR_INTAKE_KEYS, e.AVSERV_SAR_INTAKE_KEY_NODES).size };
+  } catch (err) {
+    return { status: "error", error: (err as Error).message };
+  }
+}
+
 export type SignatureCheck = { ok: true } | { ok: false; code: "unknown_key" | "bad_signature" | "stale_signature" };
 
-/** Verify `X-AvAI-Signature: t=<unix>,v1=<hex>` = HMAC-SHA256(secret, t + "." + rawBody). */
+/** Verify `X-AvAI-Signature: t=<unix>,v1=<hex>` = HMAC-SHA256(secret, t + "." + rawBody),
+ *  with a key that belongs to the node named in X-AvAI-Node: another node's
+ *  key is refused as unknown (AvServ, 2026-11-11). */
 export function verifySignature(input: {
-  keys: Map<string, string>;
+  keys: Map<string, IntakeKey>;
   keyId: string | null;
+  node: string | null;
   header: string | null;
   rawBody: Buffer;
   nowSeconds: number;
 }): SignatureCheck {
-  const secret = input.keyId ? input.keys.get(input.keyId) : undefined;
-  if (!secret) return { ok: false, code: "unknown_key" };
+  const key = input.keyId ? input.keys.get(input.keyId) : undefined;
+  if (!key || key.node !== input.node) return { ok: false, code: "unknown_key" };
+  const secret = key.secret;
   const parts = Object.fromEntries(
     (input.header ?? "").split(",").map((p) => {
       const i = p.indexOf("=");
@@ -115,6 +159,14 @@ export const IntakePayload = z.discriminatedUnion("kind", [
     kind: z.literal("duplicate_disclaimer"),
     alert: z.object({ refersTo: z.string(), deliveries: z.number().nullable() }),
   }),
+  // A team's test message (AvServ sar_test_alert.md §4; G2 item 3): never an
+  // alert. It names no user and no place, carries no capability, and its
+  // alertId is "test:<testId>", so it can't group with a real alert.
+  Envelope.extend({
+    kind: z.literal("test"),
+    capability: z.null(),
+    alert: z.object({ testId: z.string().min(1).max(200) }),
+  }),
 ]);
 export type IntakePayload = z.infer<typeof IntakePayload>;
 
@@ -138,6 +190,9 @@ export function parseIntakePayload(raw: unknown): ParsedIntake {
   let candidate = raw;
   for (let attempt = 0; attempt < DROPPABLE.size + 1; attempt++) {
     const r = IntakePayload.safeParse(candidate);
+    if (r.success && r.data.kind === "test" && r.data.alertId !== `test:${r.data.alert.testId}`) {
+      return { ok: false, error: "alertId: a test's alertId must be test:<testId>" };
+    }
     if (r.success) return { ok: true, payload: r.data, dropped };
     const fixable = r.error.issues.map((i) => i.path).filter((path) => path[0] === "alert" && typeof path[1] === "string" && DROPPABLE.has(path[1]));
     const essential = r.error.issues.find((i) => !(i.path[0] === "alert" && typeof i.path[1] === "string" && DROPPABLE.has(i.path[1])));
@@ -190,6 +245,8 @@ export interface TeamAlert {
 export function groupAlerts(messages: StoredMessage[]): TeamAlert[] {
   const byAlert = new Map<string, StoredMessage[]>();
   for (const m of messages) {
+    // A test is never an alert (sar_test_alert.md): the checklist shows it.
+    if (m.payload.kind === "test") continue;
     const key = m.payload.kind === "overdue" || m.payload.kind === "send_help" ? m.alertId : m.payload.alert.refersTo;
     byAlert.set(key, [...(byAlert.get(key) ?? []), m]);
   }
