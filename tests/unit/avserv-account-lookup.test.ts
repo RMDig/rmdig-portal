@@ -14,7 +14,7 @@ import { lookupAccountsByEmail, mergeAccountMatches, type AccountMatch } from "@
 import { AvServError } from "@/lib/avserv/request";
 
 const NODE = { name: "avserv-2.rmdig.ai", baseUrl: "https://avserv-2.rmdig.ai" };
-const m = (o: Partial<AccountMatch> = {}): AccountMatch => ({ accountId: "a1", verified: false, source: "app", status: "active", createdAt: "2026-09-01T00:00:00Z", ...o });
+const m = (o: Partial<AccountMatch> = {}): AccountMatch => ({ accountId: "a1", verified: false, source: "app", status: "active", createdAt: "2026-09-01T00:00:00Z", drill: false, ...o });
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
 
 beforeEach(() => h.fetch.mockReset());
@@ -45,6 +45,16 @@ describe("lookupAccountsByEmail", () => {
   });
 });
 
+describe("lookupAccountsByEmail drill (contract rev 16 §4.2)", () => {
+  it("keeps each match's drill, and refuses a match without it", async () => {
+    h.fetch.mockResolvedValueOnce(json(200, { matches: [m({ drill: true })] }));
+    expect(await lookupAccountsByEmail(NODE, "pat@example.org", "staff-1")).toEqual({ ok: true, node: NODE.name, matches: [m({ drill: true })] });
+    const { drill: _drill, ...noDrill } = m();
+    h.fetch.mockResolvedValueOnce(json(200, { matches: [noDrill] }));
+    expect(await lookupAccountsByEmail(NODE, "pat@example.org", "staff-1")).toEqual({ ok: false, node: NODE.name, code: "bad_response" });
+  });
+});
+
 describe("mergeAccountMatches", () => {
   it("merges by account (verified/login if any node says so), login first then oldest", () => {
     const r = mergeAccountMatches([
@@ -57,6 +67,14 @@ describe("mergeAccountMatches", () => {
       ["app-old", false, "app"],
       ["app-new", false, "app"],
     ]);
+  });
+
+  it("marks an account drill if any node says so", () => {
+    const r = mergeAccountMatches([
+      { ok: true, node: "a2", matches: [m({ accountId: "d" })] },
+      { ok: true, node: "a3", matches: [m({ accountId: "d", drill: true })] },
+    ]);
+    expect(r.matches).toEqual([m({ accountId: "d", drill: true })]);
   });
 
   it("is incomplete with one node down, an error with none", () => {

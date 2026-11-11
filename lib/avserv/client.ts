@@ -51,7 +51,12 @@ export interface DeviceLinkCode {
   code: string;
   /** ISO-8601 timestamp after which the code is no longer valid. */
   expiresAt: string;
+  /** Whether the account the code links to is a drill account (contract rev
+   *  16 §4.2). The caller never shows a code across the drill line. */
+  drill: boolean;
 }
+
+const LinkCodeResponseSchema = z.object({ code: z.string().min(1), expiresAt: z.string().min(1), drill: z.boolean() });
 
 // Boundary schema for the linked-devices read endpoint (P-B3,
 // GET /v1/internal/accounts/{id}/devices). Mirrors AvServ's `deviceJSON`
@@ -275,9 +280,11 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
   }
 
   if (isMock(baseUrl)) {
+    const email = mockAccountEmails.get(accountId);
     return {
       code: mockLinkCode(accountId),
       expiresAt: new Date(Date.now() + LINK_CODE_TTL_MS).toISOString(),
+      drill: (email && mockAccountDrill.get(email)) || false,
     };
   }
 
@@ -312,11 +319,11 @@ export async function mintLinkCode(accountId: string): Promise<DeviceLinkCode> {
     throw new AvServError(`AvServ returned unexpected status ${res.status}`, res.status);
   }
 
-  const body = (await res.json().catch(() => null)) as Partial<DeviceLinkCode> | null;
-  if (!body || typeof body.code !== "string" || typeof body.expiresAt !== "string") {
-    throw new AvServError("AvServ response missing code/expiresAt");
+  const body = LinkCodeResponseSchema.safeParse(await res.json().catch(() => null));
+  if (!body.success) {
+    throw new AvServError("AvServ response missing code, expiresAt or drill");
   }
-  return { code: body.code, expiresAt: body.expiresAt };
+  return body.data;
 }
 
 // ── Ad creative publish / unpublish (P2 / v2+, docs/plans/30 §6) ─────────────

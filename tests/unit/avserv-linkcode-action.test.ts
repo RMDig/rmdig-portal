@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   sessionUserId: "u1" as string | undefined,
-  selectRows: [] as Array<{ avservAccountId: string | null }>,
+  selectRows: [] as Array<{ avservAccountId: string | null; isDrill: boolean }>,
+  problem: vi.fn(),
   mintLinkCode: vi.fn(),
   rlAllowed: true,
   rlKeys: [] as string[],
@@ -21,10 +22,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/db/schema", () => ({
-  users: { id: "id", avservAccountId: "avservAccountId" },
+  users: { id: "id", avservAccountId: "avservAccountId", isDrill: "isDrill" },
 }));
 vi.mock("@/lib/avserv/client", () => ({ mintLinkCode: h.mintLinkCode }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@/lib/report-error", () => ({ reportProblem: h.problem }));
 vi.mock("@/lib/rate-limit", () => ({
   incrementRateLimit: (key: string) => {
     h.rlKeys.push(key);
@@ -48,8 +50,8 @@ beforeEach(() => {
 
 describe("mintDeviceLinkCodeAction", () => {
   it("mints a code for a mapped, signed-in user", async () => {
-    h.selectRows = [{ avservAccountId: "acc-1" }];
-    h.mintLinkCode.mockResolvedValue({ code: "ABCD-2345", expiresAt: "2026-06-04T00:10:00Z" });
+    h.selectRows = [{ avservAccountId: "acc-1", isDrill: false }];
+    h.mintLinkCode.mockResolvedValue({ code: "ABCD-2345", expiresAt: "2026-06-04T00:10:00Z", drill: false });
 
     const res = await mintDeviceLinkCodeAction(null, fd);
 
@@ -58,7 +60,7 @@ describe("mintDeviceLinkCodeAction", () => {
   });
 
   it("stops at ten codes a day, before asking AvServ", async () => {
-    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.selectRows = [{ avservAccountId: "acc-1", isDrill: false }];
     h.rlAllowed = false;
     const res = await mintDeviceLinkCodeAction(null, fd);
     expect(res).toMatchObject({ ok: false, error: expect.stringMatching(/10 link codes today/) });
@@ -76,7 +78,7 @@ describe("mintDeviceLinkCodeAction", () => {
   });
 
   it("guards a user with no AvServ account yet", async () => {
-    h.selectRows = [{ avservAccountId: null }];
+    h.selectRows = [{ avservAccountId: null, isDrill: false }];
 
     const res = await mintDeviceLinkCodeAction(null, fd);
 
@@ -87,7 +89,7 @@ describe("mintDeviceLinkCodeAction", () => {
   });
 
   it("says when AvServ's own cap refuses, without retrying", async () => {
-    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.selectRows = [{ avservAccountId: "acc-1", isDrill: false }];
     h.mintLinkCode.mockRejectedValue(new AvServRateLimitedError("over cap", 5 * 3600));
 
     const res = await mintDeviceLinkCodeAction(null, fd);
@@ -99,7 +101,7 @@ describe("mintDeviceLinkCodeAction", () => {
   });
 
   it("falls back to 'later today' when the refusal has no Retry-After", async () => {
-    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.selectRows = [{ avservAccountId: "acc-1", isDrill: false }];
     h.mintLinkCode.mockRejectedValue(new AvServRateLimitedError("over cap", undefined));
 
     const res = await mintDeviceLinkCodeAction(null, fd);
@@ -108,12 +110,31 @@ describe("mintDeviceLinkCodeAction", () => {
   });
 
   it("surfaces a friendly error when minting fails", async () => {
-    h.selectRows = [{ avservAccountId: "acc-1" }];
+    h.selectRows = [{ avservAccountId: "acc-1", isDrill: false }];
     h.mintLinkCode.mockRejectedValue(new Error("avserv down"));
 
     const res = await mintDeviceLinkCodeAction(null, fd);
 
     expect(res.ok).toBe(false);
     expect(h.log.error).toHaveBeenCalled();
+  });
+
+  it("mints for a drill user whose account is drill", async () => {
+    h.selectRows = [{ avservAccountId: "acc-d", isDrill: true }];
+    h.mintLinkCode.mockResolvedValue({ code: "DRIL-2345", expiresAt: "2026-06-04T00:10:00Z", drill: true });
+    expect(await mintDeviceLinkCodeAction(null, fd)).toEqual({ ok: true, code: "DRIL-2345", expiresAt: "2026-06-04T00:10:00Z" });
+    expect(h.problem).not.toHaveBeenCalled();
+  });
+
+  it("never shows a code across the drill line, either way, and reports it (P7c)", async () => {
+    for (const [isDrill, drill] of [[false, true], [true, false]] as const) {
+      h.problem.mockClear();
+      h.selectRows = [{ avservAccountId: "acc-1", isDrill }];
+      h.mintLinkCode.mockResolvedValue({ code: "ABCD-2345", expiresAt: "2026-06-04T00:10:00Z", drill });
+      const res = await mintDeviceLinkCodeAction(null, fd);
+      expect(res).toEqual({ ok: false, error: expect.stringContaining("drill mismatch") });
+      expect(JSON.stringify(res)).not.toContain("ABCD-2345");
+      expect(h.problem).toHaveBeenCalledWith("avserv.linkcode.drill_mismatch", expect.any(String), { userId: "u1", userDrill: isDrill, accountDrill: drill });
+    }
   });
 });

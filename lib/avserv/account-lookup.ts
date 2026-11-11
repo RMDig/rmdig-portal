@@ -16,6 +16,8 @@ export const AccountMatch = z.object({
   source: z.enum(["login", "app"]),
   status: z.string(),
   createdAt: z.string(),
+  /** A drill account (contract rev 16 §4.2), RMDig's own test identity. */
+  drill: z.boolean(),
 });
 export type AccountMatch = z.infer<typeof AccountMatch>;
 
@@ -59,7 +61,15 @@ export function mergeAccountMatches(results: AccountLookupResult[]): {
       const seen = byId.get(m.accountId);
       byId.set(
         m.accountId,
-        seen ? { ...seen, verified: seen.verified || m.verified, source: seen.source === "login" || m.source === "login" ? "login" : "app" } : m,
+        seen
+          ? {
+              ...seen,
+              verified: seen.verified || m.verified,
+              source: seen.source === "login" || m.source === "login" ? "login" : "app",
+              // Drill if any node says so: one node may list the device as a drill device.
+              drill: seen.drill || m.drill,
+            }
+          : m,
       );
     }
   }
