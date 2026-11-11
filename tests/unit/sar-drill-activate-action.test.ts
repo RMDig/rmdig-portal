@@ -28,7 +28,7 @@ vi.mock("@/lib/auth/roles", () => ({
 }));
 vi.mock("@/lib/sar/sync", () => ({ syncSarOrg: h.sync }));
 vi.mock("@/lib/report-error", () => ({ reportError: h.reportError }));
-vi.mock("@/lib/email/send", () => ({ sendPasswordResetEmail: vi.fn() }));
+vi.mock("@/lib/email/send", () => ({ sendDrillLoginEmail: vi.fn() }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidate }));
 vi.mock("@/lib/db", () => {

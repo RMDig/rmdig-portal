@@ -19,7 +19,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
 vi.mock("@/lib/auth/roles", () => ({ hasPlatformRole: (_u: string, r: string) => Promise.resolve(r === "rmdig_admin" && h.admin) }));
-vi.mock("@/lib/email/send", () => ({ sendPasswordResetEmail: h.email }));
+vi.mock("@/lib/email/send", () => ({ sendDrillLoginEmail: h.email }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidate }));
 vi.mock("@/lib/db", () => {
@@ -65,7 +65,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.actor = { ok: true, userId: "admin-1" };
   h.admin = true;
-  h.org = [{ isDrill: true, status: "pending" }];
+  h.org = [{ isDrill: true, status: "pending", name: "AvAI Drill Team" }];
   h.existing = [];
   h.inserts = [];
   h.txError = null;
@@ -80,8 +80,11 @@ describe("createDrillLoginAction", () => {
     expect(h.inserts[1]!.v).toEqual({ orgId: ORG, userId: "drill-user-1", role: "admin", invitedByUserId: "admin-1" });
     expect(h.inserts[2]!.v).toMatchObject({ action: "joined", subjectEmail: "ops+drill1@rmdig.ai", toRole: "admin", actorUserId: "admin-1" });
     // The emailed link carries the token whose hash was stored, never the hash.
-    const url = h.email.mock.calls[0]![1] as string;
+    // Its own drill-login email, naming the team, not a reset nobody asked for.
+    const sent = h.email.mock.calls[0]![1] as { teamName: string; setPasswordUrl: string };
     expect(h.email.mock.calls[0]![0]).toBe("ops+drill1@rmdig.ai");
+    expect(sent.teamName).toBe("AvAI Drill Team");
+    const url = sent.setPasswordUrl;
     const token = new URL(url).searchParams.get("token")!;
     expect(h.inserts[3]!.v).toMatchObject({ userId: "drill-user-1", tokenHash: hashResetToken(token) });
     expect(url).not.toContain(h.inserts[3]!.v.tokenHash as string);

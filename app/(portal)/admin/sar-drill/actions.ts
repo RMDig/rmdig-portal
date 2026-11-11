@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { orgMembershipLog, orgMemberships, passwordResetTokens, sarOrgs, sarOrgStatusLog, users } from "@/lib/db/schema";
 import { portalUrl } from "@/lib/email/links";
-import { sendPasswordResetEmail } from "@/lib/email/send";
+import { sendDrillLoginEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { reportError } from "@/lib/report-error";
 import { DRILL_ACTIVATED_NOTE, drillLoginSchema } from "@/lib/sar/drill";
@@ -24,8 +24,9 @@ import { syncSarOrg } from "@/lib/sar/sync";
 // (migration 0036). So an address that already has an account is refused, and
 // a real account is never turned into a drill one.
 //
-// The link is the ordinary password-reset link (60 minutes). Using it sets
-// the password and verifies the address; after that, "Forgot password" on the
+// The link is the ordinary password-reset link (60 minutes), in its own email
+// that says a drill login was created (an ordinary reset email reads as if
+// someone asked for one). Using it sets the password and verifies the address; after that, "Forgot password" on the
 // address issues a new one. Two-factor is enrolled at first sign-in, as for
 // anyone (MFA_ENFORCEMENT=all).
 
@@ -53,7 +54,7 @@ export async function createDrillLoginAction(orgId: string, _prev: DrillLoginRes
   }
   const { email, role } = parsed.data;
 
-  const [org] = await db.select({ isDrill: sarOrgs.isDrill, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
+  const [org] = await db.select({ isDrill: sarOrgs.isDrill, status: sarOrgs.status, name: sarOrgs.name }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
   if (!org?.isDrill) return { ok: false, error: "That drill team couldn't be found." };
   if (org.status === "rejected" || org.status === "withdrawn") {
     return { ok: false, error: `This drill team is ${org.status}, so it takes no new logins.` };
@@ -86,7 +87,7 @@ export async function createDrillLoginAction(orgId: string, _prev: DrillLoginRes
   // new link.
   let emailed = true;
   try {
-    await sendPasswordResetEmail(email, portalUrl(`/reset-password?token=${token}`));
+    await sendDrillLoginEmail(email, { teamName: org.name, setPasswordUrl: portalUrl(`/reset-password?token=${token}`) });
   } catch (err) {
     emailed = false;
     logger.error({ event: "sar.drill.login_email_failed", userId: adminId, orgId, drillUserId: userId, err });
