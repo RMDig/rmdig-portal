@@ -67,6 +67,25 @@ export async function putSarTeam(node: AvServNode, body: SyncBody): Promise<PutR
   return { ok: false, status: res.status, code, retryable: res.status === 503 || res.status >= 500 };
 }
 
+// One channel's delivery state on this node (sar_team_sync.md §2, §5.5). Each
+// kind has its own shape: an SMS channel's STOP (S4, not built yet) and an
+// email channel's bounce or spam complaint (R4c). A kind this build doesn't
+// know yet is kept by name only, so a new kind can't break the read that
+// Withdraw and the AvServ checks depend on; a known kind still has to match.
+const SmsChannelStatus = z.object({
+  kind: z.literal("sms"),
+  phone: z.string().nullable().optional(),
+  optedOutAt: z.string().nullable(),
+  source: z.string().nullable(),
+});
+const EmailChannelStatus = z.object({
+  kind: z.literal("email"),
+  bouncedAt: z.string().optional(),
+  complainedAt: z.string().optional(),
+});
+const OtherChannelStatus = z.object({ kind: z.string().refine((k) => k !== "sms" && k !== "email") });
+const ChannelStatus = z.union([SmsChannelStatus, EmailChannelStatus, OtherChannelStatus]);
+
 const NodeView = z.object({
   orgId: z.string(),
   revision: z.number(),
@@ -75,10 +94,7 @@ const NodeView = z.object({
   unusableReason: z.string().nullable().optional(),
   termsVersion: z.number().nullable().optional(),
   openBindings: z.number(),
-  channelStatus: z
-    .array(z.object({ kind: z.string(), phone: z.string().nullable().optional(), optedOutAt: z.string().nullable(), source: z.string().nullable() }))
-    .optional()
-    .default([]),
+  channelStatus: z.array(ChannelStatus).optional().default([]),
 });
 export type NodeView = z.infer<typeof NodeView>;
 
