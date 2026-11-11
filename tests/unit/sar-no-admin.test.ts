@@ -64,3 +64,22 @@ describe("runNoAdminCheck", () => {
     expect(h.reportProblem).toHaveBeenCalledWith("sar.no_admin.no_staff_to_notify", expect.any(String), { teams: 1 });
   });
 });
+
+describe("the erasure page's sole-admin warning (plan 37 P7f)", () => {
+  it("names each team, marks a drill team, and says it doesn't hold up the erasure", async () => {
+    const { soleAdminWarning } = await import("@/lib/sar/no-admin");
+    const one = soleAdminWarning([{ name: "AvAI Drill Team", isDrill: true }]);
+    expect(one).toContain("only admin of AvAI Drill Team (drill team)");
+    expect(one).toContain("leaves that team with no admin");
+    expect(one).toContain("doesn't hold up the erasure");
+    const two = soleAdminWarning([{ name: "Alpha SAR", isDrill: false }, { name: "Bravo SAR", isDrill: false }]);
+    expect(two).toContain("only admin of Alpha SAR, Bravo SAR");
+    expect(two).toContain("leaves those teams");
+  });
+
+  it("asks nothing of the database for no users", async () => {
+    const { soleAdminTeams } = await import("@/lib/sar/no-admin");
+    h.teams = [{ id: "x", name: "should not be read", status: "approved" }];
+    expect(await soleAdminTeams([])).toEqual([]);
+  });
+});

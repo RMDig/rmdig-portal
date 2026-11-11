@@ -497,7 +497,8 @@ to a separate URL, `POST /api/sar/intake/drill` (AvServ's
 `400 drill_on_live_intake` / `live_on_drill_intake` (logged as
 `sar.intake.wrong_url`), so a misrouted drill can't reach a team as real. Both use
 the same keys. Drills are stored with `drill = true`, shown as "(drill)" on the
-team's Alerts page, kept off the map, and never email anyone. Both
+team's Alerts page and kept off the map. Their team email goes only to the
+drill team's drill logins, with "[DRILL]" first in the subject (plan 37 DR2). Both
 nodes send each alert, so a team can receive it twice; the alerts page shows it
 once ("delivered 2 times, one alert"). The endpoint stays up under the
 maintenance switch.
@@ -819,6 +820,9 @@ under the CPA — treat every request as covering it.
    erasure key is installed: AvServ `account_erasure.md`, kid
    `svc-key-portal-erasure`): on the request's card, **Erase in AvServ**.
    Needs two-factor and a recent login.
+   - If the card warns that the account is a team's **only admin**, add another
+     admin to that team first when you can. The warning never blocks: the
+     45-day deadline comes first, and the daily no-admin email follows up.
    - Enter the account id, then **Check every node**. **Erase** is offered only
      when every node answers *erasable* or *already erased*. A node that's
      unreachable, doesn't have the account yet, or has a live item blocks it.
