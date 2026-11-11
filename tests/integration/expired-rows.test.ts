@@ -61,6 +61,13 @@ beforeAll(async () => {
     (${org!.id}, 'i1@example.com', 'responder', 'i-old', ${ago(8)}, NULL, ${uid}),
     (${org!.id}, 'i2@example.com', 'responder', 'i-grace', ${ago(6)}, NULL, ${uid}),
     (${org!.id}, 'i3@example.com', 'responder', 'i-accepted', ${ago(30)}, ${ago(40)}, ${uid})`;
+  // On-call email links (plan 33 9.10): an unconfirmed one past its grace
+  // goes; one in its grace stays, and a confirmed one is the record of who set
+  // the address.
+  await sql`INSERT INTO sar_oncall_email_verifications (org_id, address, token_hash, expires, confirmed_at) VALUES
+    (${org!.id}, 'old@example.com', 'o-old', ${ago(8)}, NULL),
+    (${org!.id}, 'grace@example.com', 'o-grace', ${ago(6)}, NULL),
+    (${org!.id}, 'set@example.com', 'o-confirmed', ${ago(30)}, ${ago(31)})`;
   await sql`INSERT INTO platform_role_invitations (email, role, token_hash, expires_at, created_by_user_id) VALUES
     ('s@example.com', 'rmdig_reviewer', 'p-old', ${ago(8)}, ${uid})`;
   await sql`INSERT INTO rate_limits (key, attempts, window_start) VALUES
@@ -81,8 +88,13 @@ describe("deleteExpiredRows (real schema)", () => {
       verificationTokens: 1,
       unconfirmedDeletionRequests: 1,
       unacceptedInvitations: 2,
+      unconfirmedOncallLinks: 1,
       rateLimits: 1,
     });
+    expect((await sql`SELECT token_hash FROM sar_oncall_email_verifications ORDER BY token_hash`).map((r) => r.token_hash)).toEqual([
+      "o-confirmed",
+      "o-grace",
+    ]);
     expect((await sql`SELECT "sessionToken" FROM sessions`).map((r) => r.sessionToken)).toEqual(["live"]);
     expect((await sql`SELECT token_hash FROM password_reset_tokens`).map((r) => r.token_hash)).toEqual(["r-grace"]);
     expect((await sql`SELECT token FROM verification_tokens`).map((r) => r.token)).toEqual(["v-grace"]);
