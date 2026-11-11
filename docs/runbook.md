@@ -829,6 +829,14 @@ under the CPA — treat every request as covering it.
    - Type the id again and **Erase this account**. It goes to the primary node
      only, then every node's record is read back. Paste the summary it shows
      into the completion note.
+   - **The portal's copies** (plan 33 §6.9, F6): once every node reports the
+     account erased, the portal reads every node's share log and deletes its
+     own copies of the account's alerts (`sar_intake_messages`, with their
+     acks and team-email records), at every team, drill teams included. The
+     note's **Portal:** line says how many went. If a node's log didn't answer,
+     the line says so: **Read erasure status on every node** again later to finish (it's safe to
+     repeat). While the erasure is *held* behind a live item, nothing here is
+     deleted, because a team may still be working that alert.
    - **Stopped** (`email_mismatch`, `account_newer_than_request`) means this
      account isn't the requester's, or is newer than the request. Nothing was
      erased and AvServ paged. Don't retry: review which account the request
