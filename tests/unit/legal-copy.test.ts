@@ -86,6 +86,9 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "TermsEditor.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "page.tsx"),
     join(process.cwd(), "components", "sar", "TermsView.tsx"),
+    // The on-call email card and its words (plan 33 9.10).
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "terms", "OncallEmailCard.tsx"),
+    join(process.cwd(), "lib", "sar", "oncall-email.ts"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "page.tsx"),
     // The RED layer's labels, legend, notice and error text on /map.
     join(process.cwd(), "lib", "map", "red.ts"),

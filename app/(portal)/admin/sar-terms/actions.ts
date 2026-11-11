@@ -13,7 +13,7 @@ import { sendSarTermsDecisionEmail } from "@/lib/email/send";
 import { logger } from "@/lib/logger";
 import { syncSarOrg } from "@/lib/sar/sync";
 import { requiresReacceptance, termsSha256 } from "@/lib/sar/terms";
-import { CAPABILITIES, termsWordingProblems, unofferedCapabilities } from "@/lib/sar/terms-rules";
+import { CAPABILITIES, listsEmail, termsWordingProblems, unofferedCapabilities } from "@/lib/sar/terms-rules";
 
 // rmdig admins publish or send back a team's submitted terms (docs/plans/33).
 // Publishing assigns the next version, the SHA-256 of the exact body bytes and
@@ -55,7 +55,15 @@ export async function decideTermsAction(_prev: TermsDecisionResult | null, formD
   try {
     outcome = await db.transaction(async (tx) => {
       const [row] = await tx
-        .select({ id: sarOrgTerms.id, orgId: sarOrgTerms.orgId, status: sarOrgTerms.status, body: sarOrgTerms.body, capabilities: sarOrgTerms.capabilities, orgName: sarOrgs.name })
+        .select({
+          id: sarOrgTerms.id,
+          orgId: sarOrgTerms.orgId,
+          status: sarOrgTerms.status,
+          body: sarOrgTerms.body,
+          capabilities: sarOrgTerms.capabilities,
+          orgName: sarOrgs.name,
+          oncallEmailVerifiedAt: sarOrgs.oncallEmailVerifiedAt,
+        })
         .from(sarOrgTerms)
         .innerJoin(sarOrgs, eq(sarOrgs.id, sarOrgTerms.orgId))
         .where(eq(sarOrgTerms.id, termsId))
@@ -80,6 +88,11 @@ export async function decideTermsAction(_prev: TermsDecisionResult | null, formD
       if (unoffered.length > 0) {
         const labels = unoffered.map((n) => CAPABILITIES.find((c) => c.name === n)?.label ?? n);
         throw new Refused(`Can't publish: these services aren't offered now: ${labels.map((l) => `"${l}"`).join(", ")}. Send it back so the team can remove them.`);
+      }
+      // AvServ refuses the whole sync for a version that sends by email without
+      // a confirmed address, so it never publishes (plan 33 9.10).
+      if (listsEmail(row.capabilities) && !row.oncallEmailVerifiedAt) {
+        throw new Refused("Can't publish: these terms send alerts by email, but the team has no confirmed on-call email. Send it back.");
       }
       // Lock the org's published versions to number this one safely.
       const published = await tx

@@ -1,10 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPreviewMap";
 import { SuspendConfirm } from "@/components/sar/SuspendConfirm";
 import { Button } from "@/components/ui/button";
+import type { ActivationFacts } from "@/lib/sar/activation-checklist-rules";
+
+import { ActivationChecklist } from "./ActivationChecklist";
 import { resyncSarOrgAction, reviewSarOrgAction } from "./actions";
 import { formatMountain, formatMountainDate } from "@/lib/format/time";
 
@@ -52,6 +55,8 @@ export interface PendingOrg {
    *  approve or re-verify it. */
   conflictOfInterest: "submitted" | "member" | null;
   sync: NodeSync[];
+  /** A pending team's activation facts (plan 33 §6.9 G2); null otherwise. */
+  activation: ActivationFacts | null;
 }
 
 // One small form per lifecycle action (approved/leaving/suspended orgs).
@@ -97,6 +102,8 @@ function ActionButton({
 
 export function SarApprovalRow({ org }: { org: PendingOrg }) {
   const [state, formAction, pending] = useActionState(reviewSarOrgAction, null);
+  // Approve waits on the activation checklist; the action checks it again.
+  const [checklistReady, setChecklistReady] = useState(false);
   const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
   const error = state && !state.ok && !fieldErrors ? state.error : undefined;
   const submitted = new Date(org.submittedAt);
@@ -178,6 +185,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
               <input type="hidden" name="orgId" value={org.id} />
               <input type="hidden" name="revision" value={org.reviewRevision} />
               <input type="hidden" name="decision" value="approve" />
+              {org.activation ? <ActivationChecklist facts={org.activation} onReady={setChecklistReady} /> : null}
               <textarea
                 name="note"
                 rows={2}
@@ -189,7 +197,7 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
                 }
                 className="border-input flex w-full rounded-md border px-3 py-2 text-sm"
               />
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending || !checklistReady}>
                 Approve
               </Button>
             </form>

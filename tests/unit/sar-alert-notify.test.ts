@@ -132,6 +132,9 @@ describe("notifyOnIntake", () => {
 
   it("never emails a drill team's duplicate notices either", async () => {
     expect(emailsTeam({ drill: true, kind: "duplicate_disclaimer" }, true)).toBe(false);
+    // A test is never emailed to members as if it were an alert (sar_test_alert.md §4).
+    expect(emailsTeam({ drill: false, kind: "test" }, false)).toBe(false);
+    expect(emailsTeam({ drill: true, kind: "test" }, true)).toBe(false);
   });
 
   it("marks a real alert as real", async () => {

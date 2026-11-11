@@ -80,6 +80,24 @@ describe("IntakePayload", () => {
   });
 });
 
+describe("a test message (AvServ sar_test_alert.md §4)", () => {
+  const test = { ...env, capability: null, messageId: "t1", node: "avserv-2", alertId: "test:t1", kind: "test", alert: { testId: "t1" } };
+
+  it("parses, with its own alertId shape and no capability", () => {
+    expect(parseIntakePayload(test)).toMatchObject({ ok: true, payload: { kind: "test", alert: { testId: "t1" } } });
+    expect(parseIntakePayload({ ...test, alertId: "t1" })).toMatchObject({ ok: false, error: expect.stringContaining("test:<testId>") });
+    expect(parseIntakePayload({ ...test, capability: "checkout_alerts" })).toMatchObject({ ok: false });
+    expect(parseIntakePayload({ ...test, alert: {} })).toMatchObject({ ok: false });
+  });
+
+  it("is never grouped into an alert", () => {
+    const parsed = parseIntakePayload(test);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const stored: StoredMessage = { messageId: "t1", alertId: "test:t1", kind: "test", node: "avserv-2", drill: false, receivedAt: new Date(), payload: parsed.payload };
+    expect(groupAlerts([stored])).toEqual([]);
+  });
+});
+
 describe("groupAlerts", () => {
   const msg = (p: object, receivedAt: string): StoredMessage => {
     const payload = IntakePayload.parse(p);

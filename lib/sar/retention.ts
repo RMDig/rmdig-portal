@@ -20,6 +20,8 @@ export const STALE_OPEN_DAYS = 30;
 export interface SarRetentionSummary {
   positionsRemoved: number;
   alertMessagesDeleted: number;
+  /** Test messages (sar_test_alert.md), which never end: kept ALERT_DAYS from receipt. */
+  testMessagesDeleted: number;
   acksDeleted: number;
   viewLogsDeleted: number;
   staleOpenAlerts: number;
@@ -65,6 +67,11 @@ export async function runSarRetention(now: Date): Promise<SarRetentionSummary> {
       DELETE FROM sar_intake_messages m USING ended e
       WHERE m.alert_id = e.alert_id AND m.org_id = e.org_id AND e.ended_at < ${alertCut.toISOString()}::timestamptz
       RETURNING 1`);
+    // A test never ends and holds nothing about a user: it goes ALERT_DAYS
+    // after it arrived, so the checklist's record outlives the beta review.
+    const tests = await tx.execute(sql`
+      DELETE FROM sar_intake_messages WHERE kind = 'test' AND received_at < ${alertCut.toISOString()}::timestamptz
+      RETURNING 1`);
     const alertViews = await tx.execute(sql`DELETE FROM sar_alert_view_log WHERE viewed_at < ${viewCut.toISOString()}::timestamptz RETURNING 1`);
     const mapViews = await tx.execute(sql`DELETE FROM sar_map_view_log WHERE viewed_at < ${viewCut.toISOString()}::timestamptz RETURNING 1`);
     const stale = await tx.execute<{ n: number }>(sql`
@@ -77,6 +84,7 @@ export async function runSarRetention(now: Date): Promise<SarRetentionSummary> {
     return {
       positionsRemoved: positions.length,
       alertMessagesDeleted: messages.length,
+      testMessagesDeleted: tests.length,
       acksDeleted: acks.length,
       viewLogsDeleted: alertViews.length + mapViews.length,
       staleOpenAlerts: Number([...stale][0]?.n ?? 0),

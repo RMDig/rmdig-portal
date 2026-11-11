@@ -8,6 +8,7 @@ import {
   passwordResetTokens,
   platformRoleInvitations,
   rateLimits,
+  sarOncallEmailVerifications,
   sessions,
   verificationTokens,
 } from "../db/schema";
@@ -34,6 +35,8 @@ export interface ExpiredRowsSummary {
   verificationTokens: number;
   unconfirmedDeletionRequests: number;
   unacceptedInvitations: number;
+  /** On-call email links nobody confirmed (plan 33 9.10). */
+  unconfirmedOncallLinks: number;
   rateLimits: number;
 }
 
@@ -71,6 +74,12 @@ export async function deleteExpiredRows(now: Date): Promise<ExpiredRowsSummary> 
       .delete(advertiserInvitations)
       .where(and(isNull(advertiserInvitations.acceptedAt), lt(advertiserInvitations.expiresAt, graceCut)))
       .returning({ id: advertiserInvitations.id });
+    // A confirmed on-call link is the record of who set the address; an
+    // unconfirmed one is useless past expiry.
+    const oc = await tx
+      .delete(sarOncallEmailVerifications)
+      .where(and(isNull(sarOncallEmailVerifications.confirmedAt), lt(sarOncallEmailVerifications.expires, graceCut)))
+      .returning({ id: sarOncallEmailVerifications.id });
     const l = await tx.delete(rateLimits).where(lt(rateLimits.windowStart, rateCut)).returning({ key: rateLimits.key });
     return {
       sessions: s.length,
@@ -78,6 +87,7 @@ export async function deleteExpiredRows(now: Date): Promise<ExpiredRowsSummary> 
       verificationTokens: v.length,
       unconfirmedDeletionRequests: d.length,
       unacceptedInvitations: io.length + ip.length + ia.length,
+      unconfirmedOncallLinks: oc.length,
       rateLimits: l.length,
     };
   });

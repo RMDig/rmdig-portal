@@ -18,6 +18,9 @@ export interface SyncOrg {
   leavingNoticeAt: Date | null;
   regionName: string | null;
   isDrill: boolean;
+  /** The confirmed on-call address and when (plan 33 9.10); both or neither. */
+  oncallEmail: string | null;
+  oncallEmailVerifiedAt: Date | null;
 }
 
 export interface SyncTerms {
@@ -43,7 +46,7 @@ export interface SyncBody {
   serviceArea: { type: "Polygon"; coordinates: number[][][] };
   serviceAreaLabels: string[];
   publicListing: PublicListing;
-  channels: Array<{ kind: "portal"; verifiedAt: string }>;
+  channels: Array<{ kind: "portal"; verifiedAt: string } | { kind: "email"; address: string; verifiedAt: string }>;
   terms: Omit<SyncTerms, "publishedAt"> & { publishedAt: string };
   updatedAt: string;
   /** Sync revision 3, drill teams only (plan 37 §4.5). Absent for a real
@@ -75,7 +78,8 @@ export type SkipReason =
   | "no_published_terms"
   | "no_service_area"
   | "approval_record_missing"
-  | "drill_support_pending";
+  | "drill_support_pending"
+  | "email_channel_missing";
 
 export type SyncPlan = { send: true; body: SyncBody } | { send: false; reason: SkipReason };
 
@@ -95,6 +99,7 @@ export const SKIP_LABEL: Record<SkipReason, string> = {
   no_service_area: "Waiting for a service area",
   approval_record_missing: "Missing the approval record",
   drill_support_pending: "Waiting for drill support on every node",
+  email_channel_missing: "Not sent: the terms send by email, but the team has no confirmed on-call email",
 };
 
 /** `drillSupported`: every node reports sync revision 3 (lib/avserv/sar-capabilities).
@@ -117,6 +122,10 @@ export function planSync(
   // A node below revision 3 ignores `drill` and would store the team as a
   // real one, offered to real users. Never send a drill team without it.
   if (org.isDrill && !drillSupported) return { send: false, reason: "drill_support_pending" };
+  // AvServ refuses the whole PUT for a capability whose channel isn't in
+  // `channels`; publishing refuses this, so reaching it is a portal bug.
+  const emailChannel = org.oncallEmail && org.oncallEmailVerifiedAt ? { kind: "email" as const, address: org.oncallEmail, verifiedAt: org.oncallEmailVerifiedAt.toISOString() } : null;
+  if (!emailChannel && terms.capabilities.some((c) => c.channels.includes("email"))) return { send: false, reason: "email_channel_missing" };
 
   return {
     send: true,
@@ -137,8 +146,9 @@ export function planSync(
       serviceAreaLabels: org.regionName?.trim() ? [org.regionName.trim()] : [],
       publicListing: NOT_LISTED,
       // The portal channel is every team's primary channel (owner decision
-      // 2026-10-03), in place since approval. SMS/email/webhook come later.
-      channels: [{ kind: "portal", verifiedAt: org.approvedAt.toISOString() }],
+      // 2026-10-03), in place since approval; the on-call email once
+      // confirmed (plan 33 9.10). SMS and webhook come later.
+      channels: [{ kind: "portal", verifiedAt: org.approvedAt.toISOString() }, ...(emailChannel ? [emailChannel] : [])],
       terms: { ...terms, publishedAt: terms.publishedAt.toISOString() },
       updatedAt: now.toISOString(),
       ...(org.isDrill ? { drill: true as const } : {}),
