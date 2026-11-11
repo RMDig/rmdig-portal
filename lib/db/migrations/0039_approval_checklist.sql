@@ -1,0 +1,1 @@
+ALTER TABLE "sar_org_status_log" ADD COLUMN "checklist" jsonb;

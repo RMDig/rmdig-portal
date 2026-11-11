@@ -613,6 +613,25 @@ export const orgInvitations = pgTable("org_invitations", {
   (t) => [index("org_invitations_org_id_idx").on(t.orgId)],
 );
 
+/** A real team's activation checklist as recorded at Approve (plan 33 §6.9
+ *  G2; built and judged in lib/sar/activation-checklist.ts). */
+export interface ActivationChecklistRecord {
+  version: 1;
+  /** "beta_single": one reviewer, during the beta (3–5 teams). */
+  reviewMode: "beta_single";
+  items: Array<{ id: "callback" | "channels" | "test_alert" | "terms_area"; status: "pass" | "fail" | "pending"; detail: string }>;
+  answers: { callbackNumber: string; callbackSpokeTo: string; termsFloor: boolean; largeAreaResolved: boolean };
+  facts: {
+    oncallEmailVerified: boolean;
+    members: number;
+    admins: number;
+    publishedTermsVersion: number | null;
+    areaKm2: number | null;
+    largeArea: boolean;
+    testAlert: "pending_avserv";
+  };
+}
+
 // Append-only audit of every SAR org status transition (submit/approve/reject/
 // request-changes/suspend/reactivate). Mirrors the ledger audit pattern (doc 05):
 // rows are never updated or deleted. fromStatus is null for the initial submit;
@@ -630,6 +649,10 @@ export const sarOrgStatusLog = pgTable("sar_org_status_log", {
   actorUserId: uuid("actor_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
+  // An approval's activation checklist (plan 33 §6.9 G2): every answer and
+  // check as the approver saw it (lib/sar/activation-checklist.ts). Null for
+  // every other action.
+  checklist: jsonb("checklist").$type<ActivationChecklistRecord>(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

@@ -180,7 +180,26 @@ resubmitted application emails every SAR approver with a link to its row.
    call in the approval note (required for a patrol; staff-only, kept in
    `sar_org_status_log`, never emailed). "Mark re-verified" takes the same note
    for the yearly call-back.
-5. Choose one:
+5. **The activation checklist** (owner G2, 2026-11-11; plan 33 §6.9), on every
+   pending team, in the Approve form. Approve stays disabled until every item
+   passes, and the action checks it again with fresh facts:
+   1. **Call-back** on the team's publicly listed number (for every team, not
+      only patrols): a number you find yourself, never one from the
+      application. Enter the number and who you spoke to.
+   2. **Channels:** two or more members, one an admin, and a confirmed on-call
+      email (read from the team).
+   3. **Test alert** from every node, received on both paths. AvServ hasn't
+      built it yet (R13, `sar_test_alert.md`), so this shows **Pending** and **a
+      real team can't be approved until it exists** (owner, 2026-11-11).
+   4. **Terms and area:** published terms, which you confirm carry counsel's
+      floor clauses; and, if the area is over the large-area threshold, that
+      you've checked it with the team.
+
+   Every answer and check is recorded with the approval
+   (`sar_org_status_log.checklist`). During the beta (3–5 teams) one reviewer
+   approves, recorded "beta, single review". Before general release a second,
+   independent reviewer is required and re-reviews each beta team.
+6. Choose one:
    - **Approve** → status `approved`; the org admin can now invite members. Emails the submitter.
    - **Reject** (reason required) → status `rejected`. Emails the submitter the reason.
    - **Request changes** (note required) → stays `pending`; emails the submitter what to fix.

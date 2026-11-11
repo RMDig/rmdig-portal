@@ -16,6 +16,8 @@ import { sendSarOrgDecisionEmail, sendSarTeamStatusEmail } from "@/lib/email/sen
 import { logger } from "@/lib/logger";
 import { reportError, reportProblem } from "@/lib/report-error";
 import { avservNodes, getSarTeam } from "@/lib/avserv/sar-teams";
+import { activationFacts } from "@/lib/sar/activation-checklist";
+import { activationAnswersSchema, CHECKLIST_LABEL, checklistReady, checklistRecord, judgeChecklist } from "@/lib/sar/activation-checklist-rules";
 import { syncSarOrg } from "@/lib/sar/sync";
 
 // Operator decisions on a SAR org (rmdig-ai docs/plans/06 — the status state
@@ -201,6 +203,20 @@ export async function reviewSarOrgAction(
     const blocked = await openBindingsBlocker(orgId);
     if (blocked) return { ok: false, error: blocked };
   }
+  // A real team is approved only with every activation check passed, read
+  // fresh here, and recorded with the decision (plan 33 §6.9 G2).
+  let checklist: ReturnType<typeof checklistRecord> | null = null;
+  if (decision === "approve") {
+    const answers = activationAnswersSchema.parse(Object.fromEntries(formData));
+    const facts = await activationFacts(orgId);
+    const items = judgeChecklist(facts, answers);
+    if (!checklistReady(items)) {
+      const open = items.filter((i) => i.status !== "pass").map((i) => `${CHECKLIST_LABEL[i.id]} (${i.detail})`);
+      logger.warn({ event: "sar.review.checklist_open", userId, orgId, open: items.filter((i) => i.status !== "pass").map((i) => i.id) });
+      return { ok: false, error: `Can't approve yet: ${open.join("; ")}.` };
+    }
+    checklist = checklistRecord(facts, answers, items);
+  }
   const now = new Date();
 
   const changes = decisionChanges(decision, { now, userId, note, patrol: org.orgType === "ski_patrol" });
@@ -220,6 +236,7 @@ export async function reviewSarOrgAction(
         toStatus: transition.to,
         note: note ?? null,
         actorUserId: userId,
+        checklist,
       });
     });
   } catch (err) {
