@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   status: vi.fn(),
   limit: vi.fn(),
   sentry: vi.fn(),
+  copies: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 vi.mock("@/lib/auth/portal-actor", () => ({ portalActor: () => Promise.resolve(h.actor) }));
@@ -41,6 +42,10 @@ vi.mock("@/lib/rate-limit", () => ({
   },
 }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
+vi.mock("@/lib/deletion/intake-copies", async (orig) => ({
+  ...(await orig<typeof import("@/lib/deletion/intake-copies")>()),
+  deleteIntakeCopies: h.copies,
+}));
 vi.mock("@sentry/nextjs", () => ({ captureMessage: h.sentry, captureException: vi.fn() }));
 vi.mock("@/lib/db", () => {
   const select = () => {
@@ -80,6 +85,7 @@ beforeEach(() => {
   Object.assign(h, { actor: { ok: true, userId: "staff-1" }, admin: true, mfa: true, recent: true, available: true, allowed: true });
   h.request = [{ email: "a@example.com", confirmedAt: CONFIRMED }];
   h.preview.mockResolvedValue([ready("avserv-2"), ready("avserv-3")]);
+  h.copies.mockResolvedValue({ status: "complete", alerts: 1, messagesDeleted: 3, acksDeleted: 1, unavailable: [] });
   h.erase.mockResolvedValue({ node: "avserv-2", ok: true, value: record("avserv-2") });
   h.status.mockResolvedValue([
     { node: "avserv-2", ok: true, value: { ...record("avserv-2"), alreadyErased: true } },
@@ -189,5 +195,34 @@ describe("erasureStatusAction", () => {
     const r = await erasureStatusAction(null, fd());
     expect(r).toMatchObject({ ok: true, status: { overall: "erased" } });
     expect(r.ok && r.note).toContain(ACCT);
+  });
+});
+
+describe("the portal's copies of the account's alerts (plan 33 §6.9, F6)", () => {
+  it("deletes them once every node has erased the account, and says so in the note", async () => {
+    for (const action of [eraseAccountAction, erasureStatusAction]) {
+      h.copies.mockClear();
+      const r = await action(null, fd());
+      expect(h.copies).toHaveBeenCalledWith(ACCT, REQ);
+      expect(r.ok && r.note).toContain("Portal: deleted 3 intake messages and 1 ack for 1 alert (share log read from every node).");
+    }
+  });
+
+  it("leaves them while the erasure is held behind a live item, or not done", async () => {
+    h.status.mockResolvedValue([
+      { node: "avserv-2", ok: true, value: { ...record("avserv-2"), alreadyErased: true } },
+      { node: "avserv-3", ok: false, code: "not_erased" },
+    ]);
+    const r = await erasureStatusAction(null, fd());
+    expect(r).toMatchObject({ ok: true, status: { overall: "held" } });
+    expect(h.copies).not.toHaveBeenCalled();
+    expect(r.ok && r.note).not.toContain("Portal:");
+  });
+
+  it("says loudly when the copies couldn't be found", async () => {
+    h.copies.mockResolvedValue({ status: "error", error: "No AvAI server answered for the share log." });
+    const r = await erasureStatusAction(null, fd());
+    expect(r.ok && r.note).toContain("Portal: alert copies NOT deleted (No AvAI server answered for the share log.)");
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "deletion.intake_copies.failed" }));
   });
 });

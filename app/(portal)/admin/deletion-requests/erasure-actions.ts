@@ -20,6 +20,7 @@ import {
   type PreviewVerdict,
   type StatusSummary,
 } from "@/lib/deletion/erasure";
+import { deleteIntakeCopies, intakeCopiesNoteText } from "@/lib/deletion/intake-copies";
 import { logger } from "@/lib/logger";
 import { incrementRateLimit } from "@/lib/rate-limit";
 
@@ -139,7 +140,18 @@ export async function eraseAccountAction(_prev: EraseResult | null, formData: Fo
   if (outcome.kind === "erased") logger.info({ event: "deletion.erasure.erased", ...context, origin: outcome.record.originNode });
   else logger.warn({ event: "deletion.erasure.unknown", ...context });
   const status = statusSummary(await erasureStatusEveryNode(r.accountId, r.userId));
-  return { ok: true, outcome, status, note: completionNoteText(r.accountId, status) };
+  return { ok: true, outcome, status, note: await noteWithCopies(r, status) };
+}
+
+// Once every node has erased the account, its alerts' copies here go too
+// (plan 33 §6.9, F6), and the note says what went. Not before: a held
+// erasure waits on a live check-out, whose alert a team may be working.
+async function noteWithCopies(r: { accountId: string; requestId: string }, status: StatusSummary): Promise<string> {
+  const avserv = completionNoteText(r.accountId, status);
+  if (status.overall !== "erased") return avserv;
+  const copies = await deleteIntakeCopies(r.accountId, r.requestId);
+  if (copies.status === "error") logger.error({ event: "deletion.intake_copies.failed", requestId: r.requestId, error: copies.error });
+  return `${avserv}\n${intakeCopiesNoteText(copies)}`;
 }
 
 export type StatusResult = { ok: true; status: StatusSummary; note: string } | Failure;
@@ -149,5 +161,5 @@ export async function erasureStatusAction(_prev: StatusResult | null, formData: 
   if (!r.ok) return r;
   const status = statusSummary(await erasureStatusEveryNode(r.accountId, r.userId));
   logger.info({ event: "deletion.erasure.status", requestId: r.requestId, staffId: r.userId, overall: status.overall });
-  return { ok: true, status, note: completionNoteText(r.accountId, status) };
+  return { ok: true, status, note: await noteWithCopies(r, status) };
 }
