@@ -1,0 +1,1 @@
+ALTER TYPE "public"."sar_org_action" ADD VALUE 'leaving_undone';

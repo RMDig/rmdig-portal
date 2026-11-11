@@ -18,6 +18,8 @@ export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responde
     // its own service area (plan 33 D3).
     ...(status === "pending" ? [{ href: `${base}/edit`, label: "Application" }] : []),
     ...(status === "approved" ? [{ href: `${base}/area`, label: "Service area" }] : []),
+    // A team gives and undoes its own leaving notice (plan 33 §6.9).
+    ...(status === "approved" || status === "leaving" ? [{ href: `${base}/leave`, label: "Leaving" }] : []),
   ];
 }
 
