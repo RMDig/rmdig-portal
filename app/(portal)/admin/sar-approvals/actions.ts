@@ -44,6 +44,7 @@ type Decision =
   | "suspend"
   | "reactivate"
   | "mark_leaving"
+  | "undo_leaving"
   | "withdraw"
   | "reverify";
 type Status = "pending" | "approved" | "rejected" | "suspended" | "leaving" | "withdrawn";
@@ -54,6 +55,7 @@ type Action =
   | "suspended"
   | "reactivated"
   | "leaving"
+  | "leaving_undone"
   | "withdrawn"
   | "reverified";
 
@@ -84,6 +86,8 @@ const TRANSITIONS: Record<Decision, Transition> = {
   reactivate: { from: ["suspended"], to: "pending", action: "reactivated", emailDecision: null, teamNotice: "reactivated", sync: false },
   // No new offers or binds; bound check-outs keep the team until they end.
   mark_leaving: { from: ["approved"], to: "leaving", action: "leaving", emailDecision: null, sync: true },
+  // Until it's withdrawn; the team can undo its own notice too (lib/sar/leaving.ts).
+  undo_leaving: { from: ["leaving"], to: "approved", action: "leaving_undone", emailDecision: null, sync: true },
   // Only once no node has open bindings (checked below).
   withdraw: { from: ["leaving", "suspended"], to: "withdrawn", action: "withdrawn", emailDecision: null, sync: true },
   // Ski patrols, yearly (AvServ plan 41 §2.4).
@@ -106,7 +110,7 @@ const reviewSchema = z
     orgId: z.string().uuid("Unknown organization."),
     // The review_revision the page showed (a hidden field on every form).
     revision: z.coerce.number().int().min(0),
-    decision: z.enum(["approve", "reject", "request_changes", "suspend", "reactivate", "mark_leaving", "withdraw", "reverify"]),
+    decision: z.enum(["approve", "reject", "request_changes", "suspend", "reactivate", "mark_leaving", "undo_leaving", "withdraw", "reverify"]),
     // An empty textarea is no note, not an empty one in the log.
     note: z.string().trim().max(2000).optional().transform((v) => v || undefined),
   })
@@ -335,6 +339,8 @@ function decisionChanges(
       };
     case "mark_leaving":
       return { status: "leaving", leavingNoticeAt: c.now };
+    case "undo_leaving":
+      return { status: "approved", leavingNoticeAt: null };
     case "withdraw":
       return { status: "withdrawn" };
     case "reverify":

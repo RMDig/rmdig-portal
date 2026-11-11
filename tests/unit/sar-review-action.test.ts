@@ -337,6 +337,18 @@ describe("reviewSarOrgAction", () => {
       expect(h.sync).toHaveBeenCalled();
     });
 
+    it("undoes a leaving notice: approved again, the stamp cleared, logged and synced", async () => {
+      h.org = at("leaving");
+      expect(await reviewSarOrgAction(null, fd("undo_leaving"))).toEqual({ ok: true });
+      expect(h.updates[0]).toMatchObject({ status: "approved", leavingNoticeAt: null });
+      expect(h.logs[0]).toMatchObject({ action: "leaving_undone", fromStatus: "leaving", toStatus: "approved" });
+      expect(h.sync).toHaveBeenCalled();
+      h.updates = [];
+      h.org = at("approved");
+      expect(await reviewSarOrgAction(null, fd("undo_leaving"))).toMatchObject({ ok: false });
+      expect(h.updates).toHaveLength(0);
+    });
+
     it("withdraws only once every node reports 0 open bindings (sar_team_sync §2.5)", async () => {
       h.org = at("leaving");
       h.nodeViews = [{ openBindings: 0 }, { openBindings: 2 }];

@@ -265,7 +265,12 @@ keeps the highest per node.
   a PUT also converges from its peer. **409** (`revision_conflict`,
   `terms_version_conflict`) is a portal bug, so investigate before resyncing.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
-  team until they end. **Withdraw** works only once every node reports
+  team until they end. **Undo leaving** makes it active again (AvServ is sent
+  `approved`). A team's admins can do both themselves on the team's **Leaving**
+  tab (plan 33 §6.9), until it's withdrawn; every change is logged ("By the
+  team"), synced, and emailed to SAR approvers, with nothing to approve. A team
+  whose notice didn't reach every node shows in Sentry as
+  `sar.leaving.sync_incomplete`: press Resync. **Withdraw** works only once every node reports
   `openBindings: 0` (it asks both). A node that doesn't answer, or hasn't received
   the team (press Resync first), blocks it: withdrawing early would stop alerts for
   check-outs still bound to the team. **Suspend** stops alerts to the team at once, even for

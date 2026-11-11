@@ -264,6 +264,9 @@ export function SarApprovalRow({ org }: { org: PendingOrg }) {
               noteRequired
             />
           ) : null}
+          {org.status === "leaving" ? (
+            <ActionButton formAction={formAction} orgId={org.id} revision={org.reviewRevision} decision="undo_leaving" label="Undo leaving" pending={pending} />
+          ) : null}
           {org.status === "leaving" || org.status === "suspended" ? (
             <ActionButton formAction={formAction} orgId={org.id} revision={org.reviewRevision} decision="withdraw" label="Withdraw" pending={pending} />
           ) : null}
