@@ -11,6 +11,8 @@ import {
   Text,
 } from "@react-email/components";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 export type SarTermsDecision = "published" | "rejected";
 
 export interface SarTermsDecisionEmailProps {

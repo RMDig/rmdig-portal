@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PROOF_DOC_LIMIT_LABEL } from "@/lib/blob/proof-limits";
 
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
+// the first real team. A change here goes to counsel too.
 // Fields shared by the application form (/sar/new) and the resubmit form
 // (/sar/[orgId]/edit). Option values mirror the DB enums; labels are inlined so
 // these client components never pull the server-only db client into the
