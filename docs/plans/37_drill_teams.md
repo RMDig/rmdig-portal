@@ -1,6 +1,8 @@
 # 37 — Drill teams and drill logins (portal half of AvServ plan 66)
 
-Status (2026-11-10): **P1–P6 merged (#207–#213); P7 waits (§4.9).** AvServ plan 66
+Status (2026-11-11): **P1–P6 and P7a merged (#207–#213, #215); Phase D's production
+pass done 2026-11-11 (§4.10). P7 is planned (§4.11, P7b–P7f); its drill run waits on
+the AvApp drill build.** AvServ plan 66
 (`docs/plans/66_drill_fixtures.md`, AvServ PR #473) is the system plan, and its §4 is the
 shape agreed between the two sessions, with these decisions recorded in AvServ PR #475.
 This file is authoritative for the portal's half. AvServ step 1 (the sync `drill` field,
@@ -225,6 +227,11 @@ sign in now: the sign-in map asks AvServ for a drill account for a drill user an
 never stores an account whose `drill` differs from `users.is_drill`. Without it, a
 drill login's first sign-in would have made a real AvServ account for its address.
 
+**Since then:** AvServ #488 merged on 2026-11-10 with §9.10 decided as recommended
+(drill contacts limited to `AVSERV_DRILL_PHONES`, a separate `drill_accounts` scope, the
+DR3 address shape checked on AvServ too), and S1–S3 are built (rc118; #492). The
+AvApp drill build is still the owner's call (plan 66 §9.10a item 1).
+
 **What the other repos said, 2026-11-10 (proposals, nothing built):**
 
 - *AvServ* (plan 66 §9, draft AvServ #488, in owner review). The account's effective
@@ -247,8 +254,88 @@ drill login's first sign-in would have made a real AvServ account for its addres
   types and `sarAreaShare` need no app change.
 - *For P7's planning:* the cross-line refusal's exact status, code and body go in
   AvServ's contract, so the portal and the app each say it plainly rather than as a
-  generic link failure. The portal shows `409 link_drill_mismatch` on its device-link
-  page and `409 account_drill_immutable` when it creates the drill user.
+  generic link failure. The portal shows `409 account_drill_immutable` when it creates
+  the drill user. *Corrected 2026-11-11 (§4.11):* `409 link_drill_mismatch` is answered
+  to the app's `POST /v1/devices/link`, not to the portal's mint, so the app shows it.
+
+### 4.10 Phase D's production pass (2026-11-11)
+
+AvServ ran `sar-phase-d.md` on rc118 (label `sar-phased-2026q4`) against the drill team
+`70db93ac-a020-411a-a1bc-472d13a09cb9` and the fixed drill device, with no drill AvAI
+user (that is P7). AvServ's drill log has the full record. The portal's drill intake
+(`sar_intake_messages`) holds exactly the four messages expected, all `drill: true`,
+all from avserv-3:
+
+| Run | Checkout | What it tested | Intake |
+|---|---|---|---|
+| P0 | `730c0606…` | The ordinary path | overdue `fe2db28e…`, all_clear `7f285e7a…` |
+| D1 | `ff416f0a…` | avserv-2's api stopped at the deadline; avserv-3 took over | overdue `7b3e74ab…`, all_clear `4573986b…`, once each |
+| D2 | `5c9d1662…` | Team suspended before the deadline; both nodes skipped it (`team_suspended`) | none, as expected |
+
+Findings:
+
+1. *AvServ:* D2's page didn't fire (a Prometheus first-event gap in `increase()`
+   rules), fixed in rc119 (AvServ #493). Confirm it pages on the next D2.
+2. *Portal:* 2½ minutes after the team was re-activated, a stray click suspended it again
+   (sync revision 4). After Activate the page reloaded with Suspend in the same spot,
+   and it submitted on one click. Suspend now opens a confirm on both staff pages (#216).
+   The team was restored at revision 5 (`approved`), synced on both nodes 03:21:21 UTC.
+3. *Portal:* a drill login's set-password email was the ordinary reset email, which
+   reads as if someone had asked for a reset. It now has its own "[DRILL] Set your
+   password" email.
+
+### 4.11 P7 plan (2026-11-11)
+
+Owner, 2026-11-11: **option A**. AvApp makes a separately labelled drill build
+(TestFlight and Play internal testing only) with `AVAPP_SAR_TEAMS` and
+`AVAPP_SAR_AREA_MAP` on; AvApp's own plan is pending. AvServ's answer for P7 (nothing new
+to build; account_agreement.md rev 16 §4.2, device_register_proof.md "410 device_erased"):
+
+- **A drill install sends nothing special.** An account is drill from its own flag, on
+  the server. The portal mints a code (`POST /v1/internal/accounts/{id}/link-codes` →
+  `{code, expiresAt, drill}`), the app posts it to `POST /v1/devices/link`, and that
+  answer carries `drill`. `GET /v1/account` carries it too, for the app's DRILL banner.
+- **Cross-line links are refused to the app**, not the portal: `409 link_drill_mismatch`
+  with `direction` `real_to_drill` (a phone that already holds a contact, check-out,
+  Send Help or another device) or `drill_to_real`. Nothing is linked and the code isn't
+  used up.
+- **`422 contact_not_drill_phone`** (field `contactPhone`) on `POST /v1/contacts` and
+  `POST /v1/checkouts`: a drill account can name only `AVSERV_DRILL_PHONES`. App-only;
+  the portal holds no contacts.
+- **Erasure** uses AvServ's signed `410 device_erased` proof, verified like a revoke
+  (app side). **Never erase `dennys+drill1@rmdig.ai`**: it is the drill team's only
+  login. The erasure leg uses a second drill user (`dennys+drill2@rmdig.ai`), whose drill
+  AvServ account exists before its first sign-in.
+
+What the portal builds (§5, P7b–P7f):
+
+- **P7b, a drill account at creation.** Creating a drill login (P4b) or a drill user
+  calls `findOrCreateAccount(email, { drill: true })` at once and stores the account id,
+  so `409 account_drill_immutable` (or a `drill` that differs) is shown to the operator
+  on the form, and the address isn't created, rather than surfacing later in Sentry at
+  first sign-in. P7a's sign-in map stays as the backstop. A drill user is a drill login
+  with no team membership, made on `/admin/sar-drill` by an `rmdig_admin` at a DR3
+  address. Its email is the drill-login email, worded for a user, not a team.
+- **P7c, drill checks on the link code and lookup.** `mintLinkCode` and
+  `lookupAccountsByEmail` parse the `drill` boolean. The settings action refuses to show
+  a code whose `drill` differs from `users.is_drill`: it reports to Sentry and tells the
+  user to contact support. The deletion lookup marks a drill account. The mock carries
+  `drill`.
+- **P7d, the link page for a drill user.** Settings → Devices says, for a drill user
+  only, that this is a drill account and links only the DRILL build of AvAI from a fresh
+  install. A real user's page is unchanged.
+- **P7e, kept out of counts and exports** (§4.9). Every staff user count and export
+  leaves out `is_drill` users, with a test per surface.
+- **P7f, an erasure warning.** The staff erasure page warns when the user is the only
+  admin of a live team, drill or real, naming the team. It warns and never refuses: a
+  CPA deletion can't wait on team membership. The no-admin check (`lib/sar/no-admin.ts`)
+  stays as the backstop.
+
+**Owner, 2026-11-11, all as recommended:** (1) P7b makes the drill AvServ account when
+the login or user is created, not at first sign-in. (2) P7f warns and never refuses.
+(3) A drill user receives every email a real user would, at its plus address
+(security notices and its own alerts are part of what it tests), and none are left out.
+The drill run itself waits on the AvApp drill build.
 
 ## 5. PR sequence
 
@@ -264,10 +351,15 @@ reaches production before merge (§3.8).
 | P4b | Drill logins: created by an admin with a set-password link; sign-up and real-team invites refuse the drill address shape. **Merged #211** (`createDrillLoginAction`, `lib/sar/drill-address.ts`) | P4a |
 | P5 | `activate_drill` and the decisions on the Drill teams page (activate, suspend, move back to pending), with each node's sync; tests pinning both directions of rule 6. **Merged #212** (`activateDrillOrgAction`; runbook "Drill teams") | P2, P3, P4b |
 | P6 | Intake refusal, DRILL emails, exclusions, area email "(drill)"; a mock Playwright spec for register → login → activate → sync. **Merged #213** (`sar-drill.mock.spec.ts`; the drill alert email is unit-tested, since the e2e server has no mail) | P3–P5 |
-| P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Built 2026-11-10** | AvServ rc118 live |
-| P7 | Later: a drill AvAI user (§4.9) | Phase D's first production pass; AvServ plan 66 §9 (#488) built; AvApp drill build |
+| P7a | The sign-in map sends `drill: true` for a drill user and refuses an account across the line (`lib/avserv/account-link.ts`; AvServ rc118, contract rev 16 §4.2). **Merged #215** | AvServ rc118 live |
+| P7b | A drill AvServ account at creation, for drill logins and the new drill user (teamless); `account_drill_immutable` shown on the form; the drill-user email (§4.11). **Built 2026-11-11** (`lib/sar/drill-avserv-account.ts`, `createDrillUserAction`) | Owner confirmed 2026-11-11 |
+| P7c | `drill` parsed from link codes and lookup; a code across the line is never shown; the deletion lookup marks a drill account; mock | P7b |
+| P7d | Settings → Devices copy for a drill user | P7c |
+| P7e | Drill users left out of staff counts and exports | P7b |
+| P7f | The erasure page warns when the user is a live team's only admin | None |
+| P7 run | Operator: create `dennys+drill2@rmdig.ai`, link the AvApp drill build, then drill sign-out, consent, the teams list, area share and erasure (runbook, written with P7b) | P7b–P7d; the AvApp drill build |
 
-**Operator, after P6 and AvServ rc116 (both done 2026-11-10):**
+**Operator, after P6 and AvServ rc116 (both done 2026-11-10; all four steps done 2026-11-11):**
 1. Register the drill team. Its area is a 1 km-radius circle (about 3.1 km²) centred on
    the Colorado State Capitol, Denver, near 39.7393, -104.9848. The owner chose this on
    2026-11-09 (plan 66 O3), and the exact point doesn't matter. If registration refuses

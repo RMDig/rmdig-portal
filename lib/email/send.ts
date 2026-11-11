@@ -19,6 +19,7 @@ import DataDeletionAdminEmail from "./templates/DataDeletionAdminEmail";
 import DataDeletionConfirmEmail from "./templates/DataDeletionConfirmEmail";
 import CronWatchStaffEmail, { type CronWatchStaffEmailProps } from "./templates/CronWatchStaffEmail";
 import DeletionClockEmail, { type DeletionClockEmailProps } from "./templates/DeletionClockEmail";
+import DrillLoginEmail from "./templates/DrillLoginEmail";
 import DataDeletionReceivedEmail from "./templates/DataDeletionReceivedEmail";
 import OrgInviteEmail from "./templates/OrgInviteEmail";
 import PatrolReverifyStaffEmail, { type PatrolReverifyStaffEmailProps } from "./templates/PatrolReverifyStaffEmail";
@@ -124,6 +125,19 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     to,
     subject: "Reset your password",
     html,
+  });
+}
+
+/** To a new drill login (plan 37 §4.2) or drill user (no team, §4.11): a
+ *  set-password link staff created, not a reset anyone asked for. Marked drill
+ *  in the subject, as every drill email. */
+export async function sendDrillLoginEmail(to: string, params: { teamName: string | null; setPasswordUrl: string }): Promise<void> {
+  await deliver({
+    kind: "drill_login",
+    label: "drill-login",
+    to,
+    subject: `[DRILL] Set your password: ${params.teamName ?? "drill AvAI user"}`,
+    html: render(DrillLoginEmail({ ...params, expiresInMinutes: RESET_TOKEN_TTL_MINUTES })),
   });
 }
 

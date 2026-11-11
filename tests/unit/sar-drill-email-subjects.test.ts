@@ -18,7 +18,7 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendSarAlertNotifyEmail, sendSarAreaChangedEmail } from "@/lib/email/send";
+import { sendDrillLoginEmail, sendSarAlertNotifyEmail, sendSarAreaChangedEmail } from "@/lib/email/send";
 
 const subject = () => (h.send.mock.calls.at(-1)![0] as { subject: string }).subject;
 const alert = { teamName: "AvAI Drill Team", kind: "overdue" as const, fromAreaUser: false, alertsUrl: "https://rmdig.ai/sar/o/alerts" };
@@ -30,6 +30,23 @@ beforeEach(() => {
 });
 
 describe("drill email subjects", () => {
+  it("sends a new drill login its own [DRILL] set-password email, never one that reads as a reset", async () => {
+    await sendDrillLoginEmail("ops+drill1@rmdig.ai", { teamName: "AvAI Drill Team", setPasswordUrl: "https://app.rmdig.ai/reset-password?token=t" });
+    const sent = h.send.mock.calls.at(-1)![0] as { subject: string; html: string };
+    expect(sent.subject).toBe("[DRILL] Set your password: AvAI Drill Team");
+    expect(sent.html).toContain("https://app.rmdig.ai/reset-password?token=t");
+    expect(sent.html).toContain("not a real search and rescue team");
+    expect(sent.html).not.toContain("We received a request");
+  });
+
+  it("words a drill user's email for a person with no team", async () => {
+    await sendDrillLoginEmail("dennys+drill2@rmdig.ai", { teamName: null, setPasswordUrl: "https://app.rmdig.ai/reset-password?token=u" });
+    const sent = h.send.mock.calls.at(-1)![0] as { subject: string; html: string };
+    expect(sent.subject).toBe("[DRILL] Set your password: drill AvAI user");
+    expect(sent.html).toContain("DRILL build");
+    expect(sent.html).not.toContain("drill team");
+  });
+
   it("puts [DRILL] first on a drill team's alert email, and never on a real one", async () => {
     await sendSarAlertNotifyEmail("ops+drill1@rmdig.ai", { ...alert, drill: true });
     expect(subject()).toBe("[DRILL] AvAI alert for AvAI Drill Team: missed check-in");
