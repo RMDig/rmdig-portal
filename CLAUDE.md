@@ -288,7 +288,8 @@ that fails either goes back for another pass.
   before trusting integration-injected vars.
 - Env changes need a redeploy to take effect (`vercel redeploy <deployment>`).
 - After any deploy that touches routing, env, or middleware: verify
-  `https://app.rmdig.ai/healthz` and one public + one authed route.
+  `https://rmdig.ai/healthz` (the canonical host; `app.rmdig.ai` only
+  redirects there) and one public + one authed route.
 - E2E tooling never points at the prod DB (`E2E_ALLOW_DB=1` guard exists for
   exactly this reason).
 
