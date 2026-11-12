@@ -256,7 +256,7 @@ This workstream is lower urgency and can start after the blockers.
 | D7 | Second SMS channel | **Decided 2026-10-07:** add a second text carrier (W8), not an email requirement. Email is a poor emergency channel for most people. **Provider: Telnyx, using a toll-free verified number.** |
 | D8 | Node failure domains (S3) | **Resolved 2026-10-07:** avserv-1, avserv-2 and avserv-3 are in separate locations with separate power and internet providers. Record this in the R5 attestation. The cloud node stays on its plan 42 schedule; it is not a beta blocker. |
 | D9 | Wave 1 plan-doc sign-offs | **Approved 2026-10-07:** W3's plan 07 §9 meaning of "delivered"; W4's plan 03 decision, CLAUDE.md §9 line and device-register contract. |
-| D10 | Portal cron cadence on Vercel Pro | **Decided 2026-10-07:** SAR email retry cron every 10 minutes. |
+| D10 | Portal cron cadence on Vercel Pro | **Decided 2026-10-07:** SAR email retry cron every 10 minutes. **Changed 2026-11-11 (owner):** every minute, each email waiting 1, 5, 15, 60, then 240 minutes between tries (plan 33 9.11, #235). The 5-minute uptime check on `/readyz` already queries the database, so it should already be awake around the clock and the cost about the same (check Neon's compute hours). |
 | D11 | Closing the old-build device window | **Decided 2026-10-07:** set `AVSERV_DEVICE_REGISTER_REQUIRE_PROOF=true` once `avserv_device_register_total{outcome="legacy"}` stays near zero for 2 weeks after the W6 release (and the canary sends proof). |
 | D12 | App-level STOP suppression (reverses plan 27 D5) | **Approved 2026-10-07.** Follow-up: AvApp shows the user when a contact has opted out. |
 | D13 | Paging tool (Q5) | **Decided 2026-10-07:** PagerDuty Free, for critical safety-path pages only. Pushover stays for everything else, and the secondary installs the PagerDuty app. |
@@ -377,7 +377,7 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
 - **Owner:** a backup YubiKey is held, and the successor holds a key plus a backup (S4). The counsel packet went out.
 
 **Still open on the portal:**
-- the 10-minute cron (D10), after Vercel Pro;
+- ~~the 10-minute cron (D10), after Vercel Pro~~ done 2026-11-11 as every minute (#235);
 - plan 34, after counsel;
 - plan 35's automation, after AvServ plan 47;
 - `/privacy` (Telnyx, retention), from counsel.
@@ -423,8 +423,8 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
 - [x] **B1 residual** (done in #148: email-first sign-up). A victim who clicks the verification email triggered by a
   stranger's sign-up makes the stranger's password valid. Fix: set the password
   only after the email is verified. Needs owner approval.
-- [ ] (Still open: waits on the Vercel Pro upgrade, then D10.) Vercel Hobby crons run at most daily, so the SAR email retry backstop is
-  daily. Consider Pro.
+- [x] (Done 2026-11-11, #235: on Pro, every minute; D10.) Vercel Hobby crons run at most daily, so the SAR email retry backstop was
+  daily.
 - [ ] Set `NEXT_PUBLIC_SENTRY_DSN` in Vercel. Browser Sentry has never run;
   W2 fixes the config filename.
 - [ ] Add Sentry alert rules on the `portal-*` cron monitors.
@@ -464,7 +464,7 @@ AvServ main's #228 took migration 0039, which pushed W4 to 0040, W3 to 0041 and 
 **New items from wave 2**
 
 - [ ] **Twilio opt-out keywords.** The approved campaign lists `OPTOUT` and `REVOKE`, but AvServ `parseKeyword` doesn't handle them, so those opt-outs are never recorded on our side. Handed to W5.
-- [ ] Vercel crons stay daily until the Pro upgrade; Hobby rejects more frequent schedules. After upgrading, set `/api/cron/sar-alert-notify` to `*/10 * * * *` (D10).
+- [x] Vercel crons stay daily until the Pro upgrade; Hobby rejects more frequent schedules. Done 2026-11-11 on Pro: `/api/cron/sar-alert-notify` is `* * * * *` (D10, as changed; #235).
 - [ ] `/privacy` must name Telnyx as a processor before any real traffic goes through it. Counsel.
 - [ ] Retake the `/sms` consent screenshot in the release that ships the narrowed consent line (W2 + W6).
 - **Drill kit** (`AvServ-drills` / `docs/drill-kit`): done.
@@ -592,8 +592,8 @@ exist on the W3/W4/W5 branches until they merge. These are the commands in order
    - `https://app.rmdig.ai/healthz` and `/readyz`;
    - one public route and one authed route;
    - `/admin/sar-approvals` still works for you (you now hold SAR Approver).
-4. After the Vercel Pro upgrade: set `sar_alert_notify` to `*/10 * * * *` in
-   `vercel.json` and `lib/cron/jobs.ts`, and relax `cron-jobs.test.ts` (D10).
+4. Done 2026-11-11 (#235): on Pro, `sar_alert_notify` runs every minute
+   (`* * * * *`, D10 as changed) in `vercel.json` and `lib/cron/jobs.ts`.
 5. After the first cron runs, add Sentry alerts on each `portal-*` cron monitor.
 
 ### 7.3 AvServ release (W4 → W3 → W5 merged; one signed tag)

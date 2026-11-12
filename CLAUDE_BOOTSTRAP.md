@@ -4,7 +4,7 @@
 
 ## 0 — What this repo is
 
-`rmdig-portal` is the user-facing Next.js application served at `app.rmdig.ai`. It is one of four services in the rmdig platform:
+`rmdig-portal` is the user-facing Next.js application served at `rmdig.ai` (`app.rmdig.ai` and `www.rmdig.ai` redirect there; [docs/infrastructure.md](docs/infrastructure.md) "Domains and DNS"). It is one of four services in the rmdig platform:
 
 - **rmdig-portal** (this repo) — user accounts, SAR org management, dashboards, eventually capture review and payouts
 - **AvServ** (`github.com/dennys246/AvServ`) — Go safety watchdog, alert dispatch, the check-out/check-in safety lifecycle
@@ -71,7 +71,7 @@ Capture the corresponding env vars in `.env.local` and Vercel project settings:
 
 ```
 DATABASE_URL=                              # Neon
-NEXTAUTH_URL=                              # https://app.rmdig.ai or http://localhost:3000
+NEXTAUTH_URL=                              # https://rmdig.ai or http://localhost:3000
 NEXTAUTH_SECRET=                           # openssl rand -hex 32
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=

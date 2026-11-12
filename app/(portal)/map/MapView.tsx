@@ -25,7 +25,7 @@ const LayeredMap = dynamic(() => import("@/components/map/LayeredMap"), {
 // it and zooms to it). A layer that failed to load says so above the map,
 // where it can't fall below the fold; it never shows as empty.
 export function MapView({ layers }: { layers: MapLayer[] }) {
-  const [visible, setVisible] = useState<Set<string>>(() => new Set(layers.map((l) => l.id)));
+  const [visible, setVisible] = useState<Set<string>>(() => new Set(layers.filter((l) => !l.startsHidden).map((l) => l.id)));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [fit, setFit] = useState<FitRequest | null>(null);
   const [closedOpen, setClosedOpen] = useState(false);

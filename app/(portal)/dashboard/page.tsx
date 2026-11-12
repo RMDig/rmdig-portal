@@ -20,6 +20,8 @@ import {
 } from "@/lib/db/schema";
 import { featureEnabled } from "@/lib/features";
 import { ADVERTISER_ROLE_LABEL, ADVERTISER_STATUS_LABEL, TEAM_ROLE_LABEL, TEAM_STATUS_LABEL } from "@/lib/labels";
+import { managesLeaving } from "@/lib/nav/sections";
+import { isPastTeam } from "@/lib/sar/team-status";
 
 import { PasswordClearedNotice } from "./PasswordClearedNotice";
 
@@ -33,6 +35,43 @@ const ACCOUNT_LINKS = [
   { href: "/settings/devices", title: "Devices", body: "Link a phone to your account, and see the phones already linked." },
   { href: "/settings", title: "Settings", body: "Your name, password, two-factor authentication and data." },
 ] as const;
+
+type TeamRow = {
+  orgId: string;
+  name: string;
+  status: keyof typeof TEAM_STATUS_LABEL;
+  role: keyof typeof TEAM_ROLE_LABEL;
+};
+
+// One team on the dashboard, with each role's way in: admins run the team
+// (and give or undo its leaving notice), dispatchers see alerts.
+function TeamItem({ o }: { o: TeamRow }) {
+  const links = [
+    ...(o.role === "admin" ? [{ href: `/sar/${o.orgId}/members`, label: "Open team" }] : []),
+    ...(o.role === "dispatcher" ? [{ href: `/sar/${o.orgId}/alerts`, label: "Alerts" }] : []),
+    ...(managesLeaving(o.role, o.status) ? [{ href: `/sar/${o.orgId}/leave`, label: "Leaving" }] : []),
+  ];
+  return (
+    <li className="flex items-center justify-between gap-4 px-4 py-3">
+      <div>
+        <p className="font-medium">{o.name}</p>
+        <p className="text-muted-foreground text-sm">
+          {TEAM_ROLE_LABEL[o.role]} · {TEAM_STATUS_LABEL[o.status]}
+          {o.role === "responder" ? " · Your team's admins and dispatchers see its alerts" : null}
+        </p>
+      </div>
+      {links.length > 0 ? (
+        <div className="flex shrink-0 gap-2">
+          {links.map((l) => (
+            <Button key={l.href} asChild variant="outline" size="sm">
+              <Link href={l.href}>{l.label}</Link>
+            </Button>
+          ))}
+        </div>
+      ) : null}
+    </li>
+  );
+}
 
 export default async function DashboardPage() {
   // Layout already redirects unauthenticated users; this is a typed re-read.
@@ -52,6 +91,9 @@ export default async function DashboardPage() {
         .where(eq(orgMemberships.userId, userId))
         .orderBy(asc(sarOrgs.name))
     : [];
+
+  const currentOrgs = orgs.filter((o) => !isPastTeam(o.status));
+  const pastOrgs = orgs.filter((o) => isPastTeam(o.status));
 
   // The advertiser portal is off until AvServ ships its endpoints
   // (lib/features.ts): no list, no nudge, no "create" card while it is.
@@ -120,33 +162,28 @@ export default async function DashboardPage() {
       {orgs.length > 0 ? (
         <section className="space-y-3">
           <h2 className="text-lg font-medium">Your search &amp; rescue teams</h2>
-          <ul className="divide-y rounded-md border">
-            {orgs.map((o) => {
-              // Each role's way in: admins run the team, dispatchers see alerts.
-              const open =
-                o.role === "admin"
-                  ? { href: `/sar/${o.orgId}/members`, label: "Open team" }
-                  : o.role === "dispatcher"
-                    ? { href: `/sar/${o.orgId}/alerts`, label: "Alerts" }
-                    : null;
-              return (
-                <li key={o.orgId} className="flex items-center justify-between gap-4 px-4 py-3">
-                  <div>
-                    <p className="font-medium">{o.name}</p>
-                    <p className="text-muted-foreground text-sm">
-                      {TEAM_ROLE_LABEL[o.role]} · {TEAM_STATUS_LABEL[o.status]}
-                      {o.role === "responder" ? " · Your team's admins and dispatchers see its alerts" : null}
-                    </p>
-                  </div>
-                  {open ? (
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={open.href}>{open.label}</Link>
-                    </Button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          {currentOrgs.length > 0 ? (
+            <ul className="divide-y rounded-md border">
+              {currentOrgs.map((o) => (
+                <TeamItem key={o.orgId} o={o} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm">None active.</p>
+          )}
+          {pastOrgs.length > 0 ? (
+            // Folded away: they're over, but kept for the record.
+            <details className="text-sm">
+              <summary className="text-muted-foreground cursor-pointer">
+                Past applications ({pastOrgs.length}): not approved or withdrawn
+              </summary>
+              <ul className="mt-2 divide-y rounded-md border">
+                {pastOrgs.map((o) => (
+                  <TeamItem key={o.orgId} o={o} />
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </section>
       ) : null}
 

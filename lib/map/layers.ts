@@ -1,4 +1,5 @@
 import { TEAM_STATUS_LABEL } from "../labels";
+import { isPastTeam } from "../sar/team-status";
 import { circleRing, ringsBounds, type Bounds, type LonLat } from "./geometry";
 
 // The layer model behind /map (docs/plans/33). Pure: the page's server
@@ -58,6 +59,8 @@ export interface MapLayer {
   /** What to say, and where else to look, when the layer can't load. */
   errorText?: string;
   link?: { href: string; label: string };
+  /** Off until the viewer ticks it (past applications). */
+  startsHidden?: boolean;
 }
 
 export type OrgStatus = "pending" | "approved" | "rejected" | "suspended" | "leaving" | "withdrawn";
@@ -118,9 +121,24 @@ export function memberOrgLayer(rows: OrgRow[]): MapLayer {
   };
 }
 
-/** Staff overview. Rejected and withdrawn orgs are left out. */
+/** Rejected and withdrawn teams: a member's own, or (staff) every one. Starts
+ *  hidden; still only the team's own members and staff ever get it. */
+export function pastOrgLayer(rows: OrgRow[], staff: boolean): MapLayer {
+  const shown = rows.filter((r) => isPastTeam(r.status));
+  return {
+    id: staff ? "all-past-orgs" : "my-past-orgs",
+    label: staff ? "Past organizations: not approved or withdrawn (staff)" : "Your past applications: not approved or withdrawn",
+    status: "ready",
+    items: shown.map(orgItem),
+    legend: legendFor(shown),
+    emptyText: "None.",
+    startsHidden: true,
+  };
+}
+
+/** Staff overview. Rejected and withdrawn orgs are left out (pastOrgLayer). */
 export function allOrgsLayer(rows: OrgRow[]): MapLayer {
-  const shown = rows.filter((r) => r.status !== "rejected" && r.status !== "withdrawn");
+  const shown = rows.filter((r) => !isPastTeam(r.status));
   return {
     id: "all-orgs",
     label: "All search & rescue organizations (staff)",
@@ -174,7 +192,8 @@ export function targetLayer(rows: TargetRow[]): MapLayer {
 }
 
 /** Which layers a viewer gets. Each is scoped to the viewer's own data;
- *  only staff see every organization. */
+ *  only staff see every organization. A rejected or withdrawn team is in its
+ *  own layer, off until ticked. */
 export function layersFor(v: {
   isStaff: boolean;
   memberOrgs: OrgRow[];
@@ -183,8 +202,13 @@ export function layersFor(v: {
   allOrgs: OrgRow[] | null;
 }): MapLayer[] {
   const layers: MapLayer[] = [];
-  if (v.memberOrgs.length > 0) layers.push(memberOrgLayer(v.memberOrgs));
+  const current = v.memberOrgs.filter((o) => !isPastTeam(o.status));
+  if (current.length > 0) layers.push(memberOrgLayer(current));
+  if (v.memberOrgs.length > current.length) layers.push(pastOrgLayer(v.memberOrgs, false));
   if (v.isAdvertiser) layers.push(targetLayer(v.targets));
-  if (v.isStaff && v.allOrgs) layers.push(allOrgsLayer(v.allOrgs));
+  if (v.isStaff && v.allOrgs) {
+    layers.push(allOrgsLayer(v.allOrgs));
+    if (v.allOrgs.some((o) => isPastTeam(o.status))) layers.push(pastOrgLayer(v.allOrgs, true));
+  }
   return layers;
 }

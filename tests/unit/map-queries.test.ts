@@ -47,13 +47,14 @@ describe("map queries", () => {
     await expect(allOrgRows()).rejects.toThrow();
   });
 
-  it("scopes member orgs to the user and excludes rejected and withdrawn orgs from the staff list", async () => {
+  it("scopes member orgs to the user, and gives staff every org (past ones go in their own layer)", async () => {
     await memberOrgRows("user-123");
     await allOrgRows();
     const [memberSql, allSql] = h.execute.mock.calls.map((c) => JSON.stringify(c[0]));
     expect(memberSql).toContain("org_memberships");
     expect(memberSql).toContain("user-123");
-    expect(allSql).toContain("NOT IN ('rejected', 'withdrawn')");
+    expect(allSql).not.toContain("org_memberships");
+    expect(allSql).not.toContain("rejected");
   });
 
   it("doesn't query creatives for someone with no advertiser account", async () => {

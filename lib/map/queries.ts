@@ -37,12 +37,12 @@ export async function memberOrgRows(userId: string): Promise<OrgRow[]> {
   return toOrgRows(rows);
 }
 
-/** Every org except rejected ones. Staff only: the caller checks the role. */
+/** Every org, rejected and withdrawn ones included (their own layer, off
+ *  until ticked). Staff only: the caller checks the role. */
 export async function allOrgRows(): Promise<OrgRow[]> {
   const rows = (await db.execute(sql`
     SELECT o.id, o.name, o.status, ${SIMPLIFIED} AS geojson
     FROM sar_orgs o
-    WHERE o.status NOT IN ('rejected', 'withdrawn')
     ORDER BY o.name
   `)) as unknown as GeoRow[];
   return toOrgRows(rows);

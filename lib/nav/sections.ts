@@ -6,6 +6,12 @@ export interface SectionTab {
   label: string;
 }
 
+/** Whether this member gives and undoes the team's leaving notice: an admin
+ *  of an approved or leaving team (plan 33 §6.9 F5). */
+export function managesLeaving(role: "admin" | "dispatcher" | "responder", status: string): boolean {
+  return role === "admin" && (status === "approved" || status === "leaving");
+}
+
 export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responder", status: string): SectionTab[] {
   const base = `/sar/${orgId}`;
   if (role === "dispatcher") return [{ href: `${base}/alerts`, label: "Alerts" }];
@@ -19,7 +25,7 @@ export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responde
     ...(status === "pending" ? [{ href: `${base}/edit`, label: "Application" }] : []),
     ...(status === "approved" ? [{ href: `${base}/area`, label: "Service area" }] : []),
     // A team gives and undoes its own leaving notice (plan 33 §6.9).
-    ...(status === "approved" || status === "leaving" ? [{ href: `${base}/leave`, label: "Leaving" }] : []),
+    ...(managesLeaving(role, status) ? [{ href: `${base}/leave`, label: "Leaving" }] : []),
   ];
 }
 

@@ -2,15 +2,17 @@
 // vercel.json's "crons" must list exactly these (tests/unit/cron-jobs.test.ts
 // holds them together), so a monitor never expects a run Vercel won't make.
 //
-// Vercel's Hobby plan runs a cron at most once a day, at some point within
-// the scheduled hour, so every schedule here is daily and each monitor allows
-// a 90-minute margin before it calls a run missed.
+// Daily jobs ("M H * * *") and, on Vercel Pro, every-N-minutes jobs
+// ("*/N * * * *", plan 33 9.11): the two shapes lib/cron/schedule.ts parses,
+// which also sets how late a run may be before the watch and the job's Sentry
+// monitor call it missed.
 
 export type CronJob =
   | "patrol_reverify"
   | "sar_retention"
   | "avserv_checks"
   | "sar_alert_notify"
+  | "sar_node_check"
   | "deletion_clock"
   | "security_notices"
   | "expired_rows"
@@ -22,12 +24,16 @@ export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monito
   sar_retention: { path: "/api/cron/sar-retention", schedule: "30 9 * * *", monitorSlug: "portal-sar-retention" },
   avserv_checks: { path: "/api/cron/avserv-checks", schedule: "0 14 * * *", monitorSlug: "portal-avserv-checks" },
   // The backstop for SAR team emails the other node's copy didn't retry
-  // (lib/sar/alert-notify.ts). Daily is the Hobby plan's limit.
-  sar_alert_notify: { path: "/api/cron/sar-alert-notify", schedule: "0 12 * * *", monitorSlug: "portal-sar-alert-notify" },
+  // (lib/sar/alert-notify.ts). Every minute; each email waits longer between
+  // tries (RETRY_DELAY_MINUTES).
+  sar_alert_notify: { path: "/api/cron/sar-alert-notify", schedule: "* * * * *", monitorSlug: "portal-sar-alert-notify" },
+  // Re-sends a team to a node whose sync failed, and reads every active
+  // team's view on each node (lib/sar/node-check.ts; plan 33 9.11, F4).
+  sar_node_check: { path: "/api/cron/sar-node-check", schedule: "*/5 * * * *", monitorSlug: "portal-sar-node-check" },
   deletion_clock: { path: "/api/cron/deletion-clock", schedule: "0 16 * * *", monitorSlug: "portal-deletion-clock" },
   // Opt-in security notices for changes made on the phones (AvServ's feed,
-  // plan 36 §5.3). Daily on Hobby (owner S-D8); every 10 minutes after Pro.
-  security_notices: { path: "/api/cron/security-notices", schedule: "0 17 * * *", monitorSlug: "portal-security-notices" },
+  // plan 36 §5.3). Every 10 minutes on Pro (owner S-D8).
+  security_notices: { path: "/api/cron/security-notices", schedule: "*/10 * * * *", monitorSlug: "portal-security-notices" },
   // Sessions, tokens and rate-limit rows past use (lib/retention/expired-rows.ts).
   expired_rows: { path: "/api/cron/expired-rows", schedule: "0 10 * * *", monitorSlug: "portal-expired-rows" },
   // SAR teams left with no admin (lib/sar/no-admin.ts, plan 33 §6.4).
@@ -38,5 +44,4 @@ export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monito
   cron_watch: { path: "/api/cron/cron-watch", schedule: "30 19 * * *", monitorSlug: "portal-cron-watch" },
 };
 
-export const MONITOR_CHECKIN_MARGIN_MINUTES = 90;
 export const MONITOR_MAX_RUNTIME_MINUTES = 5;

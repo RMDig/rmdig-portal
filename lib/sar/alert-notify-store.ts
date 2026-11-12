@@ -138,7 +138,15 @@ export async function recipients(orgId: string): Promise<Array<{ userId: string;
     .where(and(eq(orgMemberships.orgId, orgId), inArray(orgMemberships.role, ["admin", "dispatcher"])));
 }
 
-/** Owed emails no attempt currently holds, oldest first. */
+// How long the cron waits after attempt n before attempt n + 1 (plan 33
+// 9.11): soon after a blip, then further apart, so an email outage of a few
+// hours doesn't use up every attempt. The last attempt is about five and a half
+// hours after the first. The other node's copy still retries at once.
+export const RETRY_DELAY_MINUTES = [1, 5, 15, 60, 240] as const;
+const retryDelays = sql.raw(`ARRAY[${RETRY_DELAY_MINUTES.join(",")}]`);
+
+/** Owed emails no attempt currently holds and whose wait since the last
+ *  attempt is up, oldest first. */
 export async function dueForRetry(now: Date, limit: number): Promise<NotifyKey[]> {
   return db
     .select({ orgId: sarAlertNotifications.orgId, alertId: sarAlertNotifications.alertId, kind: sarAlertNotifications.kind })
@@ -147,6 +155,9 @@ export async function dueForRetry(now: Date, limit: number): Promise<NotifyKey[]
       and(
         inArray(sarAlertNotifications.status, ["pending", "failed"]),
         or(isNull(sarAlertNotifications.leasedUntil), lt(sarAlertNotifications.leasedUntil, now)),
+        sql`(${sarAlertNotifications.lastAttemptAt} IS NULL OR ${sarAlertNotifications.lastAttemptAt}
+              + make_interval(mins => (${retryDelays})[LEAST(GREATEST(${sarAlertNotifications.attempts}, 1), ${RETRY_DELAY_MINUTES.length})])
+              <= ${now.toISOString()}::timestamptz)`,
       ),
     )
     .orderBy(asc(sarAlertNotifications.createdAt))

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { advertiserTabs, teamTabs } from "@/lib/nav/sections";
+import { advertiserTabs, managesLeaving, teamTabs } from "@/lib/nav/sections";
+import { isPastTeam } from "@/lib/sar/team-status";
 
 // A team's and an advertiser's tab bars show each role only the pages that
 // let it in, so no tab leads to a refusal.
@@ -22,6 +23,24 @@ describe("teamTabs", () => {
   it("gives dispatchers Alerts only and responders nothing (no page admits them)", () => {
     expect(labels(teamTabs(ORG, "dispatcher", "approved"))).toEqual(["Alerts"]);
     expect(teamTabs(ORG, "responder", "approved")).toEqual([]);
+  });
+});
+
+describe("managesLeaving (the Leaving tab and the dashboard's Leaving link)", () => {
+  it("is an admin of an approved or leaving team only", () => {
+    expect(managesLeaving("admin", "approved")).toBe(true);
+    expect(managesLeaving("admin", "leaving")).toBe(true);
+    for (const s of ["pending", "rejected", "suspended", "withdrawn"]) expect(managesLeaving("admin", s)).toBe(false);
+    expect(managesLeaving("dispatcher", "approved")).toBe(false);
+    expect(managesLeaving("responder", "leaving")).toBe(false);
+  });
+});
+
+describe("isPastTeam", () => {
+  it("is a team that wasn't approved or has withdrawn; every other status is current", () => {
+    expect(isPastTeam("rejected")).toBe(true);
+    expect(isPastTeam("withdrawn")).toBe(true);
+    for (const s of ["pending", "approved", "suspended", "leaving"]) expect(isPastTeam(s)).toBe(false);
   });
 });
 

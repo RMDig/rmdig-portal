@@ -23,7 +23,7 @@ export const DRILL_SYNC_REVISION = 3;
 
 // AvServ's permanent refusals of a drill sync: a team it won't accept as a
 // drill (422), or one whose drill flag would flip (409).
-const DRILL_REFUSALS = new Set(["drill_team_invalid", "sar_team_drill_immutable"]);
+export const DRILL_REFUSALS: ReadonlySet<string> = new Set(["drill_team_invalid", "sar_team_drill_immutable"]);
 
 export type NodeOutcome =
   | { node: string; outcome: "ok"; applied: boolean; usable: boolean; unusableReason: string | null }

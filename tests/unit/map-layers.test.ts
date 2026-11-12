@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { FORBIDDEN_PUBLIC_PHRASES } from "@/lib/legal/compliance-copy";
 import { circleRing, ringsBounds, unionBounds } from "@/lib/map/geometry";
-import { allOrgsLayer, layersFor, memberOrgLayer, targetLayer, type OrgRow, type TargetRow } from "@/lib/map/layers";
+import { allOrgsLayer, layersFor, memberOrgLayer, pastOrgLayer, targetLayer, type OrgRow, type TargetRow } from "@/lib/map/layers";
 
 // /map Phase 1 (docs/plans/33): pure geometry, the layer builders, and who
 // gets which layer. Everything is scoped to the viewer; only staff see every
@@ -65,8 +65,18 @@ describe("layer builders", () => {
     ]);
   });
 
-  it("leaves rejected orgs out of the staff overview", () => {
-    expect(allOrgsLayer([org("a", "approved"), org("r", "rejected")]).items.map((i) => i.id)).toEqual(["org:a"]);
+  it("leaves rejected and withdrawn orgs out of the staff overview", () => {
+    expect(allOrgsLayer([org("a", "approved"), org("r", "rejected"), org("w", "withdrawn")]).items.map((i) => i.id)).toEqual(["org:a"]);
+  });
+
+  it("puts rejected and withdrawn teams in their own layer, off until ticked", () => {
+    const mine = pastOrgLayer([org("a", "approved"), org("r", "rejected"), org("w", "withdrawn")], false);
+    expect(mine).toMatchObject({ id: "my-past-orgs", startsHidden: true });
+    expect(mine.items.map((i) => [i.id, i.detail])).toEqual([
+      ["org:r", "Not approved"],
+      ["org:w", "Withdrawn"],
+    ]);
+    expect(pastOrgLayer([org("r", "rejected")], true)).toMatchObject({ id: "all-past-orgs", startsHidden: true });
   });
 
   it("draws radius targets and lists admin targets without inventing a shape", () => {
@@ -94,6 +104,22 @@ describe("layersFor", () => {
     expect(layersFor({ ...base, allOrgs: [org("a", "approved")] }).map((l) => l.id)).toEqual([]);
     expect(layersFor({ ...base, isStaff: true, allOrgs: [org("a", "approved")] }).map((l) => l.id)).toEqual(["all-orgs"]);
   });
+
+  it("moves a member's rejected and withdrawn teams to a hidden layer, and gives staff one for every past team", () => {
+    const memberOrgs = [org("a", "approved"), org("r", "rejected")];
+    const member = layersFor({ ...base, memberOrgs });
+    expect(member.map((l) => [l.id, l.startsHidden ?? false, l.items.map((i) => i.id)])).toEqual([
+      ["my-orgs", false, ["org:a"]],
+      ["my-past-orgs", true, ["org:r"]],
+    ]);
+    // Only past teams: no empty current layer saying "not a member".
+    expect(layersFor({ ...base, memberOrgs: [org("r", "rejected")] }).map((l) => l.id)).toEqual(["my-past-orgs"]);
+    const staff = layersFor({ ...base, isStaff: true, allOrgs: [org("a", "approved"), org("w", "withdrawn")] });
+    expect(staff.map((l) => [l.id, l.startsHidden ?? false])).toEqual([
+      ["all-orgs", false],
+      ["all-past-orgs", true],
+    ]);
+  });
 });
 
 describe("map copy", () => {
@@ -101,6 +127,8 @@ describe("map copy", () => {
     const layers = [
       memberOrgLayer([org("a", "approved"), org("b", "pending"), org("c", "suspended")]),
       allOrgsLayer([org("a", "approved")]),
+      pastOrgLayer([org("r", "rejected"), org("w", "withdrawn")], false),
+      pastOrgLayer([org("r", "rejected")], true),
       targetLayer([radius("1")]),
     ];
     const text = layers
