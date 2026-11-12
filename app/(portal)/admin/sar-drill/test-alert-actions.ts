@@ -15,9 +15,10 @@ import { TEST_RESEND_AFTER_MS } from "@/lib/sar/test-alert-rules";
 // An rmdig admin sends a drill team AvServ's test alert from every node
 // (plan 37; AvServ sar_test_alert.md, plan 66 R1). A drill team is never
 // reviewed, so this is not checklist item 3 and decides nothing: it proves
-// each node's test route, its drill sink and its drill email end to end. The
-// nodes send a drill team's message to the drill sink and its email to the
-// drill inbox, never to a team address. A real team's test stays the
+// each node's test route, the portal's drill intake and the drill email end
+// to end. The nodes send a drill team's message to the drill intake
+// (/api/sar/intake/drill) and its email to the drill inbox, never to a team
+// address. A real team's test stays the
 // approver's, during review (admin/sar-approvals/test-alert-actions.ts).
 
 export type SendDrillTestResult = { ok: true; message: string } | { ok: false; error: string };
