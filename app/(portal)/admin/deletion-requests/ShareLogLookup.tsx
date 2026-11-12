@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { lookupAccountsAction, lookupShareLogAction, type AccountLookup, type ShareLogLookup } from "./actions";
+import { disclosureCountsText } from "@/lib/deletion/share-log";
 import { formatMountainDate } from "@/lib/format/time";
 
 const FIELD_LABEL: Record<string, string> = {
@@ -118,7 +119,7 @@ export function ShareLogLookupForm({ requestId, suggestedAccountId }: { requestI
                     <li key={t.teamId} className="px-3 py-2">
                       <span className="font-medium">{state.teamNames[t.teamId] ?? `Unknown team ${t.teamId}`}</span>
                       <span className="text-muted-foreground block text-xs">
-                        {t.dispatches} alert{t.dispatches === 1 ? "" : "s"}, {t.feedReads} map view{t.feedReads === 1 ? "" : "s"} ·{" "}
+                        {disclosureCountsText(t)} ·{" "}
                         {t.fields.map((f) => FIELD_LABEL[f] ?? f).join(", ") || "no fields"} ·{" "}
                         {t.channels.join(", ") || "map only"} · {when(t.first)}
                         {t.first.slice(0, 10) !== t.last.slice(0, 10) ? `–${when(t.last)}` : ""}
