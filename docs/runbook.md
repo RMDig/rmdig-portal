@@ -1119,6 +1119,18 @@ refuses them.
    on every node") until both nodes report sync revision 3. The AvServ lines on
    the card show each node.
 
+**Drill test alert** (AvServ plan 66 R1; `sar_test_alert.md`): **Send test
+alert** on the team's card asks every node to send the test with `drill: true`.
+It proves each node's test route, drill sink and drill email; it isn't
+checklist item 3 and decides nothing. Each node sends its message to AvServ's
+drill sink (not the portal's intake) and its email, with a six-digit code, to
+the drill inbox (never a team address). Expect **Drill sink: delivered** and
+**Drill inbox email: accepted** per node. Then, as a drill login, open the
+team's **Alerts** page and enter each node's code from the drill inbox; the
+card here shows "code entered". AvServ allows 3 tests per team per node an
+hour, and the portal one a minute. Tell AvServ when you've sent one: they read
+both nodes' logs for both channels.
+
 **Drill users** (plan 37 P7) are drill accounts with no team, for linking the
 DRILL build of AvAI. Add one under **Drill users** on the same page; it is made
 like a drill login, with its own drill AvServ account. Use a drill user, never a

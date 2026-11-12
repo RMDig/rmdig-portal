@@ -19,6 +19,9 @@ export type TestAlertFact = ActivationChecklistRecord["facts"]["testAlert"];
 export const TEST_FRESH_DAYS = 14;
 /** Guesses at one node's code before staff must send a new test. */
 export const MAX_CODE_ATTEMPTS = 5;
+// AvServ allows 3 tests per team per node an hour; a double click shouldn't
+// spend two of them.
+export const TEST_RESEND_AFTER_MS = 60_000;
 
 export const testCodeSchema = z
   .string()

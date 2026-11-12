@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { TestAlertPanel } from "@/components/sar/TestAlertPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
@@ -11,6 +12,7 @@ import { db } from "@/lib/db";
 import { orgMemberships, sarOrgs, sarOrgSync, users } from "@/lib/db/schema";
 import { formatMountainDate } from "@/lib/format/time";
 import { SKIP_LABEL, type SkipReason } from "@/lib/sar/sync-body";
+import { latestTestAlerts } from "@/lib/sar/test-alert";
 
 import { DrillDecisions } from "./DrillDecisions";
 import { DrillLoginForm } from "./DrillLoginForm";
@@ -21,8 +23,8 @@ export const metadata = {
 };
 
 // RMDig's drill teams (plan 37), kept apart from the approvals queue: they
-// are never reviewed or counted there. Drill logins (P4b) and activation (P5)
-// are managed from here.
+// are never reviewed or counted there. Drill logins (P4b), activation (P5)
+// and the drill test alert (AvServ plan 66 R1) are managed from here.
 export default async function DrillTeamsPage() {
   const session = await auth();
   if (!session?.user) return redirectToSignIn();
@@ -58,6 +60,7 @@ export default async function DrillTeamsPage() {
     .where(and(eq(users.isDrill, true), isNull(orgMemberships.userId)))
     .orderBy(asc(users.email));
   const syncs = teams.length ? await db.select().from(sarOrgSync).where(inArray(sarOrgSync.orgId, teams.map((t) => t.id))) : [];
+  const tests = await latestTestAlerts(teams.map((t) => t.id));
   const takesLogins = (status: string) => status !== "rejected" && status !== "withdrawn";
   const syncDetail = (s: (typeof syncs)[number]) =>
     s.outcome === "error"
@@ -131,6 +134,7 @@ export default async function DrillTeamsPage() {
                       </ul>
                     </div>
                   ) : null}
+                  <TestAlertPanel orgId={t.id} rows={tests.get(t.id) ?? []} canSend={takesLogins(t.status)} drill />
                   <DrillDecisions orgId={t.id} orgName={t.name} revision={t.reviewRevision} status={t.status} canActivate={approver} canSuspend={approver} />
                 </CardContent>
               </Card>

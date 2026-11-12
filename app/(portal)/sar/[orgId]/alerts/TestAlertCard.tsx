@@ -10,7 +10,9 @@ import { confirmTestCodeAction, markTestReceivedAction } from "./test-alert-acti
 
 // The team's half of the test alert (plan 33 §6.9 G2 item 3): for each AvAI
 // server, mark its portal message received and enter the code its email
-// carried. A test is never an alert; it names nobody and nowhere.
+// carried. A test is never an alert; it names nobody and nowhere. A drill
+// team's test sends its message to AvServ's drill sink and its email to the
+// drill inbox (AvServ plan 66 R1), so a drill login enters the code only.
 
 function MarkReceived({ orgId, row }: { orgId: string; row: TestAlertRow }) {
   const [state, action, pending] = useActionState(markTestReceivedAction.bind(null, orgId), null);
@@ -31,7 +33,7 @@ function MarkReceived({ orgId, row }: { orgId: string; row: TestAlertRow }) {
   );
 }
 
-function EnterCode({ orgId, row }: { orgId: string; row: TestAlertRow }) {
+function EnterCode({ orgId, row, drill }: { orgId: string; row: TestAlertRow; drill: boolean }) {
   const [state, action, pending] = useActionState(confirmTestCodeAction.bind(null, orgId), null);
   if (row.emailConfirmed || state?.ok) return <p className="text-sm text-green-700 dark:text-green-300">Email code confirmed.</p>;
   if (row.email !== "accepted") {
@@ -42,7 +44,7 @@ function EnterCode({ orgId, row }: { orgId: string; row: TestAlertRow }) {
     <form action={action} className="space-y-1">
       <input type="hidden" name="testAlertId" value={row.id} />
       <label className="block text-sm">
-        Code from the test email to your on-call address
+        {drill ? "Code from this server's drill test email (in the drill inbox)" : "Code from the test email to your on-call address"}
         <input
           name="code"
           inputMode="numeric"
@@ -59,15 +61,16 @@ function EnterCode({ orgId, row }: { orgId: string; row: TestAlertRow }) {
   );
 }
 
-export function TestAlertCard({ orgId, rows }: { orgId: string; rows: TestAlertRow[] }) {
+export function TestAlertCard({ orgId, rows, drill = false }: { orgId: string; rows: TestAlertRow[]; drill?: boolean }) {
   return (
     <section aria-labelledby="test-alert-heading" className="space-y-3 rounded-md border p-4">
       <h2 id="test-alert-heading" className="font-medium">
         Test messages
       </h2>
       <p className="text-muted-foreground text-sm">
-        Before your team is activated, rmdig staff send a test from each AvAI server. It is a test, not an alert: it
-        names no one and no place. For each server, confirm both the message here and the code in the email.
+        {drill
+          ? "This is a drill team. rmdig staff send a drill test from each AvAI server: its message goes to AvServ's drill sink, and its email to the drill inbox. It is a test, not an alert. For each server, enter the code from its email."
+          : "Before your team is activated, rmdig staff send a test from each AvAI server. It is a test, not an alert: it names no one and no place. For each server, confirm both the message here and the code in the email."}
       </p>
       <ul className="divide-y">
         {rows.map((row) => (
@@ -77,8 +80,12 @@ export function TestAlertCard({ orgId, rows }: { orgId: string; rows: TestAlertR
               <p className="text-sm text-red-700 dark:text-red-400">This server couldn&apos;t send the test ({row.error}). rmdig staff will send a new one.</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                <MarkReceived orgId={orgId} row={row} />
-                <EnterCode orgId={orgId} row={row} />
+                {drill ? (
+                  <p className="text-muted-foreground text-sm">Message: sent to the drill sink, not here.</p>
+                ) : (
+                  <MarkReceived orgId={orgId} row={row} />
+                )}
+                <EnterCode orgId={orgId} row={row} drill={drill} />
               </div>
             )}
           </li>
