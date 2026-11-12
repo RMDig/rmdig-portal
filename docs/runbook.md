@@ -954,7 +954,11 @@ under the CPA — treat every request as covering it.
    - **The portal's copies** (plan 33 §6.9, F6): once every node reports the
      account erased, the portal reads every node's share log and deletes its
      own copies of the account's alerts (`sar_intake_messages`, with their
-     acks and team-email records), at every team, drill teams included. The
+     acks and team-email records), at every team, drill teams included, and
+     every team's approval decisions on the account's acceptances
+     (`sar_approval_decisions`, found from the `approval_request` rows its
+     Approvals views logged; owner, 2026-11-12). A decision on an acceptance
+     no team viewed in the log's 365 days isn't found. The
      note's **Portal:** line says how many went. If a node's log didn't answer,
      the line says so: **Read erasure status on every node** again later to finish (it's safe to
      repeat). While the erasure is *held* behind a live item, nothing here is

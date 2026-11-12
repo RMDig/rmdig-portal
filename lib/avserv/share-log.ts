@@ -14,7 +14,10 @@ export const ShareLogItem = z.object({
   at: z.string(),
   node: z.string(),
   teamId: z.string(),
-  kind: z.enum(["dispatch", "feed_read"]),
+  // approval_request: a confirm-first team's approval list showed the
+  // account (subject = the acceptance id); area_read: the team's area map
+  // (sar_feeds.md §4). An unknown kind fails the page, so a new one is caught.
+  kind: z.enum(["dispatch", "feed_read", "approval_request", "area_read"]),
   subject: z.string(),
   messageKind: z.string().nullable(),
   channel: z.string().nullable(),
