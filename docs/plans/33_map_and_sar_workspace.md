@@ -365,7 +365,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
 | 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | [COUNSEL]; A2P 38a re-filing (§6.2 gate met) |
 | 9.10 | On-call `email` channel: add, verify by link, re-verify on change. **First-team gate (G1, §6.9)** | None (AvServ dispatches `email` on both nodes, R4b) |
-| 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`) | Vercel Pro (O7) |
+| 9.11 | Minute-level notify retry and per-node sync retry; Sentry monitors kept in step (`tests/unit/cron-jobs.test.ts`). **Built 2026-11-11:** `sar-alert-notify` every minute with waits of 1, 5, 15, 60 and 240 minutes between tries (6 attempts); `sar-node-check` every 5 minutes resends a team to a node that failed, asked for a resync or was added, and reads every approved and leaving team's view (F4); `security-notices` every 10 minutes (plan 36 S-D8); the cron watch reads every-N-minutes schedules | Vercel Pro (O7) |
 | 9.12 | Reachability; no-ack escalation (once per alert) | 9.10, 9.11; N [ESCALATE] |
 | 9.13 | Suspension, reactivation, no-admin emails (failure logged, not rolled back). **Built 2026-11-06:** team admins emailed on suspend/reactivate (no staff note); no-admin banner on the team pages and a daily approver email (`/api/cron/sar-no-admin`); what staff then do stays [ESCALATE] | None |
 | 9.14 | ORANGE behind `FEATURE_SAR_ORANGE` (§6.6); `area_map` back with the flag; disclosure | AvServ feed `on`; counsel; k floor [ESCALATE] |
@@ -463,7 +463,7 @@ ready, so the work is reordered around a gate.
 | F4 | §17.13 recovery: parse `remedy`, `waitingAlerts`, `activeCheckouts`, `overCapacity`, `syncRevision`, `drill`; show each node's remedy on the team page; email the team's admins when a node reports it unusable, with the remedy and the waiting count. The portal polls: every node's GET after each PUT, and every few minutes once 9.11 is on Pro | None |
 | F5 | Leaving: the team gives and undoes its own notice | None |
 | F6 | Erasure deletes the portal's intake copies of the account's alerts | None |
-| — | 9.11 per-node sync retry and minute-level notify retry, so F4's "resync" holds; the cron watch learns sub-daily schedules | Vercel Pro |
+| — | 9.11 per-node sync retry and minute-level notify retry, so F4's "resync" holds; the cron watch learns sub-daily schedules. **Built 2026-11-11** (row 9.11) | Vercel Pro |
 | — | 9.7 `acceptanceMode`, `maxActiveCheckouts` | None |
 | N1 | Every node: `AVSERV_NODE_URLS`, primary first (withdraw check, capabilities gate, PUTs, acks, RED reads, device reads, erasure); avserv-1 (`https://avserv-1.rmdig.ai`) joins by a config change once AvServ says it's live | None |
 | N2 | Intake hardening: `AVSERV_SAR_INTAKE_KEY_NODES` binds each key to its node; another node's key is `401 unknown_key` | None |

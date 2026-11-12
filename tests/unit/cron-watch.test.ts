@@ -22,17 +22,20 @@ vi.mock("@/lib/report-error", () => ({ reportProblem: h.problem, reportError: vi
 vi.mock("@/lib/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
 import { CRON_JOBS, type CronJob } from "@/lib/cron/jobs";
-import { lastDueRun } from "@/lib/cron/schedule";
+import { lastDueRun, marginMinutes, parseSchedule } from "@/lib/cron/schedule";
 import { lateJobs, runCronWatch } from "@/lib/cron/watch";
 
 const at = (iso: string) => new Date(iso);
 // The watch's own run time on 2026-11-11.
 const NOW = at("2026-11-11T19:30:00Z");
 const OTHERS = (Object.keys(CRON_JOBS) as CronJob[]).filter((j) => j !== "cron_watch");
+// Daily jobs ran at their time today; every-N-minutes jobs a minute ago.
 const allRanToday = () =>
   OTHERS.map((job) => {
-    const [m, hr] = CRON_JOBS[job].schedule.split(" ");
-    return { job, lastSuccessAt: at(`2026-11-11T${hr!.padStart(2, "0")}:${m!.padStart(2, "0")}:20Z`), watchedSince: at("2026-11-01T00:00:00Z") };
+    const s = parseSchedule(CRON_JOBS[job].schedule);
+    const lastSuccessAt =
+      s.kind === "daily" ? at(`2026-11-11T${String(s.hour).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}:20Z`) : new Date(NOW.getTime() - 60_000);
+    return { job, lastSuccessAt, watchedSince: at("2026-11-01T00:00:00Z") };
   });
 
 beforeEach(() => {
@@ -52,8 +55,24 @@ describe("lastDueRun", () => {
     expect(lastDueRun("30 9 * * *", at("2026-11-11T00:10:00Z"))).toEqual(at("2026-11-10T09:30:00Z"));
   });
 
-  it("refuses a schedule that isn't daily", () => {
-    expect(() => lastDueRun("*/10 * * * *", NOW)).toThrow(/not a daily schedule/);
+  it("for an every-N-minutes job, is the latest run more than two runs (at least five minutes) ago", () => {
+    expect(marginMinutes("*/10 * * * *")).toBe(20);
+    expect(marginMinutes("*/5 * * * *")).toBe(10);
+    expect(marginMinutes("* * * * *")).toBe(5);
+    expect(marginMinutes("0 17 * * *")).toBe(90);
+    expect(lastDueRun("*/10 * * * *", at("2026-11-11T19:35:00Z"))).toEqual(at("2026-11-11T19:10:00Z"));
+    expect(lastDueRun("*/10 * * * *", at("2026-11-11T19:30:00Z"))).toEqual(at("2026-11-11T19:10:00Z"));
+    expect(lastDueRun("* * * * *", NOW)).toEqual(at("2026-11-11T19:25:00Z"));
+    // Across midnight.
+    expect(lastDueRun("*/5 * * * *", at("2026-11-12T00:04:00Z"))).toEqual(at("2026-11-11T23:50:00Z"));
+  });
+
+  it("refuses any other schedule shape, so a job the watch can't judge fails here", () => {
+    for (const bad of ["*/7 * * * *", "0 */2 * * *", "0 17 * * 1", "0 17 1 * *", "60 1 * * *", "0 24 * * *", "*/0 * * * *", "daily"]) {
+      expect(() => parseSchedule(bad)).toThrow(/unsupported schedule/);
+    }
+    expect(parseSchedule("30 9 * * *")).toEqual({ kind: "daily", minute: 30, hour: 9 });
+    expect(parseSchedule("*/5 * * * *")).toEqual({ kind: "every", minutes: 5 });
   });
 
   it("finds every other job's run of the day due by the watch's own time", () => {
@@ -68,6 +87,15 @@ describe("lastDueRun", () => {
 describe("lateJobs", () => {
   it("finds none when every job ran today", () => {
     expect(lateJobs(h.rows, NOW)).toEqual([]);
+  });
+
+  it("calls an every-N-minutes job late once it has missed more than its margin", () => {
+    const stopped = h.rows.map((r) => (r.job === "sar_node_check" ? { ...r, lastSuccessAt: at("2026-11-11T19:14:00Z") } : r));
+    expect(lateJobs(stopped, NOW)).toEqual([
+      { job: "sar_node_check", path: "/api/cron/sar-node-check", dueAt: at("2026-11-11T19:20:00Z"), lastSuccessAt: at("2026-11-11T19:14:00Z") },
+    ]);
+    const justLate = h.rows.map((r) => (r.job === "sar_node_check" ? { ...r, lastSuccessAt: at("2026-11-11T19:20:05Z") } : r));
+    expect(lateJobs(justLate, NOW)).toEqual([]);
   });
 
   it("finds a job whose last success is before the run it owes", () => {

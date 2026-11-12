@@ -15,6 +15,7 @@ interface Row {
   status: string;
   attempts: number;
   leasedUntil: Date | null;
+  lastAttemptAt?: Date | null;
   deliveredUserIds: string[];
   lastError: string | null;
 }
@@ -37,11 +38,13 @@ const claimOf = (r: Row) => ({ orgId: r.orgId, alertId: r.alertId, kind: r.kind,
 // handlers really interleave.
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+const DELAYS = vi.hoisted(() => [1, 5, 15, 60, 240] as const);
 vi.mock("@/lib/sar/alert-notify-store", () => ({
+  RETRY_DELAY_MINUTES: DELAYS,
   claimNew: async (key: Row, messageId: string, now: Date, leaseMs: number) => {
     await tick();
     if (h.rows.has(k(key))) return null;
-    const row: Row = { ...key, messageId, status: "pending", attempts: 1, leasedUntil: new Date(now.getTime() + leaseMs), deliveredUserIds: [], lastError: null };
+    const row: Row = { ...key, messageId, status: "pending", attempts: 1, leasedUntil: new Date(now.getTime() + leaseMs), lastAttemptAt: now, deliveredUserIds: [], lastError: null };
     h.rows.set(k(key), row);
     return claimOf(row);
   },
@@ -51,6 +54,7 @@ vi.mock("@/lib/sar/alert-notify-store", () => ({
     if (!row || !["pending", "failed"].includes(row.status) || (row.leasedUntil && row.leasedUntil >= now)) return null;
     row.attempts += 1;
     row.leasedUntil = new Date(now.getTime() + leaseMs);
+    row.lastAttemptAt = now;
     return claimOf(row);
   },
   recordAttempt: async (claim: Row, o: { status: string; deliveredUserIds: string[]; lastError: string | null }) => {
@@ -63,8 +67,14 @@ vi.mock("@/lib/sar/alert-notify-store", () => ({
   notifyContext: async () => ({ teamName: "Summit SAR", capability: "checkout_alerts", drill: h.storedDrill }),
   alertEnded: async () => h.ended,
   recipients: async () => h.members,
+  // The store's wait: attempt n is followed by DELAYS[n - 1] minutes.
   dueForRetry: async (now: Date) =>
-    [...h.rows.values()].filter((r) => ["pending", "failed"].includes(r.status) && (!r.leasedUntil || r.leasedUntil < now)),
+    [...h.rows.values()].filter(
+      (r) =>
+        ["pending", "failed"].includes(r.status) &&
+        (!r.leasedUntil || r.leasedUntil < now) &&
+        (!r.lastAttemptAt || r.lastAttemptAt.getTime() + DELAYS[Math.min(Math.max(r.attempts, 1), DELAYS.length) - 1]! * 60_000 <= now.getTime()),
+    ),
 }));
 vi.mock("@/lib/email/send", () => ({ sendSarAlertNotifyEmail: h.email }));
 vi.mock("@/lib/env", () => ({ env: { NEXTAUTH_URL: "https://rmdig.ai" } }));
@@ -197,10 +207,23 @@ describe("retryAlertNotifications (the cron)", () => {
     expect(await retryAlertNotifications(later(LEASE_MS + 1))).toMatchObject({ due: 1, sent: 1 });
   });
 
-  it("gives up loudly after MAX_ATTEMPTS", async () => {
+  it("waits longer after each failed attempt, and doesn't retry before the wait is up", async () => {
     h.email.mockRejectedValue(new Error("resend down"));
     await notifyOnIntake(alert(), REAL, T0);
-    for (let i = 2; i <= MAX_ATTEMPTS; i++) await retryAlertNotifications(later(i * 60_000));
+    expect((await retryAlertNotifications(later(59_000))).due).toBe(0);
+    expect(await retryAlertNotifications(later(60_000))).toMatchObject({ due: 1, failed: 1 });
+    // Attempt 2 was at 1 min, so attempt 3 waits 5 more.
+    expect((await retryAlertNotifications(later(5 * 60_000))).due).toBe(0);
+    expect(await retryAlertNotifications(later(6 * 60_000))).toMatchObject({ due: 1, failed: 1 });
+    expect(h.rows.get(`${ORG}|sub:team|overdue`)!.attempts).toBe(3);
+  });
+
+  it("gives up loudly after MAX_ATTEMPTS, about five and a half hours after the first", async () => {
+    h.email.mockRejectedValue(new Error("resend down"));
+    await notifyOnIntake(alert(), REAL, T0);
+    let t = 0;
+    for (const wait of DELAYS) await retryAlertNotifications(later((t += wait * 60_000)));
+    expect(t).toBe(321 * 60_000);
     const row = h.rows.get(`${ORG}|sub:team|overdue`)!;
     expect(row).toMatchObject({ status: "abandoned", attempts: MAX_ATTEMPTS });
     expect(row.lastError).toMatch(/resend down/);

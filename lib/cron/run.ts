@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 
 import { reportError, reportProblem } from "../report-error";
 import { cronAuthFailure } from "./auth";
-import { CRON_JOBS, type CronJob, MONITOR_CHECKIN_MARGIN_MINUTES, MONITOR_MAX_RUNTIME_MINUTES } from "./jobs";
+import { CRON_JOBS, type CronJob, MONITOR_MAX_RUNTIME_MINUTES } from "./jobs";
 import { cronWatchMissed, recordCronSuccess } from "./record";
+import { marginMinutes } from "./schedule";
 
 // One way to run a scheduled job. The run is wrapped in its Sentry cron
 // monitor, so Sentry alerts when a job fails AND when it stops running at all
@@ -43,7 +44,7 @@ export async function runCron(req: Request, job: CronJob, work: () => Promise<Cr
       {
         schedule: { type: "crontab", value: schedule },
         timezone: "Etc/UTC",
-        checkinMargin: MONITOR_CHECKIN_MARGIN_MINUTES,
+        checkinMargin: marginMinutes(schedule),
         maxRuntime: MONITOR_MAX_RUNTIME_MINUTES,
         failureIssueThreshold: 1,
         recoveryThreshold: 1,

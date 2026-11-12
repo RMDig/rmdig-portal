@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The SAR team-email retry and the CPA deletion clock crons.
+// The SAR team-email retry, the SAR node check and the CPA deletion clock crons.
 // Both go through lib/cron/run (auth, Sentry monitor, loud failure).
 
 const SECRET = "n".repeat(64);
@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   env: { CRON_SECRET: "" as string | undefined },
   retry: vi.fn(),
   clock: vi.fn(),
+  nodeCheck: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   sentry: { captureException: vi.fn(), captureMessage: vi.fn(), withMonitor: vi.fn(), flush: vi.fn() },
 }));
@@ -18,9 +19,11 @@ vi.mock("@/lib/cron/record", () => ({ recordCronSuccess: vi.fn(), cronWatchMisse
 vi.mock("@sentry/nextjs", () => h.sentry);
 vi.mock("@/lib/sar/alert-notify", () => ({ retryAlertNotifications: h.retry }));
 vi.mock("@/lib/deletion/clock", () => ({ runDeletionClock: h.clock }));
+vi.mock("@/lib/sar/node-check", () => ({ runNodeCheck: h.nodeCheck }));
 
 import { GET as clockGET } from "@/app/api/cron/deletion-clock/route";
 import { GET as notifyGET } from "@/app/api/cron/sar-alert-notify/route";
+import { GET as nodeCheckGET } from "@/app/api/cron/sar-node-check/route";
 
 const req = (path: string, auth = `Bearer ${SECRET}`) => new Request(`https://rmdig.ai${path}`, { headers: { authorization: auth } });
 
@@ -29,6 +32,24 @@ beforeEach(() => {
   h.env.CRON_SECRET = SECRET;
   h.sentry.withMonitor.mockImplementation((_slug: string, cb: () => unknown) => cb());
   h.sentry.flush.mockResolvedValue(true);
+});
+
+describe("GET /api/cron/sar-node-check", () => {
+  const summary = { owed: 1, resynced: 1, stillFailing: 0, crashed: 0, read: 3, readFailed: 0 };
+  it("resends and reads under its monitor and returns the summary", async () => {
+    h.nodeCheck.mockResolvedValue(summary);
+    const res = await nodeCheckGET(req("/api/cron/sar-node-check"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(summary);
+    expect(h.sentry.withMonitor).toHaveBeenCalledWith("portal-sar-node-check", expect.any(Function), expect.objectContaining({ checkinMargin: 10 }));
+  });
+  it("fails the run when a team's resend crashed, and refuses a wrong secret", async () => {
+    h.nodeCheck.mockResolvedValue({ ...summary, resynced: 0, crashed: 1 });
+    expect((await nodeCheckGET(req("/api/cron/sar-node-check"))).status).toBe(503);
+    h.nodeCheck.mockClear();
+    expect((await nodeCheckGET(req("/api/cron/sar-node-check", "Bearer nope"))).status).toBe(401);
+    expect(h.nodeCheck).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/cron/sar-alert-notify", () => {

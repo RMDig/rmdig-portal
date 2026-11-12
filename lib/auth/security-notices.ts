@@ -15,7 +15,7 @@ import { isKnownKind } from "../avserv/security-events-types";
 // change: that something happened and when, never what or to whom.
 //
 // Portal changes notify as they happen (notifySecurityChange, called after the
-// change is committed). AvServ's changes notify from the daily cron
+// change is committed). AvServ's changes notify from the 10-minute cron
 // (runSecurityNotices), which reads each node's feed from where it last left off.
 
 /** After a security change made through the portal. A failed email is logged
@@ -62,7 +62,7 @@ export interface NoticeRunSummary {
   failed: number;
 }
 
-/** The daily cron: for each opted-in user, read every node's feed from its
+/** The 10-minute cron: for each opted-in user, read every node's feed from its
  *  cursor; one notice if anything new happened since the last read. */
 export async function runSecurityNotices(now: Date = new Date()): Promise<NoticeRunSummary> {
   const optedIn = await db
@@ -100,7 +100,7 @@ export async function runSecurityNotices(now: Date = new Date()): Promise<Notice
         summary.notified++;
       }
       // Advance only the nodes that answered, after the email went out: a
-      // failed send leaves the cursors, so tomorrow's run tries again.
+      // failed send leaves the cursors, so the next run tries again.
       for (const r of results) {
         if (!r.ok) continue;
         await db

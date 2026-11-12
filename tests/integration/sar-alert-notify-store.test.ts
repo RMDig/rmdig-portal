@@ -99,15 +99,19 @@ describe("SAR alert email claim (Postgres)", () => {
     expect(await store.recordAttempt(stale, { status: "sent", deliveredUserIds: [], lastError: null, now: at(LEASE + 2) })).toBe(false);
   });
 
-  it("records a failure as owed, and a sent email as done for good", async () => {
+  it("records a failure as owed, offered again once attempt 2's five-minute wait is up, and a sent email as done for good", async () => {
     const userId = randomUUID();
     const claim = { ...KEY, attempts: 2, deliveredUserIds: [] };
     expect(await store.recordAttempt(claim, { status: "failed", deliveredUserIds: [userId], lastError: "resend down", now: at(LEASE + 3) })).toBe(true);
-    expect(await store.dueForRetry(at(LEASE + 4), 10)).toEqual([KEY]);
+    // Attempt 2 started at LEASE + 1 (RETRY_DELAY_MINUTES[1] = 5).
+    const due = LEASE + 1 + store.RETRY_DELAY_MINUTES[1] * 60_000;
+    expect(await store.dueForRetry(at(LEASE + 4), 10)).toEqual([]);
+    expect(await store.dueForRetry(at(due - 1), 10)).toEqual([]);
+    expect(await store.dueForRetry(at(due), 10)).toEqual([KEY]);
 
-    const third = await store.claimRetry(KEY, at(LEASE + 4), LEASE);
+    const third = await store.claimRetry(KEY, at(due), LEASE);
     expect(third).toMatchObject({ attempts: 3, deliveredUserIds: [userId] });
-    expect(await store.recordAttempt(third!, { status: "sent", deliveredUserIds: [userId], lastError: null, now: at(LEASE + 5) })).toBe(true);
+    expect(await store.recordAttempt(third!, { status: "sent", deliveredUserIds: [userId], lastError: null, now: at(due + 1) })).toBe(true);
     expect(await store.claimRetry(KEY, at(10 * LEASE), LEASE)).toBeNull();
     expect(await store.dueForRetry(at(10 * LEASE), 10)).toEqual([]);
     const [row] = await sql`SELECT status, sent_at, leased_until FROM sar_alert_notifications WHERE org_id = ${ORG}`;

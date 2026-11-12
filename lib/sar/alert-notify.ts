@@ -12,6 +12,7 @@ import {
   notifyContext,
   recipients,
   recordAttempt,
+  RETRY_DELAY_MINUTES,
 } from "./alert-notify-store";
 import type { IntakePayload } from "./intake";
 
@@ -24,12 +25,13 @@ import type { IntakePayload } from "./intake";
 // Both AvServ nodes deliver every message, and the email must go once. The
 // first copy claims it (lib/sar/alert-notify-store.ts) and sends; a send that
 // fails, or never finishes, stays owed and is retried by the other node's
-// copy when its lease is up, or by the daily sar-alert-notify cron. Each
-// member is emailed at most once per alert and kind. After MAX_ATTEMPTS the
-// email is given up loudly (Sentry). The alert itself is stored and shown on
-// the alerts page whatever happens here.
+// copy when its lease is up, or by the sar-alert-notify cron (every minute,
+// each email after its wait, RETRY_DELAY_MINUTES). Each member is emailed at
+// most once per alert and kind. After MAX_ATTEMPTS the email is given up
+// loudly (Sentry). The alert itself is stored and shown on the alerts page
+// whatever happens here.
 
-export const MAX_ATTEMPTS = 4;
+export const MAX_ATTEMPTS = RETRY_DELAY_MINUTES.length + 1;
 // Longer than a function can run (Vercel's limit is 300 s), so a live attempt
 // is never taken over; one that died is retried once its lease is up.
 export const LEASE_MS = 6 * 60_000;

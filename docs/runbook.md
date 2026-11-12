@@ -1,6 +1,6 @@
 # rmdig-portal operator runbook
 
-Common operator tasks for `app.rmdig.ai`. This is the **how-to-operate** companion
+Common operator tasks for `rmdig.ai` (`app.rmdig.ai` redirects there; infrastructure "Domains and DNS"). This is the **how-to-operate** companion
 to [infrastructure.md](infrastructure.md) (what's provisioned) and
 `CLAUDE_BOOTSTRAP.md` (how the app is built).
 
@@ -272,13 +272,18 @@ keeps the highest per node.
   For an active team, the team's pages show a red banner with what to do, and its
   admins are emailed once per new problem per node. The fix itself resumes
   delivery: the next sync moves the held alerts back to sending. Two remedies are
-  staff's: `resync` (Sentry `sar.recovery.resync_needed`): press Resync;
+  staff's: `resync` (Sentry `sar.recovery.resync_needed`): the node check sends
+  it again within 5 minutes; press Resync if it persists;
   `renew_verification`: the patrol's yearly call-back. `contact_staff` on an
   active team means AvServ and the portal disagree on its status: investigate.
   Sentry `sar.recovery.over_capacity` means a node bound more check-outs than the
-  team's limit (only the cross-node race can do that). Until Vercel Pro (9.11)
-  the portal reads only after a sync, so a problem that starts between syncs
-  (an email bounce) shows after the next one, or after Resync.
+  team's limit (only the cross-node race can do that). The node check
+  (`/api/cron/sar-node-check`, every 5 minutes, `lib/sar/node-check.ts`) also
+  reads every approved and leaving team between syncs, so a problem that starts
+  then (an email bounce) shows within minutes. It sends a team again to any node
+  whose sync failed, that asked for a resync, or that was added to
+  `AVSERV_NODE_URLS` since; never after a drill refusal. A node still failing
+  an hour after its last success is Sentry `sar.sync.retry_failing`.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
   team until they end. **Undo leaving** makes it active again (AvServ is sent
   `approved`). A team's admins can do both themselves on the team's **Leaving**
@@ -640,9 +645,12 @@ maintenance switch.
   other copy doesn't. A send that fails stays owed (`status = failed`, the
   error in `last_error`, members already emailed in `delivered_user_ids`) and is
   retried, for the members who missed it, by the other node's copy when it
-  arrives and by the daily cron `/api/cron/sar-alert-notify` (12:00 UTC). An
-  attempt that died mid-send is retried once its 6-minute lease is up. After 4
-  attempts it is `abandoned` and Sentry gets `sar.notify.abandoned`; a late
+  arrives and by the cron `/api/cron/sar-alert-notify`, every minute. The cron
+  waits 1, 5, 15, 60 and then 240 minutes after each failed attempt
+  (`RETRY_DELAY_MINUTES`), so a few hours' email outage doesn't use up every
+  try. An attempt that died mid-send is retried once its 6-minute lease is up.
+  After 6 attempts, about five and a half hours after the first, it is
+  `abandoned` and Sentry gets `sar.notify.abandoned`; a late
   retry of an alert that has since ended is `superseded` (the all-clear email
   tells the team). Every failed send is in Sentry (`email.sar_alert_notify.failed`).
   The alert itself is on the alerts page whatever happens to the email. To see
@@ -655,9 +663,8 @@ maintenance switch.
   ```
 
   Retry now with
-  `curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai/api/cron/sar-alert-notify`.
-  The cron is daily because Vercel's Hobby plan allows no more; on Pro, make it
-  every 10 minutes (`vercel.json` and `lib/cron/jobs.ts` together).
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://rmdig.ai/api/cron/sar-alert-notify`
+  (an email still in its wait isn't retried early).
 - **Alerts page:** team admins and dispatchers only. Each view is logged in
   `sar_alert_view_log` (who saw which alerts, and when).
 - **Mark received:** sends an ack to each node that delivered the alert, and is
@@ -1343,20 +1350,23 @@ Banners on signed-in portal pages: `/admin/announcements` (**rmdig_admin only**)
 ## Scheduled jobs and Sentry monitors
 
 `vercel.json` schedules every cron, and `lib/cron/jobs.ts` names each one's
-Sentry cron monitor (a unit test keeps the two in step). All are daily (Vercel's
-Hobby plan allows no more) and run within the scheduled hour, so each monitor
-allows 90 minutes before it calls a run missed.
+Sentry cron monitor (a unit test keeps the two in step). Each is daily or, on
+Vercel Pro (plan 33 9.11), every N minutes (`lib/cron/schedule.ts` reads only
+those two shapes). A daily run may be up to 90 minutes late before the watch
+or its monitor calls it missed; an every-N-minutes run, two runs (at least 5
+minutes).
 
 | Route | UTC | Monitor | Does |
 |---|---|---|---|
+| `/api/cron/sar-alert-notify` | every minute | `portal-sar-alert-notify` | retries owed SAR team emails, each after its wait |
+| `/api/cron/sar-node-check` | every 5 minutes | `portal-sar-node-check` | sends a team again to a node that doesn't hold it; reads every active team's view on each node (`lib/sar/node-check.ts`) |
+| `/api/cron/security-notices` | every 10 minutes | `portal-security-notices` | opt-in security notices for changes made on the phones |
 | `/api/cron/sar-retention` | 09:30 | `portal-sar-retention` | SAR alert retention |
 | `/api/cron/expired-rows` | 10:00 | `portal-expired-rows` | deletes expired sessions, reset and verification tokens, unconfirmed deletion requests, unaccepted invitations and spent rate-limit rows (`lib/retention/expired-rows.ts`) |
-| `/api/cron/sar-alert-notify` | 12:00 | `portal-sar-alert-notify` | retries owed SAR team emails |
 | `/api/cron/avserv-checks` | 14:00 | `portal-avserv-checks` | Admin → AvServ checks |
 | `/api/cron/patrol-reverify` | 15:00 | `portal-patrol-reverify` | ski patrol re-verification reminders |
 | `/api/cron/sar-no-admin` | 15:30 | `portal-sar-no-admin` | emails SAR approvers, daily while it lasts, about any live team with no admin (`lib/sar/no-admin.ts`) |
 | `/api/cron/deletion-clock` | 16:00 | `portal-deletion-clock` | CPA 45-day clock warnings |
-| `/api/cron/security-notices` | 17:00 | `portal-security-notices` | opt-in security notices for changes made on the phones |
 | `/api/cron/cron-watch` | 19:30 | `portal-cron-watch` | checks every job above succeeded since its last scheduled run (`lib/cron/watch.ts`, table `cron_runs`); emails rmdig admins, daily while it lasts, about any that didn't |
 
 Each run checks in with Sentry (`lib/cron/run.ts`): a run that throws, or
@@ -1369,7 +1379,7 @@ Sentry's free plan includes **one** cron monitor; more need a paid plan
 Sentry → Crons, set its alert to notify you, and leave the others without
 alerts. The watch covers them: every successful run is recorded in
 `cron_runs`, and the watch calls a job late when it hasn't succeeded since its
-last scheduled time plus 90 minutes. A late job is a `cron.watch.late` issue,
+last scheduled time plus its margin. A late job is a `cron.watch.late` issue,
 an email to rmdig admins and a failed `portal-cron-watch` check-in. If the
 watch itself stops, every other job notices on its next run and sends
 `cron.watch.missed` to Sentry, so the watch is covered even while its monitor

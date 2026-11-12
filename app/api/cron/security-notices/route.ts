@@ -1,9 +1,10 @@
 import { runSecurityNotices } from "@/lib/auth/security-notices";
 import { runCron } from "@/lib/cron/run";
 
-// Daily (vercel.json crons): opt-in security notices for changes made on the
-// phones, read from AvServ's security_events feed (lib/auth/security-notices.ts).
-// A user whose read or email failed is reported and retried tomorrow.
+// Every 10 minutes (vercel.json crons): opt-in security notices for changes
+// made on the phones, read from AvServ's security_events feed
+// (lib/auth/security-notices.ts).
+// A user whose read or email failed is reported and retried on the next run.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
