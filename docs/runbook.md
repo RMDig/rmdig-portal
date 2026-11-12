@@ -1425,8 +1425,11 @@ production deployment, and a day of runtime logs.
   production**: merges to `main` build but don't go live until you click **Undo
   Rollback** or run `vercel promote <deployment>`. A rollback restores old code
   and its crons, never the database, so a migration it predates stays applied.
-- **Crons.** On Pro, `sar-alert-notify` runs every 10 minutes (D10); see the
-  cron note in "SAR alert intake" for the change and its monitor.
+- **Crons.** On Pro, `sar-alert-notify` runs every minute (D10, changed
+  2026-11-11), `sar-node-check` every 5 and `security-notices` every 10; see
+  "Scheduled jobs and Sentry monitors". These keep Neon's compute awake around
+  the clock, as UptimeRobot's 5-minute `/readyz` check already should; if
+  Neon's compute hours jump after this, look here first.
 
 ## Outages and rollback
 
