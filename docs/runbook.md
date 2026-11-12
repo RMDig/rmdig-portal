@@ -289,12 +289,29 @@ keeps the highest per node.
   10,000, or blank for no limit; `sar_orgs.max_active_checkouts`, each change in
   `sar_org_settings_log`). It's synced as `maxActiveCheckouts` only while set,
   so an uncapped team's body is unchanged, and a capped team is held ("Waiting
-  for every node to support the check-out limit") until every node reports sync
-  revision 2. AvServ enforces it at bind; check-outs already bound keep the
+  for every node to support the team's check-out settings") until every node
+  reports sync revision 2. AvServ enforces it at bind; check-outs already bound keep the
   team. The tab shows each node's count. Each node counts its own, so the
   cross-node race can go one over: that's Sentry `sar.recovery.over_capacity`,
   expected now and then, not a fault. A node refusing it (`capacity_invalid`)
   means the portal and AvServ disagree on the range: investigate.
+- **Approvals** (plan 33 9.8, D4; AvServ `sar_terms.md` §6): on the same tab a
+  team's admins choose who can name the team: anyone who accepts its terms
+  (`open`, the default) or only people the team approves (`confirm_first`,
+  `sar_orgs.acceptance_mode`, synced as `acceptanceMode` only when confirm-first,
+  behind the same revision 2 hold). A confirm-first team gets an **Approvals**
+  tab: every node's list, merged by acceptance, with Approve, Decline and
+  Withdraw approval. Each view is logged on each node as a disclosure to the
+  admin reading it (`data_share_log`, `approval_request`). A decision is
+  recorded in `sar_approval_decisions` before it's sent to every node with one
+  idempotency key, then each node's answer; one node taking it is enough
+  (AvServ replicates). People who accepted before the switch count as approved.
+  A decline never unbinds a check-out. The tab names any node it couldn't read
+  and never shows a list as empty unless every node said so. A
+  `path_not_allowed` there, or on the "Approvals list" AvServ check, means the
+  portal's key lacks `sar_approve`: ask AvServ to add it to
+  `AVSERV_SERVICE_KEY_SCOPES` on both nodes. `sar_capture_unavailable` means a
+  node is below `SARApplierVersion` 7.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
   team until they end. **Undo leaving** makes it active again (AvServ is sent
   `approved`). A team's admins can do both themselves on the team's **Leaving**
@@ -377,7 +394,8 @@ before its first terms.
 **Admin → AvServ checks** (`/admin/avserv-checks`, rmdig admins) makes one harmless
 call per portal feature to every configured node, through the portal's own client
 code: team sync (`sar_sync`), the red alerts feed and the deletion lookup
-(`sar_feed`), "Mark received" (`sar_ack`) and the email lookup (`account_lookup`).
+(`sar_feed`), "Mark received" (`sar_ack`), the approvals list (`sar_approve`, plan
+33 9.8) and the email lookup (`account_lookup`).
 The ids are made up, so nothing is written on AvServ; the email lookup checks
 `probe@example.com`, which AvServ logs only as a hash, with you as the reader.
 

@@ -19,6 +19,16 @@ describe("teamTabs", () => {
     expect(teamTabs(ORG, "admin", "approved")[4]).toEqual({ href: `/sar/${ORG}/checkouts`, label: "Check-outs" });
     expect(labels(teamTabs(ORG, "admin", "suspended"))).toEqual(["Members", "Alerts", "Terms", "Check-outs"]);
     for (const past of ["rejected", "withdrawn"]) expect(labels(teamTabs(ORG, "admin", past))).toEqual(["Members", "Alerts", "Terms"]);
+  });
+
+  it("adds Approvals for a confirm-first team AvServ holds (plan 33 9.8), never for an open, pending or past one", () => {
+    const cf = { confirmFirst: true };
+    expect(labels(teamTabs(ORG, "admin", "approved", cf))).toEqual(["Members", "Alerts", "Terms", "Service area", "Check-outs", "Approvals", "Leaving"]);
+    expect(teamTabs(ORG, "admin", "approved", cf)[5]).toEqual({ href: `/sar/${ORG}/approvals`, label: "Approvals" });
+    expect(labels(teamTabs(ORG, "admin", "suspended", cf))).toContain("Approvals");
+    expect(labels(teamTabs(ORG, "admin", "approved"))).not.toContain("Approvals");
+    for (const s of ["pending", "rejected", "withdrawn"]) expect(labels(teamTabs(ORG, "admin", s, cf))).not.toContain("Approvals");
+    expect(teamTabs(ORG, "dispatcher", "approved", cf)).toEqual([{ href: `/sar/${ORG}/alerts`, label: "Alerts" }]);
     expect(teamTabs(ORG, "admin", "approved")[1]).toEqual({ href: `/sar/${ORG}/alerts`, label: "Alerts" });
   });
 

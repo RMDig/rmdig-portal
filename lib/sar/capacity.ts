@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-// A team's check-out cap (plan 33 D5, 9.7; AvServ sar_team_sync.md §5): the
-// most check-outs AvServ binds to the team at once, or no limit. Pure and
-// client-safe: the form, the action and the sync body share it.
+// [COUNSEL]: team-facing wording (plan 33 §6.9 F3). A change here goes to
+// counsel too.
+// A team's check-out settings (AvServ sar_team_sync.md §5): the most
+// check-outs AvServ binds to the team at once, or no limit (plan 33 D5, 9.7),
+// and who may name it (D4, 9.8). Pure and client-safe: the forms, the actions
+// and the pages share it.
 
 /** AvServ's range; outside it the whole PUT is 422 capacity_invalid. */
 export const MIN_ACTIVE_CHECKOUTS = 1;
@@ -34,6 +37,12 @@ export const capacityFieldSchema = z
     }
     return n;
   });
+
+/** Who may name the team, as the team reads it. */
+export const MODE_TEXT = {
+  open: "anyone who accepts your terms",
+  confirm_first: "only people your team approves",
+} as const;
 
 /** How a cap reads: "25 at once" or "No limit". */
 export function capacityText(cap: number | null): string {

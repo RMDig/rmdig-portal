@@ -23,6 +23,7 @@ const org = (o: Partial<SyncOrg> = {}): SyncOrg => ({
   oncallEmail: null,
   oncallEmailVerifiedAt: null,
   maxActiveCheckouts: null,
+  acceptanceMode: "open",
   ...o,
 });
 const terms: SyncTerms = {
@@ -160,6 +161,22 @@ describe("the check-out cap (plan 33 9.7, D5; sar_team_sync.md §5)", () => {
     expect(planSync(capped, area, terms, 1, now, true, false)).toEqual({ send: false, reason: "settings_support_pending" });
     const plan = planSync(capped, area, terms, 1, now, true, true);
     expect(plan.send && [plan.body.drill, plan.body.maxActiveCheckouts]).toEqual([true, 3]);
+  });
+});
+
+describe("confirm-first (plan 33 9.8, D4; sar_team_sync.md §5)", () => {
+  it("sends acceptanceMode only for a confirm-first team, once every node supports it", () => {
+    const cf = org({ acceptanceMode: "confirm_first" });
+    expect(planSync(cf, area, terms, 1, now)).toEqual({ send: false, reason: "settings_support_pending" });
+    const plan = planSync(cf, area, terms, 1, now, false, true);
+    expect(plan.send && plan.body.acceptanceMode).toBe("confirm_first");
+    const open = planSync(org(), area, terms, 1, now, false, true);
+    expect(open.send && "acceptanceMode" in open.body).toBe(false);
+  });
+
+  it("sends both settings together", () => {
+    const plan = planSync(org({ acceptanceMode: "confirm_first", maxActiveCheckouts: 8 }), area, terms, 1, now, false, true);
+    expect(plan.send && [plan.body.acceptanceMode, plan.body.maxActiveCheckouts]).toEqual(["confirm_first", 8]);
   });
 });
 
