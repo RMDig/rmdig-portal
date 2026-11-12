@@ -16,7 +16,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | **Google Cloud Console** | OAuth client for the `rmdig` project | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in (configured in P1.1) |
 | **Resend** | Domain `rmdig.ai` (apex DKIM, `send.rmdig.ai` envelope) | `RESEND_API_KEY`, `RESEND_FROM_EMAIL=noreply@rmdig.ai` | Transactional email — verification links, claim tokens, org approvals |
 | **Sentry** | Org `rocky-mountain-digerati`, project `rmdig-portal` | `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Error tracking, source-map upload at build time, GitHub integration for stack-trace source mapping |
-| **Cloudflare** | DNS for `rmdig.ai` | — (DNS only) | Hosts apex DNS; `app.rmdig.ai` CNAME → Vercel; SPF/DKIM/DMARC for Proton + Resend |
+| **Cloudflare** | DNS for `rmdig.ai` | — (DNS only) | Hosts apex DNS; `rmdig.ai` and `app.rmdig.ai` → Vercel; SPF/DKIM/DMARC for Proton + Resend |
 | **ProtonMail** | Mailbox for `*@rmdig.ai` | — | Human inbox / outbound personal email. Coexists with Resend at the apex via separate DKIM selectors. |
 | **Cloudflare R2** | Bucket `rmdig-portal-backups` (30-day lifecycle on `portal-db/`) | GitHub: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` secrets; `R2_BACKUP_BUCKET` var | Nightly age-encrypted `pg_dump` (runbook "Database backups"); separate bucket, key and token from AvServ's |
 | **GitHub Actions** | `RMDig/rmdig-portal` | Secrets: `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEXTAUTH_SECRET`, `PROD_DATABASE_URL` (non-pooled), `PROD_MIGRATIONS_READ_URL` (read-only role), `R2_*`. Vars: `AGE_PUBLIC_KEY`, `R2_BACKUP_BUCKET`, `DB_BACKUPS_ENABLED=1` | CI, E2E Neon branches, migration guard, nightly backups. Ruleset `main`: PR required, 3 required checks |
@@ -25,7 +25,8 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 
 - **`rmdig.ai`** — root domain, served by Cloudflare DNS. MX → Proton. Apex DKIM has both `protonmail._domainkey` (Proton) and `resend._domainkey` (Resend) selectors. Apex SPF: `v=spf1 include:_spf.protonmail.ch ~all` (untouched — Resend uses subdomain envelope).
 - **`send.rmdig.ai`** — Resend's envelope subdomain. MX `feedback-smtp.us-east-1.amazonses.com`, SPF `v=spf1 include:amazonses.com ~all`. Bounces land here; users never see it.
-- **`app.rmdig.ai`** — CNAME to Vercel (DNS-only / gray cloud, not orange-cloud proxied). Production portal URL.
+- **`rmdig.ai`** is the portal's one canonical address: Vercel serves Production on it directly (Settings → Domains, no redirect), and production `NEXTAUTH_URL` is `https://rmdig.ai`.
+- **`app.rmdig.ai`** and **`www.rmdig.ai`** — CNAME to Vercel (DNS-only / gray cloud, not orange-cloud proxied). They also serve Production, and `middleware.ts` (`CANONICAL_HOST`) answers every request on them with a 308 to the same path on `rmdig.ai`. That keeps sign-in on one host (Auth.js cookies are host-scoped; two browsable hosts stranded sessions on 2026-07-25), and a 308 keeps the method and body, so old `app.rmdig.ai` links and API calls still work. **Never redirect `rmdig.ai` itself in Vercel's Domains settings:** with the middleware's redirect, that loops and takes the site down (2026-11-11, briefly).
 - **`_dmarc.rmdig.ai`** — `v=DMARC1; p=quarantine; rua=mailto:dennys25@pm.me`. **Tighten to `p=reject` in ~2–4 weeks after monitoring `rua=` reports** (see Maintenance below).
 
 ## Where credentials live
@@ -33,7 +34,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 | Var | `.env.local` | Vercel: Production | Vercel: Preview | Vercel: Development | Sensitive in Vercel? |
 |---|---|---|---|---|---|
 | `DATABASE_URL` | pooled URL of `local-dev` in `rmdig-portal-preview` (moved off production 2026-10-17, plan 36 S1); `DATABASE_URL_UNPOOLED` is the same branch's direct URL | **manually pinned**, pooled owner URL — key name must be exactly `DATABASE_URL` | manual: `preview` branch of the separate `rmdig-portal-preview` Neon project (runbook "Preview deployments") | manual: `local-dev` pooled (and `_UNPOOLED` direct), set 2026-10-18; was `vercel-dev` | yes (Production, Preview); no (Development can't be sensitive) |
-| `NEXTAUTH_URL` | `http://localhost:3000` | `https://app.rmdig.ai` (**required**: the server refuses to boot in production without it; every emailed link is built from it) | unset (Auth.js auto-detects) | — | no |
+| `NEXTAUTH_URL` | `http://localhost:3000` | `https://rmdig.ai`, the canonical host (**required**: the server refuses to boot in production without it; every emailed link is built from it) | unset (Auth.js auto-detects) | — | no |
 | `NEXTAUTH_SECRET` | hex string | hex | **its own value** (was missing until the previews PR, so preview sign-in failed) | hex | yes |
 | `GOOGLE_CLIENT_ID` | yes | yes | yes | yes | no |
 | `GOOGLE_CLIENT_SECRET` | yes | yes | yes | — (sensitive blocks Dev) | yes |
@@ -73,6 +74,7 @@ The platform-wide architecture docs are canonical in [`rmdig-ai/docs/plans/`](ht
 ```bash
 # DNS
 dig app.rmdig.ai +short                                 # → Vercel CNAME target
+curl -sI https://app.rmdig.ai/healthz | grep -i location # → https://rmdig.ai/healthz (308, from middleware.ts)
 dig rmdig.ai TXT +short                                 # SPF (Proton), verification records, no Resend on apex
 dig send.rmdig.ai MX +short                             # 10 feedback-smtp.us-east-1.amazonses.com.
 dig send.rmdig.ai TXT +short                            # v=spf1 include:amazonses.com ~all
@@ -80,7 +82,7 @@ dig resend._domainkey.rmdig.ai TXT +short               # Resend DKIM key
 dig _dmarc.rmdig.ai TXT +short                          # exactly one record, p=quarantine, rua=
 
 # Portal liveness
-curl https://app.rmdig.ai/healthz                       # {"status":"ok","commit":"<sha>"} once DNS is live
+curl https://rmdig.ai/healthz                           # {"status":"ok","commit":"<sha>"}
 curl https://<vercel-project>.vercel.app/healthz        # same, via Vercel-assigned URL
 curl https://rmdig.ai/readyz                            # {"status":"ready",...}: database reachable and fully migrated (the probe target)
 
@@ -116,9 +118,9 @@ Local dev uses the `local-dev` branch of the **preview** Neon project (`rmdig-po
 
 - **DMARC tightening** — currently `p=quarantine`. After 2–4 weeks of clean `rua=` aggregate reports landing in `dennys25@pm.me`, tighten to `p=reject` in Cloudflare DNS. Target window: roughly the P1.5 polish milestone.
 - **Sentry rate plan** — free tier ships 5k errors/month. Watch the usage page once P1.5 soft launch begins; bump plan or filter noisy errors via `beforeSend` if approaching.
-- **Neon compute auto-suspend** — free-tier compute suspends after 5 min idle. First request after suspend has a 1–3s cold-start latency. Worth a paid plan once real users hit `app.rmdig.ai`.
+- **Neon compute auto-suspend** — free-tier compute suspends after 5 min idle. First request after suspend has a 1–3s cold-start latency. Worth a paid plan once real users hit `rmdig.ai`.
 - **Key rotation** — every secret, its cadence, procedure and what rotating it breaks: runbook "Key rotation". Update both `.env.local` and Vercel env in one sitting.
-- **Google OAuth redirects** — three URIs registered (`localhost:3000`, `*.vercel.app`, `app.rmdig.ai`). If the Vercel team slug changes, the `*.vercel.app` URI breaks; add the new one before deleting the old.
+- **Google OAuth redirects** — registered for `localhost:3000`, the previews' `*.vercel.app` URL and production. Production sign-in returns to `https://rmdig.ai/api/auth/callback/google` (it follows `NEXTAUTH_URL`). If the Vercel team slug changes, the `*.vercel.app` URI breaks; add the new one before deleting the old. The slug changed on 2026-11-11 to `rocky-mountain-digerati-projects`: preview URLs now end `-rocky-mountain-digerati-projects.vercel.app`.
 
 ## What's NOT set up (deferred to later phases)
 
