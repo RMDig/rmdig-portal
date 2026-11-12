@@ -361,7 +361,7 @@ before merge (§3.8); new strings join `legal-copy.test.ts`.
 | 9.4 | Post-approval area edit: action, area log (migration), sync on save, staff email. **Built 2026-11-06:** `saveAreaAction`, migration 0035 `sar_org_area_log`, "Service area" tab for approved teams; a pending team still changes its area by resubmitting | 9.3 |
 | 9.5 | Overlap (clip preview) and large-area warnings. **Built 2026-11-06** on `/sar/[orgId]/area` (`checkAreaAction`, `AreaWarnings`): size, overlapping teams by name, "use the area without the overlap", and the O8 threshold `LARGE_AREA_KM2` = 12,361.85 km² (Census 2024 Gazetteer, Las Animas, GEOID 08071). `/sar/new` and resubmit still show none: they move to the one editor with 9.6 | 9.4 |
 | 9.6 | Keyboard vertex entry (`components/map/VertexTable.tsx`); keyboard-only Playwright, axe. **Built 2026-11-07:** one `AreaEditor` (map plus corner-points table, each filling the other) on `/sar/new`, resubmit and `/sar/[orgId]/area`; the check (`area-check-action.ts`) runs on all three, naming other teams and offering the clip only to an approved team's admins; create and resubmit now refuse an area AvServ would refuse; the `NEXT_PUBLIC_E2E` GeoJSON box is gone, and the e2e types the area into the table (`sar-area-keyboard.mock.spec.ts`, axe on the editor) | 9.4 |
-| 9.7 | `acceptanceMode`, `maxActiveCheckouts` | None (§6.2 gate met) |
+| 9.7 | `acceptanceMode`, `maxActiveCheckouts` | None (§6.2 gate met). **`maxActiveCheckouts` built 2026-11-12** (migration 0043; the team's Check-outs tab; sent only while set, held behind the revision 2 gate). **`acceptanceMode` moves to 9.8:** `confirm_first` holds every bind for an approval only 9.8's list can give, so the setting ships with that list |
 | 9.8 | Confirm-first pending list: merge, decide to both nodes, audit log, admin email; outage shown, never empty | 9.7; `sar_terms.md` §6 built; field list [COUNSEL] |
 | 9.9 | `publicPhone`, `contactLineName`: verify, consent, sync | [COUNSEL]; A2P 38a re-filing (§6.2 gate met) |
 | 9.10 | On-call `email` channel: add, verify by link, re-verify on change. **First-team gate (G1, §6.9)** | None (AvServ dispatches `email` on both nodes, R4b) |
@@ -464,7 +464,7 @@ ready, so the work is reordered around a gate.
 | F5 | Leaving: the team gives and undoes its own notice | None |
 | F6 | Erasure deletes the portal's intake copies of the account's alerts | None |
 | — | 9.11 per-node sync retry and minute-level notify retry, so F4's "resync" holds; the cron watch learns sub-daily schedules. **Built 2026-11-11** (row 9.11) | Vercel Pro |
-| — | 9.7 `acceptanceMode`, `maxActiveCheckouts` | None |
+| — | 9.7 `acceptanceMode`, `maxActiveCheckouts`. **Cap built 2026-11-12**; `acceptanceMode` ships with 9.8 | None |
 | N1 | Every node: `AVSERV_NODE_URLS`, primary first (withdraw check, capabilities gate, PUTs, acks, RED reads, device reads, erasure); avserv-1 (`https://avserv-1.rmdig.ai`) joins by a config change once AvServ says it's live | None |
 | N2 | Intake hardening: `AVSERV_SAR_INTAKE_KEY_NODES` binds each key to its node; another node's key is `401 unknown_key` | None |
 

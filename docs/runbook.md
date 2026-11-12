@@ -284,6 +284,17 @@ keeps the highest per node.
   whose sync failed, that asked for a resync, or that was added to
   `AVSERV_NODE_URLS` since; never after a drill refusal. A node still failing
   an hour after its last success is Sentry `sar.sync.retry_failing`.
+- **Check-out limit** (plan 33 9.7, D5): a team's admins set the most
+  check-outs AvServ binds to the team at once on its **Check-outs** tab (1 to
+  10,000, or blank for no limit; `sar_orgs.max_active_checkouts`, each change in
+  `sar_org_settings_log`). It's synced as `maxActiveCheckouts` only while set,
+  so an uncapped team's body is unchanged, and a capped team is held ("Waiting
+  for every node to support the check-out limit") until every node reports sync
+  revision 2. AvServ enforces it at bind; check-outs already bound keep the
+  team. The tab shows each node's count. Each node counts its own, so the
+  cross-node race can go one over: that's Sentry `sar.recovery.over_capacity`,
+  expected now and then, not a fault. A node refusing it (`capacity_invalid`)
+  means the portal and AvServ disagree on the range: investigate.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
   team until they end. **Undo leaving** makes it active again (AvServ is sent
   `approved`). A team's admins can do both themselves on the team's **Leaving**

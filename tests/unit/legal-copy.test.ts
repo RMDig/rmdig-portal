@@ -99,6 +99,11 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "leave", "page.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "leave", "LeaveForms.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "test-alert-actions.ts"),
+    // The team's check-out limit (plan 33 9.7).
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "checkouts", "page.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "checkouts", "CapacityForm.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "checkouts", "actions.ts"),
+    join(process.cwd(), "lib", "sar", "capacity.ts"),
     // The RED layer's labels, legend, notice and error text on /map.
     join(process.cwd(), "lib", "map", "red.ts"),
   );

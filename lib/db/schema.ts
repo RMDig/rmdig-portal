@@ -509,6 +509,10 @@ export const sarOrgs = pgTable("sar_orgs", {
   // confirmed, so alerts never go nowhere.
   oncallEmail: text("oncall_email"),
   oncallEmailVerifiedAt: timestamp("oncall_email_verified_at", { withTimezone: true }),
+  // The most check-outs AvServ binds to the team at once (plan 33 D5, 9.7;
+  // sar_team_sync.md §5 `maxActiveCheckouts`). Null: no limit. Set by the
+  // team's admins; each change is in sar_org_settings_log.
+  maxActiveCheckouts: integer("max_active_checkouts"),
 },
   // Its evidence (status log, intake messages, acks, view logs, membership
   // log, terms) references it ON DELETE RESTRICT: an org with history can't
@@ -535,6 +539,8 @@ export const sarOrgs = pgTable("sar_orgs", {
       sql`NOT ${t.isDrill} OR (${t.name} ILIKE '%drill%' AND ${t.orgType} = 'sar_team')`,
     ),
     check("sar_orgs_oncall_email_verified", sql`(${t.oncallEmail} IS NULL) = (${t.oncallEmailVerifiedAt} IS NULL)`),
+    // AvServ's range (422 capacity_invalid outside it).
+    check("sar_orgs_max_active_checkouts_range", sql`${t.maxActiveCheckouts} IS NULL OR ${t.maxActiveCheckouts} BETWEEN 1 AND 10000`),
   ],
 );
 
@@ -703,6 +709,26 @@ export const sarOrgAreaLog = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("sar_org_area_log_org_id_idx").on(t.orgId)],
+);
+
+// Each change a team's admins make to the team's check-out settings (plan 33
+// 9.7): which setting, from what to what, by whom. Append-only, kept with the
+// team (ON DELETE RESTRICT, like the area log). Values are text: a cap's
+// number, or empty for no limit.
+export const sarOrgSettingsLog = pgTable(
+  "sar_org_settings_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    setting: text("setting").$type<"max_active_checkouts">().notNull(),
+    fromValue: text("from_value"),
+    toValue: text("to_value"),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("sar_org_settings_log_org_id_idx").on(t.orgId)],
 );
 
 // The outcome of the last team sync to each AvServ node (sar_team_sync.md):

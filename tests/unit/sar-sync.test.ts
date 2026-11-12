@@ -62,6 +62,7 @@ const ORG = {
   leavingNoticeAt: null,
   regionName: null,
   isDrill: false,
+  maxActiveCheckouts: null as number | null,
   syncRevision: 7,
 };
 const DRILL = { ...ORG, name: "AvAI Drill Team", isDrill: true };
@@ -120,6 +121,13 @@ describe("syncSarOrg", () => {
     expect("drill" in h.put.mock.calls[0]![1]).toBe(false);
   });
 
+  it("reads revision 2 for a capped team, sends its cap, and holds it while a node is behind (plan 33 §6.2)", async () => {
+    h.org = { ...ORG, maxActiveCheckouts: 25 };
+    await syncSarOrg(ORG.id);
+    expect(h.gate).toHaveBeenCalledWith(expect.any(Array), 2);
+    expect(h.put.mock.calls[0]![1]).toMatchObject({ maxActiveCheckouts: 25 });
+  });
+
   it("throws for an unknown org", async () => {
     h.org = null;
     await expect(syncSarOrg(ORG.id)).rejects.toThrow(/unknown org/);
@@ -148,7 +156,7 @@ describe("syncSarOrg for a drill team (plan 37 §4.5)", () => {
       { node: "avserv-3", outcome: "skipped", reason: "drill_support_pending" },
     ]);
     expect(h.recorded[0]).toMatchObject({ revision: 7, outcome: "skipped", unusableReason: "drill_support_pending" });
-    expect(h.log.warn).toHaveBeenCalledWith({ event: "sar.sync.drill_held", orgId: ORG.id, nodes });
+    expect(h.log.warn).toHaveBeenCalledWith({ event: "sar.sync.drill_held", orgId: ORG.id, needs: 3, nodes });
   });
 
   it("reports AvServ's permanent drill refusals to Sentry", async () => {

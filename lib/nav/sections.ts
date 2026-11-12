@@ -1,3 +1,5 @@
+import { isPastTeam } from "../sar/team-status";
+
 // The tab bars inside a team's and an advertiser's pages. Pure: each tab is
 // shown only to the roles its page lets in, so no tab leads to a refusal.
 
@@ -24,6 +26,8 @@ export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responde
     // its own service area (plan 33 D3).
     ...(status === "pending" ? [{ href: `${base}/edit`, label: "Application" }] : []),
     ...(status === "approved" ? [{ href: `${base}/area`, label: "Service area" }] : []),
+    // The team's check-out limit and each server's count (plan 33 9.7).
+    ...(!isPastTeam(status) ? [{ href: `${base}/checkouts`, label: "Check-outs" }] : []),
     // A team gives and undoes its own leaving notice (plan 33 §6.9).
     ...(managesLeaving(role, status) ? [{ href: `${base}/leave`, label: "Leaving" }] : []),
   ];

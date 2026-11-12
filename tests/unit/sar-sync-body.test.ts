@@ -22,6 +22,7 @@ const org = (o: Partial<SyncOrg> = {}): SyncOrg => ({
   isDrill: false,
   oncallEmail: null,
   oncallEmailVerifiedAt: null,
+  maxActiveCheckouts: null,
   ...o,
 });
 const terms: SyncTerms = {
@@ -137,6 +138,28 @@ describe("planSync for a drill team (plan 37 §4.5)", () => {
       const plan = planSync(org(), area, terms, 1, now, supported);
       expect(plan.send && "drill" in plan.body).toBe(false);
     }
+  });
+});
+
+describe("the check-out cap (plan 33 9.7, D5; sar_team_sync.md §5)", () => {
+  it("sends a capped team's limit once every node supports it, and holds it until then", () => {
+    expect(planSync(org({ maxActiveCheckouts: 25 }), area, terms, 1, now)).toEqual({ send: false, reason: "settings_support_pending" });
+    const plan = planSync(org({ maxActiveCheckouts: 25 }), area, terms, 1, now, false, true);
+    expect(plan.send && plan.body.maxActiveCheckouts).toBe(25);
+  });
+
+  it("leaves the field out for a team with no limit, held or not, so its body and hash are unchanged", () => {
+    for (const supported of [false, true]) {
+      const plan = planSync(org(), area, terms, 1, now, false, supported);
+      expect(plan.send && "maxActiveCheckouts" in plan.body).toBe(false);
+    }
+  });
+
+  it("holds a capped drill team for each gate it needs", () => {
+    const capped = org({ name: "AvAI Drill Team", isDrill: true, maxActiveCheckouts: 3 });
+    expect(planSync(capped, area, terms, 1, now, true, false)).toEqual({ send: false, reason: "settings_support_pending" });
+    const plan = planSync(capped, area, terms, 1, now, true, true);
+    expect(plan.send && [plan.body.drill, plan.body.maxActiveCheckouts]).toEqual([true, 3]);
   });
 });
 
