@@ -4,12 +4,12 @@ import { useActionState, useState } from "react";
 
 import RegionPreviewMap, { type PreviewPolygon } from "@/components/map/RegionPreviewMap";
 import { SuspendConfirm } from "@/components/sar/SuspendConfirm";
+import { TestAlertPanel } from "@/components/sar/TestAlertPanel";
 import { Button } from "@/components/ui/button";
 import type { ActivationFacts } from "@/lib/sar/activation-checklist-rules";
 import type { TestAlertRow } from "@/lib/sar/test-alert";
 
 import { ActivationChecklist } from "./ActivationChecklist";
-import { TestAlertPanel } from "./TestAlertPanel";
 import { resyncSarOrgAction, reviewSarOrgAction } from "./actions";
 import { formatMountain, formatMountainDate } from "@/lib/format/time";
 

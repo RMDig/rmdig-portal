@@ -11,18 +11,16 @@ import { db } from "@/lib/db";
 import { sarOrgs } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { latestTestAlert, sendTestAlerts } from "@/lib/sar/test-alert";
+import { TEST_RESEND_AFTER_MS } from "@/lib/sar/test-alert-rules";
 
 // Staff send a pending team AvServ's test alert from every node (plan 33 §6.9
 // G2 item 3; AvServ sar_test_alert.md). It verifies the team, so it's the
 // approver's step, under the approver's rules: SAR approvers only, never for
 // an org they submitted or belong to. A drill team is never reviewed (plan 37
-// rule 6), so it has no checklist to send for.
+// rule 6), so it has no checklist to send for: its test is sent from Drill
+// teams (admin/sar-drill/test-alert-actions.ts).
 
 export type SendTestAlertResult = { ok: true; message: string } | { ok: false; error: string };
-
-// AvServ allows 3 tests per team per node an hour; a double click shouldn't
-// spend two of them.
-const RESEND_AFTER_MS = 60_000;
 
 export async function sendTestAlertAction(_prev: SendTestAlertResult | null, formData: FormData): Promise<SendTestAlertResult> {
   const actor = await portalActor();
@@ -53,7 +51,7 @@ export async function sendTestAlertAction(_prev: SendTestAlertResult | null, for
     return { ok: false, error: "You submitted or belong to this organization, so another approver has to test it." };
   }
   const [last] = await latestTestAlert(org.id);
-  if (last && Date.now() - new Date(last.requestedAt).getTime() < RESEND_AFTER_MS) {
+  if (last && Date.now() - new Date(last.requestedAt).getTime() < TEST_RESEND_AFTER_MS) {
     return { ok: false, error: "A test was sent less than a minute ago. Wait for its results." };
   }
 

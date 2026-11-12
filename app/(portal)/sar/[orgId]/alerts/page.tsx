@@ -60,11 +60,16 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
   // here too: a view that was never shown mustn't be read or logged.
   if ((await userMfaGate(session.user.id)).gate === "required") redirect("/settings/mfa/enroll");
 
-  const [org] = await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
+  const [org] = await db
+    .select({ name: sarOrgs.name, status: sarOrgs.status, isDrill: sarOrgs.isDrill })
+    .from(sarOrgs)
+    .where(eq(sarOrgs.id, orgId))
+    .limit(1);
   if (!org) redirect("/dashboard");
-  // The test is part of the review (plan 33 §6.9 G2), so only a team under
-  // review sees one, and only while it still counts.
-  const tests = org.status === "pending" ? await currentTestAlert(orgId, new Date()) : [];
+  // A real team's test is part of its review (plan 33 §6.9 G2), so only a team
+  // under review sees one. A drill team's is sent from Drill teams whatever its
+  // status (AvServ plan 66 R1). Either way only while it still counts.
+  const tests = org.status === "pending" || org.isDrill ? await currentTestAlert(orgId, new Date()) : [];
 
   const rows = await db
     .select()
@@ -91,7 +96,7 @@ export default async function TeamAlertsPage({ params }: { params: Promise<{ org
         </p>
       </div>
 
-      {tests.length ? <TestAlertCard orgId={orgId} rows={tests} /> : null}
+      {tests.length ? <TestAlertCard orgId={orgId} rows={tests} drill={org.isDrill} /> : null}
 
       {alerts.length === 0 ? (
         <p className="text-muted-foreground text-sm">No alerts yet.</p>
