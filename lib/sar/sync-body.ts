@@ -21,6 +21,10 @@ export interface SyncOrg {
   /** The confirmed on-call address and when (plan 33 9.10); both or neither. */
   oncallEmail: string | null;
   oncallEmailVerifiedAt: Date | null;
+  /** The check-out cap (plan 33 9.7); null: no limit. */
+  maxActiveCheckouts: number | null;
+  /** Open, or confirm-first (plan 33 D4, 9.8). */
+  acceptanceMode: "open" | "confirm_first";
 }
 
 export interface SyncTerms {
@@ -52,6 +56,11 @@ export interface SyncBody {
   /** Sync revision 3, drill teams only (plan 37 §4.5). Absent for a real
    *  team, so a real team's body and AvServ's hash of it don't change. */
   drill?: true;
+  /** Sync revision 2 (§5), only when the team has a cap: absent means no
+   *  limit, so an uncapped team's body and its hash don't change. */
+  maxActiveCheckouts?: number;
+  /** Sync revision 2 (§5), only for a confirm-first team: absent means open. */
+  acceptanceMode?: "confirm_first";
 }
 
 /** The team's public-directory listing (sar_team_sync.md §1; shared consent,
@@ -79,6 +88,7 @@ export type SkipReason =
   | "no_service_area"
   | "approval_record_missing"
   | "drill_support_pending"
+  | "settings_support_pending"
   | "email_channel_missing";
 
 export type SyncPlan = { send: true; body: SyncBody } | { send: false; reason: SkipReason };
@@ -99,11 +109,22 @@ export const SKIP_LABEL: Record<SkipReason, string> = {
   no_service_area: "Waiting for a service area",
   approval_record_missing: "Missing the approval record",
   drill_support_pending: "Waiting for drill support on every node",
+  settings_support_pending: "Waiting for every node to support the team's check-out settings",
   email_channel_missing: "Not sent: the terms send by email, but the team has no confirmed on-call email",
 };
 
+/** Whether a team's check-out settings are other than revision 1's meaning
+ *  (open, no limit): only then are they sent, and only then does the sync
+ *  wait for every node to read them (sar_team_sync.md §5). */
+export function hasCheckoutSettings(org: Pick<SyncOrg, "maxActiveCheckouts" | "acceptanceMode">): boolean {
+  return org.maxActiveCheckouts !== null || org.acceptanceMode !== "open";
+}
+
 /** `drillSupported`: every node reports sync revision 3 (lib/avserv/sar-capabilities).
- *  Read only for a drill team; a real team never waits on it. */
+ *  Read only for a drill team; a real team never waits on it.
+ *  `settingsSupported`: every node reports revision 2 (SETTINGS_SYNC_REVISION).
+ *  Read only for a team with check-out settings (hasCheckoutSettings); any
+ *  other team never waits on it. */
 export function planSync(
   org: SyncOrg,
   area: number[][][] | null,
@@ -111,6 +132,7 @@ export function planSync(
   revision: number,
   now: Date,
   drillSupported = false,
+  settingsSupported = false,
 ): SyncPlan {
   const status = SYNCABLE[org.status];
   if (!status) return { send: false, reason: "not_syncable" };
@@ -122,6 +144,9 @@ export function planSync(
   // A node below revision 3 ignores `drill` and would store the team as a
   // real one, offered to real users. Never send a drill team without it.
   if (org.isDrill && !drillSupported) return { send: false, reason: "drill_support_pending" };
+  // Likewise a revision 1 node would ignore the settings: bind without the
+  // cap, or store a confirm-first team as open.
+  if (hasCheckoutSettings(org) && !settingsSupported) return { send: false, reason: "settings_support_pending" };
   // AvServ refuses the whole PUT for a capability whose channel isn't in
   // `channels`; publishing refuses this, so reaching it is a portal bug.
   const emailChannel = org.oncallEmail && org.oncallEmailVerifiedAt ? { kind: "email" as const, address: org.oncallEmail, verifiedAt: org.oncallEmailVerifiedAt.toISOString() } : null;
@@ -152,6 +177,8 @@ export function planSync(
       terms: { ...terms, publishedAt: terms.publishedAt.toISOString() },
       updatedAt: now.toISOString(),
       ...(org.isDrill ? { drill: true as const } : {}),
+      ...(org.maxActiveCheckouts !== null ? { maxActiveCheckouts: org.maxActiveCheckouts } : {}),
+      ...(org.acceptanceMode === "confirm_first" ? { acceptanceMode: "confirm_first" as const } : {}),
     },
   };
 }

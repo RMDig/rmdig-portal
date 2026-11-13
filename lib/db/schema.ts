@@ -443,6 +443,11 @@ export const sarOrgAction = pgEnum("sar_org_action", [
 // application").
 export const orgType = pgEnum("org_type", ["sar_team", "ski_patrol"]);
 
+// Who may name a team on a check-out (plan 33 D4; sar_team_sync.md §5
+// `acceptanceMode`): anyone who accepts its terms, or only those the team
+// approves (sar_terms.md §6).
+export const sarAcceptanceMode = pgEnum("sar_acceptance_mode", ["open", "confirm_first"]);
+
 // SAR organizations. The service-area polygon lives in a separate `region_geom`
 // PostGIS column (geography(Polygon,4326)) added by a raw-SQL migration and read/
 // written via sql`` in lib/sar/geo.ts — Drizzle's pg-core has no geography type,
@@ -509,6 +514,13 @@ export const sarOrgs = pgTable("sar_orgs", {
   // confirmed, so alerts never go nowhere.
   oncallEmail: text("oncall_email"),
   oncallEmailVerifiedAt: timestamp("oncall_email_verified_at", { withTimezone: true }),
+  // The most check-outs AvServ binds to the team at once (plan 33 D5, 9.7;
+  // sar_team_sync.md §5 `maxActiveCheckouts`). Null: no limit. Set by the
+  // team's admins; each change is in sar_org_settings_log.
+  maxActiveCheckouts: integer("max_active_checkouts"),
+  // Open, or confirm-first (plan 33 D4, 9.8). Set by the team's admins; each
+  // change is in sar_org_settings_log.
+  acceptanceMode: sarAcceptanceMode("acceptance_mode").default("open").notNull(),
 },
   // Its evidence (status log, intake messages, acks, view logs, membership
   // log, terms) references it ON DELETE RESTRICT: an org with history can't
@@ -535,6 +547,8 @@ export const sarOrgs = pgTable("sar_orgs", {
       sql`NOT ${t.isDrill} OR (${t.name} ILIKE '%drill%' AND ${t.orgType} = 'sar_team')`,
     ),
     check("sar_orgs_oncall_email_verified", sql`(${t.oncallEmail} IS NULL) = (${t.oncallEmailVerifiedAt} IS NULL)`),
+    // AvServ's range (422 capacity_invalid outside it).
+    check("sar_orgs_max_active_checkouts_range", sql`${t.maxActiveCheckouts} IS NULL OR ${t.maxActiveCheckouts} BETWEEN 1 AND 10000`),
   ],
 );
 
@@ -703,6 +717,53 @@ export const sarOrgAreaLog = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("sar_org_area_log_org_id_idx").on(t.orgId)],
+);
+
+// Each change a team's admins make to the team's check-out settings (plan 33
+// 9.7): which setting, from what to what, by whom. Append-only, kept with the
+// team (ON DELETE RESTRICT, like the area log). Values are text: a cap's
+// number, or empty for no limit.
+export const sarOrgSettingsLog = pgTable(
+  "sar_org_settings_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    setting: text("setting").$type<"max_active_checkouts" | "acceptance_mode">().notNull(),
+    fromValue: text("from_value"),
+    toValue: text("to_value"),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("sar_org_settings_log_org_id_idx").on(t.orgId)],
+);
+
+// A confirm-first team's decision on one user's acceptance (plan 33 D4, 9.8;
+// sar_terms.md §6), as the portal sent it: written before it is sent, so a
+// decision asked for is never lost, then each node's answer. AvServ keeps the
+// decisions themselves (append-only, replicated; the latest wins); this is the
+// portal's audit of who on the team decided what. The idempotency key is the
+// decision id every node gets.
+export const sarApprovalDecisions = pgTable(
+  "sar_approval_decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => sarOrgs.id, { onDelete: "restrict" }),
+    acceptanceId: text("acceptance_id").notNull(),
+    state: text("state").$type<"approved" | "declined">().notNull(),
+    decidedByUserId: uuid("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    idempotencyKey: uuid("idempotency_key").notNull().unique(),
+    // [{ node, ok, decidedAt? , code? }] once the nodes answered.
+    nodeResults: jsonb("node_results").$type<Array<{ node: string; ok: boolean; decidedAt?: string; code?: string }>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("sar_approval_decisions_org_id_idx").on(t.orgId),
+    check("sar_approval_decisions_state", sql`${t.state} IN ('approved', 'declined')`),
+  ],
 );
 
 // The outcome of the last team sync to each AvServ node (sar_team_sync.md):

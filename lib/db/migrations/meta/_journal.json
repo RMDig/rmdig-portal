@@ -302,6 +302,20 @@
       "when": 1794426488987,
       "tag": "0042_sar_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794462644078,
+      "tag": "0043_sar_capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794463358668,
+      "tag": "0044_sar_approvals",
+      "breakpoints": true
     }
   ]
 }
