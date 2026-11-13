@@ -3,7 +3,6 @@
 import { portalActor } from "@/lib/auth/portal-actor";
 import { hasPlatformRole } from "@/lib/auth/roles";
 import { db } from "@/lib/db";
-import { isUniqueViolation } from "@/lib/db/errors";
 import { sarOrgs, sarOrgStatusLog } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { requireVerifiedOrgPhone } from "@/lib/phone/org-phone";
@@ -60,6 +59,8 @@ export async function registerDrillOrgAction(_prev: RegisterDrillResult | null, 
   }
 
   // The drill phone is verified like any team's: it's the number AvServ calls.
+  // Every drill team may share it: the one-number rule skips drill teams
+  // (sar_orgs_contact_phone_live_unique, migration 0046).
   const phoneGate = await requireVerifiedOrgPhone(data.contactPhone, data.phoneCode, { token: data.phoneProof, userId });
   if (!phoneGate.ok) return { ok: false, error: phoneGate.error, fieldErrors: phoneGate.fieldErrors };
 
@@ -95,14 +96,6 @@ export async function registerDrillOrgAction(_prev: RegisterDrillResult | null, 
       return org.id;
     });
   } catch (err) {
-    if (isUniqueViolation(err)) {
-      logger.warn({ event: "sar.drill.phone_in_use", userId });
-      return {
-        ok: false,
-        error: "Please fix the highlighted fields.",
-        fieldErrors: { contactPhone: ["This phone number is already used by another team that is pending or active."] },
-      };
-    }
     logger.error({ event: "sar.drill.register_failed", userId, err });
     return { ok: false, error: "Couldn't register the drill team. Try again in a moment." };
   }

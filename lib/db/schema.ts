@@ -540,9 +540,14 @@ export const sarOrgs = pgTable("sar_orgs", {
     // migration 0025: it compares the status as text, because naming
     // 'withdrawn' as an enum literal fails when a fresh database applies 0020
     // (which added that value) and this index in one transaction.
+    // Drill teams are left out (owner, 2026-11-13): only an rmdig admin
+    // registers one, always with the operator's own drill phone, so the
+    // anti-abuse reason doesn't apply, and a second drill team needs the same
+    // number. Real teams still hold one number each, and a drill team's
+    // number never blocks a real team's.
     uniqueIndex("sar_orgs_contact_phone_live_unique")
       .on(t.contactPhone)
-      .where(sql`contact_phone IS NOT NULL AND sar_org_holds_phone(status)`),
+      .where(sql`contact_phone IS NOT NULL AND sar_org_holds_phone(status) AND NOT is_drill`),
     check("sar_orgs_proof_unless_drill", sql`${t.isDrill} OR ${t.proofDocUrl} IS NOT NULL`),
     // AvServ refuses any other drill team (422 drill_team_invalid), so the
     // portal refuses it first: SAR type, and "drill" in the name.
