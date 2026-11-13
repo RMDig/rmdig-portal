@@ -19,7 +19,7 @@ export default async function TeamLayout({ children, params }: { children: React
   const { orgId } = await params;
   const userId = (await auth())?.user?.id;
   const role = userId && /^[0-9a-f-]{36}$/i.test(orgId) ? await getOrgRole(userId, orgId) : null;
-  const [org] = role ? await db.select({ name: sarOrgs.name, status: sarOrgs.status }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1) : [];
+  const [org] = role ? await db.select({ name: sarOrgs.name, status: sarOrgs.status, acceptanceMode: sarOrgs.acceptanceMode }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1) : [];
   if (!role || !org) return children;
   // An admin viewing means there is one; otherwise check (plan 33 §6.4).
   const noAdmin = role !== "admin" && !(await teamHasAdmin(orgId));
@@ -39,7 +39,7 @@ export default async function TeamLayout({ children, params }: { children: React
         <p className="text-muted-foreground text-sm">
           <span className="text-foreground font-medium">{org.name}</span> · You&apos;re {TEAM_ROLE_PHRASE[role]}
         </p>
-        <SectionTabs label="Team" tabs={teamTabs(orgId, role, org.status)} />
+        <SectionTabs label="Team" tabs={teamTabs(orgId, role, org.status, { confirmFirst: org.acceptanceMode === "confirm_first" })} />
       </div>
       {unusable.length ? (
         <div role="alert" className="space-y-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">

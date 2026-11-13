@@ -6,9 +6,10 @@ import { avservNodes, putSarTeam } from "../avserv/sar-teams";
 import { db } from "../db";
 import { sarOrgs, sarOrgSync, sarOrgTerms } from "../db/schema";
 import { logger } from "../logger";
+import { SETTINGS_SYNC_REVISION } from "./capacity";
 import { RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_DEGREES } from "./geo";
 import { readTeamRecovery } from "./recovery";
-import { planSync, type SkipReason } from "./sync-body";
+import { hasCheckoutSettings, planSync, type SkipReason } from "./sync-body";
 
 // Send a SAR org's current state to every AvServ node (sar_team_sync.md).
 // Called after each decision that changes what AvServ must know (approve,
@@ -54,12 +55,16 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
     .limit(1);
 
   // A drill team waits until every node can store `drill: true` (plan 37
-  // §4.5). Real teams don't read the gate, so they never wait on it.
-  let drillSupported = false;
-  if (org.isDrill) {
-    const gate = await syncRevisionGate(nodes, DRILL_SYNC_REVISION);
-    drillSupported = gate.pass;
-    if (!gate.pass) logger.warn({ event: "sar.sync.drill_held", orgId, nodes: gate.nodes });
+  // §4.5), and a team with check-out settings until every node can store them
+  // (plan 33 §6.2). Other teams don't read the gate, so they never wait on
+  // it. One read covers both: the higher revision a team needs.
+  const settings = hasCheckoutSettings(org);
+  const needs = Math.max(org.isDrill ? DRILL_SYNC_REVISION : 0, settings ? SETTINGS_SYNC_REVISION : 0);
+  let gatePass = false;
+  if (needs > 0) {
+    const gate = await syncRevisionGate(nodes, needs);
+    gatePass = gate.pass;
+    if (!gate.pass) logger.warn({ event: org.isDrill ? "sar.sync.drill_held" : "sar.sync.settings_held", orgId, needs, nodes: gate.nodes });
   }
 
   const now = new Date();
@@ -78,7 +83,8 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
       : null,
     0,
     now,
-    drillSupported,
+    org.isDrill && gatePass,
+    settings && gatePass,
   );
 
   if (!preview.send) {

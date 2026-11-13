@@ -47,6 +47,7 @@ export default async function SarApprovalsPage() {
       reverifyBy: sarOrgs.reverifyBy,
       reviewRevision: sarOrgs.reviewRevision,
       createdByUserId: sarOrgs.createdByUserId,
+      maxActiveCheckouts: sarOrgs.maxActiveCheckouts,
     })
     .from(sarOrgs)
     .innerJoin(users, eq(users.id, sarOrgs.createdByUserId))
@@ -64,7 +65,7 @@ export default async function SarApprovalsPage() {
   // however long the queue (one connection per lambda, lib/db).
   const activation = await activationViews(reviewable.filter((o) => o.status === "pending").map((o) => o.id), new Date());
   const rows: PendingOrg[] = await Promise.all(
-    reviewable.map(async ({ createdByUserId, ...o }) => ({
+    reviewable.map(async ({ createdByUserId, maxActiveCheckouts, ...o }) => ({
       ...o,
       // The action refuses it too; this only explains the missing button.
       conflictOfInterest:
@@ -91,6 +92,8 @@ export default async function SarApprovalsPage() {
             // The node's own last read (plan 33 §6.9 F4).
             (s.remedy ? `; fix: ${s.remedy}` : "") +
             (s.waitingAlerts ? `; ${s.waitingAlerts} alert${s.waitingAlerts === 1 ? "" : "s"} waiting` : "") +
+            // Its check-outs, against the team's own limit (plan 33 9.7).
+            (s.activeCheckouts !== null ? `; ${s.activeCheckouts} check-out${s.activeCheckouts === 1 ? "" : "s"}${maxActiveCheckouts !== null ? ` of ${maxActiveCheckouts}` : ""}` : "") +
             (s.overCapacity ? "; over capacity" : "") +
             (s.viewError ? `; last read failed (${s.viewError})` : ""),
           syncedAt: s.syncedAt?.toISOString() ?? null,

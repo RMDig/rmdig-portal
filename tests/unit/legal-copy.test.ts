@@ -99,6 +99,15 @@ function publicSourceFiles(): string[] {
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "leave", "page.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "leave", "LeaveForms.tsx"),
     join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "alerts", "test-alert-actions.ts"),
+    // The team's check-out settings (plan 33 9.7, 9.8) and its approvals.
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "checkouts", "page.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "checkouts", "CheckoutForms.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "checkouts", "actions.ts"),
+    join(process.cwd(), "lib", "sar", "capacity.ts"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "approvals", "page.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "approvals", "DecisionButtons.tsx"),
+    join(process.cwd(), "app", "(portal)", "sar", "[orgId]", "approvals", "actions.ts"),
+    join(process.cwd(), "lib", "sar", "approvals-rules.ts"),
     // The RED layer's labels, legend, notice and error text on /map.
     join(process.cwd(), "lib", "map", "red.ts"),
   );

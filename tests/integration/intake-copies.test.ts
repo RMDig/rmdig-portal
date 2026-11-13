@@ -5,9 +5,10 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-// An erasure's delete of the portal's alert copies (lib/deletion/intake-copies.ts;
+// An erasure's delete of the portal's copies (lib/deletion/intake-copies.ts;
 // plan 33 §6.9, F6) against real Postgres: exactly the erased account's
-// alerts go, with their acks and team-email records, and nobody else's.
+// alerts go, with their acks and team-email records, and its approval
+// decisions at each team (9.8), and nobody else's.
 // The share log is mocked; the SQL is real.
 //
 // INTEGRATION_DATABASE_URL=postgresql://postgres:pw@127.0.0.1:55432/postgres pnpm test:integration
@@ -53,6 +54,14 @@ beforeAll(async () => {
   await msg("m4", teamA, `sub-2:${teamA}`);
   await sql`INSERT INTO sar_alert_notifications (org_id, alert_id, kind, message_id) VALUES (${teamA}, ${`sub-1:${teamA}`}, 'overdue', 'm1')`;
   await sql`INSERT INTO sar_alert_acks (org_id, alert_id, acked_at) VALUES (${teamA}, ${`sub-1:${teamA}`}, now()), (${teamA}, ${`sub-2:${teamA}`}, now())`;
+  // Decisions on the erased account's acceptance acc-1 at A (approved, then
+  // withdrawn) and at B; another account's acc-2 at A; acc-1 at B is only
+  // matched as B's, never as A's.
+  await sql`
+    INSERT INTO sar_approval_decisions (org_id, acceptance_id, state, idempotency_key) VALUES
+      (${teamA}, 'acc-1', 'approved', ${randomUUID()}), (${teamA}, 'acc-1', 'declined', ${randomUUID()}),
+      (${teamB}, 'acc-1', 'approved', ${randomUUID()}), (${teamA}, 'acc-2', 'approved', ${randomUUID()}),
+      (${teamB}, 'acc-3', 'approved', ${randomUUID()})`;
   process.env.DATABASE_URL = testUrl;
   lib = await import("@/lib/deletion/intake-copies");
 }, 60_000);
@@ -63,21 +72,29 @@ afterAll(async () => {
   await admin.end();
 });
 
-const dispatch = (teamId: string, subject: string) => ({
-  at: "2026-11-01T10:00:00Z", node: "avserv-2", teamId, kind: "dispatch", subject, messageKind: "overdue", channel: "portal", fields: [], reader: null, drill: false,
+const dispatch = (teamId: string, subject: string, kind = "dispatch") => ({
+  at: "2026-11-01T10:00:00Z", node: "avserv-2", teamId, kind, subject, messageKind: "overdue", channel: "portal", fields: [], reader: null, drill: false,
 });
 
 describe("deleteIntakeCopies (real schema)", () => {
   it("deletes the account's alerts at every team, with their acks and email records, and nothing else", async () => {
-    h.items = [dispatch(teamA, "sub-1"), dispatch(teamB, "sub-1")];
-    expect(await lib.deleteIntakeCopies(randomUUID(), "req-1")).toEqual({ status: "complete", alerts: 2, messagesDeleted: 3, acksDeleted: 1, unavailable: [] });
+    h.items = [dispatch(teamA, "sub-1"), dispatch(teamB, "sub-1"), dispatch(teamA, "acc-1", "approval_request"), dispatch(teamB, "acc-1", "approval_request")];
+    expect(await lib.deleteIntakeCopies(randomUUID(), "req-1")).toEqual({
+      status: "complete",
+      alerts: 2,
+      messagesDeleted: 3,
+      acksDeleted: 1,
+      decisionsDeleted: 3,
+      unavailable: [],
+    });
     expect((await sql`SELECT message_id FROM sar_intake_messages`).map((r) => r.message_id)).toEqual(["m4"]);
     expect((await sql`SELECT alert_id FROM sar_alert_acks`).map((r) => r.alert_id)).toEqual([`sub-2:${teamA}`]);
     expect(await sql`SELECT 1 FROM sar_alert_notifications`).toHaveLength(0);
+    expect((await sql`SELECT acceptance_id FROM sar_approval_decisions ORDER BY acceptance_id`).map((r) => r.acceptance_id)).toEqual(["acc-2", "acc-3"]);
   });
 
   it("is a no-op the second time, and with nothing in the log", async () => {
-    expect(await lib.deleteIntakeCopies(randomUUID(), "req-1")).toMatchObject({ status: "complete", messagesDeleted: 0, acksDeleted: 0 });
+    expect(await lib.deleteIntakeCopies(randomUUID(), "req-1")).toMatchObject({ status: "complete", messagesDeleted: 0, acksDeleted: 0, decisionsDeleted: 0 });
     h.items = [];
     expect(await lib.deleteIntakeCopies(randomUUID(), "req-2")).toMatchObject({ status: "complete", alerts: 0, messagesDeleted: 0 });
   });

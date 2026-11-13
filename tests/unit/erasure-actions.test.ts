@@ -85,7 +85,7 @@ beforeEach(() => {
   Object.assign(h, { actor: { ok: true, userId: "staff-1" }, admin: true, mfa: true, recent: true, available: true, allowed: true });
   h.request = [{ email: "a@example.com", confirmedAt: CONFIRMED }];
   h.preview.mockResolvedValue([ready("avserv-2"), ready("avserv-3")]);
-  h.copies.mockResolvedValue({ status: "complete", alerts: 1, messagesDeleted: 3, acksDeleted: 1, unavailable: [] });
+  h.copies.mockResolvedValue({ status: "complete", alerts: 1, messagesDeleted: 3, acksDeleted: 1, decisionsDeleted: 2, unavailable: [] });
   h.erase.mockResolvedValue({ node: "avserv-2", ok: true, value: record("avserv-2") });
   h.status.mockResolvedValue([
     { node: "avserv-2", ok: true, value: { ...record("avserv-2"), alreadyErased: true } },
@@ -204,7 +204,7 @@ describe("the portal's copies of the account's alerts (plan 33 §6.9, F6)", () =
       h.copies.mockClear();
       const r = await action(null, fd());
       expect(h.copies).toHaveBeenCalledWith(ACCT, REQ);
-      expect(r.ok && r.note).toContain("Portal: deleted 3 intake messages and 1 ack for 1 alert (share log read from every node).");
+      expect(r.ok && r.note).toContain("Portal: deleted 3 intake messages and 1 ack for 1 alert, and 2 approval decisions (share log read from every node).");
     }
   });
 
