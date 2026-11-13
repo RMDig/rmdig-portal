@@ -110,7 +110,10 @@ public form can't set the flag.
 
 - Name (must contain "drill"), contact name, a drill contact email, area, and the
   contact phone. The phone is verified by the existing Twilio Verify flow and is the
-  operator's drill phone. The unique-phone index applies as usual.
+  operator's drill phone. **Every drill team may share it** (owner, 2026-11-13,
+  migration 0046): the one-number-per-live-team index skips drill teams, so a second
+  drill team (AvServ plan 66 P7, the home team) can use the same phone. Real teams
+  still hold one number each, and a drill team's number never blocks a real team's.
 - No proof document and no operating-status upload. The status log records
   `drill_registered` with "registered by the operator; nothing outside RMDig verified".
 - The new row is `pending`. Then: create the first drill login as team admin (§4.2),

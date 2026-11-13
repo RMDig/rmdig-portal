@@ -125,9 +125,7 @@ describe("registerDrillOrgAction", () => {
     expect(h.inserted).toHaveLength(0);
   });
 
-  it("names a phone already held by a live team, and fails loud on any other write error", async () => {
-    h.txError = Object.assign(new Error("dup"), { code: "23505" });
-    expect(await registerDrillOrgAction(null, form())).toMatchObject({ ok: false, fieldErrors: { contactPhone: [expect.stringContaining("already used")] } });
+  it("fails loud on a write error", async () => {
     h.txError = new Error("check violation");
     expect(await registerDrillOrgAction(null, form())).toEqual({ ok: false, error: "Couldn't register the drill team. Try again in a moment." });
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.drill.register_failed" }));

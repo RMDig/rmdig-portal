@@ -1,0 +1,2 @@
+DROP INDEX "sar_orgs_contact_phone_live_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "sar_orgs_contact_phone_live_unique" ON "sar_orgs" USING btree ("contact_phone") WHERE contact_phone IS NOT NULL AND sar_org_holds_phone(status) AND NOT is_drill;
