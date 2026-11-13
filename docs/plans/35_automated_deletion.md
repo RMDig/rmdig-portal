@@ -6,6 +6,11 @@ which waits on counsel). A person clicks every step with their own reader id;
 the worker, cancel window and §2 automation stay unbuilt until 4c and the
 decisions below.
 
+**Update 2026-11-13:** owner decision D11 (§10): a confirmed deletion **ends** a
+check-out that is out but not alerted, instead of waiting behind it. An alerted
+check-out, an open Send Help and a live incident still hold the erasure. This
+amends the first rule in §0. Unbuilt; needs AvServ changes (§10.4).
+
 Status: **draft, 2026-10-11, revised after a three-lens security review the same day
 (§9). Owner decisions (§6) and counsel review (§7) pending.** Nothing here is built.
 Today a confirmed request is carried out by hand from the runbook "Data-deletion
@@ -23,10 +28,12 @@ or a leaked key delete many accounts.
 
 These rules hold throughout:
 
-- **Never force an erasure past live safety state, on any node.** An open or alerted
+- **Never force an erasure past live safety state, on any node.** An alerted
   check-out, an active Send Help, a live incident or a SAR message in flight blocks
   erasure. The automation waits and retries. It never closes, cancels or works around
-  a safety item.
+  any of these. **One exception (D11, §10):** a check-out that is `out` and not
+  alerted is ended by the erasure, because the requester was told so and accepted it
+  when they confirmed. The trip is never reported as checked in.
 - **Automate only the low-risk case.** An account is erased without a person only
   when every condition in §2 holds. Anything else is `held` with a reason for the
   operator. Holds are cheap; a wrong erasure can't be undone.
@@ -84,7 +91,7 @@ request is `held` with the first failing reason.
 | The user isn't the last admin or member of an `approved` org and holds no platform role (cascades would bypass `manage-actions.ts`' last-admin rule and `admin/team/actions.ts:232`) | `org_continuity` |
 | No rows the user created that block the delete (`sar_orgs`, `advertiser_accounts`, invitations) | `owns_org_rows` |
 | No `alerted` check-out, Send Help or non-cancelled incident in the last 90 days, and no check-out in the last 7 days | `recent_safety_activity` |
-| No live safety item on **any** node (§5 preview) | retry; a peer holding an erasure pages |
+| No live safety item on **any** node (§5 preview), other than an `out`, never-alerted check-out, which the erasure ends (D11, §10) | retry; a peer holding an erasure pages |
 | No SAR team received data (`data_share_log`, read before erasure and stored) | `teams_to_notify` (until counsel approves the notice) |
 | The requester isn't an emergency contact with no account. Their details live in other people's accounts and check-outs. | `contact_requester` |
 | Under the daily erasure cap | `rate_ceiling` (pages) |
@@ -213,6 +220,7 @@ tier has no rate limit, and service JWTs have no maximum lifetime
 | D7 | Signed-in deletion | Add "Delete my account" in settings, behind a session that has passed MFA. For a `strong_account` that's the self-service route instead of the operator. |
 | D8 | Daily cap value | 5 per day per node at beta (AvServ's default); revisit with volume. |
 | D9 | A check-out opened on a peer during the replication window after an erasure (AvServ plan 47 open point) | **Decided (owner, 2026-10-11): safety first.** The origin applies the check-out-open event so both nodes watch the live trip, pages, and re-erases when the trip closes (AvServ plan 47 §7). |
+| D11 | A deletion confirmed while the user is checked out | **Decided (owner, 2026-11-13): end the trip.** The confirm page warns that confirming ends any current trip; the erasure closes an `out` check-out as ended by deletion (never `checked_in`); a notice to the contacts that the trip ended is recommended (O4, open). An alerted check-out, open Send Help or live incident still holds the erasure until resolved. Detail in §10. |
 | D10 | Who the per-erasure page reaches | **Agreed with AvServ (plan 47, 2026-10-11):** every erasure to the operator via Pushover; `email_mismatch` and a cap hit to PagerDuty as well. |
 
 ## 7. Counsel questions
@@ -221,10 +229,12 @@ tier has no rate limit, and service JWTs have no maximum lifetime
   authentication for an **irreversible automated** erasure of sensitive geolocation?
   Do the held categories in §2 need a second factor?
 - The CPA 45-day extension notice for a request held behind a live safety item
-  (closing safety items isn't allowed). Should it be sent around day 30? And does the
-  clock run from the request or from its confirmation?
+  (after D11, only an alerted check-out, open Send Help or live incident holds one).
+  Should it be sent around day 30? And does the clock run from the request or from
+  its confirmation?
 - Wording: the completion notice (D5), the "no data held" reply, the SAR team notice
-  (D3), and the device notice (D1).
+  (D3), the device notice (D1), and D11's confirm-page warning and contact notice
+  (§10.2, §10.3).
 - Does `/privacy` need to describe the automated process or the cancel window?
 - Emergency contacts who ask for deletion: what do we owe them, given that their
   details sit in another person's account for that person's safety?
@@ -246,7 +256,13 @@ tier has no rate limit, and service JWTs have no maximum lifetime
 7. Admin UI for the held reasons; emails after counsel; then the flag on.
 8. **Drill again** with an account that has a check-out and a contact (AvServ drill
    follow-up, 2026-10-11), plus an attempted erasure of a second account under a
-   mismatched email (it must be refused).
+   mismatched email (it must be refused). After D11: one account with an `out`
+   check-out (the trip ends, the contact gets the notice, never an all-clear) and one
+   with an alerted check-out (held until it resolves).
+
+D11 (§10) can ship before the worker: the warning and acknowledgment (§10.2) on the
+confirm page first, then the AvServ change (§10.4), after which the operator's
+**Erase in AvServ** button ends an `out` trip instead of reporting it blocked.
 
 ## 9. Review record (2026-10-11)
 
@@ -261,3 +277,126 @@ as sound:
 - The 256-bit hashed deletion token.
 - The intake's same answer for every address.
 - `account_erasure` stays default-deny.
+
+## 10. D11: a deletion confirmed during a check-out (owner decision 2026-11-13)
+
+### 10.1 The decision
+
+Counsel was asked (privacy policy v4, retention comment, question 6) how to treat a
+deletion request from someone who can't be confirmed safe while their trip is open.
+The owner decided instead: **tell the requester, and make ending the trip part of what
+they confirm.** The request then completes on the normal clock instead of waiting
+behind a trip that may stay open with no time limit.
+
+**Ended, not checked in.** A check-in is the user's own statement that they are back;
+AvServ never records one the user didn't make. The requester may not be the
+traveller: `/account/delete` needs no sign-in, and confirming proves control of the
+inbox only (§1.3). So the trip closes with its own status. (An all-clear isn't at
+stake: AvServ sends one only after a delivered overdue alert, and an alerted trip
+holds the erasure, §10.3. A trip D11 ends was never alerted, so its contacts would
+hear nothing on a check-in either.)
+
+**Why tell the contacts at all.** They hear nothing when a quiet trip ends normally,
+so the notice is new, not a replacement. It exists for the case where the requester
+isn't the traveller: it lets the people who would have been alerted know that no
+alert will come, so they can reach the user. Whether to send it is O4 (§10.6).
+
+### 10.2 The confirm page
+
+- **Every requester sees the warning,** not only those checked out. The page can't
+  show account state (links get forwarded, §1.3), and rendering it must not call
+  AvServ. Draft, for counsel: *"If you are checked out on a trip when we delete your
+  data, the trip ends. AvAI stops watching it, and your emergency contacts are told
+  it ended. They are not told you are safe. If an alert about you is open, we finish
+  the deletion once it is resolved."*
+- **A required tick box:** *"I understand that deleting my data ends any trip I'm
+  checked out on."* Recorded as `ends_checkout_ack_at` in the same compare-and-set
+  that moves the request to `confirmed`; the action refuses a confirm without it
+  (validation test). A request confirmed before D11 has no acknowledgement and keeps
+  today's behaviour: held behind the trip.
+- **The specific "you're checked out" message goes to the user's phone,** the only
+  place that can show account state safely: the device notice (§5.7, D1) says
+  *"You're checked out. Deleting your account ends this trip,"* with its cancel
+  action.
+- Public route rules apply (CLAUDE.md §3.7): no auth, the copy is added to
+  `tests/unit/legal-copy.test.ts`, and the Playwright deletion spec covers the tick box.
+
+### 10.3 What ends and what holds
+
+AvServ decides from the state **at erasure time**, inside the erase transaction under
+`FOR UPDATE`. A trip that goes overdue between confirmation and erasure is therefore
+held, not ended.
+
+| State at erasure | Result |
+|---|---|
+| Check-out `out`, never alerted, request has the acknowledgement | Ended by the erasure; contacts get the notice below |
+| Check-out `alerted` (an overdue alert went out, no check-in) | Held until resolved (§7 extension notice if it nears day 45) |
+| Open Send Help | Held |
+| Live (not cancelled) incident | Held |
+| SAR message in flight | Held |
+| Request has no acknowledgement (confirmed before D11) | Held, as today |
+
+**The contact notice.** Sent to each contact who accepted the role on that trip, on
+the trip's channels. Draft, for counsel: *"AvAI: [Name]'s trip has ended because their
+AvAI account was deleted. AvAI is no longer watching this trip. This does not mean
+they checked in."* It is a new message type, so before it ships: the `/sms` message
+list, the Terms of Service program list, the A2P campaign samples, and the
+compliance-copy twins (CLAUDE.md §0) all change together.
+
+### 10.4 AvServ changes (AvServ plan 47 §12, proposed 2026-11-13)
+
+Summary; plan 47 §12 is the authority. It also makes a trip **past due but not yet
+marked alerted** block, using the watchdog's own overdue test, and answers the first
+call with `202 erasure_pending` while the notice goes out (a new "retry next run" row
+in §5a).
+
+
+1. The erasure body gains `endOutCheckout: true`, set only when the request row has
+   `ends_checkout_ack_at` (read from the row, never from input, like `email`).
+   Without it, an `out` trip returns today's `409 erasure_blocked_active`.
+2. In the erase transaction, an `out` check-out closes with a new status (proposed
+   `ended_by_erasure`), never `checked_in` or `cancelled`, and no all-clear is queued.
+   Any held state in §10.3 returns 409 as today.
+3. **The notice goes out before the data does.** An erasure deletes the outbox rows
+   naming the account (plan 47 H1), and with them the contacts' numbers. So it runs
+   in two steps: close the trip and queue the notice; erase once its delivery attempts
+   are recorded. Plan 35's retry loop already fits this; the manual button shows the
+   first step's result.
+4. The closure replicates as its own event so the peer stops watching before the
+   erasure reaches it. A trip opened on the peer during the replication window
+   (plan 47 §7, D9) follows the same table.
+
+### 10.5 Remaining risk
+
+Someone who controls only the inbox can confirm a deletion and end a real trip early.
+Mitigations: the cancel window and the device notice (D1) reach the real user first;
+the contact notice tells the contacts the trip ended and that this doesn't mean the
+user is safe; the signed-in, MFA route (D7) is the self-service path for strong
+accounts. With the notice (O4), the worst case is a trip ended early **with its
+contacts told**; a trip is never recorded as checked in by anyone but the user.
+
+### 10.6 Open points
+
+- **O1 (counsel):** wording of the confirm-page warning and the contact notice (§7),
+  and whether `/privacy`'s deletion text should say that deletion ends a current trip.
+- **O2 (owner):** new check-outs during the cancel window. Recommendation: allow them
+  (the device notice warns); the erasure ends whichever trip is `out` when it runs.
+  Plan 47 D2 already refuses new arms once a node holds the erasure.
+- **O3 (AvServ):** the two-step close-then-erase (§10.4 item 3), and the event shape
+  for `ended_by_erasure`.
+- **O4 (owner):** send the contact notice, or end the trip without telling the
+  contacts? Recommendation: send it, for the inbox-only case in §10.5. The cost is a
+  new message type (§10.3: `/sms`, the Terms of Service list, the A2P samples and the
+  copy twins change together). Without it, §10.5's worst case becomes a trip ended
+  with no one told, and the warning and draft texts above drop their contact clause.
+- **Unchanged:** an emergency contact requesting their own deletion while serving on
+  someone's live trip stays `held(contact_requester)`. D11 covers only the traveller's
+  own trips.
+
+### 10.7 Tests
+
+Per CLAUDE.md §4.3: the confirm action refuses without the tick box and records it
+with the confirm (unit); the erasure client sends `endOutCheckout` only from the row
+(unit); each §10.3 row against the AvServ mock, including an `out` trip that is
+alerted by the time the erasure runs (unit); the confirm-page copy in the legal-copy
+scan; the Playwright deletion spec with the tick box; the §8 drill.
