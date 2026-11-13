@@ -1,4 +1,4 @@
-import type { ShareLogResult } from "../avserv/share-log";
+import type { ShareLogItem, ShareLogResult } from "../avserv/share-log";
 
 // Which SAR teams received an account's data, merged from every AvServ node
 // (AvServ plan 41 §10.3), for the operator working a deletion request. Pure.
@@ -9,6 +9,8 @@ export interface TeamDisclosure {
   teamId: string;
   dispatches: number;
   feedReads: number;
+  areaReads: number;
+  approvalViews: number;
   /** Every field any disclosure carried (e.g. lastFix, plannedRoute). */
   fields: string[];
   channels: string[];
@@ -22,6 +24,25 @@ export interface ShareLogSummary {
   teams: TeamDisclosure[];
   unavailable: Array<{ node: string; code: string }>;
   drillRowsSkipped: number;
+}
+
+const COUNT = { dispatch: "dispatches", feed_read: "feedReads", area_read: "areaReads", approval_request: "approvalViews" } as const satisfies Record<
+  ShareLogItem["kind"],
+  keyof TeamDisclosure
+>;
+
+/** "2 alerts, 1 map view": each kind of disclosure the team had, never empty. */
+export function disclosureCountsText(t: TeamDisclosure): string {
+  const parts: Array<[number, string]> = [
+    [t.dispatches, "alert"],
+    [t.feedReads, "map view"],
+    [t.areaReads, "area map view"],
+    [t.approvalViews, "approval list view"],
+  ];
+  return parts
+    .filter(([n]) => n > 0)
+    .map(([n, what]) => `${n} ${what}${n === 1 ? "" : "s"}`)
+    .join(", ");
 }
 
 export function summarizeShareLog(results: ShareLogResult[]): ShareLogSummary {
@@ -38,15 +59,14 @@ export function summarizeShareLog(results: ShareLogResult[]): ShareLogSummary {
       let e = byTeam.get(i.teamId);
       if (!e) {
         e = {
-          t: { teamId: i.teamId, dispatches: 0, feedReads: 0, fields: [], channels: [], first: i.at, last: i.at, nodes: [] },
+          t: { teamId: i.teamId, dispatches: 0, feedReads: 0, areaReads: 0, approvalViews: 0, fields: [], channels: [], first: i.at, last: i.at, nodes: [] },
           fields: new Set(),
           channels: new Set(),
           nodes: new Set(),
         };
         byTeam.set(i.teamId, e);
       }
-      if (i.kind === "dispatch") e.t.dispatches++;
-      else e.t.feedReads++;
+      e.t[COUNT[i.kind]]++;
       for (const f of i.fields) e.fields.add(f);
       if (i.channel) e.channels.add(i.channel);
       e.nodes.add(i.node);

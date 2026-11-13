@@ -31,6 +31,15 @@ describe("readShareLog", () => {
     expect(h.fetch.mock.calls[1]![1]).toBe(`/v1/internal/data-share-log?accountId=${ACCT}&limit=500&cursor=c2`);
   });
 
+  it("reads every kind AvServ logs, and fails a page with a kind it doesn't know", async () => {
+    const kinds = ["dispatch", "feed_read", "approval_request", "area_read"];
+    h.fetch.mockResolvedValueOnce(json(200, { items: kinds.map((kind) => row({ kind })), nextCursor: null }));
+    const r = await readShareLog(NODE, ACCT);
+    expect(r.ok && r.items.map((i) => i.kind)).toEqual(kinds);
+    h.fetch.mockResolvedValueOnce(json(200, { items: [row({ kind: "something_new" })], nextCursor: null }));
+    expect(await readShareLog(NODE, ACCT)).toEqual({ ok: false, node: NODE.name, code: "bad_response" });
+  });
+
   it("reports log_unavailable, an unreachable node, a malformed answer and a missing drill flag as failures", async () => {
     h.fetch.mockResolvedValueOnce(json(503, { code: "log_unavailable" }));
     expect(await readShareLog(NODE, ACCT)).toEqual({ ok: false, node: NODE.name, code: "log_unavailable" });
