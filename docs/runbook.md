@@ -312,6 +312,17 @@ keeps the highest per node.
   portal's key lacks `sar_approve`: ask AvServ to add it to
   `AVSERV_SERVICE_KEY_SCOPES` on both nodes. `sar_capture_unavailable` means a
   node is below `SARApplierVersion` 7.
+- **New-request email** (plan 33 9.8; owner 2026-11-12): every 5 minutes
+  (`/api/cron/sar-approval-notify`, `lib/sar/approval-notify.ts`) the portal
+  reads each confirm-first team's count-only summary on every node (AvServ
+  `sar_terms.md` §6a: no names, no reader, no disclosure row) and emails the
+  team's admins when someone newer than the last email is waiting. The email
+  names nobody and gives no count ("Someone is waiting for your team's
+  approval"); `[DRILL]` for a drill team. The newest time emailed about is
+  `sar_orgs.approval_notified_through` (migration 0045), set only once an admin
+  was told. A node that can't be read is logged (`sar.approval_notify.node_failed`);
+  no node at all goes to Sentry (`sar.approval_notify.unread`). The "Approval
+  summary" AvServ check fails on a node without the route.
 - **Leaving:** "Mark leaving" stops new offers; check-outs already bound keep the
   team until they end. **Undo leaving** makes it active again (AvServ is sent
   `approved`). A team's admins can do both themselves on the team's **Leaving**
@@ -394,8 +405,8 @@ before its first terms.
 **Admin → AvServ checks** (`/admin/avserv-checks`, rmdig admins) makes one harmless
 call per portal feature to every configured node, through the portal's own client
 code: team sync (`sar_sync`), the red alerts feed and the deletion lookup
-(`sar_feed`), "Mark received" (`sar_ack`), the approvals list (`sar_approve`, plan
-33 9.8) and the email lookup (`account_lookup`).
+(`sar_feed`), "Mark received" (`sar_ack`), the approvals list and its count-only summary
+(`sar_approve`, plan 33 9.8) and the email lookup (`account_lookup`).
 The ids are made up, so nothing is written on AvServ; the email lookup checks
 `probe@example.com`, which AvServ logs only as a hash, with you as the reader.
 
@@ -1408,6 +1419,7 @@ minutes).
 |---|---|---|---|
 | `/api/cron/sar-alert-notify` | every minute | `portal-sar-alert-notify` | retries owed SAR team emails, each after its wait |
 | `/api/cron/sar-node-check` | every 5 minutes | `portal-sar-node-check` | sends a team again to a node that doesn't hold it; reads every active team's view on each node (`lib/sar/node-check.ts`) |
+| `/api/cron/sar-approval-notify` | every 5 minutes | `portal-sar-approval-notify` | emails a confirm-first team's admins when someone new waits for approval (`lib/sar/approval-notify.ts`) |
 | `/api/cron/security-notices` | every 10 minutes | `portal-security-notices` | opt-in security notices for changes made on the phones |
 | `/api/cron/sar-retention` | 09:30 | `portal-sar-retention` | SAR alert retention |
 | `/api/cron/expired-rows` | 10:00 | `portal-expired-rows` | deletes expired sessions, reset and verification tokens, unconfirmed deletion requests, unaccepted invitations and spent rate-limit rows (`lib/retention/expired-rows.ts`) |
@@ -1474,7 +1486,7 @@ production deployment, and a day of runtime logs.
   Rollback** or run `vercel promote <deployment>`. A rollback restores old code
   and its crons, never the database, so a migration it predates stays applied.
 - **Crons.** On Pro, `sar-alert-notify` runs every minute (D10, changed
-  2026-11-11), `sar-node-check` every 5 and `security-notices` every 10; see
+  2026-11-11), `sar-node-check` and `sar-approval-notify` every 5 and `security-notices` every 10; see
   "Scheduled jobs and Sentry monitors". These keep Neon's compute awake around
   the clock, as UptimeRobot's 5-minute `/readyz` check already should; if
   Neon's compute hours jump after this, look here first.

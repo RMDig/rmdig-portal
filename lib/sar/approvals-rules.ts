@@ -30,6 +30,11 @@ export interface MergedApprovals {
   truncated: boolean;
 }
 
+/** Team statuses AvServ holds, so a confirm-first team in one has approvals
+ *  to decide and to be told about. */
+export const APPROVALS_STATUSES = ["approved", "leaving", "suspended"] as const;
+export const hasApprovals = (status: string) => (APPROVALS_STATUSES as readonly string[]).includes(status);
+
 const decidedMs = (i: ApprovalItem) => (i.decision ? Date.parse(i.decision.at) : -Infinity);
 
 export function mergeApprovals(lists: Array<{ node: string; result: ApprovalListResult }>): MergedApprovals {

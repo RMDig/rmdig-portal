@@ -17,6 +17,7 @@ export type CronJob =
   | "security_notices"
   | "expired_rows"
   | "sar_no_admin"
+  | "sar_approval_notify"
   | "cron_watch";
 
 export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monitorSlug: string }> = {
@@ -38,6 +39,9 @@ export const CRON_JOBS: Record<CronJob, { path: string; schedule: string; monito
   expired_rows: { path: "/api/cron/expired-rows", schedule: "0 10 * * *", monitorSlug: "portal-expired-rows" },
   // SAR teams left with no admin (lib/sar/no-admin.ts, plan 33 §6.4).
   sar_no_admin: { path: "/api/cron/sar-no-admin", schedule: "30 15 * * *", monitorSlug: "portal-sar-no-admin" },
+  // A confirm-first team's admins, when someone new waits for approval
+  // (lib/sar/approval-notify.ts, plan 33 9.8).
+  sar_approval_notify: { path: "/api/cron/sar-approval-notify", schedule: "*/5 * * * *", monitorSlug: "portal-sar-approval-notify" },
   // Catches any job above that stopped running (lib/cron/watch.ts). Last of
   // the day, after every other job's margin has passed. Its monitor is the one
   // Sentry's free plan includes, so a watch that stops running is caught too.

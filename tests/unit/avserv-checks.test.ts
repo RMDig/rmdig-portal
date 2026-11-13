@@ -8,13 +8,14 @@ const h = vi.hoisted(() => ({
   readShareLog: vi.fn(),
   lookup: vi.fn(),
   approvals: vi.fn(),
+  summary: vi.fn(),
   health: vi.fn(),
 }));
 vi.mock("@/lib/avserv/sar-teams", () => ({ avservNodes: () => h.nodes, getSarTeam: h.getSarTeam, ackSarAlert: h.ackSarAlert }));
 vi.mock("@/lib/avserv/sar-feeds", () => ({ readRedFeed: h.readRedFeed }));
 vi.mock("@/lib/avserv/share-log", () => ({ readShareLog: h.readShareLog }));
 vi.mock("@/lib/avserv/account-lookup", () => ({ lookupAccountsByEmail: h.lookup }));
-vi.mock("@/lib/avserv/sar-approvals", () => ({ listApprovalRequests: h.approvals }));
+vi.mock("@/lib/avserv/sar-approvals", () => ({ listApprovalRequests: h.approvals, getApprovalSummary: h.summary }));
 vi.mock("@/lib/avserv/node-health", async (orig) => ({
   ...(await orig<typeof import("@/lib/avserv/node-health")>()),
   readNodeHealth: h.health,
@@ -33,6 +34,7 @@ beforeEach(() => {
   h.readShareLog.mockResolvedValue({ ok: true, node: "n", items: [] });
   h.lookup.mockResolvedValue({ ok: true, node: "n", matches: [] });
   h.approvals.mockResolvedValue({ ok: false, status: 404, code: "sar_team_unknown" });
+  h.summary.mockResolvedValue({ ok: false, status: 404, code: "sar_team_unknown" });
   h.health.mockImplementation((n: { name: string }) => Promise.resolve({ ok: true, node: n.name, health: healthy(n.name) }));
 });
 
@@ -51,13 +53,14 @@ const healthy = (node: string) => ({ node, asOf: "2026-10-07T18:00:00Z", status:
 describe("runAvServChecks", () => {
   it("passes every check on every node when each answers as an unknown id should", async () => {
     const r = await runAvServChecks("staff-1");
-    // Six probes and two node-health rows (overall + one disk) on each of two nodes.
-    expect(r).toHaveLength(16);
+    // Seven probes and two node-health rows (overall + one disk) on each of two nodes.
+    expect(r).toHaveLength(18);
     expect(r.every((x) => x.ok)).toBe(true);
     expect(h.readRedFeed).toHaveBeenCalledWith(h.nodes[0], NONE, "staff-1");
     expect(h.ackSarAlert).toHaveBeenCalledWith(h.nodes[1], `${NONE}:${NONE}`, { teamId: NONE, by: "portal-user:staff-1" });
     expect(h.lookup).toHaveBeenCalledWith(h.nodes[0], PROBE_EMAIL, "staff-1");
     expect(h.approvals).toHaveBeenCalledWith(h.nodes[0], NONE, "staff-1", "pending");
+    expect(h.summary).toHaveBeenCalledWith(h.nodes[1], NONE);
   });
 
   it("fails a check whose route group is missing on one node, naming the answer", async () => {
@@ -69,9 +72,14 @@ describe("runAvServChecks", () => {
     h.approvals.mockImplementation((n: { name: string }) =>
       Promise.resolve(n.name.startsWith("avserv-3") ? { ok: false, status: 403, code: "path_not_allowed" } : { ok: false, status: 404, code: "sar_team_unknown" }),
     );
+    // A node without the summary route yet answers a plain 404, which fails.
+    h.summary.mockImplementation((n: { name: string }) =>
+      Promise.resolve(n.name.startsWith("avserv-2") ? { ok: false, status: 404, code: "not_found" } : { ok: false, status: 404, code: "sar_team_unknown" }),
+    );
     const r = await runAvServChecks("s");
     expect(r.filter((x) => !x.ok)).toEqual([
       expect.objectContaining({ check: "Team sync", node: "avserv-2.rmdig.ai", answer: "http_403" }),
+      expect.objectContaining({ check: "Approval summary", group: "sar_approve", node: "avserv-2.rmdig.ai", answer: "not_found" }),
       expect.objectContaining({ check: "Approvals list", group: "sar_approve", node: "avserv-3.rmdig.ai", answer: "path_not_allowed" }),
       expect.objectContaining({ check: "Email lookup", node: "avserv-3.rmdig.ai", answer: "path_not_allowed" }),
     ]);

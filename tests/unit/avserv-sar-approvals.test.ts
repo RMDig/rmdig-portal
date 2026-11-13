@@ -64,6 +64,34 @@ describe("listApprovalRequests", () => {
   });
 });
 
+describe("getApprovalSummary", () => {
+  it("reads the count and the newest time, with no reader named", async () => {
+    const fetchMock = stub(json(200, { pending: 2, newestPendingAcceptedAt: "2026-11-12T10:00:00.123456789Z" }));
+    const { getApprovalSummary } = await import("@/lib/avserv/sar-approvals");
+    expect(await getApprovalSummary(NODE, "org-1")).toEqual({ ok: true, pending: 2, newestPendingAcceptedAt: "2026-11-12T10:00:00.123456789Z" });
+    const [url, init] = call(fetchMock);
+    expect(url).toBe("https://avserv-2.example/v1/internal/sar-teams/org-1/approval-summary");
+    expect(init.headers["x-avai-reader"]).toBeUndefined();
+  });
+
+  it("maps a refusal, a bad body and no answer to a code", async () => {
+    const { getApprovalSummary } = await import("@/lib/avserv/sar-approvals");
+    stub(json(422, { code: "team_not_confirm_first" }));
+    expect(await getApprovalSummary(NODE, "org-1")).toEqual({ ok: false, status: 422, code: "team_not_confirm_first" });
+    stub(json(200, { pending: -1, newestPendingAcceptedAt: null }));
+    expect(await getApprovalSummary(NODE, "org-1")).toEqual({ ok: false, status: 200, code: "bad_response" });
+    stub(new TypeError("fetch failed"));
+    expect(await getApprovalSummary(NODE, "org-1")).toMatchObject({ ok: false, code: "unreachable" });
+  });
+
+  it("answers nobody waiting on the mock node, calling nothing", async () => {
+    const fetchMock = stub();
+    const { getApprovalSummary } = await import("@/lib/avserv/sar-approvals");
+    expect(await getApprovalSummary({ name: "mock", baseUrl: "mock://localhost" }, "org-1")).toEqual({ ok: true, pending: 0, newestPendingAcceptedAt: null });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("decideApproval", () => {
   it("POSTs the decision with the caller's Idempotency-Key and returns when it was decided", async () => {
     const fetchMock = stub(json(200, { acceptanceId: "acc-1", state: "approved", decidedAt: "2026-11-11T09:00:00.123Z" }));

@@ -18,7 +18,14 @@ vi.mock("resend", () => ({
   },
 }));
 
-import { sendDrillLoginEmail, sendOncallEmailConfirmEmail, sendSarAlertNotifyEmail, sendSarAreaChangedEmail, sendSarTeamRecoveryEmail } from "@/lib/email/send";
+import {
+  sendDrillLoginEmail,
+  sendOncallEmailConfirmEmail,
+  sendSarAlertNotifyEmail,
+  sendSarApprovalWaitingEmail,
+  sendSarAreaChangedEmail,
+  sendSarTeamRecoveryEmail,
+} from "@/lib/email/send";
 
 const subject = () => (h.send.mock.calls.at(-1)![0] as { subject: string }).subject;
 const alert = { teamName: "AvAI Drill Team", kind: "overdue" as const, fromAreaUser: false, alertsUrl: "https://rmdig.ai/sar/o/alerts" };
@@ -78,5 +85,12 @@ describe("drill email subjects", () => {
     expect(subject()).toBe("[DRILL] AvAI can't send your team alerts: AvAI Drill Team");
     await sendSarTeamRecoveryEmail("lead@x.org", { ...recovery, teamName: "Summit SAR" });
     expect(subject()).toBe("AvAI can't send your team alerts: Summit SAR");
+  });
+
+  it("puts [DRILL] first on a drill team's approval-waiting email (plan 33 9.8), and never on a real one", async () => {
+    await sendSarApprovalWaitingEmail("lead+drill1@rmdig.ai", { teamName: "AvAI Drill Team", approvalsUrl: "https://rmdig.ai/sar/o/approvals", drill: true });
+    expect(subject()).toBe("[DRILL] Someone is waiting for your team's approval: AvAI Drill Team");
+    await sendSarApprovalWaitingEmail("lead@x.org", { teamName: "Summit SAR", approvalsUrl: "https://rmdig.ai/sar/o/approvals" });
+    expect(subject()).toBe("Someone is waiting for your team's approval: Summit SAR");
   });
 });

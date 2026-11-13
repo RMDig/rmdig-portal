@@ -521,6 +521,10 @@ export const sarOrgs = pgTable("sar_orgs", {
   // Open, or confirm-first (plan 33 D4, 9.8). Set by the team's admins; each
   // change is in sar_org_settings_log.
   acceptanceMode: sarAcceptanceMode("acceptance_mode").default("open").notNull(),
+  // The newest pending acceptance a confirm-first team's admins were emailed
+  // about (plan 33 9.8; lib/sar/approval-notify.ts), to the millisecond. A
+  // newer one on any node emails them again.
+  approvalNotifiedThrough: timestamp("approval_notified_through", { withTimezone: true }),
 },
   // Its evidence (status log, intake messages, acks, view logs, membership
   // log, terms) references it ON DELETE RESTRICT: an org with history can't
