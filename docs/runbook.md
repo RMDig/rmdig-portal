@@ -1144,6 +1144,8 @@ They're never in the approvals queue and never approved: the review action
 refuses them.
 
 1. **Register** it (**Register a drill team**). The name must contain "drill".
+   Verify your own drill phone: every drill team may use the same number (the
+   one-number-per-team rule applies to real teams only; owner, 2026-11-13).
    The area starts as a 1 km circle on the Colorado State Capitol (owner,
    2026-11-09). If a real team's area covers that, registration refuses it:
    move it to another public spot nearby where no one starts a trip, and tell

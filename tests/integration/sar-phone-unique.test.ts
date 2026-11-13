@@ -33,9 +33,15 @@ async function org(phone: string, status: Status): Promise<void> {
             VALUES ('Test team', 'Lead', 'lead@sar.org', 'county_sar', 'blob://proof', ${userId}, ${status}, ${phone})`;
 }
 
-async function uniqueViolation(phone: string, status: Status): Promise<string | undefined> {
+// A drill team (plan 37): its name says drill, and it needs no proof.
+async function drillOrg(phone: string, status: Status): Promise<void> {
+  await sql`INSERT INTO sar_orgs (name, contact_name, contact_email, operating_status, operating_status_other, created_by_user_id, status, contact_phone, is_drill, org_type)
+            VALUES ('AvAI Drill Team', 'Ops', 'ops@rmdig.ai', 'other', 'RMDig drill team (plan 37)', ${userId}, ${status}, ${phone}, true, 'sar_team')`;
+}
+
+async function uniqueViolation(phone: string, status: Status, insert = org): Promise<string | undefined> {
   try {
-    await org(phone, status);
+    await insert(phone, status);
     return undefined;
   } catch (err) {
     return (err as { code?: string }).code;
@@ -76,6 +82,20 @@ describe("SAR org phone uniqueness (Postgres)", () => {
     expect(await uniqueViolation("+17205550103", "pending")).toBe("23505");
     await org("+17205550104", "leaving");
     expect(await uniqueViolation("+17205550104", "pending")).toBe("23505");
+  });
+
+  it("lets every drill team share the operator's number (owner, 2026-11-13)", async () => {
+    await drillOrg("+17205550106", "approved");
+    expect(await uniqueViolation("+17205550106", "pending", drillOrg)).toBeUndefined();
+    expect(await uniqueViolation("+17205550106", "approved", drillOrg)).toBeUndefined();
+  });
+
+  it("never lets a drill team's number block a real team, nor a real team's free a drill one to clash", async () => {
+    expect(await uniqueViolation("+17205550106", "pending")).toBeUndefined();
+    // Real teams still hold one number each, with a drill team on it too.
+    expect(await uniqueViolation("+17205550106", "approved")).toBe("23505");
+    await org("+17205550107", "approved");
+    expect(await uniqueViolation("+17205550107", "pending", drillOrg)).toBeUndefined();
   });
 
   it("allows any number of rejected orgs on one number", async () => {
