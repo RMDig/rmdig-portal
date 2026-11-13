@@ -4,8 +4,8 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { confirmMfaEnrollmentAction } from "../actions";
-import { RecoveryCodes } from "../RecoveryCodes";
+import { confirmMfaEnrollmentAction } from "@/app/(portal)/settings/mfa/actions";
+import { RecoveryCodes } from "@/app/(portal)/settings/mfa/RecoveryCodes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

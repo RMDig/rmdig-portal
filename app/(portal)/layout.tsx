@@ -33,11 +33,11 @@ export default async function PortalLayout({ children }: { children: React.React
   const isStaff = roles.length > 0;
 
   // Authoritative enforcement (see middleware.ts for why this lives here, not in
-  // Edge middleware). The pathname comes from middleware so we don't loop the
-  // user on the enrollment page itself.
+  // Edge middleware). The enrollment page has its own layout, outside this one
+  // (app/(mfa-enroll)/layout.tsx says why).
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
-  if (gate === "required" && pathname !== ENROLL_PATH) {
+  if (gate === "required") {
     // Back to where they were going once two-factor is on (a new team's
     // admin lands here straight after applying).
     redirect(`${ENROLL_PATH}${nextQuery(h.get("x-return-to"))}`);
