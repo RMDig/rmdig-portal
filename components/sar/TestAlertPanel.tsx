@@ -12,14 +12,14 @@ import { CHANNEL_RESULT_LABEL } from "@/lib/sar/test-alert-rules";
 // The staff half of the test alert: send it from every node, and see what
 // each node reported and what the team has proved. For a team under review
 // it is checklist item 3 (plan 33 §6.9 G2); for a drill team it is sent from
-// Drill teams, and each node sends its message to AvServ's drill sink and its
-// email to the drill inbox (AvServ plan 66 R1), so only the code comes back
-// here. Outside any other form: it's its own action, and forms don't nest.
+// Drill teams. A drill team's message comes to the portal's drill intake
+// (/api/sar/intake/drill, AvServ's drill sink) and its email goes to the drill
+// inbox, never a team address (AvServ plan 66 R1); the proofs are the same.
+// Outside any other form: it's its own action, and forms don't nest.
 
-const proved = (yes: boolean, text: string) => (
-  <span className={yes ? "text-green-800 dark:text-green-300" : "text-muted-foreground"}>
-    {yes ? "✓" : "·"} {text}
-  </span>
+// Each proof says plainly whether it has happened yet.
+const proved = (yes: boolean, done: string, notYet: string) => (
+  <span className={yes ? "text-green-800 dark:text-green-300" : "text-muted-foreground"}>{yes ? `✓ ${done}` : notYet}</span>
 );
 
 function NodeLine({ row, drill }: { row: TestAlertRow; drill: boolean }) {
@@ -35,16 +35,11 @@ function NodeLine({ row, drill }: { row: TestAlertRow; drill: boolean }) {
     <li className="space-y-0.5">
       <span className="font-medium">{row.node}</span>
       <span className="block pl-4">
-        {drill ? (
-          <>Drill sink: {channel(row.portal, row.portalDetail)}</>
-        ) : (
-          <>
-            Portal: {channel(row.portal, row.portalDetail)} · {proved(row.portalArrived, "arrived")} · {proved(row.portalReceived, "marked received")}
-          </>
-        )}
+        {drill ? "Portal (drill intake)" : "Portal"}: {channel(row.portal, row.portalDetail)} · {proved(row.portalArrived, "arrived", "not arrived yet")} ·{" "}
+        {proved(row.portalReceived, "marked received", "not marked received yet")}
       </span>
       <span className="block pl-4">
-        {drill ? "Drill inbox email" : "Email"}: {channel(row.email, row.emailDetail)} · {proved(row.emailConfirmed, "code entered")}
+        {drill ? "Email (drill inbox)" : "Email"}: {channel(row.email, row.emailDetail)} · {proved(row.emailConfirmed, "code entered", "code not entered yet")}
       </span>
     </li>
   );
@@ -72,8 +67,9 @@ export function TestAlertPanel({ orgId, rows, canSend, drill = false }: { orgId:
       <p className="text-muted-foreground text-xs">
         {drill ? (
           <>
-            Each node sends its message to AvServ&apos;s drill sink and an email with a code to the drill inbox, never to a
-            team address. A drill login enters each code on the team&apos;s Alerts page; reload here to see it.
+            Each node sends a drill message to the portal&apos;s drill intake and an email with a code to the drill inbox,
+            never to a team address. A drill login marks each message received and enters each code on the team&apos;s
+            Alerts page; reload here to see it.
           </>
         ) : (
           <>

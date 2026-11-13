@@ -1154,13 +1154,16 @@ refuses them.
 
 **Drill test alert** (AvServ plan 66 R1; `sar_test_alert.md`): **Send test
 alert** on the team's card asks every node to send the test with `drill: true`.
-It proves each node's test route, drill sink and drill email; it isn't
-checklist item 3 and decides nothing. Each node sends its message to AvServ's
-drill sink (not the portal's intake) and its email, with a six-digit code, to
-the drill inbox (never a team address). Expect **Drill sink: delivered** and
-**Drill inbox email: accepted** per node. Then, as a drill login, open the
-team's **Alerts** page and enter each node's code from the drill inbox; the
-card here shows "code entered". AvServ allows 3 tests per team per node an
+It proves each node's test route, the portal's drill intake and the drill
+email; it isn't checklist item 3 and decides nothing. Each node sends its
+message to the portal's drill intake (`/api/sar/intake/drill`, AvServ's
+`AVSERV_SAR_DRILL_SINK_URL`) and its email, with a six-digit code, to the drill
+inbox (`AVSERV_SAR_DRILL_SINK_EMAIL` on each node; never a team address).
+Expect **Portal (drill intake): delivered** and **Email (drill inbox):
+accepted** per node. Then, as a drill login, open the team's **Alerts** page,
+**Mark received** each node's message and enter each node's code; the card
+here shows "✓ marked received" and "✓ code entered". First passed on
+production 2026-11-12 (AvServ #503). AvServ allows 3 tests per team per node an
 hour, and the portal one a minute. Tell AvServ when you've sent one: they read
 both nodes' logs for both channels.
 

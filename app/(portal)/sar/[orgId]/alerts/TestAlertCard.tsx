@@ -11,8 +11,8 @@ import { confirmTestCodeAction, markTestReceivedAction } from "./test-alert-acti
 // The team's half of the test alert (plan 33 §6.9 G2 item 3): for each AvAI
 // server, mark its portal message received and enter the code its email
 // carried. A test is never an alert; it names nobody and nowhere. A drill
-// team's test sends its message to AvServ's drill sink and its email to the
-// drill inbox (AvServ plan 66 R1), so a drill login enters the code only.
+// team's message comes through the portal's drill intake and its email goes
+// to the drill inbox (AvServ plan 66 R1); a drill login proves both.
 
 function MarkReceived({ orgId, row }: { orgId: string; row: TestAlertRow }) {
   const [state, action, pending] = useActionState(markTestReceivedAction.bind(null, orgId), null);
@@ -69,7 +69,7 @@ export function TestAlertCard({ orgId, rows, drill = false }: { orgId: string; r
       </h2>
       <p className="text-muted-foreground text-sm">
         {drill
-          ? "This is a drill team. rmdig staff send a drill test from each AvAI server: its message goes to AvServ's drill sink, and its email to the drill inbox. It is a test, not an alert. For each server, enter the code from its email."
+          ? "This is a drill team. rmdig staff send a drill test from each AvAI server: its message comes here, and its email goes to the drill inbox. It is a test, not an alert. For each server, confirm both the message here and the code in the email."
           : "Before your team is activated, rmdig staff send a test from each AvAI server. It is a test, not an alert: it names no one and no place. For each server, confirm both the message here and the code in the email."}
       </p>
       <ul className="divide-y">
@@ -80,11 +80,7 @@ export function TestAlertCard({ orgId, rows, drill = false }: { orgId: string; r
               <p className="text-sm text-red-700 dark:text-red-400">This server couldn&apos;t send the test ({row.error}). rmdig staff will send a new one.</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                {drill ? (
-                  <p className="text-muted-foreground text-sm">Message: sent to the drill sink, not here.</p>
-                ) : (
-                  <MarkReceived orgId={orgId} row={row} />
-                )}
+                <MarkReceived orgId={orgId} row={row} />
                 <EnterCode orgId={orgId} row={row} drill={drill} />
               </div>
             )}
