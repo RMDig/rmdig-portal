@@ -18,7 +18,7 @@ if (!url) throw new Error("Set INTEGRATION_DATABASE_URL to a local PostGIS datab
 const host = new URL(url).hostname;
 if (host !== "127.0.0.1" && host !== "localhost") throw new Error(`Refusing non-local INTEGRATION_DATABASE_URL host ${host}.`);
 
-const h = vi.hoisted(() => ({ summary: vi.fn(), send: vi.fn(), problem: vi.fn() }));
+const h = vi.hoisted(() => ({ summary: vi.fn(), send: vi.fn(), problem: vi.fn(), log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/avserv/sar-teams", async (orig) => ({
   ...(await orig<typeof import("@/lib/avserv/sar-teams")>()),
   avservNodes: () => [
@@ -29,6 +29,7 @@ vi.mock("@/lib/avserv/sar-teams", async (orig) => ({
 vi.mock("@/lib/avserv/sar-approvals", async (orig) => ({ ...(await orig<typeof import("@/lib/avserv/sar-approvals")>()), getApprovalSummary: h.summary }));
 vi.mock("@/lib/email/send", () => ({ sendSarApprovalWaitingEmail: h.send }));
 vi.mock("@/lib/report-error", () => ({ reportProblem: h.problem, reportError: vi.fn() }));
+vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
 const dbName = `apnotify_it_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -107,5 +108,15 @@ describe("runApprovalNotify (real schema)", () => {
     h.summary.mockResolvedValue({ ok: false, status: undefined, code: "unreachable" });
     expect(await lib.runApprovalNotify()).toMatchObject({ unread: 1, sent: 0 });
     expect(h.problem).toHaveBeenCalledWith("sar.approval_notify.unread", expect.any(String), { orgId: team });
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.approval_notify.node_failed", orgId: team, node: "avserv-3", code: "unreachable" }));
+  });
+
+  it("emails on the node that answered while the other is down, and logs what each said, naming nobody", async () => {
+    h.summary.mockImplementation((n: { name: string }) =>
+      Promise.resolve(n.name === "avserv-2" ? { ok: true, pending: 1, newestPendingAcceptedAt: "2026-11-12T12:00:00Z" } : { ok: false, status: 503, code: "approvals_unavailable" }),
+    );
+    expect(await lib.runApprovalNotify()).toMatchObject({ notified: 1, sent: 2 });
+    expect(h.log.info).toHaveBeenCalledWith({ event: "sar.approval_notify.read", orgId: team, node: "avserv-2", pending: 1, newest: "2026-11-12T12:00:00Z" });
+    expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.approval_notify.node_failed", node: "avserv-3", code: "approvals_unavailable" }));
   });
 });

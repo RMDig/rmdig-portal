@@ -45,10 +45,15 @@ export async function runApprovalNotify(): Promise<ApprovalNotifyRunSummary> {
   }
 
   for (const team of teams) {
-    const plan = approvalNotifyPlan(
-      await Promise.all(nodes.map(async (n) => ({ node: n.name, result: await getApprovalSummary(n, team.id) }))),
-      team.through,
-    );
+    const reads = await Promise.all(nodes.map(async (n) => ({ node: n.name, result: await getApprovalSummary(n, team.id) })));
+    // What each node said, without a person in it: the record of why an email
+    // went or didn't.
+    for (const r of reads) {
+      if (r.result.ok) {
+        logger.info({ event: "sar.approval_notify.read", orgId: team.id, node: r.node, pending: r.result.pending, newest: r.result.newestPendingAcceptedAt });
+      }
+    }
+    const plan = approvalNotifyPlan(reads, team.through);
     for (const f of plan.failed) logger.error({ event: "sar.approval_notify.node_failed", orgId: team.id, node: f.node, code: f.code });
     if (plan.kind === "unread") {
       summary.unread++;
