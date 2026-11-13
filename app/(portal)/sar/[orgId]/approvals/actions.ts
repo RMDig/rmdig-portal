@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { sarOrgs } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { decideAcceptance } from "@/lib/sar/approvals";
-import { decideErrorText } from "@/lib/sar/approvals-rules";
+import { decideErrorText, hasApprovals } from "@/lib/sar/approvals-rules";
 
 // A confirm-first team's admins approve or decline a user's acceptance of the
 // team's terms (plan 33 D4, 9.8; AvServ sar_terms.md §6): once per terms
@@ -24,9 +24,6 @@ const input = z.object({
   state: z.enum(["approved", "declined"]),
 });
 
-// Only a team AvServ holds can have approvals.
-const DECIDES = new Set(["approved", "leaving", "suspended"]);
-
 export async function decideAction(orgId: string, _prev: DecideResult | null, formData: FormData): Promise<DecideResult> {
   const actor = await portalActor();
   if (!actor.ok) return { ok: false, error: actor.error };
@@ -37,7 +34,7 @@ export async function decideAction(orgId: string, _prev: DecideResult | null, fo
   const [org] = await db.select({ status: sarOrgs.status, mode: sarOrgs.acceptanceMode }).from(sarOrgs).where(eq(sarOrgs.id, orgId)).limit(1);
   if (!org) return { ok: false, error: "That team no longer exists." };
   if (org.mode !== "confirm_first") return { ok: false, error: "Your team doesn't approve people first, so there's nothing to decide." };
-  if (!DECIDES.has(org.status)) return { ok: false, error: "Your team isn't on AvAI's servers, so there's nothing to decide." };
+  if (!hasApprovals(org.status)) return { ok: false, error: "Your team isn't on AvAI's servers, so there's nothing to decide." };
 
   const r = await decideAcceptance(orgId, parsed.data.acceptanceId, parsed.data.state, actor.userId);
   revalidatePath(`/sar/${orgId}/approvals`);

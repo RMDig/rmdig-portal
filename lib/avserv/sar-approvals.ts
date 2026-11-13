@@ -69,6 +69,28 @@ export async function listApprovalRequests(
   return { ok: true, items, truncated: true };
 }
 
+const Summary = z.object({ pending: z.number().int().min(0), newestPendingAcceptedAt: z.string().nullable() });
+export type ApprovalSummaryResult =
+  | { ok: true; pending: number; newestPendingAcceptedAt: string | null }
+  | { ok: false; status: number | undefined; code: string };
+
+/** How many acceptances wait on one node, and the newest one's time
+ *  (sar_terms.md §6a): the set `state=pending` lists, with no person in it, so
+ *  no reader and no disclosure. Never summed across nodes: an acceptance can
+ *  be on both. */
+export async function getApprovalSummary(node: AvServNode, orgId: string): Promise<ApprovalSummaryResult> {
+  if (isMock(node.baseUrl)) return { ok: true, pending: 0, newestPendingAcceptedAt: null };
+  let res: Response;
+  try {
+    res = await avservFetch(node.baseUrl, `/v1/internal/sar-teams/${encodeURIComponent(orgId)}/approval-summary`, { method: "GET" });
+  } catch (err) {
+    return { ok: false, status: undefined, code: failureCode(err, { call: "sar_approval_summary", node: node.name }) };
+  }
+  if (!res.ok) return { ok: false, status: res.status, code: await errorCode(res) };
+  const parsed = Summary.safeParse(await res.json().catch(() => null));
+  return parsed.success ? { ok: true, ...parsed.data } : { ok: false, status: res.status, code: "bad_response" };
+}
+
 export type DecideResult = { ok: true; decidedAt: string } | { ok: false; status: number | undefined; code: string };
 
 /** Record a decision on one node. The Idempotency-Key is the decision's id,

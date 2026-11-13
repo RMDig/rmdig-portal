@@ -1,0 +1,1 @@
+ALTER TABLE "sar_orgs" ADD COLUMN "approval_notified_through" timestamp with time zone;

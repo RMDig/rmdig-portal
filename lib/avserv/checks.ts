@@ -1,7 +1,7 @@
 import { lookupAccountsByEmail } from "./account-lookup";
 import { describeHealthCheck, readNodeHealth } from "./node-health";
 import { AvServError } from "./request";
-import { listApprovalRequests } from "./sar-approvals";
+import { getApprovalSummary, listApprovalRequests } from "./sar-approvals";
 import { readRedFeed } from "./sar-feeds";
 import { ackSarAlert, avservNodes, getSarTeam, type AvServNode } from "./sar-teams";
 import { readShareLog } from "./share-log";
@@ -87,6 +87,16 @@ const PROBES: Probe[] = [
     group: "sar_approve",
     run: async (node, reader) => {
       const r = await listApprovalRequests(node, NONE, reader, "pending");
+      return r.ok ? { ok: true, answer: "ok" } : { ok: r.code === "sar_team_unknown", answer: expected(r.code, "sar_team_unknown") };
+    },
+  },
+  {
+    // The count the new-request email reads (sar_terms.md §6a). A node without
+    // the route answers a plain 404, not sar_team_unknown, so it fails here.
+    check: "Approval summary",
+    group: "sar_approve",
+    run: async (node) => {
+      const r = await getApprovalSummary(node, NONE);
       return r.ok ? { ok: true, answer: "ok" } : { ok: r.code === "sar_team_unknown", answer: expected(r.code, "sar_team_unknown") };
     },
   },

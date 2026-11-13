@@ -21,6 +21,7 @@ const TEAM_FACING = [
   "lib/email/templates/OrgInviteEmail.tsx",
   "lib/email/templates/OncallEmailConfirmEmail.tsx",
   "lib/email/templates/SarTeamRecoveryEmail.tsx",
+  "lib/email/templates/SarApprovalWaitingEmail.tsx",
   "lib/sar/recovery-rules.ts",
   "app/(portal)/sar/[orgId]/layout.tsx",
   // The team's check-out settings (plan 33 9.7, 9.8) and its approvals.

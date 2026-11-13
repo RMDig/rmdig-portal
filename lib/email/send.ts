@@ -30,6 +30,7 @@ import ResetPasswordEmail from "./templates/ResetPasswordEmail";
 import RestrictionReviewRequestedEmail from "./templates/RestrictionReviewRequestedEmail";
 import RestrictionReviewUpheldEmail from "./templates/RestrictionReviewUpheldEmail";
 import SarNoAdminStaffEmail, { type SarNoAdminStaffEmailProps } from "./templates/SarNoAdminStaffEmail";
+import SarApprovalWaitingEmail, { type SarApprovalWaitingEmailProps } from "./templates/SarApprovalWaitingEmail";
 import SarAreaChangedEmail, { type SarAreaChangedEmailProps } from "./templates/SarAreaChangedEmail";
 import SarTeamRecoveryEmail, { type SarTeamRecoveryEmailProps } from "./templates/SarTeamRecoveryEmail";
 import SarLeavingStaffEmail, { type SarLeavingStaffEmailProps } from "./templates/SarLeavingStaffEmail";
@@ -191,6 +192,18 @@ export async function sendSarTeamRecoveryEmail(to: string, params: SarTeamRecove
     to,
     subject: `${params.drill ? "[DRILL] " : ""}AvAI can't send your team alerts: ${params.teamName}`,
     html: render(SarTeamRecoveryEmail(params)),
+  });
+}
+
+/** To a confirm-first team's admins: someone new waits for approval (plan 33
+ *  9.8). Marked drill for a drill team. */
+export async function sendSarApprovalWaitingEmail(to: string, params: SarApprovalWaitingEmailProps): Promise<void> {
+  await deliver({
+    kind: "sar_approval_waiting",
+    label: "SAR-approval-waiting",
+    to,
+    subject: `${params.drill ? "[DRILL] " : ""}Someone is waiting for your team's approval: ${params.teamName}`,
+    html: render(SarApprovalWaitingEmail(params)),
   });
 }
 
