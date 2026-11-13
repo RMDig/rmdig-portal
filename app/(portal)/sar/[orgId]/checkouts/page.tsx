@@ -8,17 +8,18 @@ import { db } from "@/lib/db";
 import { sarOrgs, sarOrgSync } from "@/lib/db/schema";
 import { formatMountain } from "@/lib/format/time";
 import { TEAM_STATUS_LABEL } from "@/lib/labels";
-import { capacityText, formatCount } from "@/lib/sar/capacity";
+import { capacityText, formatCount, MODE_TEXT } from "@/lib/sar/capacity";
 import { isPastTeam } from "@/lib/sar/team-status";
 
-import { CapacityForm } from "./CapacityForm";
+import { AcceptanceModeForm, CapacityForm } from "./CheckoutForms";
 
 export const metadata = { title: "Check-outs — rmdig" };
 
 // [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
 // the first real team. A change here goes to counsel too.
 // A team's admins set the most check-outs AvServ binds to the team at once
-// (plan 33 D5, 9.7), and see each AvAI server's own count (sar_team_sync.md
+// (plan 33 D5, 9.7) and who may name it (D4, 9.8; approvals on ../approvals),
+// and see each AvAI server's own count (sar_team_sync.md
 // §5.4, read by lib/sar/recovery.ts after each sync and every 5 minutes). The
 // words say what AvServ does: the limit applies when a check-out would add
 // the team, check-outs that already have it keep it, and each server counts
@@ -30,7 +31,7 @@ export default async function CheckoutsPage({ params }: { params: Promise<{ orgI
   if (!/^[0-9a-f-]{36}$/i.test(orgId) || !(await canManageOrg(session.user.id, orgId))) redirect("/dashboard");
 
   const [org] = await db
-    .select({ status: sarOrgs.status, cap: sarOrgs.maxActiveCheckouts })
+    .select({ status: sarOrgs.status, cap: sarOrgs.maxActiveCheckouts, mode: sarOrgs.acceptanceMode })
     .from(sarOrgs)
     .where(eq(sarOrgs.id, orgId))
     .limit(1);
@@ -69,6 +70,14 @@ export default async function CheckoutsPage({ params }: { params: Promise<{ orgI
               </p>
             </div>
             <CapacityForm orgId={orgId} cap={org.cap} />
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="font-medium">Who can name your team: {MODE_TEXT[org.mode]}</h2>
+            <p className="text-muted-foreground text-sm">
+              A change applies to new check-outs only: check-outs that already name your team keep it.
+            </p>
+            <AcceptanceModeForm orgId={orgId} mode={org.mode} />
           </section>
 
           <section className="space-y-2">

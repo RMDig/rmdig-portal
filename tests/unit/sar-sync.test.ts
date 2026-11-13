@@ -63,6 +63,7 @@ const ORG = {
   regionName: null,
   isDrill: false,
   maxActiveCheckouts: null as number | null,
+  acceptanceMode: "open" as "open" | "confirm_first",
   syncRevision: 7,
 };
 const DRILL = { ...ORG, name: "AvAI Drill Team", isDrill: true };

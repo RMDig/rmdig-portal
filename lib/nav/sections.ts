@@ -14,7 +14,12 @@ export function managesLeaving(role: "admin" | "dispatcher" | "responder", statu
   return role === "admin" && (status === "approved" || status === "leaving");
 }
 
-export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responder", status: string): SectionTab[] {
+export function teamTabs(
+  orgId: string,
+  role: "admin" | "dispatcher" | "responder",
+  status: string,
+  opts: { confirmFirst?: boolean } = {},
+): SectionTab[] {
   const base = `/sar/${orgId}`;
   if (role === "dispatcher") return [{ href: `${base}/alerts`, label: "Alerts" }];
   if (role !== "admin") return [];
@@ -28,6 +33,8 @@ export function teamTabs(orgId: string, role: "admin" | "dispatcher" | "responde
     ...(status === "approved" ? [{ href: `${base}/area`, label: "Service area" }] : []),
     // The team's check-out limit and each server's count (plan 33 9.7).
     ...(!isPastTeam(status) ? [{ href: `${base}/checkouts`, label: "Check-outs" }] : []),
+    // A confirm-first team approves each user (plan 33 D4, 9.8).
+    ...(opts.confirmFirst && !isPastTeam(status) && status !== "pending" ? [{ href: `${base}/approvals`, label: "Approvals" }] : []),
     // A team gives and undoes its own leaving notice (plan 33 §6.9).
     ...(managesLeaving(role, status) ? [{ href: `${base}/leave`, label: "Leaving" }] : []),
   ];

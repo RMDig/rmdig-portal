@@ -1,6 +1,7 @@
 import { lookupAccountsByEmail } from "./account-lookup";
 import { describeHealthCheck, readNodeHealth } from "./node-health";
 import { AvServError } from "./request";
+import { listApprovalRequests } from "./sar-approvals";
 import { readRedFeed } from "./sar-feeds";
 import { ackSarAlert, avservNodes, getSarTeam, type AvServNode } from "./sar-teams";
 import { readShareLog } from "./share-log";
@@ -77,6 +78,16 @@ const PROBES: Probe[] = [
     run: async (node, reader) => {
       const r = await ackSarAlert(node, `${NONE}:${NONE}`, { teamId: NONE, by: `portal-user:${reader}` });
       return r.ok ? { ok: true, answer: "ok" } : { ok: r.code === "sar_alert_unknown", answer: expected(r.code, "sar_alert_unknown") };
+    },
+  },
+  {
+    // A confirm-first team's list (plan 33 9.8): an unknown team is 404 before
+    // anything is read, so nothing is disclosed or logged.
+    check: "Approvals list",
+    group: "sar_approve",
+    run: async (node, reader) => {
+      const r = await listApprovalRequests(node, NONE, reader, "pending");
+      return r.ok ? { ok: true, answer: "ok" } : { ok: r.code === "sar_team_unknown", answer: expected(r.code, "sar_team_unknown") };
     },
   },
   {

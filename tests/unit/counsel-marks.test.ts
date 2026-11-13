@@ -23,9 +23,13 @@ const TEAM_FACING = [
   "lib/email/templates/SarTeamRecoveryEmail.tsx",
   "lib/sar/recovery-rules.ts",
   "app/(portal)/sar/[orgId]/layout.tsx",
-  // The team's check-out limit (plan 33 9.7).
+  // The team's check-out settings (plan 33 9.7, 9.8) and its approvals.
   "app/(portal)/sar/[orgId]/checkouts/page.tsx",
-  "app/(portal)/sar/[orgId]/checkouts/CapacityForm.tsx",
+  "app/(portal)/sar/[orgId]/checkouts/CheckoutForms.tsx",
+  "lib/sar/capacity.ts",
+  "app/(portal)/sar/[orgId]/approvals/page.tsx",
+  "app/(portal)/sar/[orgId]/approvals/DecisionButtons.tsx",
+  "lib/sar/approvals-rules.ts",
   // Onboarding: applying, waiting for review, and the terms' services.
   "app/(portal)/sar/new/page.tsx",
   "app/(portal)/sar/new/SarOrgForm.tsx",
