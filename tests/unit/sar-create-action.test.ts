@@ -197,20 +197,4 @@ describe("createSarOrgAction", () => {
     await createSarOrgAction(null, fd);
     expect(h.inserted[0]).toMatchObject({ orgType: "ski_patrol" });
   });
-
-  it("stores no nearby listing and logs nothing when the box isn't ticked (AvApp plan 68)", async () => {
-    const res = await createSarOrgAction(null, validFormData());
-    expect(res.ok).toBe(true);
-    expect(h.inserted[0]).toMatchObject({ nearbyListingAt: null });
-    expect(h.inserted.some((v) => (v as { setting?: string }).setting === "nearby_listing")).toBe(false);
-  });
-
-  it("turns the nearby listing on when ticked, logged as the submitter's choice", async () => {
-    const fd = validFormData();
-    fd.set("nearbyListing", "on");
-    const res = await createSarOrgAction(null, fd);
-    expect(res.ok).toBe(true);
-    expect(h.inserted[0]).toMatchObject({ nearbyListingAt: expect.any(Date) });
-    expect(h.inserted).toContainEqual(expect.objectContaining({ setting: "nearby_listing", fromValue: null, toValue: "on" }));
-  });
 });

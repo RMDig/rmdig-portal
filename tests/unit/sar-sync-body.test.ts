@@ -25,7 +25,6 @@ const org = (o: Partial<SyncOrg> = {}): SyncOrg => ({
   oncallEmailVerifiedAt: null,
   maxActiveCheckouts: null,
   acceptanceMode: "open",
-  nearbyListingAt: null,
   ...o,
 });
 const terms: SyncTerms = {
@@ -205,13 +204,12 @@ describe("the on-call email channel (plan 33 9.10)", () => {
   });
 });
 
-describe("revision 4: the device copy and nearby listing (AvApp plan 68)", () => {
+describe("revision 4: the device copy (AvApp plan 68)", () => {
   const device: DeviceServiceArea = {
     geometry: { type: "Polygon", coordinates: [[[-106.001, 38.999], [-104.999, 38.999], [-104.999, 40.001], [-106.001, 38.999]]] },
     toleranceMeters: 50,
     bufferMeters: 51,
   };
-  const nearbyAt = new Date("2026-11-13T15:00:00Z");
 
   it("sends the device copy once every node supports revision 4, beside the unchanged area", () => {
     const plan = planSync(org(), area, terms, 1, now, 4, device);
@@ -219,11 +217,11 @@ describe("revision 4: the device copy and nearby listing (AvApp plan 68)", () =>
     expect(plan.send && plan.body.serviceArea).toEqual({ type: "Polygon", coordinates: area });
   });
 
-  it("leaves both fields out below revision 4, and holds no team back for them", () => {
+  it("leaves the copy out below revision 4, and holds no team back for it", () => {
     for (const fleet of [0, 2, 3]) {
-      const plan = planSync(org({ nearbyListingAt: nearbyAt }), area, terms, 1, now, fleet, device);
+      const plan = planSync(org(), area, terms, 1, now, fleet, device);
       expect(plan.send).toBe(true);
-      expect(plan.send && ["deviceServiceArea" in plan.body, "nearbyListing" in plan.body]).toEqual([false, false]);
+      expect(plan.send && "deviceServiceArea" in plan.body).toBe(false);
     }
   });
 
@@ -232,33 +230,9 @@ describe("revision 4: the device copy and nearby listing (AvApp plan 68)", () =>
     expect(plan.send && "deviceServiceArea" in plan.body).toBe(false);
   });
 
-  it("sends nearbyListing only for a team that turned it on, so a team that's off hashes as before", () => {
-    const on = planSync(org({ nearbyListingAt: nearbyAt }), area, terms, 1, now, 4, device);
-    expect(on.send && on.body.nearbyListing).toEqual({ consent: true, consentAt: "2026-11-13T15:00:00.000Z" });
-    const off = planSync(org(), area, terms, 1, now, 4, device);
-    expect(off.send && "nearbyListing" in off.body).toBe(false);
-  });
 
   it("gives a drill team the same fields", () => {
     const plan = planSync(org({ name: "AvAI Drill Team", isDrill: true }), area, terms, 1, now, 4, device);
     expect(plan.send && [plan.body.drill, plan.body.deviceServiceArea]).toEqual([true, device]);
-  });
-});
-
-describe("createSarOrgSchema's nearby listing box (AvApp plan 68)", () => {
-  const base = {
-    name: "Summit County Rescue Group",
-    contactName: "A",
-    contactEmail: "a@example.org",
-    operatingStatus: "nonprofit",
-    region: JSON.stringify({ type: "Polygon", coordinates: area.map((r) => [...r, r[0]]) }),
-    tosAccepted: "on",
-  };
-
-  it("is off unless ticked", () => {
-    const off = createSarOrgSchema.safeParse(base);
-    expect(off.success && off.data.nearbyListing).toBe(false);
-    const on = createSarOrgSchema.safeParse({ ...base, nearbyListing: "on" });
-    expect(on.success && on.data.nearbyListing).toBe(true);
   });
 });

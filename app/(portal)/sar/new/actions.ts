@@ -7,7 +7,6 @@ import { ProofDocError, uploadProofDoc } from "@/lib/blob/upload";
 import { db } from "@/lib/db";
 import {
   orgMemberships,
-  sarOrgSettingsLog,
   sarOrgs,
   sarOrgStatusLog,
   users,
@@ -133,7 +132,6 @@ export async function createSarOrgAction(
           operatingStatusOther: data.operatingStatusOther,
           proofDocUrl,
           createdByUserId: userId,
-          nearbyListingAt: data.nearbyListing ? new Date() : null,
         })
         .returning({ id: sarOrgs.id });
       if (!org) {
@@ -148,11 +146,6 @@ export async function createSarOrgAction(
         toStatus: "pending",
         actorUserId: userId,
       });
-      // Logged like any later change to it (sar_org_settings_log). Off is the
-      // default, so only a ticked box is a choice to log.
-      if (data.nearbyListing) {
-        await tx.insert(sarOrgSettingsLog).values({ orgId: org.id, setting: "nearby_listing", fromValue: null, toValue: "on", actorUserId: userId });
-      }
       return org.id;
     });
   } catch (err) {

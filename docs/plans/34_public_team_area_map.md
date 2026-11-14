@@ -7,14 +7,6 @@ directory). Repo-qualified references: "AvServ plan 34" is the directory, and
 
 Revision 2 (2026-11-04): overlapping areas are allowed and shown alike (§3), and areas follow the team's own edits (portal plan 33 D3).
 
-**Superseded in part, 2026-11-13 (owner, AvApp plan 68; portal plan 38 §0):** a team's area
-goes only to the phones of users who accepted the team's terms, never to anyone else, listed
-or not. So the layer this plan describes, every signed-in user seeing listed teams' areas on
-`/map`, is **not to be built**. D2 is narrowed: the shared listing consent lists a team by
-name and its area's text labels only, never its shape. The separate "show our team in nearby
-searches" setting is plan 38 §2. Kept for the record and for the parts that still apply (the
-drill rule, no coverage claims).
-
 ## 0. Goal and safety framing
 
 **Ask (owner, 2026-10-09):** any signed-in user can open `/map` and see which SAR
@@ -111,6 +103,10 @@ display.
   and the directory never disagree. It is the existing `publicListing.consent`
   (AvServ `sar_team_sync.md` §1, "Shared listing consent"): no new field and no AvServ
   change.
+  **It also covers AvApp's nearby list (owner, 2026-11-13; AvApp plan 68, Q2d):** a
+  listed team appears in the app's nearby search by name and terms only. The app
+  gets a team's area shape only after its user accepts the team, listed or not
+  (portal plan 38).
 - **D3: outline plus a light fill,** with the area simplified to about 100 m
   (`ST_SimplifyPreserveTopology`). That's readable at a regional zoom without
   implying street-level precision. A thin outline with a roughly 10% fill keeps

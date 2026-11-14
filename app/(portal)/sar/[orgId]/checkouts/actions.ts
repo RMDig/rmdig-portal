@@ -17,8 +17,7 @@ import { syncSarOrg } from "@/lib/sar/sync";
 // A team's admins set its check-out settings (plan 33 9.7, 9.8;
 // sar_team_sync.md §5): the most check-outs AvServ binds to the team at once
 // (D5), and whether a user who accepts the team's terms may name it at once or
-// only once the team approves (D4), and whether AvAI lists the team in nearby
-// searches (AvApp plan 68, owner Q2d). Each change and its log row land in one
+// only once the team approves (D4). Each change and its log row land in one
 // transaction; the sync follows, and a node that fails is shown and resent by
 // the node check (lib/sar/node-check.ts), never rolled back into the saved
 // setting. A pending team's settings are sent once it is approved.
@@ -33,23 +32,9 @@ class TeamClosed extends Error {}
 
 type Setting =
   | { name: "max_active_checkouts"; value: number | null }
-  | { name: "acceptance_mode"; value: "open" | "confirm_first" }
-  | { name: "nearby_listing"; value: boolean };
+  | { name: "acceptance_mode"; value: "open" | "confirm_first" };
 
-const asText = (v: number | string | boolean | null) => (v === null ? null : typeof v === "boolean" ? (v ? "on" : "off") : String(v));
-
-function currentValue(name: Setting["name"], row: { cap: number | null; mode: "open" | "confirm_first"; nearbyAt: Date | null }) {
-  if (name === "max_active_checkouts") return row.cap;
-  if (name === "acceptance_mode") return row.mode;
-  return row.nearbyAt !== null;
-}
-
-function columns(setting: Setting) {
-  if (setting.name === "max_active_checkouts") return { maxActiveCheckouts: setting.value };
-  if (setting.name === "acceptance_mode") return { acceptanceMode: setting.value };
-  // The consent's time is when it was turned on, sent as `consentAt`.
-  return { nearbyListingAt: setting.value ? new Date() : null };
-}
+const asText = (v: number | string | null) => (v === null ? null : String(v));
 
 /** Save one setting: lock the team, refuse a team that is over, skip an
  *  unchanged value, write it and its log row, then sync. */
@@ -59,15 +44,18 @@ async function saveSetting<S extends Setting>(orgId: string, userId: string, set
     change = await db.transaction(async (tx) => {
       // Locked, so a concurrent withdrawal or a second edit can't interleave.
       const [row] = await tx
-        .select({ status: sarOrgs.status, cap: sarOrgs.maxActiveCheckouts, mode: sarOrgs.acceptanceMode, nearbyAt: sarOrgs.nearbyListingAt })
+        .select({ status: sarOrgs.status, cap: sarOrgs.maxActiveCheckouts, mode: sarOrgs.acceptanceMode })
         .from(sarOrgs)
         .where(eq(sarOrgs.id, orgId))
         .for("update")
         .limit(1);
       if (!row || isPastTeam(row.status)) throw new TeamClosed();
-      const from = currentValue(setting.name, row) as S["value"];
+      const from = (setting.name === "max_active_checkouts" ? row.cap : row.mode) as S["value"];
       if (from === setting.value) return null;
-      await tx.update(sarOrgs).set(columns(setting)).where(eq(sarOrgs.id, orgId));
+      await tx
+        .update(sarOrgs)
+        .set(setting.name === "max_active_checkouts" ? { maxActiveCheckouts: setting.value } : { acceptanceMode: setting.value })
+        .where(eq(sarOrgs.id, orgId));
       await tx.insert(sarOrgSettingsLog).values({ orgId, setting: setting.name, fromValue: asText(from), toValue: asText(setting.value), actorUserId: userId });
       return { status: row.status, from };
     });
@@ -133,12 +121,4 @@ export async function saveAcceptanceModeAction(
   const parsed = modeSchema.safeParse(formData.get("acceptanceMode"));
   if (!parsed.success) return { ok: false, error: "Choose who can name your team." };
   return saveSetting(orgId, actor.userId, { name: "acceptance_mode", value: parsed.data });
-}
-
-export async function saveNearbyListingAction(orgId: string, _prev: SaveSettingResult<boolean> | null, formData: FormData): Promise<SaveSettingResult<boolean>> {
-  const actor = await adminActor(orgId);
-  if (!actor.ok) return actor;
-  const parsed = z.enum(["on", "off"]).safeParse(formData.get("nearbyListing"));
-  if (!parsed.success) return { ok: false, error: "Choose whether AvAI lists your team in nearby searches." };
-  return saveSetting(orgId, actor.userId, { name: "nearby_listing", value: parsed.data === "on" });
 }

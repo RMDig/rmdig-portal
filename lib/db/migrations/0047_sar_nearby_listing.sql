@@ -1,1 +1,0 @@
-ALTER TABLE "sar_orgs" ADD COLUMN "nearby_listing_at" timestamp with time zone;

@@ -68,7 +68,6 @@ const ORG = {
   isDrill: false,
   maxActiveCheckouts: null as number | null,
   acceptanceMode: "open" as "open" | "confirm_first",
-  nearbyListingAt: null as Date | null,
   syncRevision: 7,
 };
 const DRILL = { ...ORG, name: "AvAI Drill Team", isDrill: true };
@@ -202,11 +201,6 @@ describe("syncSarOrg at revision 4 (AvApp plan 68)", () => {
     expect(h.put.mock.calls[0]![1]).toMatchObject({ deviceServiceArea: DEVICE });
   });
 
-  it("sends nearbyListing for a team that turned it on", async () => {
-    h.org = { ...ORG, nearbyListingAt: new Date("2026-11-13T15:00:00Z") };
-    await syncSarOrg(ORG.id);
-    expect(h.put.mock.calls[0]![1]).toMatchObject({ nearbyListing: { consent: true, consentAt: "2026-11-13T15:00:00.000Z" } });
-  });
 
   it("never builds a copy below revision 4", async () => {
     h.gate.mockResolvedValue({ revision: 3, nodes: [] });

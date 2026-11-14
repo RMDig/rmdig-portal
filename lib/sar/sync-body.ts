@@ -33,9 +33,6 @@ export interface SyncOrg {
   maxActiveCheckouts: number | null;
   /** Open, or confirm-first (plan 33 D4, 9.8). */
   acceptanceMode: "open" | "confirm_first";
-  /** When the team turned on "show our team in nearby searches" (AvApp plan
-   *  68, owner Q2d); null: off. */
-  nearbyListingAt: Date | null;
 }
 
 export interface SyncTerms {
@@ -77,10 +74,6 @@ export interface SyncBody {
    *  every team once every node reports revision 4; absent before then, or
    *  if the copy couldn't be built (logged loudly). */
   deviceServiceArea?: DeviceServiceArea;
-  /** Sync revision 4, only when the team shows itself in nearby searches:
-   *  absent means not listed nearby, so a team that's off hashes as before.
-   *  It never sends the area's shape anywhere. */
-  nearbyListing?: { consent: true; consentAt: string };
 }
 
 /** The team's public-directory listing (sar_team_sync.md §1; shared consent,
@@ -200,12 +193,9 @@ export function planSync(
       ...(org.isDrill ? { drill: true as const } : {}),
       ...(org.maxActiveCheckouts !== null ? { maxActiveCheckouts: org.maxActiveCheckouts } : {}),
       ...(org.acceptanceMode === "confirm_first" ? { acceptanceMode: "confirm_first" as const } : {}),
-      // A node below revision 4 would ignore both. Left out, the team syncs
-      // as before: no copy on phones, and not listed nearby (the safe side).
+      // A node below revision 4 would ignore it. Left out, the team syncs
+      // as before, with no copy for phones (the safe side).
       ...(fleetRevision >= DEVICE_AREA_SYNC_REVISION && deviceArea ? { deviceServiceArea: deviceArea } : {}),
-      ...(fleetRevision >= DEVICE_AREA_SYNC_REVISION && org.nearbyListingAt
-        ? { nearbyListing: { consent: true as const, consentAt: org.nearbyListingAt.toISOString() } }
-        : {}),
     },
   };
 }

@@ -62,18 +62,6 @@ export function SarOrgForm({ phoneVerifyEnabled }: { phoneVerifyEnabled: boolean
           />
           <FieldError errors={fieldErrors?.regionName} />
         </div>
-        {/* AvApp plan 68 (owner Q2d): off unless ticked; the team can change it later on its Check-outs page.
-            [COUNSEL] held (plan 68 b): the line saying the area is shown on the phones of people who accept the
-            team's terms goes here once counsel answers. */}
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" name="nearbyListing" className="mt-0.5" />
-          <span>
-            <span className="block">Show our team in nearby searches</span>
-            <span className="text-muted-foreground block">
-              People using AvAI nearby can find your team and read its terms. You can change this later.
-            </span>
-          </span>
-        </label>
       </section>
 
       <section className="space-y-4">

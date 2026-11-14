@@ -7,7 +7,7 @@ import type { AvServNode } from "./sar-teams";
 // (sar_team_sync.md, "The version gate"): GET /v1/internal/sar-teams/capabilities,
 // service JWT, group sar_sync. A node below a revision ignores that revision's
 // fields, so the portal sends them only once EVERY node reports it: revision 4
-// for `deviceServiceArea` and `nearbyListing` (AvApp plan 68), revision 3 for
+// for `deviceServiceArea` (AvApp plan 68), revision 3 for
 // a drill team's `drill: true` (plan 37 §4.5), revision 2 for plan 33 §6.2.
 //
 // Not to be confused with sar_orgs.sync_revision, the portal's own per-team

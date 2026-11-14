@@ -11,7 +11,7 @@ import { TEAM_STATUS_LABEL } from "@/lib/labels";
 import { capacityText, formatCount, MODE_TEXT } from "@/lib/sar/capacity";
 import { isPastTeam } from "@/lib/sar/team-status";
 
-import { AcceptanceModeForm, CapacityForm, NearbyListingForm } from "./CheckoutForms";
+import { AcceptanceModeForm, CapacityForm } from "./CheckoutForms";
 
 export const metadata = { title: "Check-outs — rmdig" };
 
@@ -31,7 +31,7 @@ export default async function CheckoutsPage({ params }: { params: Promise<{ orgI
   if (!/^[0-9a-f-]{36}$/i.test(orgId) || !(await canManageOrg(session.user.id, orgId))) redirect("/dashboard");
 
   const [org] = await db
-    .select({ status: sarOrgs.status, cap: sarOrgs.maxActiveCheckouts, mode: sarOrgs.acceptanceMode, nearbyAt: sarOrgs.nearbyListingAt })
+    .select({ status: sarOrgs.status, cap: sarOrgs.maxActiveCheckouts, mode: sarOrgs.acceptanceMode })
     .from(sarOrgs)
     .where(eq(sarOrgs.id, orgId))
     .limit(1);
@@ -78,14 +78,6 @@ export default async function CheckoutsPage({ params }: { params: Promise<{ orgI
               A change applies to new check-outs only: check-outs that already name your team keep it.
             </p>
             <AcceptanceModeForm orgId={orgId} mode={org.mode} />
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="font-medium">Nearby searches: {org.nearbyAt ? "your team is shown" : "your team isn't shown"}</h2>
-            {/* [COUNSEL] held (AvApp plan 68 b): the line saying your service area is shown on the phones of
-                people who accept your terms goes here once counsel answers. Don't write it before then. */}
-            <p className="text-muted-foreground text-sm">Off unless you turn it on. It only decides whether your team is listed nearby.</p>
-            <NearbyListingForm orgId={orgId} on={org.nearbyAt !== null} />
           </section>
 
           <section className="space-y-2">

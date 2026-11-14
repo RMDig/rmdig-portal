@@ -521,12 +521,6 @@ export const sarOrgs = pgTable("sar_orgs", {
   // Open, or confirm-first (plan 33 D4, 9.8). Set by the team's admins; each
   // change is in sar_org_settings_log.
   acceptanceMode: sarAcceptanceMode("acceptance_mode").default("open").notNull(),
-  // When the team turned on "show our team in nearby searches" (AvApp plan
-  // 68, owner Q2d, 2026-11-13); null: off, the default. Set by the team's
-  // admins, at onboarding or later; each change is in sar_org_settings_log.
-  // Synced as `nearbyListing` (revision 4). It lists the team nearby only: the
-  // area's shape still goes only to users who accepted the team.
-  nearbyListingAt: timestamp("nearby_listing_at", { withTimezone: true }),
   // The newest pending acceptance a confirm-first team's admins were emailed
   // about (plan 33 9.8; lib/sar/approval-notify.ts), to the millisecond. A
   // newer one on any node emails them again.
@@ -745,7 +739,7 @@ export const sarOrgSettingsLog = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => sarOrgs.id, { onDelete: "restrict" }),
-    setting: text("setting").$type<"max_active_checkouts" | "acceptance_mode" | "nearby_listing">().notNull(),
+    setting: text("setting").$type<"max_active_checkouts" | "acceptance_mode">().notNull(),
     fromValue: text("from_value"),
     toValue: text("to_value"),
     actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),

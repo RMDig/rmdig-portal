@@ -330,13 +330,6 @@
       "when": 1794547067487,
       "tag": "0046_drill_shared_phone",
       "breakpoints": true
-    },
-    {
-      "idx": 47,
-      "version": "7",
-      "when": 1794616364012,
-      "tag": "0047_sar_nearby_listing",
-      "breakpoints": true
     }
   ]
 }

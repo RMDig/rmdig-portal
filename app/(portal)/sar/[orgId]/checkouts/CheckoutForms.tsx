@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { capacityText, formatCount, MAX_ACTIVE_CHECKOUTS, MODE_TEXT } from "@/lib/sar/capacity";
 
-import { saveAcceptanceModeAction, saveCapacityAction, saveNearbyListingAction, type SaveSettingResult } from "./actions";
+import { saveAcceptanceModeAction, saveCapacityAction, type SaveSettingResult } from "./actions";
 
 // [COUNSEL]: team-facing wording (plan 33 §6.9 F3), for counsel's review before
 // the first real team. A change here goes to counsel too.
@@ -83,38 +83,6 @@ export function AcceptanceModeForm({ orgId, mode }: { orgId: string; mode: "open
         Save
       </Button>
       <Outcome state={state} saved={(v) => MODE_TEXT[v]} />
-    </form>
-  );
-}
-
-/** "Show our team in nearby searches" (AvApp plan 68, owner Q2d). Nearby
- *  search is AvServ's phase 2, so a saved choice says when it applies rather
- *  than claiming a server uses it. Update this when nearby search ships. */
-export function NearbyListingForm({ orgId, on }: { orgId: string; on: boolean }) {
-  const [state, action, pending] = useActionState(saveNearbyListingAction.bind(null, orgId), null);
-  return (
-    <form action={action} className="space-y-3">
-      <fieldset className="space-y-2 text-sm">
-        <legend className="font-medium">Show our team in nearby searches</legend>
-        <label className="flex items-start gap-2">
-          <input type="radio" name="nearbyListing" value="off" defaultChecked={!on} className="mt-1" />
-          <span>Off: people find your team only through a check-out in your service area</span>
-        </label>
-        <label className="flex items-start gap-2">
-          <input type="radio" name="nearbyListing" value="on" defaultChecked={on} className="mt-1" />
-          <span>On: people using AvAI nearby can find your team and read its terms</span>
-        </label>
-      </fieldset>
-      <Button type="submit" size="sm" disabled={pending}>
-        Save
-      </Button>
-      {state?.ok && state.sync !== "unchanged" ? (
-        <p className="text-sm text-green-700 dark:text-green-300">
-          Saved: {state.value ? "on" : "off"}. Nearby searches aren&apos;t in AvAI yet; your choice applies once they are.
-        </p>
-      ) : (
-        <Outcome state={state} saved={(v) => (v ? "on" : "off")} />
-      )}
     </form>
   );
 }
