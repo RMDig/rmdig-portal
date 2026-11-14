@@ -1,15 +1,23 @@
 import * as Sentry from "@sentry/nextjs";
 import { and, desc, eq, sql } from "drizzle-orm";
 
-import { syncRevisionGate } from "../avserv/sar-capabilities";
+import { readFleetRevision } from "../avserv/sar-capabilities";
 import { avservNodes, putSarTeam } from "../avserv/sar-teams";
 import { db } from "../db";
 import { sarOrgs, sarOrgSync, sarOrgTerms } from "../db/schema";
 import { logger } from "../logger";
-import { SETTINGS_SYNC_REVISION } from "./capacity";
+import { reportError, reportProblem } from "../report-error";
+import { buildDeviceArea, type DeviceServiceArea } from "./device-area";
 import { RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_DEGREES } from "./geo";
 import { readTeamRecovery } from "./recovery";
-import { hasCheckoutSettings, planSync, type SkipReason } from "./sync-body";
+import {
+  DEVICE_AREA_SYNC_REVISION,
+  DRILL_SYNC_REVISION,
+  hasCheckoutSettings,
+  planSync,
+  SETTINGS_SYNC_REVISION,
+  type SkipReason,
+} from "./sync-body";
 
 // Send a SAR org's current state to every AvServ node (sar_team_sync.md).
 // Called after each decision that changes what AvServ must know (approve,
@@ -18,9 +26,6 @@ import { hasCheckoutSettings, planSync, type SkipReason } from "./sync-body";
 // is logged loudly, recorded per node and shown to staff, never rolled back
 // into the decision. A failed node also converges from its peer by
 // replication once the other node accepted the PUT.
-
-/** The protocol revision that carries `drill` (sar_team_sync.md). */
-export const DRILL_SYNC_REVISION = 3;
 
 // AvServ's permanent refusals of a drill sync: a team it won't accept as a
 // drill (422), or one whose drill flag would flip (409).
@@ -45,7 +50,8 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
     SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology(region_geom::geometry, ${SYNC_SIMPLIFY_DEGREES}), ${SYNC_DECIMALS}::int)::text AS geojson
     FROM sar_orgs WHERE id = ${orgId}
   `)) as unknown as Array<{ geojson: string | null }>;
-  const area = areaRow?.geojson ? RegionPolygonSchema.parse(JSON.parse(areaRow.geojson)).coordinates : null;
+  const region = areaRow?.geojson ? RegionPolygonSchema.parse(JSON.parse(areaRow.geojson)) : null;
+  const area = region?.coordinates ?? null;
 
   const [terms] = await db
     .select()
@@ -54,18 +60,16 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
     .orderBy(desc(sarOrgTerms.version))
     .limit(1);
 
-  // A drill team waits until every node can store `drill: true` (plan 37
-  // §4.5), and a team with check-out settings until every node can store them
-  // (plan 33 §6.2). Other teams don't read the gate, so they never wait on
-  // it. One read covers both: the higher revision a team needs.
-  const settings = hasCheckoutSettings(org);
-  const needs = Math.max(org.isDrill ? DRILL_SYNC_REVISION : 0, settings ? SETTINGS_SYNC_REVISION : 0);
-  let gatePass = false;
-  if (needs > 0) {
-    const gate = await syncRevisionGate(nodes, needs);
-    gatePass = gate.pass;
-    if (!gate.pass) logger.warn({ event: org.isDrill ? "sar.sync.drill_held" : "sar.sync.settings_held", orgId, needs, nodes: gate.nodes });
+  // What the whole fleet understands decides the gated fields: a drill team
+  // waits for revision 3 (plan 37 §4.5), a team with check-out settings for
+  // revision 2 (plan 33 §6.2). The revision 4 fields (AvApp plan 68) hold no
+  // team back: below 4 they're left out.
+  const fleet = await readFleetRevision(nodes);
+  const needs = Math.max(org.isDrill ? DRILL_SYNC_REVISION : 0, hasCheckoutSettings(org) ? SETTINGS_SYNC_REVISION : 0);
+  if (fleet.revision < needs) {
+    logger.warn({ event: org.isDrill ? "sar.sync.drill_held" : "sar.sync.settings_held", orgId, needs, nodes: fleet.nodes });
   }
+  const deviceArea = region && fleet.revision >= DEVICE_AREA_SYNC_REVISION ? await deviceCopy(orgId, region) : null;
 
   const now = new Date();
   const preview = planSync(
@@ -83,8 +87,8 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
       : null,
     0,
     now,
-    org.isDrill && gatePass,
-    settings && gatePass,
+    fleet.revision,
+    deviceArea,
   );
 
   if (!preview.send) {
@@ -121,11 +125,40 @@ export async function syncSarOrg(orgId: string): Promise<NodeOutcome[]> {
     }),
   );
   await record(orgId, outcomes, body.revision, now);
-  logger.info({ event: "sar.sync.sent", orgId, revision: body.revision, status: body.status, outcomes: outcomes.map((o) => `${o.node}:${o.outcome}`) });
+  // Never the area or its copy: the log carries no coordinates (AvApp plan 68 d).
+  logger.info({
+    event: "sar.sync.sent",
+    orgId,
+    revision: body.revision,
+    status: body.status,
+    fleetRevision: fleet.revision,
+    deviceArea: body.deviceServiceArea !== undefined,
+    outcomes: outcomes.map((o) => `${o.node}:${o.outcome}`),
+  });
   // Then each node's own view: what it would need to use the team, and what
   // it holds back meanwhile (plan 33 §6.9 F4). Never throws.
   await readTeamRecovery(orgId);
   return outcomes;
+}
+
+/** The team's device copy, or null, loudly. The area check refuses an area
+ *  whose copy fails before it's saved, so a failure here is a team saved
+ *  before that check, or a portal bug. The team still syncs, without the copy:
+ *  the phone then knows no shape for it, the safe side, and a suspension or
+ *  any other change is never held back by it. */
+async function deviceCopy(orgId: string, region: Parameters<typeof buildDeviceArea>[0]): Promise<DeviceServiceArea | null> {
+  try {
+    const result = await buildDeviceArea(region);
+    if (result.ok) return result.deviceArea;
+    reportProblem("sar.sync.device_area_failed", "A team's phone copy of its area couldn't be built; synced without it", {
+      orgId,
+      reason: result.reason,
+      points: result.points ?? "none",
+    });
+  } catch (err) {
+    reportError("sar.sync.device_area_failed", err, { orgId });
+  }
+  return null;
 }
 
 async function record(orgId: string, outcomes: NodeOutcome[], revision: number, now: Date): Promise<void> {

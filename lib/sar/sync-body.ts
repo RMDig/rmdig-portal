@@ -1,8 +1,16 @@
 import type { SarCapabilitySetting } from "../db/schema";
+import type { DeviceServiceArea } from "./device-area";
 
 // The team-sync PUT body (AvServ sar_team_sync.md §1), built from the portal's
 // own records. Pure, so every rule is unit-tested. The portal is the only
 // place a team is approved; this only ever reports the portal's decision.
+
+/** The team-sync protocol revisions (sar_team_sync.md), cumulative: a node
+ *  that reports one understands every lower one, and ignores a higher one's
+ *  fields. So each field is sent only once EVERY node reports its revision. */
+export const SETTINGS_SYNC_REVISION = 2;
+export const DRILL_SYNC_REVISION = 3;
+export const DEVICE_AREA_SYNC_REVISION = 4;
 
 export type SyncStatus = "approved" | "leaving" | "suspended" | "withdrawn";
 
@@ -25,6 +33,9 @@ export interface SyncOrg {
   maxActiveCheckouts: number | null;
   /** Open, or confirm-first (plan 33 D4, 9.8). */
   acceptanceMode: "open" | "confirm_first";
+  /** When the team turned on "show our team in nearby searches" (AvApp plan
+   *  68, owner Q2d); null: off. */
+  nearbyListingAt: Date | null;
 }
 
 export interface SyncTerms {
@@ -61,6 +72,15 @@ export interface SyncBody {
   maxActiveCheckouts?: number;
   /** Sync revision 2 (§5), only for a confirm-first team: absent means open. */
   acceptanceMode?: "confirm_first";
+  /** Sync revision 4 (AvApp plan 68): the copy of the area a user's phone
+   *  holds once the user accepted the team (lib/sar/device-area.ts). Sent for
+   *  every team once every node reports revision 4; absent before then, or
+   *  if the copy couldn't be built (logged loudly). */
+  deviceServiceArea?: DeviceServiceArea;
+  /** Sync revision 4, only when the team shows itself in nearby searches:
+   *  absent means not listed nearby, so a team that's off hashes as before.
+   *  It never sends the area's shape anywhere. */
+  nearbyListing?: { consent: true; consentAt: string };
 }
 
 /** The team's public-directory listing (sar_team_sync.md §1; shared consent,
@@ -120,19 +140,20 @@ export function hasCheckoutSettings(org: Pick<SyncOrg, "maxActiveCheckouts" | "a
   return org.maxActiveCheckouts !== null || org.acceptanceMode !== "open";
 }
 
-/** `drillSupported`: every node reports sync revision 3 (lib/avserv/sar-capabilities).
- *  Read only for a drill team; a real team never waits on it.
- *  `settingsSupported`: every node reports revision 2 (SETTINGS_SYNC_REVISION).
- *  Read only for a team with check-out settings (hasCheckoutSettings); any
- *  other team never waits on it. */
+/** `fleetRevision`: the lowest sync revision every node reports
+ *  (lib/avserv/sar-capabilities; 0 when any node can't be read). A drill team
+ *  waits for revision 3 and a team with check-out settings for revision 2;
+ *  any other team never waits on it. The revision 4 fields are left out below
+ *  4, and no team waits for them. `deviceArea`: the team's device copy, built
+ *  by the caller from `area`, or null if it couldn't be. */
 export function planSync(
   org: SyncOrg,
   area: number[][][] | null,
   terms: SyncTerms | null,
   revision: number,
   now: Date,
-  drillSupported = false,
-  settingsSupported = false,
+  fleetRevision = 0,
+  deviceArea: DeviceServiceArea | null = null,
 ): SyncPlan {
   const status = SYNCABLE[org.status];
   if (!status) return { send: false, reason: "not_syncable" };
@@ -143,10 +164,10 @@ export function planSync(
   if (!org.approvedAt || !org.approvedByUserId) return { send: false, reason: "approval_record_missing" };
   // A node below revision 3 ignores `drill` and would store the team as a
   // real one, offered to real users. Never send a drill team without it.
-  if (org.isDrill && !drillSupported) return { send: false, reason: "drill_support_pending" };
+  if (org.isDrill && fleetRevision < DRILL_SYNC_REVISION) return { send: false, reason: "drill_support_pending" };
   // Likewise a revision 1 node would ignore the settings: bind without the
   // cap, or store a confirm-first team as open.
-  if (hasCheckoutSettings(org) && !settingsSupported) return { send: false, reason: "settings_support_pending" };
+  if (hasCheckoutSettings(org) && fleetRevision < SETTINGS_SYNC_REVISION) return { send: false, reason: "settings_support_pending" };
   // AvServ refuses the whole PUT for a capability whose channel isn't in
   // `channels`; publishing refuses this, so reaching it is a portal bug.
   const emailChannel = org.oncallEmail && org.oncallEmailVerifiedAt ? { kind: "email" as const, address: org.oncallEmail, verifiedAt: org.oncallEmailVerifiedAt.toISOString() } : null;
@@ -179,6 +200,12 @@ export function planSync(
       ...(org.isDrill ? { drill: true as const } : {}),
       ...(org.maxActiveCheckouts !== null ? { maxActiveCheckouts: org.maxActiveCheckouts } : {}),
       ...(org.acceptanceMode === "confirm_first" ? { acceptanceMode: "confirm_first" as const } : {}),
+      // A node below revision 4 would ignore both. Left out, the team syncs
+      // as before: no copy on phones, and not listed nearby (the safe side).
+      ...(fleetRevision >= DEVICE_AREA_SYNC_REVISION && deviceArea ? { deviceServiceArea: deviceArea } : {}),
+      ...(fleetRevision >= DEVICE_AREA_SYNC_REVISION && org.nearbyListingAt
+        ? { nearbyListing: { consent: true as const, consentAt: org.nearbyListingAt.toISOString() } }
+        : {}),
     },
   };
 }

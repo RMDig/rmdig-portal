@@ -1,6 +1,8 @@
 import { type SQL, sql } from "drizzle-orm";
 
 import { db } from "../db";
+import { reportProblem } from "../report-error";
+import { buildDeviceArea, deviceAreaRefusal } from "./device-area";
 import { type RegionPolygon, RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_DEGREES } from "./geo";
 
 // Server checks on a SAR team's service area before it's saved (plan 33 §6.3,
@@ -10,7 +12,8 @@ import { type RegionPolygon, RegionPolygonSchema, SYNC_DECIMALS, SYNC_SIMPLIFY_D
 //
 // 1. AvServ's caps first (internal/sargeo/sargeo.go, internal/api/sarteams.go):
 //    over them, every node refuses the sync, so the save is refused, saying
-//    how much to simplify.
+//    how much to simplify. Then the device copy (lib/sar/device-area.ts): an
+//    area whose phone copy is over its point cap is refused the same way.
 // 2. Area in km² (ST_Area on geography), for the large-area warning (9.5).
 // 3. Overlap with other live teams: a warning, never a refusal, naming them,
 //    with a previewed clip, ST_Difference(area, ST_Union(theirs)). A clip
@@ -144,6 +147,16 @@ export async function assessArea(polygon: RegionPolygon, orgId: string | null, e
   const area = parsed.data;
   const caps = checkAvservCaps(area);
   if (!caps.ok) return { ok: false, code: caps.code, message: caps.message };
+  const device = await buildDeviceArea(area, exec);
+  const deviceRefusal = deviceAreaRefusal(device);
+  if (deviceRefusal) {
+    // A copy that doesn't cover the area, or has no shape, is the portal's
+    // fault, not the team's: refused all the same, and loud.
+    if (!device.ok && device.reason !== "too_many_points") {
+      reportProblem("sar.area.device_copy_failed", "A team's area couldn't be given a phone copy that covers it", { orgId, reason: device.reason, points: device.points ?? "none" });
+    }
+    return { ok: false, code: "area_invalid", message: deviceRefusal };
+  }
 
   const sent = sql`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(area)}), 4326)`;
   const others = sql`

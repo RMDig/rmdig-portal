@@ -102,6 +102,9 @@ export const createSarOrgSchema = z
     operatingStatus: z.enum(operatingStatusValues),
     operatingStatusOther: optionalText(200),
     region: regionField,
+    // "Show our team in nearby searches" (AvApp plan 68, owner Q2d): offered
+    // here, off unless ticked. An unchecked box is absent from FormData.
+    nearbyListing: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
     // The TOS acknowledgment checkbox. An unchecked box is absent from FormData
     // (→ undefined); "on" is the value of a checked one.
     tosAccepted: z

@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   userId: "admin-1" as string | undefined,
   canManage: true,
-  locked: { status: "approved", cap: null, mode: "open" } as { status: string; cap: number | null; mode: string } | undefined,
+  locked: { status: "approved", cap: null, mode: "open", nearbyAt: null } as { status: string; cap: number | null; mode: string; nearbyAt?: Date | null } | undefined,
   updates: [] as unknown[],
   inserts: [] as unknown[],
   txError: null as unknown,
@@ -48,7 +48,7 @@ vi.mock("@/lib/report-error", () => ({ reportError: h.reportError, reportProblem
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidate }));
 
-import { saveAcceptanceModeAction, saveCapacityAction } from "@/app/(portal)/sar/[orgId]/checkouts/actions";
+import { saveAcceptanceModeAction, saveCapacityAction, saveNearbyListingAction } from "@/app/(portal)/sar/[orgId]/checkouts/actions";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
 const form = (k: string, v: string) => {
@@ -63,7 +63,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.userId = "admin-1";
   h.canManage = true;
-  h.locked = { status: "approved", cap: null, mode: "open" };
+  h.locked = { status: "approved", cap: null, mode: "open", nearbyAt: null };
   h.updates = [];
   h.inserts = [];
   h.txError = null;
@@ -164,5 +164,43 @@ describe("both settings", () => {
     h.txError = new Error("db down");
     expect(await saveCap("25")).toEqual({ ok: false, error: "Couldn't save the setting. Try again in a moment." });
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.settings.save_failed", setting: "max_active_checkouts" }));
+  });
+});
+
+describe("saveNearbyListingAction (AvApp plan 68, owner Q2d)", () => {
+  const saveNearby = (v: string) => saveNearbyListingAction(ORG, null, form("nearbyListing", v));
+
+  it("turns it on with the time it was turned on, logged, and syncs it", async () => {
+    expect(await saveNearby("on")).toEqual({ ok: true, value: true, sync: "sent" });
+    expect(h.updates).toEqual([{ nearbyListingAt: expect.any(Date) }]);
+    expect(h.inserts).toEqual([{ orgId: ORG, setting: "nearby_listing", fromValue: "off", toValue: "on", actorUserId: "admin-1" }]);
+    expect(h.sync).toHaveBeenCalledWith(ORG);
+  });
+
+  it("turns it off, logged", async () => {
+    h.locked = { status: "approved", cap: null, mode: "open", nearbyAt: new Date("2026-11-13T00:00:00Z") };
+    expect(await saveNearby("off")).toEqual({ ok: true, value: false, sync: "sent" });
+    expect(h.updates).toEqual([{ nearbyListingAt: null }]);
+    expect(h.inserts).toEqual([expect.objectContaining({ fromValue: "on", toValue: "off" })]);
+  });
+
+  it("changes nothing when it's already on, keeping the first consent time", async () => {
+    h.locked = { status: "approved", cap: null, mode: "open", nearbyAt: new Date("2026-11-13T00:00:00Z") };
+    expect(await saveNearby("on")).toEqual({ ok: true, value: true, sync: "unchanged" });
+    expect(h.updates).toEqual([]);
+    expect(h.sync).not.toHaveBeenCalled();
+  });
+
+  it("refuses a value that isn't on or off, and a non-admin", async () => {
+    expect(await saveNearby("maybe")).toMatchObject({ ok: false });
+    h.canManage = false;
+    expect(await saveNearby("on")).toMatchObject({ ok: false, error: expect.stringMatching(/admins/) });
+    expect(h.updates).toEqual([]);
+  });
+
+  it("waits for approval on a pending team", async () => {
+    h.locked = { status: "pending", cap: null, mode: "open", nearbyAt: null };
+    expect(await saveNearby("on")).toEqual({ ok: true, value: true, sync: "later" });
+    expect(h.sync).not.toHaveBeenCalled();
   });
 });
