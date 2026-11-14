@@ -11,7 +11,9 @@ const h = vi.hoisted(() => ({
   recorded: [] as unknown[],
   put: vi.fn(),
   gate: vi.fn(),
+  device: vi.fn(),
   sentry: vi.fn(),
+  captureException: vi.fn(),
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -41,11 +43,13 @@ vi.mock("@/lib/avserv/sar-teams", () => ({
   avservNodes: () => [{ name: "avserv-2", baseUrl: "https://a" }, { name: "avserv-3", baseUrl: "https://b" }],
   putSarTeam: h.put,
 }));
-vi.mock("@/lib/avserv/sar-capabilities", () => ({ syncRevisionGate: h.gate }));
+vi.mock("@/lib/avserv/sar-capabilities", () => ({ readFleetRevision: h.gate }));
+// The copy itself is built in PostGIS (tests/integration/sar-device-area.test.ts).
+vi.mock("@/lib/sar/device-area", () => ({ buildDeviceArea: h.device }));
 // Each node's view is read after the PUTs (lib/sar/recovery.ts, tested there).
 const recovery = vi.hoisted(() => vi.fn(() => Promise.resolve([])));
 vi.mock("@/lib/sar/recovery", () => ({ readTeamRecovery: recovery }));
-vi.mock("@sentry/nextjs", () => ({ captureMessage: h.sentry }));
+vi.mock("@sentry/nextjs", () => ({ captureMessage: h.sentry, captureException: h.captureException }));
 vi.mock("@/lib/logger", () => ({ logger: h.log }));
 
 import { syncSarOrg } from "@/lib/sar/sync";
@@ -67,6 +71,7 @@ const ORG = {
   syncRevision: 7,
 };
 const DRILL = { ...ORG, name: "AvAI Drill Team", isDrill: true };
+const DEVICE = { geometry: { type: "Polygon", coordinates: [[[-106.1, 38.9], [-104.9, 38.9], [-104.9, 40.1], [-106.1, 38.9]]] }, toleranceMeters: 50, bufferMeters: 51 };
 const TERMS = { version: 1, sha256: "a".repeat(64), publishedAt: new Date(), body: "t", requiresReacceptance: true, capabilities: [{ name: "checkout_alerts", channels: ["portal"] }] };
 
 beforeEach(() => {
@@ -74,7 +79,8 @@ beforeEach(() => {
   h.org = ORG;
   h.terms = [TERMS];
   h.recorded = [];
-  h.gate.mockResolvedValue({ pass: true, nodes: [] });
+  h.gate.mockResolvedValue({ revision: 3, nodes: [] });
+  h.device.mockResolvedValue({ ok: true, points: 5, deviceArea: DEVICE });
   h.put.mockResolvedValue({ ok: true, result: { orgId: ORG.id, revision: 8, applied: true, usable: true, unusableReason: null } });
 });
 
@@ -116,17 +122,22 @@ describe("syncSarOrg", () => {
     expect(h.recorded[0]).toMatchObject({ revision: 7, outcome: "skipped", unusableReason: "no_published_terms" });
   });
 
-  it("never reads the drill gate for a real team, and sends no drill field", async () => {
+  it("sends a real team whatever the fleet reports, with no drill field", async () => {
+    h.gate.mockResolvedValue({ revision: 0, nodes: [] });
     await syncSarOrg(ORG.id);
-    expect(h.gate).not.toHaveBeenCalled();
+    expect(h.put).toHaveBeenCalledTimes(2);
     expect("drill" in h.put.mock.calls[0]![1]).toBe(false);
   });
 
-  it("reads revision 2 for a capped team, sends its cap, and holds it while a node is behind (plan 33 §6.2)", async () => {
+  it("sends a capped team's cap at revision 2, and holds it below (plan 33 §6.2)", async () => {
     h.org = { ...ORG, maxActiveCheckouts: 25 };
     await syncSarOrg(ORG.id);
-    expect(h.gate).toHaveBeenCalledWith(expect.any(Array), 2);
     expect(h.put.mock.calls[0]![1]).toMatchObject({ maxActiveCheckouts: 25 });
+    h.put.mockClear();
+    h.gate.mockResolvedValue({ revision: 1, nodes: [] });
+    const out = await syncSarOrg(ORG.id);
+    expect(h.put).not.toHaveBeenCalled();
+    expect(out[0]).toMatchObject({ outcome: "skipped", reason: "settings_support_pending" });
   });
 
   it("throws for an unknown org", async () => {
@@ -142,14 +153,13 @@ describe("syncSarOrg for a drill team (plan 37 §4.5)", () => {
 
   it("sends drill: true once every node supports revision 3", async () => {
     await syncSarOrg(ORG.id);
-    expect(h.gate).toHaveBeenCalledWith(expect.any(Array), 3);
     expect(h.put).toHaveBeenCalledTimes(2);
     expect(h.put.mock.calls[0]![1]).toMatchObject({ drill: true, displayName: "AvAI Drill Team" });
   });
 
   it("holds it, records why per node and logs which node is behind, without bumping or sending", async () => {
     const nodes = [{ node: "avserv-2", ok: true, syncRevision: 3 }, { node: "avserv-3", ok: true, syncRevision: 2 }];
-    h.gate.mockResolvedValue({ pass: false, nodes });
+    h.gate.mockResolvedValue({ revision: 2, nodes });
     const out = await syncSarOrg(ORG.id);
     expect(h.put).not.toHaveBeenCalled();
     expect(out).toEqual([
@@ -177,5 +187,48 @@ describe("syncSarOrg for a drill team (plan 37 §4.5)", () => {
     await syncSarOrg(ORG.id);
     expect(h.sentry).not.toHaveBeenCalled();
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.sync.node_failed", code: "sar_capture_unavailable" }));
+  });
+});
+
+describe("syncSarOrg at revision 4 (AvApp plan 68)", () => {
+  beforeEach(() => {
+    h.gate.mockResolvedValue({ revision: 4, nodes: [] });
+  });
+
+  it("builds the device copy from the area as sent, and sends it", async () => {
+    await syncSarOrg(ORG.id);
+    expect(h.device).toHaveBeenCalledWith({ type: "Polygon", coordinates: [[[-106, 39], [-105, 39], [-105, 40], [-106, 39]]] });
+    expect(h.put.mock.calls[0]![1]).toMatchObject({ deviceServiceArea: DEVICE });
+  });
+
+
+  it("never builds a copy below revision 4", async () => {
+    h.gate.mockResolvedValue({ revision: 3, nodes: [] });
+    await syncSarOrg(ORG.id);
+    expect(h.device).not.toHaveBeenCalled();
+    expect("deviceServiceArea" in h.put.mock.calls[0]![1]).toBe(false);
+  });
+
+  it("sends the team without a copy that failed its check, and reports it to Sentry", async () => {
+    h.device.mockResolvedValue({ ok: false, reason: "not_covering", points: 12 });
+    await syncSarOrg(ORG.id);
+    expect(h.put).toHaveBeenCalledTimes(2);
+    expect("deviceServiceArea" in h.put.mock.calls[0]![1]).toBe(false);
+    expect(h.sentry).toHaveBeenCalledWith(expect.stringMatching(/phone copy/), expect.objectContaining({ tags: { event: "sar.sync.device_area_failed" } }));
+  });
+
+  it("sends the team without a copy when building it throws, and reports it", async () => {
+    h.device.mockRejectedValue(new Error("db down"));
+    await syncSarOrg(ORG.id);
+    expect(h.put).toHaveBeenCalledTimes(2);
+    expect(h.captureException).toHaveBeenCalled();
+  });
+
+  it("logs no coordinates, only whether a copy was sent (plan 68 d)", async () => {
+    await syncSarOrg(ORG.id);
+    const logged = JSON.stringify([...h.log.info.mock.calls, ...h.log.warn.mock.calls, ...h.log.error.mock.calls]);
+    expect(logged).not.toMatch(/-10[56]\./);
+    expect(logged).not.toMatch(/coordinates/);
+    expect(h.log.info).toHaveBeenCalledWith(expect.objectContaining({ event: "sar.sync.sent", fleetRevision: 4, deviceArea: true }));
   });
 });

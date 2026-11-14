@@ -6,8 +6,9 @@ import type { AvServNode } from "./sar-teams";
 // Which team-sync protocol revision each AvServ node understands
 // (sar_team_sync.md, "The version gate"): GET /v1/internal/sar-teams/capabilities,
 // service JWT, group sar_sync. A node below a revision ignores that revision's
-// fields, so the portal sends them only once EVERY node reports it: revision 3
-// for a drill team's `drill: true` (plan 37 §4.5), revision 2 for plan 33 §6.2.
+// fields, so the portal sends them only once EVERY node reports it: revision 4
+// for `deviceServiceArea` (AvApp plan 68), revision 3 for
+// a drill team's `drill: true` (plan 37 §4.5), revision 2 for plan 33 §6.2.
 //
 // Not to be confused with sar_orgs.sync_revision, the portal's own per-team
 // send counter.
@@ -23,7 +24,7 @@ export type NodeCapability =
 
 export async function readNodeCapability(node: AvServNode): Promise<NodeCapability> {
   // The mock stands in for a fully upgraded fleet.
-  if (isMock(node.baseUrl)) return { node: node.name, ok: true, syncRevision: 3 };
+  if (isMock(node.baseUrl)) return { node: node.name, ok: true, syncRevision: 4 };
   let res: Response;
   try {
     res = await avservFetch(node.baseUrl, "/v1/internal/sar-teams/capabilities", { method: "GET" });
@@ -40,15 +41,17 @@ export async function readNodeCapability(node: AvServNode): Promise<NodeCapabili
   return { node: node.name, ok: true, syncRevision: parsed.success ? parsed.data.syncRevision : null };
 }
 
-export interface RevisionGate {
-  /** True only when every node answered with syncRevision ≥ the minimum. */
-  pass: boolean;
+export interface FleetRevision {
+  /** The lowest syncRevision every node reported: 0 when there are no nodes,
+   *  or any node couldn't be read or gave no revision ("hold" for every
+   *  gated field). A field of revision r may be sent when this is ≥ r. */
+  revision: number;
   nodes: NodeCapability[];
 }
 
-/** Read every node and decide the gate. An empty node list never passes. */
-export async function syncRevisionGate(nodes: AvServNode[], minimum: number): Promise<RevisionGate> {
+/** Read every node; the fleet understands the lowest revision any reports. */
+export async function readFleetRevision(nodes: AvServNode[]): Promise<FleetRevision> {
   const read = await Promise.all(nodes.map(readNodeCapability));
-  const pass = read.length > 0 && read.every((n) => n.ok && n.syncRevision !== null && n.syncRevision >= minimum);
-  return { pass, nodes: read };
+  const known = read.map((n) => (n.ok && n.syncRevision !== null ? n.syncRevision : 0));
+  return { revision: known.length > 0 ? Math.min(...known) : 0, nodes: read };
 }

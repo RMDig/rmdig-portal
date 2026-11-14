@@ -11,11 +11,6 @@ import { z } from "zod";
 export const MIN_ACTIVE_CHECKOUTS = 1;
 export const MAX_ACTIVE_CHECKOUTS = 10_000;
 
-/** The sync revision that carries `maxActiveCheckouts` (sar_team_sync.md §5;
- *  plan 33 §6.2). A revision 1 node ignores the field and would bind without
- *  the cap, so a capped team is held until every node reports this. */
-export const SETTINGS_SYNC_REVISION = 2;
-
 /** A count as the team reads it: "10,000". */
 export const formatCount = (n: number) => new Intl.NumberFormat("en-US").format(n);
 

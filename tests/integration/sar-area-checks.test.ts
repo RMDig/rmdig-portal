@@ -119,7 +119,9 @@ describe("SAR area checks (PostGIS)", () => {
   });
 
   it("returns exactly what the sync would send for the same area", async () => {
-    const polygon = heavy(1);
+    // 3,000 points about 230 m apart: simplifying keeps every one, and the
+    // phone copy stays under its cap.
+    const polygon: RegionPolygon = { type: "Polygon", coordinates: [star(-110, 45, 1, 0.05, 3_000)] };
     const id = await org("Sync twin", "withdrawn", polygon);
     const [sent] = await sql<{ geojson: string }[]>`
       SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology(region_geom::geometry, 0.0005), 6)::text AS geojson
@@ -197,13 +199,11 @@ describe("SAR area checks (PostGIS)", () => {
     expect(await checks.assessArea(bowtie, null, exec)).toMatchObject({ ok: false, code: "area_invalid", message: expect.stringMatching(/edges/) });
   });
 
-  it("accepts an area just under 1 MiB as sent, and refuses one over it, saying how much to simplify", async () => {
+  it("refuses an area over 1 MiB as sent in AvServ's words, and one under it by the phone copy's cap", async () => {
+    // Under 1 MiB AvServ would take it, but its phone copy is far over the
+    // 5,000-point cap (AvApp plan 68), which now binds first in practice.
     const under = await checks.assessArea(heavy(3), null, exec);
-    if (!under.ok) throw new Error(under.message);
-    // Simplifying drops a few points where a hole's spikes are densest.
-    expect(under.vertices).toBeGreaterThan(38_000);
-    expect(under.bytes).toBeGreaterThan(0.8 * 2 ** 20);
-    expect(under.bytes).toBeLessThanOrEqual(2 ** 20);
+    expect(under).toMatchObject({ ok: false, code: "area_invalid", message: expect.stringMatching(/^On phones the area needs [\d,]+ points; the limit is 5,000\./) });
 
     const over = await checks.assessArea(heavy(4), null, exec);
     expect(over).toMatchObject({ ok: false, code: "area_too_large", message: expect.stringMatching(/MiB once simplified; the limit is 1 MiB\. Remove about \d+% of its points/) });

@@ -103,6 +103,10 @@ display.
   and the directory never disagree. It is the existing `publicListing.consent`
   (AvServ `sar_team_sync.md` §1, "Shared listing consent"): no new field and no AvServ
   change.
+  **It also covers AvApp's nearby list (owner, 2026-11-13; AvApp plan 68, Q2d):** a
+  listed team appears in the app's nearby search by name and terms only. The app
+  gets a team's area shape only after its user accepts the team, listed or not
+  (portal plan 38).
 - **D3: outline plus a light fill,** with the area simplified to about 100 m
   (`ST_SimplifyPreserveTopology`). That's readable at a regional zoom without
   implying street-level precision. A thin outline with a roughly 10% fill keeps

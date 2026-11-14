@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { DeviceServiceArea } from "@/lib/sar/device-area";
 import { planSync, SERVICE_AREA_LABEL_MAX, type SyncOrg, type SyncTerms } from "@/lib/sar/sync-body";
 import { createSarOrgSchema, updateSarOrgSchema } from "@/lib/sar/schema";
 
@@ -124,8 +125,8 @@ describe("planSync for a drill team (plan 37 §4.5)", () => {
 
   it("holds a drill team until every node supports drill, and never sends it without the flag", () => {
     expect(planSync(drill(), area, terms, 1, now)).toEqual({ send: false, reason: "drill_support_pending" });
-    expect(planSync(drill(), area, terms, 1, now, false)).toEqual({ send: false, reason: "drill_support_pending" });
-    const plan = planSync(drill(), area, terms, 1, now, true);
+    expect(planSync(drill(), area, terms, 1, now, 2)).toEqual({ send: false, reason: "drill_support_pending" });
+    const plan = planSync(drill(), area, terms, 1, now, 3);
     expect(plan.send && plan.body.drill).toBe(true);
   });
 
@@ -135,8 +136,8 @@ describe("planSync for a drill team (plan 37 §4.5)", () => {
   });
 
   it("leaves the drill field out of a real team's body, so its body is unchanged", () => {
-    for (const supported of [false, true]) {
-      const plan = planSync(org(), area, terms, 1, now, supported);
+    for (const fleet of [0, 3, 4]) {
+      const plan = planSync(org(), area, terms, 1, now, fleet);
       expect(plan.send && "drill" in plan.body).toBe(false);
     }
   });
@@ -145,21 +146,22 @@ describe("planSync for a drill team (plan 37 §4.5)", () => {
 describe("the check-out cap (plan 33 9.7, D5; sar_team_sync.md §5)", () => {
   it("sends a capped team's limit once every node supports it, and holds it until then", () => {
     expect(planSync(org({ maxActiveCheckouts: 25 }), area, terms, 1, now)).toEqual({ send: false, reason: "settings_support_pending" });
-    const plan = planSync(org({ maxActiveCheckouts: 25 }), area, terms, 1, now, false, true);
+    expect(planSync(org({ maxActiveCheckouts: 25 }), area, terms, 1, now, 1)).toEqual({ send: false, reason: "settings_support_pending" });
+    const plan = planSync(org({ maxActiveCheckouts: 25 }), area, terms, 1, now, 2);
     expect(plan.send && plan.body.maxActiveCheckouts).toBe(25);
   });
 
   it("leaves the field out for a team with no limit, held or not, so its body and hash are unchanged", () => {
-    for (const supported of [false, true]) {
-      const plan = planSync(org(), area, terms, 1, now, false, supported);
+    for (const fleet of [0, 2]) {
+      const plan = planSync(org(), area, terms, 1, now, fleet);
       expect(plan.send && "maxActiveCheckouts" in plan.body).toBe(false);
     }
   });
 
-  it("holds a capped drill team for each gate it needs", () => {
+  it("holds a capped drill team until the fleet reaches the higher revision it needs", () => {
     const capped = org({ name: "AvAI Drill Team", isDrill: true, maxActiveCheckouts: 3 });
-    expect(planSync(capped, area, terms, 1, now, true, false)).toEqual({ send: false, reason: "settings_support_pending" });
-    const plan = planSync(capped, area, terms, 1, now, true, true);
+    expect(planSync(capped, area, terms, 1, now, 2)).toEqual({ send: false, reason: "drill_support_pending" });
+    const plan = planSync(capped, area, terms, 1, now, 3);
     expect(plan.send && [plan.body.drill, plan.body.maxActiveCheckouts]).toEqual([true, 3]);
   });
 });
@@ -168,14 +170,14 @@ describe("confirm-first (plan 33 9.8, D4; sar_team_sync.md §5)", () => {
   it("sends acceptanceMode only for a confirm-first team, once every node supports it", () => {
     const cf = org({ acceptanceMode: "confirm_first" });
     expect(planSync(cf, area, terms, 1, now)).toEqual({ send: false, reason: "settings_support_pending" });
-    const plan = planSync(cf, area, terms, 1, now, false, true);
+    const plan = planSync(cf, area, terms, 1, now, 2);
     expect(plan.send && plan.body.acceptanceMode).toBe("confirm_first");
-    const open = planSync(org(), area, terms, 1, now, false, true);
+    const open = planSync(org(), area, terms, 1, now, 2);
     expect(open.send && "acceptanceMode" in open.body).toBe(false);
   });
 
   it("sends both settings together", () => {
-    const plan = planSync(org({ acceptanceMode: "confirm_first", maxActiveCheckouts: 8 }), area, terms, 1, now, false, true);
+    const plan = planSync(org({ acceptanceMode: "confirm_first", maxActiveCheckouts: 8 }), area, terms, 1, now, 2);
     expect(plan.send && [plan.body.acceptanceMode, plan.body.maxActiveCheckouts]).toEqual(["confirm_first", 8]);
   });
 });
@@ -199,5 +201,38 @@ describe("the on-call email channel (plan 33 9.10)", () => {
 
   it("holds terms that send by email when no address is confirmed, rather than send a body AvServ refuses", () => {
     expect(planSync(org(), area, byEmail, 4, now)).toEqual({ send: false, reason: "email_channel_missing" });
+  });
+});
+
+describe("revision 4: the device copy (AvApp plan 68)", () => {
+  const device: DeviceServiceArea = {
+    geometry: { type: "Polygon", coordinates: [[[-106.001, 38.999], [-104.999, 38.999], [-104.999, 40.001], [-106.001, 38.999]]] },
+    toleranceMeters: 50,
+    bufferMeters: 51,
+  };
+
+  it("sends the device copy once every node supports revision 4, beside the unchanged area", () => {
+    const plan = planSync(org(), area, terms, 1, now, 4, device);
+    expect(plan.send && plan.body.deviceServiceArea).toEqual(device);
+    expect(plan.send && plan.body.serviceArea).toEqual({ type: "Polygon", coordinates: area });
+  });
+
+  it("leaves the copy out below revision 4, and holds no team back for it", () => {
+    for (const fleet of [0, 2, 3]) {
+      const plan = planSync(org(), area, terms, 1, now, fleet, device);
+      expect(plan.send).toBe(true);
+      expect(plan.send && "deviceServiceArea" in plan.body).toBe(false);
+    }
+  });
+
+  it("still sends the team when its device copy couldn't be built", () => {
+    const plan = planSync(org(), area, terms, 1, now, 4, null);
+    expect(plan.send && "deviceServiceArea" in plan.body).toBe(false);
+  });
+
+
+  it("gives a drill team the same fields", () => {
+    const plan = planSync(org({ name: "AvAI Drill Team", isDrill: true }), area, terms, 1, now, 4, device);
+    expect(plan.send && [plan.body.drill, plan.body.deviceServiceArea]).toEqual([true, device]);
   });
 });
