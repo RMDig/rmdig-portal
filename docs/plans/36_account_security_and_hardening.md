@@ -565,11 +565,12 @@ rules:
 | 11 | S4 App Lock reset code + link-code rate limit | ✅ built (0032); live now (device-admin key set 2026-10-20) |
 | 12 | `MFA_ENFORCEMENT=all` (Vercel env, owner) | ✅ 2026-10-19 |
 | 13 | H4 SAR payload encryption, H7 rotation table | ✅ built: an alert's position, route and note sealed in the stored payload (`SAR_PAYLOAD_KEYS`, shared helper `lib/crypto/keyed-aes.ts`), intake 503 and a failed production build without the key, retention unchanged; runbook "Key rotation" table |
+| 14 | H6 remainder: `LOG_PSEUDONYM_KEY` (log pseudonyms off `NEXTAUTH_SECRET`; production build fails without it), H7 rows for it and the erasure key | Built. Phone-verify proofs and passkey challenges stay keyed from `NEXTAUTH_SECRET`: both live minutes, so a rotation costs one retry, and a log key shouldn't sign anything |
 | — | S6 (plan 57) | §9 gates |
 
 ## 11. Owner checks (not verifiable from the repo)
 
-- Vercel: the Development env `DATABASE_URL` (§2); new env vars in Production (§4, H3, H6);
+- Vercel: the Development env `DATABASE_URL` (§2); new env vars in Production (§4, H3, H6; `LOG_PSEUDONYM_KEY` before PR 14 merges);
   the `MFA_ENFORCEMENT` flip; cron frequency (S-D8).
 - Production headers after H1. On 2026-10-17, `curl -I https://rmdig.ai/` shows the baseline
   CSP, HSTS with preload, `X-Frame-Options: DENY`, `nosniff`, referrer and permissions

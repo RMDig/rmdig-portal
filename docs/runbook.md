@@ -557,12 +557,14 @@ in the password manager: Vercel won't show it again.
 
 | Secret | Cadence | How | What rotating it breaks | Last rotated |
 |---|---|---|---|---|
-| `NEXTAUTH_SECRET` | yearly | `openssl rand -hex 32`, set in Vercel **and** the GitHub Actions secret, redeploy | Open sign-in and re-auth forms, passkey challenges (5 min), phone-verify proofs in flight, and log pseudonyms (old and new logs stop correlating). Check you're still signed in after the redeploy | — |
+| `NEXTAUTH_SECRET` | yearly | `openssl rand -hex 32`, set in Vercel **and** the GitHub Actions secret, redeploy | Open sign-in and re-auth forms, passkey challenges (5 min) and phone-verify proofs in flight. Check you're still signed in after the redeploy | — |
+| `LOG_PSEUDONYM_KEY` | on leak | `openssl rand -hex 32`, set in Production (`--sensitive`), redeploy. Production builds fail without it (plan 36 H6) | Log correlation only: an address's pseudonym changes, so lines before and after the redeploy don't match. Nothing stored uses it | — |
 | `MFA_ENCRYPTION_KEY(S)` | yearly | "Rotating the MFA encryption key" (overlap, `pnpm mfa:reencrypt`) | Nothing, with overlap. Retiring a key before re-encrypting breaks those users' two-factor | — |
 | `SAR_PAYLOAD_KEYS` | yearly | New key **first**, old kept: `s2:<new>,s1:<old>`; redeploy. Old alerts are deleted by retention within 90 days of ending, so remove `s1` after the check below shows 0 | Nothing, with overlap. Removing a key still in use breaks that team's Alerts page (loudly) | — |
 | `AVSERV_SAR_INTAKE_KEYS` | yearly, per node | "SAR alert intake": add the new pair, redeploy, switch the node, remove the old | Nothing, with overlap (a node mid-switch gets `401`, which AvServ retries) | — |
 | AvServ service key (`AVSERV_SERVICE_JWT_*`) | yearly | "AvServ service key": rotate with overlap via AvServ | Nothing, with overlap. Without it, every AvServ call fails (the build check catches a bad key) | — |
 | Device-admin key (`AVSERV_DEVICE_ADMIN_JWT_*`) | yearly | "Device-admin key": same overlap via AvServ | Signing phones out, until AvServ has the new kid | — |
+| Erasure key (`AVSERV_ERASURE_JWT_*`) | yearly | Same as the device-admin key: mint a new kid, AvServ installs it on both nodes (`account_erasure.md`), then set the three vars and redeploy | **Erase in AvServ** on the deletion queue, until AvServ has the new kid; erasure by hand still works | — |
 | `CRON_SECRET` | yearly | `openssl rand -hex 32`, set, redeploy | Nothing: Vercel sends the current value to each cron | — |
 | `DATABASE_URL` (Neon password) | yearly | "Rotating the database password" | Every DB call until the new URL is deployed; backups until the GitHub secret is updated | — |
 | `GOOGLE_CLIENT_SECRET` | yearly | Google Cloud console: add a secret, set it, redeploy, then disable the old one | Google sign-in, if the old one is disabled first | — |

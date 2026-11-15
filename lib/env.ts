@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { LOG_PSEUDONYM_KEY_PATTERN } from "./log-pseudonym-key";
 import { previewSafetyProblems } from "./preview-guard";
 
 // Single source of truth for env access across the app. Imported by lib/db,
@@ -33,6 +34,11 @@ export const Env = z.object({
   // Previews leave it unset and Auth.js auto-detects via VERCEL_URL.
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32),
+  // Keys the email and IP pseudonyms in logs (plan 36 H6; lib/log-pseudonym-key.ts).
+  // Required in production by the build check (scripts/check-service-key.ts),
+  // not here, so a missing log key fails a build instead of every route at
+  // boot. Unset elsewhere: pseudonyms stay keyed from NEXTAUTH_SECRET.
+  LOG_PSEUDONYM_KEY: z.string().regex(LOG_PSEUDONYM_KEY_PATTERN, "must be 64 hex characters (openssl rand -hex 32)").optional(),
 
   // Google OAuth
   GOOGLE_CLIENT_ID: z.string().min(1),
