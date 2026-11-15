@@ -1,5 +1,6 @@
 import { checkDeviceAdminKeyConfig, checkErasureKeyConfig, checkServiceKeyConfig } from "../lib/avserv/service-key";
 import { checkNodeListConfig } from "../lib/avserv/node-list";
+import { checkLogPseudonymKeyConfig } from "../lib/log-pseudonym-key";
 import { checkIntakeKeyConfig } from "../lib/sar/intake";
 import { checkSarPayloadKeyConfig } from "../lib/sar/payload-seal";
 
@@ -59,6 +60,22 @@ console.log(
   erasure.status === "ok"
     ? `check-service-key: ${erasure.kid} (erasure) loads and matches (sha256 ${erasure.fingerprint}).`
     : `check-service-key: erasure key ${erasure.status === "absent" ? "not set; erasure stays by hand" : "skipped"}.`,
+);
+
+// The log pseudonym key (plan 36 H6): required in production, so a deploy
+// without it stays on the last good build instead of booting at all.
+const logKey = checkLogPseudonymKeyConfig({
+  VERCEL_ENV: process.env.VERCEL_ENV,
+  LOG_PSEUDONYM_KEY: process.env.LOG_PSEUDONYM_KEY,
+});
+if (logKey.status === "error") {
+  console.error(`check-service-key: ${logKey.error}`);
+  process.exit(1);
+}
+console.log(
+  logKey.status === "ok"
+    ? "check-service-key: log pseudonym key loads."
+    : "check-service-key: log pseudonym key not set outside production; pseudonyms keyed from NEXTAUTH_SECRET.",
 );
 
 // The SAR payload keys (plan 36 H4): with intake configured, intake refuses

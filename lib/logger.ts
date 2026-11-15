@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import pino from "pino";
 
 import { env } from "./env";
+import { logPseudonymRoot } from "./log-pseudonym-key";
 
 // Field names that should never appear in logs in plaintext. Pino's redact lets
 // us list path patterns; each match gets replaced with "[REDACTED]" before the
@@ -49,7 +50,7 @@ const redactPaths = [
 // Email addresses are pseudonymized rather than removed: the same address gives
 // the same value on every line, so an operator can still follow one address
 // through sign-up, rate limits and email delivery without the log holding the
-// address itself. Keyed (from NEXTAUTH_SECRET, like lib/phone/proof.ts) so a
+// address itself. Keyed (LOG_PSEUDONYM_KEY, lib/log-pseudonym-key.ts) so a
 // list of candidate addresses can't be hashed and matched against leaked logs.
 // `to` is every email send's recipient (lib/email/send.ts).
 const pseudonymPaths = ["email", "to", "*.email"];
@@ -59,11 +60,11 @@ const pseudonymPaths = ["email", "to", "*.email"];
 const ipPaths = ["ip", "*.ip"];
 
 function pseudonymKey(): Buffer {
-  return createHmac("sha256", env.NEXTAUTH_SECRET).update("rmdig log email pseudonym v1").digest();
+  return createHmac("sha256", logPseudonymRoot(env)).update("rmdig log email pseudonym v1").digest();
 }
 
 function ipPseudonymKey(): Buffer {
-  return createHmac("sha256", env.NEXTAUTH_SECRET).update("rmdig log ip pseudonym v1").digest();
+  return createHmac("sha256", logPseudonymRoot(env)).update("rmdig log ip pseudonym v1").digest();
 }
 
 /** "i:" plus 16 hex characters of HMAC-SHA256 over the address. */
