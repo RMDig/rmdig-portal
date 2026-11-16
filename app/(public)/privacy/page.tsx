@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 5, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 15, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -60,6 +60,13 @@ export default function PrivacyPolicyPage() {
             stage of the beta those stay on your device (see below).
           </p>
           <p className="mt-2">
+            Maps in the app and on this website load their map images (tiles) from
+            MapTiler, our map provider. Each tile request carries the tile&apos;s
+            coordinates, which show roughly what area is on screen, and, like any web
+            request, your device&apos;s IP address. The app sends no account or device ID
+            with them.
+          </p>
+          <p className="mt-2">
             We do not use your location for advertising, profiling, or tracking, and we do
             not sell it. Precise geolocation is sensitive data under the Colorado Privacy
             Act; AvAI collects it only after you grant the operating-system location
@@ -80,14 +87,26 @@ export default function PrivacyPolicyPage() {
           <h3 className="mt-5">Emergency contact details</h3>
           <p className="mt-2">
             To run the check-out/check-in feature you give AvAI the name and contact
-            details (a mobile phone number, required because alerts go by text, and
-            optionally an email address) of the emergency contact you choose. We store these on AvServ and use them for exactly one
+            details (a mobile phone number, required because alerts go by text) of the
+            emergency contact you choose. We store these on AvServ and use them for exactly one
             thing: delivering your overdue and all-clear alerts. If you name someone as
             your emergency contact, please tell them — we hold their contact details on
             your instruction.
           </p>
 
           <h3 className="mt-5">Account data</h3>
+          <p className="mt-2">
+            Your AvAI account, set up in the app, holds your legal name, your display
+            name and your email address, kept on AvServ.
+          </p>
+          <p className="mt-2">
+            When you accept the AvAI user agreement, AvServ keeps a record of that
+            acceptance as evidence that you agreed: the version you accepted and when, how
+            you gave your assent, your legal name, display name and email, and the
+            device, IP address, user agent, app version, platform (iOS or Android) and
+            language it came from. Each acceptance is a new record; earlier ones are not
+            changed.
+          </p>
           <p className="mt-2">
             A portal account includes your email address, a display name, and — for
             password sign-in — a salted hash of your password (never the password itself).
@@ -143,6 +162,13 @@ export default function PrivacyPolicyPage() {
             it dispatched) and device heartbeat telemetry (the reports your phone sends
             while you&apos;re checked out, described above). These exist so the watchdog can work and so we can
             audit that an alert really fired.
+          </p>
+          <p className="mt-2">
+            On iPhone, the lock-screen countdown during a check-out uses Apple&apos;s push
+            notification service. For it, the app sends AvServ the countdown&apos;s push
+            tokens and your phone&apos;s time zone (for example America/Denver), so a
+            countdown our servers start shows your local times. Apple delivers those
+            notifications.
           </p>
 
           <h3 className="mt-5">Problem reports</h3>
@@ -209,8 +235,8 @@ export default function PrivacyPolicyPage() {
               <span className="font-medium text-neutral-900 dark:text-neutral-50">Service providers</span> — we
               use Vercel (web hosting), Neon (database), Resend (transactional email),
               Postmark (email from the AvAI servers), Twilio (SMS alert delivery), Sentry
-              (error reporting), and Cloudflare
-              (DNS/network) to run the service. They process data on our behalf and are not
+              (error reporting), Cloudflare (DNS/network), MapTiler (map tiles), and
+              Apple (push notification delivery to iPhones) to run the service. They process data on our behalf and are not
               permitted to use it for their own purposes.
             </li>
             <li>
@@ -225,8 +251,8 @@ export default function PrivacyPolicyPage() {
           <h2>Were you added as someone&apos;s emergency contact?</h2>
           <p className="mt-3">
             If an AvAI user designated you as their emergency contact, we hold personal
-            data about you even though you never signed up: your name and the contact
-            details the user provided (phone number and/or email address), plus the state
+            data about you even though you never signed up: your name and the phone
+            number the user provided, plus the state
             of our messaging relationship with you — whether your introductory notice was
             sent and whether you have opted out. We use this data for exactly two things:
             a one-time notice message telling you that you were designated, and the safety
@@ -253,8 +279,8 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2>Text messages (SMS)</h2>
           <p className="mt-3">
-            AvAI&apos;s safety alerts are delivered by SMS and email to the emergency
-            contact an AvAI user designates. Messages are sent by our own servers through
+            AvAI&apos;s safety alerts are delivered by SMS to the emergency contact an
+            AvAI user designates. Messages are sent by our own servers through
             Twilio, our SMS delivery provider, and are strictly event-driven: an overdue
             alert, a Send&nbsp;Help alert, or the all-clear that follows. We send no
             marketing or promotional texts, and message frequency depends entirely on the
@@ -311,7 +337,7 @@ export default function PrivacyPolicyPage() {
                 </tr>
                 <tr>
                   <td>Capture metadata (time, location, notes)</td>
-                  <td>Until you delete your account</td>
+                  <td>On your device only, with the photos it describes</td>
                 </tr>
                 <tr>
                   <td>Emergency contact details</td>
