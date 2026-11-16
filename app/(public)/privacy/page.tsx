@@ -22,7 +22,7 @@ export default function PrivacyPolicyPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 15, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 16, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -459,9 +459,14 @@ export default function PrivacyPolicyPage() {
 
         <section>
           <h2>Children</h2>
+          {/* Counsel's wording, verbatim from the HNDM v10.26.26 Privacy Policy draft
+              (unchanged in rmdig v5). Under 18 covers the earlier under-13 statement. */}
           <p className="mt-3">
-            AvAI and the rmdig portal are not directed to children under 13, and we do not
-            knowingly collect their data.
+            AvAI and the rmdig portal are not directed to nor offered to children and young
+            people under the age of 18, and we do not knowingly collect their data. Our
+            customers are required to represent to us that they are 18 years of age or
+            older, and we rely on the accuracy and truthfulness of the information you
+            provide to us about your age.
           </p>
           <LawyerPlaceholder>
             Final children&apos;s-privacy clause (COPPA scope, minimum-age term consistent
