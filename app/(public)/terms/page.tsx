@@ -25,7 +25,7 @@ export default function TermsPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 2, 2026</p>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Last updated: November 16, 2026</p>
 
       <div className="mt-8">
         <DraftBanner />
@@ -38,6 +38,13 @@ export default function TermsPage() {
             These terms govern your use of the AvAI™ mobile app and the rmdig web portal,
             operated by {LEGAL_ENTITY}{" "}
             (&quot;rmdig&quot;, &quot;we&quot;).
+          </p>
+          {/* Counsel's wording, verbatim from the HNDM v10.26.26 Terms of Service draft
+              (unchanged in rmdig v5); the app enforces it (AvApp age_18_plus). */}
+          <p className="mt-3">
+            By using our Services, you represent and warrant that you are at least 18 years
+            of age with full legal capacity and authority to enter into these Terms of
+            Service.
           </p>
           <LawyerPlaceholder>
             Binding acceptance clause (assent mechanics, minimum age, authority to accept
