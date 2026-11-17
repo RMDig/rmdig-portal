@@ -84,7 +84,7 @@ const form = (fields: Record<string, string>) => {
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return fd;
 };
-const SIGNUP = { email: "pat@example.org", intent: "explorer" };
+const SIGNUP = { email: "pat@example.org", intent: "explorer", ageConfirmed: "on" };
 const FINISH = { email: "pat@example.org", token: "t", password: "a-long-password-1", confirmPassword: "a-long-password-1" };
 
 beforeEach(() => {

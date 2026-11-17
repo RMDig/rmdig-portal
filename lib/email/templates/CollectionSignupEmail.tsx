@@ -19,6 +19,9 @@ export interface CollectionSignupEmailProps {
   hasEquipment: boolean;
   dataExperience: string;
   motivation: string;
+  // True on every sign-up: the form can't be sent without the box. Typed as the literal
+  // so the email can't be rendered as if someone had declined it.
+  ageConfirmed: true;
   submittedAtIso: string;
 }
 
@@ -46,6 +49,8 @@ export default function CollectionSignupEmail(p: CollectionSignupEmailProps) {
             Based in: {`${p.city}, ${p.state}`}
             <br />
             Has shovel, probe, and skis/splitboard with skins: {p.hasEquipment ? "Yes" : "No"}
+            <br />
+            Confirmed they are 18 or older: {p.ageConfirmed ? "Yes" : "No"}
             <br />
             Submitted at: {p.submittedAtIso}
           </Text>

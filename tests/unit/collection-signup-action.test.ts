@@ -53,6 +53,7 @@ const VALID = {
   hasEquipment: "yes",
   dataExperience: "None",
   motivation: "Give back",
+  ageConfirmed: "on",
   website: "",
 };
 
@@ -101,6 +102,19 @@ describe("submitCollectionSignupAction", () => {
       expect(Object.keys(res.fieldErrors ?? {}).sort()).toEqual(["city", "email", "hasEquipment", "name", "phone"]);
     }
     expect(h.send).not.toHaveBeenCalled();
+  });
+
+  it("refuses a sign-up without the 18+ box and sends nothing", async () => {
+    const { ageConfirmed: _omit, ...rest } = VALID;
+    const res = await submitCollectionSignupAction(null, form(rest));
+    expect(res?.ok).toBe(false);
+    if (res && !res.ok) expect(res.fieldErrors?.ageConfirmed?.[0]).toMatch(/18 or older/);
+    expect(h.send).not.toHaveBeenCalled();
+  });
+
+  it("tells staff the volunteer confirmed they are 18 or older", async () => {
+    await submitCollectionSignupAction(null, form(VALID));
+    expect(h.send.mock.calls[0]![1]).toMatchObject({ ageConfirmed: true });
   });
 
   it("stops at the per-IP limit before the per-address one", async () => {

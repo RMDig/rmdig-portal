@@ -113,6 +113,15 @@ export function CollectionSignupForm() {
         <textarea id="motivation" name="motivation" required maxLength={1000} rows={3} defaultValue={values.motivation} className={textareaClass} aria-invalid={!!fe?.motivation} />
       </Field>
 
+      {/* A consent box: asked for again after an error, so it isn't in `values`. */}
+      <div className="space-y-1">
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="ageConfirmed" required className="mt-1 size-4" aria-invalid={!!fe?.ageConfirmed} />
+          <span>I am 18 or older.</span>
+        </label>
+        {fe?.ageConfirmed ? <p className="text-xs text-red-700">{fe.ageConfirmed.join(", ")}</p> : null}
+      </div>
+
       {state && !state.ok && !fe ? <p className="text-sm text-red-700">{state.error}</p> : null}
 
       <Button type="submit" disabled={pending}>

@@ -62,6 +62,9 @@ export default async function globalSetup(): Promise<void> {
           passwordHash,
           emailVerified: now,
           displayName: user.displayName,
+          // Personas have made the 18+ statement, so the age gate doesn't stop them
+          // (email-first-signup.mock.spec.ts walks the gate itself).
+          ageConfirmedAt: now,
           ...mfa,
         })
         .onConflictDoUpdate({
@@ -70,7 +73,7 @@ export default async function globalSetup(): Promise<void> {
           // verified, and clear any prior AvServ mapping so the map-on-login
           // assertion is honest. returning() gives the id either way (insert or
           // update) for the role grant below.
-          set: { passwordHash, emailVerified: now, avservAccountId: null, ...mfa },
+          set: { passwordHash, emailVerified: now, ageConfirmedAt: now, avservAccountId: null, ...mfa },
         })
         .returning({ id: users.id });
 

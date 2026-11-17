@@ -43,6 +43,7 @@ test.describe("email-first sign-up", () => {
     await expect(page.getByLabel("Password")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Continue with email" })).toBeVisible();
+    await expect(page.getByLabel("I am 18 or older.")).toBeVisible();
   });
 
   test("the link survives being opened, sets the password once, and the account signs in", async ({ page }) => {
@@ -62,7 +63,14 @@ test.describe("email-first sign-up", () => {
     await page.getByLabel("Email").fill(EMAIL);
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
+    // The row was written without the 18+ statement (as a Google sign-up is),
+    // so the portal asks for it once, then carries on to the dashboard.
+    await page.waitForURL("**/confirm-age**");
+    await page.getByLabel("I am 18 or older.").check();
+    await page.getByRole("button", { name: "Continue" }).click();
     await page.waitForURL("**/dashboard");
+    await page.goto("/settings");
+    await expect(page).toHaveURL(/\/settings$/);
 
     await page.context().clearCookies();
     await page.goto(`/sign-up/finish?token=${token}&email=${encodeURIComponent(EMAIL)}`);

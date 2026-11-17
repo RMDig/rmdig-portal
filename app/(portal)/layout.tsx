@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/nav/SiteFooter";
 import { SiteHeader } from "@/components/nav/SiteHeader";
 import { announcementsFor, type LiveAnnouncement } from "@/lib/announcements/queries";
 import { auth } from "@/lib/auth";
+import { AGE_CONFIRM_PATH, ageConfirmed } from "@/lib/auth/age-gate";
 import { userMfaGate } from "@/lib/auth/mfa-gate";
 import { nextQuery } from "@/lib/auth/return-to";
 import { redirectToSignIn } from "@/lib/auth/sign-in-redirect";
@@ -29,14 +30,19 @@ export default async function PortalLayout({ children }: { children: React.React
   const userId = session.user.id;
 
   // One roles read serves both the Admin nav and the MFA policy (admin_only).
-  const { gate, roles } = await userMfaGate(userId);
+  const [{ gate, roles }, confirmedAge] = await Promise.all([userMfaGate(userId), ageConfirmed(userId)]);
   const isStaff = roles.length > 0;
 
   // Authoritative enforcement (see middleware.ts for why this lives here, not in
-  // Edge middleware). The enrollment page has its own layout, outside this one
-  // (app/(mfa-enroll)/layout.tsx says why).
+  // Edge middleware). The enrollment and age pages have their own layouts,
+  // outside this one (app/(mfa-enroll)/layout.tsx says why).
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
+  // The 18+ statement first (lib/auth/age-gate.ts), then two-factor: each
+  // returns to where they were going.
+  if (!confirmedAge) {
+    redirect(`${AGE_CONFIRM_PATH}${nextQuery(h.get("x-return-to"))}`);
+  }
   if (gate === "required") {
     // Back to where they were going once two-factor is on (a new team's
     // admin lands here straight after applying).

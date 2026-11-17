@@ -202,9 +202,27 @@ describe("resetPasswordAction", () => {
   });
 });
 
+// The sign-up form as posted: the 18+ box ticked unless a test says otherwise.
+const signUpForm = (fields: Record<string, string>) => form({ ageConfirmed: "on", ...fields });
+
 describe("signUpAction", () => {
+  it("refuses a sign-up without the 18+ box, with a field error and no insert", async () => {
+    h.selectResult = [];
+    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors?.ageConfirmed?.[0]).toMatch(/18 or older/);
+    expect(h.inserted).toHaveLength(0);
+    expect(h.sendVerify).not.toHaveBeenCalled();
+  });
+
+  it("records when the new account confirmed it is 18 or older", async () => {
+    h.selectResult = [];
+    await signUpAction(null, signUpForm({ email: "new@rmdig.ai" }));
+    expect(h.inserted.find((i) => i.table === "users")?.vals.ageConfirmedAt).toBeInstanceOf(Date);
+  });
+
   it("rejects a malformed email with a field error", async () => {
-    const res = await signUpAction(null, form({ email: "not-an-email" }));
+    const res = await signUpAction(null, signUpForm({ email: "not-an-email" }));
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.fieldErrors?.email).toBeTruthy();
     expect(h.inserted).toHaveLength(0);
@@ -213,7 +231,7 @@ describe("signUpAction", () => {
 
   it("creates the account with no password and sends the link (email first, D1a)", async () => {
     h.selectResult = []; // no existing user
-    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
+    const res = await signUpAction(null, signUpForm({ email: "new@rmdig.ai" }));
     expect(res).toEqual({ ok: true });
     const row = h.inserted.find((i) => i.table === "users")?.vals;
     expect(row).toBeDefined();
@@ -226,33 +244,33 @@ describe("signUpAction", () => {
 
   it("ignores a password posted by an old cached form", async () => {
     h.selectResult = [];
-    await signUpAction(null, form({ email: "new@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }));
+    await signUpAction(null, signUpForm({ email: "new@rmdig.ai", password: "abcdefghijkl", confirmPassword: "abcdefghijkl" }));
     expect(h.inserted.find((i) => i.table === "users")?.vals).not.toHaveProperty("passwordHash");
   });
 
   it("stores the selected signup intent", async () => {
     h.selectResult = [];
-    const res = await signUpAction(null, form({ email: "sar-team@rmdig.ai", intent: "sar" }));
+    const res = await signUpAction(null, signUpForm({ email: "sar-team@rmdig.ai", intent: "sar" }));
     expect(res).toEqual({ ok: true });
     expect(h.inserted.find((i) => i.table === "users")?.vals.signupIntent).toBe("sar");
   });
 
   it("rejects an unknown intent value", async () => {
-    const res = await signUpAction(null, form({ email: "new@rmdig.ai", intent: "superuser" }));
+    const res = await signUpAction(null, signUpForm({ email: "new@rmdig.ai", intent: "superuser" }));
     expect(res.ok).toBe(false);
     expect(h.inserted).toHaveLength(0);
   });
 
   it("keys the per-IP limit on the forwarded client IP", async () => {
     h.selectResult = [];
-    await signUpAction(null, form({ email: "a@rmdig.ai" }));
+    await signUpAction(null, signUpForm({ email: "a@rmdig.ai" }));
     expect(h.rlKeys).toContain("signup-ip:203.0.113.9");
   });
 
   it("fails loud — no insert, no email — when the IP is rate-limited", async () => {
     h.rlAllowed = false;
     h.selectResult = [];
-    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
+    const res = await signUpAction(null, signUpForm({ email: "new@rmdig.ai" }));
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/too many sign-ups/i);
     expect(h.inserted).toHaveLength(0);
@@ -263,7 +281,7 @@ describe("signUpAction", () => {
   it("tells the user when the link couldn't be sent", async () => {
     h.selectResult = [];
     h.sendVerify.mockRejectedValueOnce(new Error("resend down"));
-    const res = await signUpAction(null, form({ email: "new@rmdig.ai" }));
+    const res = await signUpAction(null, signUpForm({ email: "new@rmdig.ai" }));
     expect(res.ok).toBe(false);
     expect(h.log.error).toHaveBeenCalledWith(expect.objectContaining({ event: "signup.email_send_failed" }));
   });

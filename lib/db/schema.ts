@@ -72,6 +72,12 @@ export const users = pgTable("users", {
   // removed a password someone had set on it (lib/auth/oauth-link.ts). The
   // dashboard tells the owner once, then clears it when they dismiss the notice.
   oauthPasswordClearedAt: timestamp("oauth_password_cleared_at", { withTimezone: true }),
+  // When this person confirmed they are 18 or older (owner, 2026-11-16; /terms
+  // §1, /privacy Children). Set by the email sign-up form or, for Google
+  // sign-ups and accounts made before it, by /confirm-age, which the portal
+  // layout sends every signed-in account to until it is set. Never back-filled:
+  // null means the person hasn't made the statement.
+  ageConfirmedAt: timestamp("age_confirmed_at", { withTimezone: true }),
   // A drill login (plan 37 §4.2): set at insert, and a trigger (0036) refuses
   // any change to it, so a real account never becomes a drill one or the
   // reverse. A drill user joins only drill teams and never holds a platform role

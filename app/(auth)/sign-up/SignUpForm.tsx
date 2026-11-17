@@ -79,6 +79,25 @@ export function SignUpForm({ advertiserOption }: { advertiserOption: boolean }) 
         ) : null}
       </div>
 
+      {/* The 18+ statement for the email path. Google sign-ups confirm on
+          /confirm-age after signing in, so this box doesn't gate that button. */}
+      <div className="space-y-1">
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            name="ageConfirmed"
+            required
+            className="mt-1 size-4"
+            aria-invalid={!!fieldErrors?.ageConfirmed}
+          />
+          <span>I am 18 or older.</span>
+        </label>
+        <p className="text-muted-foreground text-xs">AvAI accounts are for people 18 and older.</p>
+        {fieldErrors?.ageConfirmed ? (
+          <p className="text-xs text-red-700 dark:text-red-400">{fieldErrors.ageConfirmed.join(", ")}</p>
+        ) : null}
+      </div>
+
       {state && !state.ok && !fieldErrors ? (
         <p className="text-sm text-red-700 dark:text-red-400">{state.error}</p>
       ) : null}
