@@ -34,6 +34,9 @@ const signUpSchema = z.object({
   // signing up with one first would make it a real account for good.
   email: z.string().email().toLowerCase().refine((e) => !isDrillAddress(e), { message: DRILL_ADDRESS_RESERVED }),
   intent: intentSchema,
+  // The 18+ statement (lib/auth/age-gate.ts), recorded on the new row. Google
+  // sign-ups skip this form and confirm on /confirm-age instead.
+  ageConfirmed: z.literal("on", { message: "Confirm you're 18 or older to create an account." }),
 });
 
 // The first password, chosen on the page the verification link opens. Same
@@ -173,7 +176,7 @@ export async function signUpAction(
   // No password yet: it is set when the link is used (finishSignUpAction).
   const [user] = await db
     .insert(users)
-    .values({ email, signupIntent: intent })
+    .values({ email, signupIntent: intent, ageConfirmedAt: new Date() })
     .returning({ id: users.id });
 
   if (!user) {

@@ -223,10 +223,12 @@ describe("email templates render to HTML", () => {
         hasEquipment: true,
         dataExperience: "Spreadsheets",
         motivation: "Give back to the snow community",
+        ageConfirmed: true,
         submittedAtIso: "2026-10-15T12:00:00.000Z",
       }),
     );
     expect(html).toContain("avery@example.com");
+    expect(html).toMatch(/Confirmed they are 18 or older:\s*(<!-- -->)?\s*Yes/);
     expect(html).toContain("Frisco, CO");
     expect(html).toContain("AIARE 1, four seasons touring");
     expect(html).toContain("Give back to the snow community");

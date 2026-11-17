@@ -36,7 +36,7 @@ sign-in accounts, MFA rows, passkeys, memberships, tokens and security events.
 
 | Data | What it holds | Kept |
 | --- | --- | --- |
-| Users | Email, name and display name, Google profile image (Google sign-in), salted password hash, encrypted TOTP secret, security-notice preference, linked AvAI account id, whether it is an RMDig drill login (plan 37: test accounts at RMDig addresses, never a real person's) | Until account deletion |
+| Users | Email, name and display name, Google profile image (Google sign-in), salted password hash, encrypted TOTP secret, security-notice preference, linked AvAI account id, when the person confirmed they are 18 or older (`age_confirmed_at`), whether it is an RMDig drill login (plan 37: test accounts at RMDig addresses, never a real person's) | Until account deletion |
 | Sign-in accounts | Google account link (provider ids and tokens) | Until account deletion |
 | Passkeys, MFA recovery codes | Public key and metadata; recovery codes hashed | Until removed by the user, or account deletion |
 | Sessions | Hashed token, created / last-seen / last-auth times, how the user signed in, browser user-agent string. No IP address. | Deleted at sign-out, or within a day of expiring (30 days without use) |

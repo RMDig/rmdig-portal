@@ -57,7 +57,7 @@ function form(fields: Record<string, string>): FormData {
 async function signUpAndGetLinkToken(): Promise<string> {
   const res = await signUpAction(
     null,
-    form({ email: EMAIL, intent: "explorer" }),
+    form({ email: EMAIL, intent: "explorer", ageConfirmed: "on" }),
   );
   expect(res).toEqual({ ok: true });
   // The fake applies no column defaults; Postgres gives the row its id.

@@ -108,6 +108,10 @@ export default function PrivacyPolicyPage() {
             changed.
           </p>
           <p className="mt-2">
+            When you create a portal account, you confirm that you are 18 or older, and we
+            record when you did.
+          </p>
+          <p className="mt-2">
             A portal account includes your email address, a display name, and — for
             password sign-in — a salted hash of your password (never the password itself).
             If you sign in with Google, we receive your name, email, and profile image from
@@ -150,8 +154,9 @@ export default function PrivacyPolicyPage() {
           <h3 className="mt-5">Volunteer sign-ups</h3>
           <p className="mt-2">
             If you sign up to help collect snowpack data, we receive your name, email address,
-            phone number (if you give one), city and state, and your answers about your
-            backcountry and data experience. The portal does not store them: they are emailed
+            phone number (if you give one), city and state, your answers about your
+            backcountry and data experience, and your confirmation that you are 18 or older.
+            The portal does not store them: they are emailed
             to our staff, and we use them only to organize data collection and to contact you
             about it.
           </p>

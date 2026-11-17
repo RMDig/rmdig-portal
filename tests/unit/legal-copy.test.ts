@@ -133,6 +133,8 @@ function publicSourceFiles(): string[] {
   for (const entry of readdirSync(review)) {
     if (entry.endsWith(".tsx")) files.push(join(review, entry));
   }
+  // The 18+ confirmation every account sees once (owner, 2026-11-16).
+  files.push(join(process.cwd(), "app", "(age-confirm)", "confirm-age", "page.tsx"), join(process.cwd(), "app", "(age-confirm)", "confirm-age", "ConfirmAgeForm.tsx"));
   // Emergency contacts (AvServ plan 63 A10): says what accepting means for checking out.
   files.push(join(settings, "contacts", "page.tsx"), join(settings, "contacts", "contacts-view.ts"));
   files.push(

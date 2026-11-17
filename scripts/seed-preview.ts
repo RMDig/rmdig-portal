@@ -58,6 +58,7 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
           displayName: p.name,
           passwordHash,
           emailVerified: new Date(),
+          ageConfirmedAt: new Date(),
           signupIntent: p.tag === "sar" ? "sar" : p.tag === "advertiser" ? "advertiser" : "explorer",
         })
         .onConflictDoNothing();
@@ -119,6 +120,7 @@ Usage: PREVIEW_SEED_DATABASE_URL=<url> PREVIEW_SEED_PASSWORD=<pw> pnpm db:seed-p
           displayName: "Preview Admin",
           passwordHash,
           emailVerified: new Date(),
+          ageConfirmedAt: new Date(),
           signupIntent: "explorer",
         })
         .onConflictDoNothing();

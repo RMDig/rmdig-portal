@@ -43,6 +43,8 @@ const signupSchema = z.object({
   hasEquipment: z.enum(["yes", "no"], { message: "Choose yes or no" }),
   dataExperience: answer,
   motivation: answer,
+  // Volunteers are 18 or older (owner, 2026-11-16; /privacy Children).
+  ageConfirmed: z.literal("on", { message: "Volunteers must be 18 or older." }),
 });
 
 // 5/hour per IP (the old site's limit) bounds bots and keeps a NAT'd group of
@@ -82,6 +84,7 @@ export async function submitCollectionSignupAction(
     hasEquipment: field(formData, "hasEquipment"),
     dataExperience: field(formData, "dataExperience"),
     motivation: field(formData, "motivation"),
+    ageConfirmed: field(formData, "ageConfirmed"),
   });
   if (!parsed.success) {
     return {
@@ -129,6 +132,7 @@ export async function submitCollectionSignupAction(
     hasEquipment: s.hasEquipment === "yes",
     dataExperience: s.dataExperience,
     motivation: s.motivation,
+    ageConfirmed: true as const,
     submittedAtIso: new Date().toISOString(),
   };
   let delivered = 0;
